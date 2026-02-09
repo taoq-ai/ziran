@@ -1,12 +1,11 @@
 """Example: Scanning a CrewAI crew with KOAN.
 
-Prerequisites
--------------
-  uv sync --extra crewai
+A single-agent CrewAI crew with a Security Researcher role.
+Demonstrates the adapter pattern for non-LangChain frameworks.
+See examples/README.md for details.
 
-Usage
------
-  uv run python examples/crewai_example.py
+Prerequisites: ``uv sync --extra crewai``.
+Usage: ``uv run python examples/crewai_example.py``
 """
 
 from __future__ import annotations
@@ -60,11 +59,12 @@ async def main() -> None:
         attack_library=AttackLibrary(),
     )
 
-    # Run only the exploitation phases
+    # Run a targeted scan — exploitation-focused phases
     result = await scanner.run_campaign(
         phases=[
-            ScanPhase.BOUNDARY_TESTING,
-            ScanPhase.EXPLOITATION,
+            ScanPhase.VULNERABILITY_DISCOVERY,
+            ScanPhase.EXPLOITATION_SETUP,
+            ScanPhase.EXECUTION,
         ],
         reset_between_phases=False,
     )
@@ -75,10 +75,9 @@ async def main() -> None:
     print(f"   Vulnerabilities: {result.total_vulnerabilities}")
 
     output = Path("reports")
-    output.mkdir(exist_ok=True)
-    report = ReportGenerator()
-    report.save_json(result, output)
-    report.save_markdown(result, output)
+    report = ReportGenerator(output_dir=output)
+    report.save_json(result)
+    report.save_markdown(result)
     print(f"   Reports saved to {output}/")
 
 
