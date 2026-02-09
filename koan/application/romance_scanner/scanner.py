@@ -175,11 +175,12 @@ class RomanceScanner:
             critical_paths=critical_paths,
             final_trust_score=phase_results[-1].trust_score if phase_results else 0.0,
             success=len(critical_paths) > 0 or any(p.vulnerabilities_found for p in phase_results),
+            attack_results=[r.model_dump(mode="json") for r in self._attack_results],
             metadata={
                 "duration_seconds": duration,
                 "capabilities_discovered": len(capabilities),
                 "graph_stats": self.graph.export_state()["stats"],
-                "attack_results": len(self._attack_results),
+                "attack_results_count": len(self._attack_results),
             },
         )
 
@@ -253,6 +254,8 @@ class RomanceScanner:
         for attack in attacks:
             try:
                 result = await self._execute_attack(attack)
+                # Tag result with the phase for reporting
+                result.evidence.setdefault("phase", phase.value)
                 self._attack_results.append(result)
 
                 if result.successful:

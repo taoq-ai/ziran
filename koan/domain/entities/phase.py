@@ -95,6 +95,10 @@ class CampaignResult(BaseModel):
     )
     final_trust_score: float = Field(ge=0.0, le=1.0)
     success: bool = Field(description="True if any critical attack path was found")
+    attack_results: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Serialised AttackResult dicts with prompts and agent responses",
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property
