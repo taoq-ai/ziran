@@ -1,7 +1,7 @@
 """NetworkX-based knowledge graph for tracking attack campaign state.
 
 The attack knowledge graph is the central data structure that tracks
-all discoveries, relationships, and attack paths during a Romance Scan
+all discoveries, relationships, and attack paths during a scan
 campaign. Nodes represent entities (agent states, capabilities, tools,
 data sources, vulnerabilities) and edges represent relationships
 (uses_tool, accesses_data, trusts, enables, can_chain_to).

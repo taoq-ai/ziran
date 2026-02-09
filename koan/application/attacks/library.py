@@ -10,7 +10,7 @@ YAML Schema:
       - id: unique_identifier
         name: Human-Readable Name
         category: prompt_injection  # See AttackCategory enum
-        target_phase: reconnaissance  # See RomanceScanPhase enum
+        target_phase: reconnaissance  # See ScanPhase enum
         severity: high  # low, medium, high, critical
         description: What this attack does
         tags: [tag1, tag2]
@@ -33,7 +33,7 @@ from typing import Any
 import yaml
 
 from koan.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector, Severity
-from koan.domain.entities.phase import RomanceScanPhase
+from koan.domain.entities.phase import ScanPhase
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class AttackLibrary:
     Example:
         ```python
         library = AttackLibrary()
-        recon_attacks = library.get_attacks_for_phase(RomanceScanPhase.RECONNAISSANCE)
+        recon_attacks = library.get_attacks_for_phase(ScanPhase.RECONNAISSANCE)
         critical = library.get_attacks_by_severity("critical")
         ```
     """
@@ -111,11 +111,11 @@ class AttackLibrary:
         """
         return self._vectors.get(vector_id)
 
-    def get_attacks_for_phase(self, phase: RomanceScanPhase) -> list[AttackVector]:
+    def get_attacks_for_phase(self, phase: ScanPhase) -> list[AttackVector]:
         """Get all attack vectors targeting a specific phase.
 
         Args:
-            phase: The Romance Scan phase to filter by.
+            phase: The scan phase to filter by.
 
         Returns:
             List of vectors targeting this phase.
@@ -157,7 +157,7 @@ class AttackLibrary:
 
     def search(
         self,
-        phase: RomanceScanPhase | None = None,
+        phase: ScanPhase | None = None,
         category: AttackCategory | None = None,
         severity: Severity | None = None,
         tags: list[str] | None = None,
@@ -262,7 +262,7 @@ class AttackLibrary:
             id=data["id"],
             name=data["name"],
             category=AttackCategory(data["category"]),
-            target_phase=RomanceScanPhase(data["target_phase"]),
+            target_phase=ScanPhase(data["target_phase"]),
             description=data.get("description", ""),
             severity=data["severity"],
             prompts=prompts,

@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from koan.domain.entities.phase import RomanceScanPhase  # noqa: TC001
+from koan.domain.entities.phase import ScanPhase  # noqa: TC001
 
 
 class AttackCategory(StrEnum):
@@ -62,7 +62,7 @@ class AttackVector(BaseModel):
     id: str = Field(description="Unique vector identifier (e.g., 'pi_basic_override')")
     name: str = Field(description="Human-readable attack name")
     category: AttackCategory
-    target_phase: RomanceScanPhase
+    target_phase: ScanPhase
     description: str
     severity: Severity
     prompts: list[AttackPrompt] = Field(

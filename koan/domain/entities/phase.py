@@ -1,4 +1,4 @@
-"""Romance Scan phase definitions and campaign result models.
+"""Scan phase definitions and campaign result models.
 
 The Romance Scan methodology models multi-phase trust exploitation campaigns
 inspired by social engineering patterns. Each phase builds on the previous
@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class RomanceScanPhase(StrEnum):
+class ScanPhase(StrEnum):
     """Multi-phase attack campaign modeled after social engineering trust exploitation.
 
     Phases progress from passive reconnaissance through active exploitation,
@@ -46,27 +46,30 @@ class RomanceScanPhase(StrEnum):
 
 
 # Ordered phase progression for default campaigns
-PHASE_ORDER: list[RomanceScanPhase] = list(RomanceScanPhase)
+PHASE_ORDER: list[ScanPhase] = list(ScanPhase)
 
 # Core phases that run in every campaign (non-optional)
-CORE_PHASES: list[RomanceScanPhase] = [
-    RomanceScanPhase.RECONNAISSANCE,
-    RomanceScanPhase.TRUST_BUILDING,
-    RomanceScanPhase.CAPABILITY_MAPPING,
-    RomanceScanPhase.VULNERABILITY_DISCOVERY,
-    RomanceScanPhase.EXPLOITATION_SETUP,
-    RomanceScanPhase.EXECUTION,
+CORE_PHASES: list[ScanPhase] = [
+    ScanPhase.RECONNAISSANCE,
+    ScanPhase.TRUST_BUILDING,
+    ScanPhase.CAPABILITY_MAPPING,
+    ScanPhase.VULNERABILITY_DISCOVERY,
+    ScanPhase.EXPLOITATION_SETUP,
+    ScanPhase.EXECUTION,
 ]
+
+# Backward-compatible alias
+RomanceScanPhase = ScanPhase
 
 
 class PhaseResult(BaseModel):
-    """Result of executing a single Romance Scan phase.
+    """Result of executing a single scan phase.
 
     Captures all artifacts, findings, and graph state changes
     produced during phase execution.
     """
 
-    phase: RomanceScanPhase
+    phase: ScanPhase
     success: bool
     artifacts: dict[str, Any] = Field(default_factory=dict)
     trust_score: float = Field(ge=0.0, le=1.0, description="Current trust level (0-1)")
@@ -80,7 +83,7 @@ class PhaseResult(BaseModel):
 
 
 class CampaignResult(BaseModel):
-    """Complete Romance Scan campaign result.
+    """Complete campaign result.
 
     Aggregates results from all executed phases and provides
     graph-derived attack path analysis.

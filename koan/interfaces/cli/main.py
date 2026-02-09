@@ -18,9 +18,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from koan import __version__
+from koan.application.agent_scanner.scanner import AgentScanner
 from koan.application.attacks.library import AttackLibrary
-from koan.application.romance_scanner.scanner import RomanceScanner
-from koan.domain.entities.phase import CampaignResult, RomanceScanPhase
+from koan.domain.entities.phase import CampaignResult, ScanPhase
 from koan.infrastructure.logging.logger import setup_logging
 from koan.infrastructure.storage.graph_storage import GraphStorage
 from koan.interfaces.cli.reports import ReportGenerator
@@ -57,8 +57,8 @@ AI Agent Security Testing Framework
 def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     """KOAN — AI Agent Security Testing Framework.
 
-    Test AI agents for vulnerabilities using Romance Scan methodology
-    and knowledge graph-based attack campaign tracking.
+    Test AI agents for vulnerabilities using multi-phase scan campaigns
+    and knowledge graph-based attack tracking.
 
     Get started:
 
@@ -95,7 +95,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 @click.option(
     "--phases",
     multiple=True,
-    type=click.Choice([p.value for p in RomanceScanPhase], case_sensitive=False),
+    type=click.Choice([p.value for p in ScanPhase], case_sensitive=False),
     help="Specific phases to run (default: all core phases).",
 )
 @click.option(
@@ -124,7 +124,7 @@ def scan(
     custom_attacks: str | None,
     stop_on_critical: bool,
 ) -> None:
-    """Run a Romance Scan campaign against an AI agent.
+    """Run a security scan campaign against an AI agent.
 
     Executes a multi-phase security assessment that progressively
     discovers and tests for vulnerabilities.
@@ -170,14 +170,14 @@ def scan(
     console.print()
 
     # Parse phases
-    phase_list: list[RomanceScanPhase] | None = None
+    phase_list: list[ScanPhase] | None = None
     if phases:
-        phase_list = [RomanceScanPhase(p) for p in phases]
+        phase_list = [ScanPhase(p) for p in phases]
 
     # Run campaign
-    scanner = RomanceScanner(adapter=adapter, attack_library=attack_library)
+    scanner = AgentScanner(adapter=adapter, attack_library=attack_library)
 
-    with console.status("[bold yellow]Running Romance Scan campaign...[/bold yellow]"):
+    with console.status("[bold yellow]Running security scan campaign...[/bold yellow]"):
         result = asyncio.run(
             scanner.run_campaign(
                 phases=phase_list,
@@ -268,7 +268,7 @@ def discover(framework: str, agent_path: str) -> None:
 )
 @click.option(
     "--phase",
-    type=click.Choice([p.value for p in RomanceScanPhase], case_sensitive=False),
+    type=click.Choice([p.value for p in ScanPhase], case_sensitive=False),
     default=None,
     help="Filter by target phase.",
 )
@@ -298,7 +298,7 @@ def library(
     vectors = lib.vectors
 
     if phase:
-        vectors = [v for v in vectors if v.target_phase == RomanceScanPhase(phase)]
+        vectors = [v for v in vectors if v.target_phase == ScanPhase(phase)]
     if category:
         vectors = [v for v in vectors if v.category.value == category]
 

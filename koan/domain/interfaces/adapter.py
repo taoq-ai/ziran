@@ -36,7 +36,7 @@ class AgentState(BaseModel):
     """Standardized snapshot of agent state.
 
     Captures conversation history and memory for analysis
-    across Romance Scan phases.
+    across scan phases.
     """
 
     session_id: str
