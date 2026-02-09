@@ -1,0 +1,20 @@
+KOAN — AI Agent Security Testing Framework
+============================================
+
+This project includes code adapted from:
+
+  NVIDIA/garak — LLM vulnerability scanner
+  https://github.com/NVIDIA/garak
+  Copyright (c) 2023–2024, NVIDIA Corporation
+  Licensed under the Apache License, Version 2.0
+
+  Specifically, refusal detection strings in
+  koan/application/detectors/refusal.py were adapted from:
+    - garak/detectors/mitigation.py  (MitigationBypass detector)
+    - garak/detectors/base.py         (StringDetector / REJECTION_STRINGS)
+
+  The matchtype parameter pattern and inversion detection strategy
+  were inspired by garak's detector architecture.
+
+A copy of garak's license is available at:
+  https://github.com/NVIDIA/garak/blob/main/LICENSE
