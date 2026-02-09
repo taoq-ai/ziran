@@ -211,6 +211,9 @@ def build_html_report(
     vulns_html = _build_vulns_html(phases)
     # Build legend HTML
     legend_html = _build_legend_html()
+    # Build attack log HTML
+    attack_results = result_data.get("attack_results", [])
+    attack_log_html = _build_attack_log_html(attack_results)
 
     return _HTML_TEMPLATE.format(
         campaign_id=html.escape(campaign_id),
@@ -228,6 +231,7 @@ def build_html_report(
         paths_html=paths_html,
         vulns_html=vulns_html,
         legend_html=legend_html,
+        attack_log_html=attack_log_html,
         vis_nodes_json=json.dumps(vis_data["nodes"]),
         vis_edges_json=json.dumps(vis_data["edges"]),
         critical_paths_json=json.dumps(paths),
@@ -332,6 +336,94 @@ def _build_legend_html() -> str:
             f"</div>"
         )
     parts.append("</div>")
+    return "\n".join(parts)
+
+
+def _build_attack_log_html(attack_results: list[dict[str, Any]]) -> str:
+    """Build collapsible attack-log cards grouped by phase."""
+    if not attack_results:
+        return '<p class="muted">No attack data recorded.</p>'
+
+    # Group by phase
+    by_phase: dict[str, list[dict[str, Any]]] = {}
+    for ar in attack_results:
+        phase = ar.get("evidence", {}).get("phase", "unknown")
+        by_phase.setdefault(phase, []).append(ar)
+
+    parts: list[str] = []
+    idx = 0
+    for phase, results in by_phase.items():
+        phase_label = phase.replace("_", " ").title()
+        parts.append(f'<div class="log-phase-group">{html.escape(phase_label)}</div>')
+
+        for ar in results:
+            successful = ar.get("successful", False)
+            name = ar.get("vector_name", ar.get("vector_id", "unknown"))
+            severity = ar.get("severity", "unknown")
+            category = ar.get("category", "unknown").replace("_", " ")
+            prompt_used = ar.get("prompt_used") or ""
+            agent_response = ar.get("agent_response") or ""
+            evidence = ar.get("evidence", {})
+            matched = evidence.get("matched_indicators", [])
+            snippet = evidence.get("response_snippet", "")
+
+            # Use snippet if full response is absent
+            display_response = agent_response or snippet
+
+            icon = "🔓" if successful else "🛡️"
+            result_cls = "attack-success" if successful else "attack-blocked"
+            result_label = "Exploited" if successful else "Blocked"
+
+            sev = severity.lower()
+            sev_cls = (
+                "sev-critical"
+                if sev in ("critical", "high")
+                else "sev-medium"
+                if sev == "medium"
+                else "sev-low"
+            )
+
+            parts.append(
+                f'<details class="attack-card {result_cls}">'
+                f'<summary class="attack-summary">'
+                f'  <span class="attack-icon">{icon}</span>'
+                f'  <span class="attack-name">{html.escape(name)}</span>'
+                f'  <span class="sev-badge {sev_cls}">{html.escape(severity)}</span>'
+                f'  <span class="attack-result-badge {result_cls}">{result_label}</span>'
+                f"</summary>"
+                f'<div class="attack-body">'
+            )
+
+            parts.append(
+                f'  <div class="attack-meta">'
+                f"    <span>Category: {html.escape(category)}</span>"
+                f"  </div>"
+            )
+
+            if prompt_used:
+                esc_prompt = html.escape(prompt_used)
+                parts.append(
+                    f'  <div class="attack-section-label">Prompt Sent</div>'
+                    f'  <pre class="attack-pre prompt-pre">{esc_prompt}</pre>'
+                )
+
+            if display_response:
+                esc_resp = html.escape(display_response)
+                parts.append(
+                    f'  <div class="attack-section-label">Agent Response</div>'
+                    f'  <pre class="attack-pre response-pre">{esc_resp}</pre>'
+                )
+
+            if matched:
+                indicators = ", ".join(html.escape(str(m)) for m in matched)
+                parts.append(
+                    f'  <div class="attack-section-label">Matched Indicators</div>'
+                    f'  <div class="attack-indicators">{indicators}</div>'
+                )
+
+            parts.append("</div></details>")
+            idx += 1
+
     return "\n".join(parts)
 
 
@@ -549,6 +641,103 @@ _HTML_TEMPLATE = """\
 
   .muted {{ color: var(--muted); font-size: 0.8rem; }}
 
+  /* Attack log */
+  .log-phase-group {{
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--purple);
+    margin: 10px 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #334155;
+  }}
+  .attack-card {{
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    border-left: 3px solid var(--safe);
+    overflow: hidden;
+  }}
+  .attack-card.attack-success {{
+    border-left-color: var(--danger);
+  }}
+  .attack-summary {{
+    padding: 8px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    list-style: none;
+  }}
+  .attack-summary::-webkit-details-marker {{ display: none; }}
+  .attack-summary::before {{
+    content: '▸';
+    color: var(--muted);
+    font-size: 0.7rem;
+    transition: transform 0.15s;
+  }}
+  details[open] > .attack-summary::before {{
+    transform: rotate(90deg);
+  }}
+  .attack-icon {{ font-size: 0.9rem; }}
+  .attack-name {{ font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+  .attack-result-badge {{
+    font-size: 0.62rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }}
+  .attack-result-badge.attack-success {{ background: rgba(239,68,68,0.2); color: #fca5a5; }}
+  .attack-result-badge.attack-blocked {{ background: rgba(16,185,129,0.15); color: #6ee7b7; }}
+  .attack-body {{
+    padding: 4px 10px 10px;
+  }}
+  .attack-meta {{
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }}
+  .attack-section-label {{
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 8px 0 3px;
+    font-weight: 600;
+  }}
+  .attack-pre {{
+    font-family: 'Fira Code', monospace;
+    font-size: 0.72rem;
+    padding: 8px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent;
+    line-height: 1.45;
+  }}
+  .prompt-pre {{
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.15);
+    color: #93c5fd;
+  }}
+  .response-pre {{
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.15);
+    color: #fcd34d;
+  }}
+  .attack-indicators {{
+    font-family: 'Fira Code', monospace;
+    font-size: 0.72rem;
+    color: var(--danger);
+    padding: 4px 0;
+  }}
+
   /* ── Graph container ───────────────────────────────────────── */
   .graph-container {{
     flex: 1;
@@ -697,6 +886,12 @@ _HTML_TEMPLATE = """\
   <div class="section">
     <div class="section-title">Critical Attack Paths</div>
     {paths_html}
+  </div>
+
+  <!-- Attack Log -->
+  <div class="section">
+    <div class="section-title">Attack Log</div>
+    {attack_log_html}
   </div>
 </aside>
 
