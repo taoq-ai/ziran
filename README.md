@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
-> **KOAN** uses a *Romance Scan* methodology — progressive trust-building followed
+> **KOAN** uses a *security scan* methodology — progressive trust-building followed
 > by boundary testing — to systematically discover vulnerabilities in AI agents.
 > A knowledge graph tracks capabilities, data flows, and attack surfaces in
 > real time.
@@ -15,7 +15,7 @@
 
 | Feature | Description |
 |---|---|
-| **Romance Scan Phases** | 8 progressive phases from reconnaissance to persistence testing |
+| **security scan Phases** | 8 progressive phases from reconnaissance to persistence testing |
 | **Knowledge Graph** | NetworkX-backed graph that maps capabilities → tools → data flows |
 | **Attack Library** | 21+ built-in YAML attack vectors across 8 categories |
 | **Framework Adapters** | First-class support for LangChain, CrewAI (Bedrock planned) |
@@ -32,7 +32,7 @@
 ├──────────────────────────────────────────────────────┤
 │            Application Layer                         │
 │  ┌──────────────┐ ┌────────────┐ ┌───────────────┐  │
-│  │ RomanceScanner│ │AttackLibrary│ │KnowledgeGraph │  │
+│  │ AgentScanner│ │AttackLibrary│ │KnowledgeGraph │  │
 │  └──────┬───────┘ └─────┬──────┘ └───────┬───────┘  │
 │         │               │                │           │
 ├─────────┼───────────────┼────────────────┼───────────┤
@@ -95,7 +95,7 @@ uv run koan report reports/campaign_*.json --format markdown
 
 ---
 
-## Romance Scan Phases
+## security scan Phases
 
 | # | Phase | Goal |
 |---|-------|------|
@@ -158,15 +158,15 @@ uv run koan scan \
 ```python
 import asyncio
 from koan.application.attacks.library import AttackLibrary
-from koan.application.romance_scanner.scanner import RomanceScanner
-from koan.domain.entities.phase import RomanceScanPhase
+from koan.application.agent_scanner.scanner import AgentScanner
+from koan.domain.entities.phase import ScanPhase
 from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter
 
 # Wrap your agent
 adapter = LangChainAdapter(agent_executor=your_agent)
 
 # Configure the scanner
-scanner = RomanceScanner(
+scanner = AgentScanner(
     adapter=adapter,
     attack_library=AttackLibrary(),
 )
@@ -175,9 +175,9 @@ scanner = RomanceScanner(
 result = asyncio.run(
     scanner.run_campaign(
         phases=[
-            RomanceScanPhase.RECONNAISSANCE,
-            RomanceScanPhase.TRUST_BUILDING,
-            RomanceScanPhase.BOUNDARY_TESTING,
+            ScanPhase.RECONNAISSANCE,
+            ScanPhase.TRUST_BUILDING,
+            ScanPhase.BOUNDARY_TESTING,
         ],
         stop_on_critical=True,
     )
@@ -241,7 +241,7 @@ koan/
 ├── application/            # Business logic
 │   ├── attacks/            # AttackLibrary + YAML vectors
 │   ├── knowledge_graph/    # NetworkX-backed graph
-│   └── romance_scanner/    # Campaign orchestrator
+│   └── agent_scanner/    # Campaign orchestrator
 ├── infrastructure/         # External integrations
 │   ├── adapters/           # LangChain, CrewAI, Bedrock
 │   ├── storage/            # JSON persistence

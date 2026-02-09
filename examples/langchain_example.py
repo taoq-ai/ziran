@@ -1,7 +1,7 @@
 """Example: Scanning a LangChain agent with KOAN.
 
 Builds a simple ReAct agent backed by OpenAI and runs a KOAN
-Romance Scan campaign against it.
+security scan campaign against it.
 
 Prerequisites
 -------------
@@ -64,7 +64,12 @@ def build_agent() -> AgentExecutor:
     )
     agent = create_react_agent(llm, tools, prompt)
     return AgentExecutor(
-        agent=agent, tools=tools, verbose=False, handle_parsing_errors=True  # type: ignore[arg-type]
+        agent=agent,
+        tools=tools,
+        verbose=False,
+        handle_parsing_errors=True,  # type: ignore[arg-type]
+        return_intermediate_steps=True,
+        max_iterations=6,
     )
 
 
@@ -72,9 +77,11 @@ def build_agent() -> AgentExecutor:
 
 
 async def main() -> None:
+    from _progress import KoanProgressBar, print_summary
+
+    from koan.application.agent_scanner.scanner import AgentScanner
     from koan.application.attacks.library import AttackLibrary
-    from koan.application.romance_scanner.scanner import RomanceScanner
-    from koan.domain.entities.phase import RomanceScanPhase
+    from koan.domain.entities.phase import ScanPhase
     from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter
     from koan.interfaces.cli.reports import ReportGenerator
 
@@ -83,32 +90,34 @@ async def main() -> None:
     adapter = LangChainAdapter(agent=executor)
 
     # Build the scanner with builtin attack vectors
-    scanner = RomanceScanner(
+    scanner = AgentScanner(
         adapter=adapter,
         attack_library=AttackLibrary(),
     )
 
     # Run a targeted scan (first 3 phases)
-    result = await scanner.run_campaign(
-        phases=[
-            RomanceScanPhase.RECONNAISSANCE,
-            RomanceScanPhase.TRUST_BUILDING,
-            RomanceScanPhase.CAPABILITY_MAPPING,
-        ],
-        stop_on_critical=True,
-    )
+    phases = [
+        ScanPhase.RECONNAISSANCE,
+        ScanPhase.TRUST_BUILDING,
+        ScanPhase.CAPABILITY_MAPPING,
+    ]
+
+    async with KoanProgressBar() as progress:
+        result = await scanner.run_campaign(
+            phases=phases,
+            stop_on_critical=True,
+            on_progress=progress.callback,
+        )
 
     # --- 3. Print and save results ------------------------------------
-    print(f"\n✅ Campaign finished: {result.campaign_id}")
-    print(f"   Trust score : {result.final_trust_score:.2f}")
-    print(f"   Vulnerabilities: {result.total_vulnerabilities}")
+    print_summary(result)
 
     output = Path("reports")
     report = ReportGenerator(output_dir=output)
     json_path = report.save_json(result)
     md_path = report.save_markdown(result)
     html_path = report.save_html(result, graph_state=scanner.graph.export_state())
-    print(f"   Reports saved to {output}/")
+    print(f"\n   Reports → {output}/")
     print(f"     JSON:     {json_path}")
     print(f"     Markdown: {md_path}")
     print(f"     HTML:     {html_path}")

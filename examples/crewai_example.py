@@ -44,9 +44,9 @@ def build_crew() -> Crew:
 
 
 async def main() -> None:
+    from koan.application.agent_scanner.scanner import AgentScanner
     from koan.application.attacks.library import AttackLibrary
-    from koan.application.romance_scanner.scanner import RomanceScanner
-    from koan.domain.entities.phase import RomanceScanPhase
+    from koan.domain.entities.phase import ScanPhase
     from koan.infrastructure.adapters.crewai_adapter import CrewAIAdapter
     from koan.interfaces.cli.reports import ReportGenerator
 
@@ -55,7 +55,7 @@ async def main() -> None:
     adapter = CrewAIAdapter(crew=crew)
 
     # Optionally add a directory of custom attack vectors
-    scanner = RomanceScanner(
+    scanner = AgentScanner(
         adapter=adapter,
         attack_library=AttackLibrary(),
     )
@@ -63,8 +63,8 @@ async def main() -> None:
     # Run only the exploitation phases
     result = await scanner.run_campaign(
         phases=[
-            RomanceScanPhase.BOUNDARY_TESTING,
-            RomanceScanPhase.EXPLOITATION,
+            ScanPhase.BOUNDARY_TESTING,
+            ScanPhase.EXPLOITATION,
         ],
         reset_between_phases=False,
     )

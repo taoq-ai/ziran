@@ -120,15 +120,25 @@ class LangChainAdapter(BaseAgentAdapter):
             self._observed_tool_calls.append(tool_call)
 
         # Update conversation history
+        output_text: str = result["output"]
         self._conversation_history.append({"role": "user", "content": message})
-        self._conversation_history.append({"role": "assistant", "content": result["output"]})
+        self._conversation_history.append({"role": "assistant", "content": output_text})
+
+        # Detect LangChain iteration-limit / time-limit sentinel.  When the
+        # agent cannot converge the output is a generic error string, but the
+        # intermediate_steps still contain every tool call that was attempted.
+        # Reporting those tool calls would cause the scanner to treat the
+        # response as a successful attack, so we suppress them.
+        hit_limit = _is_iteration_limit_response(output_text)
+        reported_tool_calls = [] if hit_limit else tool_calls
 
         return AgentResponse(
-            content=result["output"],
-            tool_calls=tool_calls,
+            content=output_text,
+            tool_calls=reported_tool_calls,
             metadata={
                 "intermediate_steps_count": len(intermediate_steps),
                 "model": getattr(self.agent, "llm", {}),
+                "hit_iteration_limit": hit_limit,
             },
         )
 
@@ -235,3 +245,20 @@ def _is_dangerous_tool(tool_name: str) -> bool:
     """
     name_lower = tool_name.lower()
     return any(keyword in name_lower for keyword in _DANGEROUS_KEYWORDS)
+
+
+# Sentinel strings emitted by LangChain's AgentExecutor when the
+# iteration or time budget is exceeded.
+_ITERATION_LIMIT_SENTINELS: frozenset[str] = frozenset(
+    {
+        "agent stopped due to iteration limit",
+        "agent stopped due to max iterations",
+        "agent stopped due to time limit",
+    }
+)
+
+
+def _is_iteration_limit_response(text: str) -> bool:
+    """Return *True* if *text* is a LangChain iteration/time-limit sentinel."""
+    text_lower = text.strip().lower().rstrip(".")
+    return any(sentinel in text_lower for sentinel in _ITERATION_LIMIT_SENTINELS)
