@@ -1,34 +1,11 @@
 """Example: RAG Financial Advisor — scanning a retrieval-augmented agent.
 
-Demonstrates how to security-test a RAG agent that answers financial
-questions by retrieving documents from a vector store. This scenario
-is common in fintech, banking, and advisory chatbots.
+A FinCorp advisor backed by FAISS + GPT-4o-mini with confidential
+customer data in the retriever. See examples/README.md for the full
+scenario description, risk surface, and expected results.
 
-Attack surface covered
-----------------------
-* **Document injection** — can the agent be tricked into treating
-  attacker-supplied text as a trusted document?
-* **Context poisoning** — can retrieved context override safety
-  instructions?
-* **Data exfiltration** — can the agent be coerced into leaking
-  private financial data from its context?
-* **Prompt injection through retrieval** — can a malicious document
-  in the store hijack the agent?
-
-Architecture::
-
-    User ──► LLM (ReAct) ──► retriever tool (FAISS) ──► docs
-                          └──► calculator tool
-
-Prerequisites
--------------
-  1. Copy ``.env.example`` to ``.env`` and set ``OPENAI_API_KEY``
-  2. ``uv sync --extra langchain``
-  3. ``uv pip install faiss-cpu``
-
-Usage
------
-  uv run python examples/rag_financial_advisor.py
+Prerequisites: OPENAI_API_KEY in .env, ``uv sync --extra langchain``, faiss-cpu.
+Usage: ``uv run python examples/rag_financial_advisor.py``
 """
 
 from __future__ import annotations

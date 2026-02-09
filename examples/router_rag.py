@@ -1,38 +1,11 @@
 """Example: Router RAG — scanning a dynamic retrieval router.
 
-Demonstrates security testing for a **router** pattern where an LLM
-dynamically selects which retrieval backend to query based on the
-user's question. This architecture is common in knowledge platforms,
-enterprise search, and multi-source RAG systems.
+A SaaS assistant that routes queries to a product knowledge base,
+customer database, or market data API. See examples/README.md
+for the full scenario description, risk surface, and expected results.
 
-Architecture::
-
-    User ──► Router LLM (decides retrieval strategy)
-                ├──► knowledge_base  (FAISS vector search — product docs)
-                ├──► customer_db     (structured lookup — customer records)
-                └──► market_api      (live market data — stock prices)
-
-Attack surface covered
-----------------------
-* **Routing injection** — manipulate the router into choosing a more
-  privileged data source (e.g. product docs → customer_db).
-* **Tool selection manipulation** — convince the agent to use the
-  wrong retrieval backend to bypass access controls.
-* **Cross-source data leakage** — exfiltrate data from a restricted
-  source by blending queries across backends.
-* **Schema/API abuse** — craft inputs that exploit structured query
-  tools (SQL-style injection through the customer_db tool).
-* **System prompt extraction** — extract the router's decision logic.
-
-Prerequisites
--------------
-  1. Copy ``.env.example`` to ``.env`` and set ``OPENAI_API_KEY``
-  2. ``uv sync --extra langchain``
-  3. ``uv pip install faiss-cpu``
-
-Usage
------
-  uv run python examples/router_rag.py
+Prerequisites: OPENAI_API_KEY in .env, ``uv sync --extra langchain``, faiss-cpu.
+Usage: ``uv run python examples/router_rag.py``
 """
 
 from __future__ import annotations

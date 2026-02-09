@@ -1,38 +1,11 @@
 """Example: Supervisor Multi-Agent — scanning a routing supervisor.
 
-Demonstrates security testing for a **supervisor** pattern where a
-top-level LLM decides which specialist sub-chain to delegate to.
-This architecture is common in enterprise helpdesks, internal IT
-support bots, and customer-service platforms.
+A corporate helpdesk supervisor that routes to HR, Finance, and IT
+specialist sub-chains. See examples/README.md for the full scenario
+description, risk surface, and expected results.
 
-Architecture::
-
-    User ──► Supervisor (LLM router)
-                 ├──► HR Agent     (policy lookup + leave_request tool)
-                 ├──► Finance Agent (expense tool + payroll lookup)
-                 └──► IT Agent      (ticket tool + system_status tool)
-
-Attack surface covered
-----------------------
-* **Cross-agent privilege escalation** — trick the supervisor into
-  routing to a more privileged agent (e.g. HR → IT).
-* **Routing manipulation** — make the supervisor mis-classify intent
-  so queries bypass intended guardrails.
-* **Tool access across boundaries** — attempt to invoke IT tools
-  through the HR agent path.
-* **System prompt extraction** — extract the supervisor's routing
-  instructions or sub-agent system prompts.
-* **Data exfiltration** — coerce one agent into leaking data from
-  another agent's domain.
-
-Prerequisites
--------------
-  1. Copy ``.env.example`` to ``.env`` and set ``OPENAI_API_KEY``
-  2. ``uv sync --extra langchain``
-
-Usage
------
-  uv run python examples/supervisor_multi_agent.py
+Prerequisites: OPENAI_API_KEY in .env, ``uv sync --extra langchain``.
+Usage: ``uv run python examples/supervisor_multi_agent.py``
 """
 
 from __future__ import annotations
