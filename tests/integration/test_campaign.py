@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
+from koan.application.agent_scanner.scanner import AgentScanner
 from koan.application.attacks.library import AttackLibrary
 from koan.application.knowledge_graph.graph import NodeType
-from koan.application.romance_scanner.scanner import RomanceScanner
-from koan.domain.entities.phase import CORE_PHASES, RomanceScanPhase
+from koan.domain.entities.phase import CORE_PHASES, ScanPhase
 from tests.conftest import MockAgentAdapter
 
 
@@ -21,7 +21,7 @@ class TestFullCampaign:
             responses=["I cannot help with that request. My safety guidelines prevent this."],
             capabilities=[],
         )
-        scanner = RomanceScanner(
+        scanner = AgentScanner(
             adapter=adapter,
             attack_library=AttackLibrary(),
         )
@@ -44,7 +44,7 @@ class TestFullCampaign:
             capabilities=[],
             vulnerable=True,
         )
-        scanner = RomanceScanner(
+        scanner = AgentScanner(
             adapter=adapter,
             attack_library=AttackLibrary(),
         )
@@ -79,13 +79,13 @@ class TestFullCampaign:
             responses=["I'll help you with that request."],
             capabilities=capabilities,
         )
-        scanner = RomanceScanner(
+        scanner = AgentScanner(
             adapter=adapter,
             attack_library=AttackLibrary(),
         )
 
         await scanner.run_campaign(
-            phases=[RomanceScanPhase.RECONNAISSANCE],
+            phases=[ScanPhase.RECONNAISSANCE],
         )
 
         # Graph should contain capability nodes
@@ -99,15 +99,15 @@ class TestFullCampaign:
     async def test_campaign_graph_has_phases(self) -> None:
         """Knowledge graph should track phase execution."""
         adapter = MockAgentAdapter(responses=["OK"])
-        scanner = RomanceScanner(
+        scanner = AgentScanner(
             adapter=adapter,
             attack_library=AttackLibrary(),
         )
 
         await scanner.run_campaign(
             phases=[
-                RomanceScanPhase.RECONNAISSANCE,
-                RomanceScanPhase.TRUST_BUILDING,
+                ScanPhase.RECONNAISSANCE,
+                ScanPhase.TRUST_BUILDING,
             ],
         )
 
@@ -117,13 +117,13 @@ class TestFullCampaign:
     async def test_campaign_adapter_invocations(self) -> None:
         """Adapter should be invoked for each attack prompt."""
         adapter = MockAgentAdapter(responses=["Response"])
-        scanner = RomanceScanner(
+        scanner = AgentScanner(
             adapter=adapter,
             attack_library=AttackLibrary(),
         )
 
         await scanner.run_campaign(
-            phases=[RomanceScanPhase.RECONNAISSANCE],
+            phases=[ScanPhase.RECONNAISSANCE],
         )
 
         # Adapter should have been invoked at least once
@@ -132,15 +132,15 @@ class TestFullCampaign:
     async def test_reset_between_phases(self) -> None:
         """Resetting between phases should clear adapter state."""
         adapter = MockAgentAdapter(responses=["OK"])
-        scanner = RomanceScanner(
+        scanner = AgentScanner(
             adapter=adapter,
             attack_library=AttackLibrary(load_builtin=False),
         )
 
         result = await scanner.run_campaign(
             phases=[
-                RomanceScanPhase.RECONNAISSANCE,
-                RomanceScanPhase.TRUST_BUILDING,
+                ScanPhase.RECONNAISSANCE,
+                ScanPhase.TRUST_BUILDING,
             ],
             reset_between_phases=True,
         )
@@ -174,7 +174,7 @@ vectors:
         adapter = MockAgentAdapter(
             responses=["I have several tools available."],
         )
-        scanner = RomanceScanner(
+        scanner = AgentScanner(
             adapter=adapter,
             attack_library=AttackLibrary(
                 custom_dirs=[yaml_file.parent],
@@ -183,7 +183,7 @@ vectors:
         )
 
         result = await scanner.run_campaign(
-            phases=[RomanceScanPhase.RECONNAISSANCE],
+            phases=[ScanPhase.RECONNAISSANCE],
         )
 
         assert len(result.phases_executed) == 1

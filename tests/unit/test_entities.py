@@ -20,21 +20,21 @@ from koan.domain.entities.phase import (
     PHASE_ORDER,
     CampaignResult,
     PhaseResult,
-    RomanceScanPhase,
+    ScanPhase,
 )
 
 # ──────────────────────────────────────────────────────────────────────
-# RomanceScanPhase
+# ScanPhase
 # ──────────────────────────────────────────────────────────────────────
 
 
-class TestRomanceScanPhase:
-    """Tests for the RomanceScanPhase enum."""
+class TestScanPhase:
+    """Tests for the ScanPhase enum."""
 
     def test_phase_values(self) -> None:
-        assert RomanceScanPhase.RECONNAISSANCE == "reconnaissance"
-        assert RomanceScanPhase.TRUST_BUILDING == "trust_building"
-        assert RomanceScanPhase.EXECUTION == "execution"
+        assert ScanPhase.RECONNAISSANCE == "reconnaissance"
+        assert ScanPhase.TRUST_BUILDING == "trust_building"
+        assert ScanPhase.EXECUTION == "execution"
 
     def test_all_phases_in_order(self) -> None:
         assert len(PHASE_ORDER) == 8
@@ -47,12 +47,12 @@ class TestRomanceScanPhase:
         assert len(CORE_PHASES) == 6
 
     def test_phase_from_string(self) -> None:
-        phase = RomanceScanPhase("reconnaissance")
-        assert phase == RomanceScanPhase.RECONNAISSANCE
+        phase = ScanPhase("reconnaissance")
+        assert phase == ScanPhase.RECONNAISSANCE
 
     def test_invalid_phase_raises(self) -> None:
         with pytest.raises(ValueError):
-            RomanceScanPhase("nonexistent_phase")
+            ScanPhase("nonexistent_phase")
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -65,12 +65,12 @@ class TestPhaseResult:
 
     def test_valid_phase_result(self) -> None:
         result = PhaseResult(
-            phase=RomanceScanPhase.RECONNAISSANCE,
+            phase=ScanPhase.RECONNAISSANCE,
             success=True,
             trust_score=0.5,
             duration_seconds=1.5,
         )
-        assert result.phase == RomanceScanPhase.RECONNAISSANCE
+        assert result.phase == ScanPhase.RECONNAISSANCE
         assert result.success is True
         assert result.trust_score == 0.5
         assert result.vulnerabilities_found == []
@@ -78,7 +78,7 @@ class TestPhaseResult:
     def test_trust_score_validation(self) -> None:
         with pytest.raises(ValueError):
             PhaseResult(
-                phase=RomanceScanPhase.RECONNAISSANCE,
+                phase=ScanPhase.RECONNAISSANCE,
                 success=False,
                 trust_score=1.5,  # > 1.0
                 duration_seconds=0.0,
@@ -87,7 +87,7 @@ class TestPhaseResult:
     def test_trust_score_lower_bound(self) -> None:
         with pytest.raises(ValueError):
             PhaseResult(
-                phase=RomanceScanPhase.RECONNAISSANCE,
+                phase=ScanPhase.RECONNAISSANCE,
                 success=False,
                 trust_score=-0.1,
                 duration_seconds=0.0,
@@ -95,7 +95,7 @@ class TestPhaseResult:
 
     def test_phase_result_with_vulnerabilities(self) -> None:
         result = PhaseResult(
-            phase=RomanceScanPhase.VULNERABILITY_DISCOVERY,
+            phase=ScanPhase.VULNERABILITY_DISCOVERY,
             success=True,
             trust_score=0.4,
             vulnerabilities_found=["vuln_1", "vuln_2"],
@@ -105,7 +105,7 @@ class TestPhaseResult:
 
     def test_phase_result_with_error(self) -> None:
         result = PhaseResult(
-            phase=RomanceScanPhase.EXECUTION,
+            phase=ScanPhase.EXECUTION,
             success=False,
             trust_score=0.2,
             duration_seconds=0.1,
@@ -136,7 +136,7 @@ class TestCampaignResult:
 
     def test_campaign_result_with_phases(self) -> None:
         phase1 = PhaseResult(
-            phase=RomanceScanPhase.RECONNAISSANCE,
+            phase=ScanPhase.RECONNAISSANCE,
             success=True,
             trust_score=0.3,
             vulnerabilities_found=["vuln_a"],
@@ -144,7 +144,7 @@ class TestCampaignResult:
             duration_seconds=1.0,
         )
         phase2 = PhaseResult(
-            phase=RomanceScanPhase.TRUST_BUILDING,
+            phase=ScanPhase.TRUST_BUILDING,
             success=False,
             trust_score=0.6,
             duration_seconds=2.0,
@@ -267,7 +267,7 @@ class TestAttackVector:
             id="test_critical",
             name="Critical Test",
             category=AttackCategory.DATA_EXFILTRATION,
-            target_phase=RomanceScanPhase.EXECUTION,
+            target_phase=ScanPhase.EXECUTION,
             description="Critical test",
             severity="critical",
         )
@@ -285,7 +285,7 @@ class TestAttackVector:
                 id="bad",
                 name="Bad",
                 category=AttackCategory.PROMPT_INJECTION,
-                target_phase=RomanceScanPhase.EXECUTION,
+                target_phase=ScanPhase.EXECUTION,
                 description="Bad",
                 severity="extreme",  # not valid
             )

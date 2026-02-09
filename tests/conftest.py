@@ -8,7 +8,7 @@ import pytest
 
 from koan.domain.entities.attack import AttackCategory, AttackPrompt, AttackResult, AttackVector
 from koan.domain.entities.capability import AgentCapability, CapabilityType
-from koan.domain.entities.phase import RomanceScanPhase
+from koan.domain.entities.phase import ScanPhase
 from koan.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
 
 # ──────────────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ def sample_attack_vector() -> AttackVector:
         id="test_pi_basic",
         name="Test Prompt Injection",
         category=AttackCategory.PROMPT_INJECTION,
-        target_phase=RomanceScanPhase.VULNERABILITY_DISCOVERY,
+        target_phase=ScanPhase.VULNERABILITY_DISCOVERY,
         description="A test prompt injection attack",
         severity="high",
         prompts=[

@@ -8,7 +8,7 @@ import pytest
 
 from koan.application.attacks.library import AttackLibrary
 from koan.domain.entities.attack import AttackCategory
-from koan.domain.entities.phase import RomanceScanPhase
+from koan.domain.entities.phase import ScanPhase
 
 
 class TestAttackLibrary:
@@ -37,10 +37,10 @@ class TestAttackLibrary:
         assert library.get_vector("nonexistent_id") is None
 
     def test_get_attacks_for_phase(self, library: AttackLibrary) -> None:
-        recon_attacks = library.get_attacks_for_phase(RomanceScanPhase.RECONNAISSANCE)
+        recon_attacks = library.get_attacks_for_phase(ScanPhase.RECONNAISSANCE)
         assert len(recon_attacks) >= 1
         for attack in recon_attacks:
-            assert attack.target_phase == RomanceScanPhase.RECONNAISSANCE
+            assert attack.target_phase == ScanPhase.RECONNAISSANCE
 
     def test_get_attacks_by_category(self, library: AttackLibrary) -> None:
         pi_attacks = library.get_attacks_by_category(AttackCategory.PROMPT_INJECTION)
@@ -71,7 +71,7 @@ class TestAttackLibrary:
 
     def test_search_with_no_results(self, library: AttackLibrary) -> None:
         results = library.search(
-            phase=RomanceScanPhase.RECONNAISSANCE,
+            phase=ScanPhase.RECONNAISSANCE,
             severity="critical",
             tags=["nonexistent_tag_xyz"],
         )

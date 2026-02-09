@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from koan.domain.entities.phase import CampaignResult, PhaseResult, RomanceScanPhase
+from koan.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
 from koan.interfaces.cli.html_report import (
     _build_attack_log_html,
     _build_node_tooltip,
@@ -74,7 +74,7 @@ def sample_campaign_result() -> CampaignResult:
         target_agent="test-agent",
         phases_executed=[
             PhaseResult(
-                phase=RomanceScanPhase.RECONNAISSANCE,
+                phase=ScanPhase.RECONNAISSANCE,
                 success=True,
                 trust_score=0.3,
                 duration_seconds=5.0,
@@ -93,7 +93,7 @@ def sample_campaign_result() -> CampaignResult:
                 },
             ),
             PhaseResult(
-                phase=RomanceScanPhase.TRUST_BUILDING,
+                phase=ScanPhase.TRUST_BUILDING,
                 success=True,
                 trust_score=0.6,
                 duration_seconds=3.0,
@@ -322,7 +322,7 @@ class TestReportGeneratorSaveHtml:
             target_agent="agent",
             phases_executed=[
                 PhaseResult(
-                    phase=RomanceScanPhase.RECONNAISSANCE,
+                    phase=ScanPhase.RECONNAISSANCE,
                     success=True,
                     trust_score=0.5,
                     duration_seconds=1.0,
