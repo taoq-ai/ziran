@@ -344,7 +344,7 @@ def library(
 @click.option(
     "--format",
     "fmt",
-    type=click.Choice(["markdown", "json", "terminal"]),
+    type=click.Choice(["markdown", "json", "html", "terminal"]),
     default="terminal",
     help="Report output format.",
 )
@@ -372,6 +372,10 @@ def report(result_file: str, fmt: str) -> None:
         generator = ReportGenerator(output_dir=filepath.parent)
         md_path = generator.save_markdown(result)
         console.print(f"[green]Markdown report saved to {md_path}[/green]")
+    elif fmt == "html":
+        generator = ReportGenerator(output_dir=filepath.parent)
+        html_path = generator.save_html(result)
+        console.print(f"[green]HTML report saved to {html_path}[/green]")
     elif fmt == "json":
         console.print_json(data=result.model_dump(mode="json"))
 
@@ -582,6 +586,13 @@ def _save_results(
     # Save Markdown report
     md_path = report_gen.save_markdown(result)
     console.print(f"  [dim]Markdown report: {md_path}[/dim]")
+
+    # Save interactive HTML report
+    if isinstance(graph, AttackKnowledgeGraph):
+        html_path = report_gen.save_html(result, graph_state=graph.export_state())
+    else:
+        html_path = report_gen.save_html(result)
+    console.print(f"  [dim]HTML report: {html_path}[/dim]")
 
     # Save graph state
     if isinstance(graph, AttackKnowledgeGraph):

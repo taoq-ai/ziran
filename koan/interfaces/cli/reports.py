@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -70,6 +70,49 @@ class ReportGenerator:
 
         with filepath.open("w") as f:
             f.write(content)
+
+        return filepath
+
+    def save_html(
+        self,
+        result: CampaignResult,
+        graph_state: dict[str, Any] | None = None,
+    ) -> Path:
+        """Save an interactive HTML report with knowledge graph visualization.
+
+        Produces a self-contained HTML file that uses vis-network to render
+        the attack knowledge graph, highlights critical attack paths, and
+        displays campaign metrics in a sidebar.
+
+        Args:
+            result: The campaign result to format.
+            graph_state: Full graph export from
+                ``AttackKnowledgeGraph.export_state()``.  Falls back to the
+                last phase's ``graph_state`` if not provided.
+
+        Returns:
+            Path to the saved HTML file.
+        """
+        from koan.interfaces.cli.html_report import build_html_report
+
+        # Fall back to the last phase's graph snapshot
+        if graph_state is None:
+            for phase in reversed(result.phases_executed):
+                if phase.graph_state:
+                    graph_state = phase.graph_state
+                    break
+            if graph_state is None:
+                graph_state = {"nodes": [], "edges": [], "stats": {}}
+
+        result_data = result.model_dump(mode="json")
+        html_content = build_html_report(
+            result_data=result_data,
+            graph_state=graph_state,
+        )
+
+        filepath = self.output_dir / f"{result.campaign_id}_report.html"
+        with filepath.open("w") as f:
+            f.write(html_content)
 
         return filepath
 

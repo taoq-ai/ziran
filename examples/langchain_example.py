@@ -107,7 +107,12 @@ async def main() -> None:
     report = ReportGenerator(output_dir=output)
     json_path = report.save_json(result)
     md_path = report.save_markdown(result)
-    print(f"   Reports saved to {json_path} and {md_path}")
+    html_path = report.save_html(result, graph_state=scanner.graph.export_state())
+    print(f"   Reports saved to {output}/")
+    print(f"     JSON:     {json_path}")
+    print(f"     Markdown: {md_path}")
+    print(f"     HTML:     {html_path}")
+    print(f"\n   Open {html_path} in a browser for an interactive report.")
 
 
 if __name__ == "__main__":
