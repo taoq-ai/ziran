@@ -89,9 +89,7 @@ class TestAgentScanner:
         assert "graph_stats" in result.metadata
         assert result.target_agent == "MockAgentAdapter"
 
-    async def test_graph_populated_during_campaign(
-        self, vulnerable_scanner: AgentScanner
-    ) -> None:
+    async def test_graph_populated_during_campaign(self, vulnerable_scanner: AgentScanner) -> None:
         await vulnerable_scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
         )

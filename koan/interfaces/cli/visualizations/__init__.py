@@ -96,8 +96,7 @@ class GraphVisualizer:
             import plotly.graph_objects as go
         except ImportError as exc:
             raise ImportError(
-                "Plotly is required for graph visualization. "
-                "Install it with: pip install plotly"
+                "Plotly is required for graph visualization. Install it with: pip install plotly"
             ) from exc
 
         nx_graph = graph.graph
@@ -221,10 +220,7 @@ class GraphVisualizer:
         chain_annotation = ""
         if dangerous_chains:
             n_crit = sum(1 for c in dangerous_chains if c.risk_level == "critical")
-            chain_annotation = (
-                f" | {len(dangerous_chains)} dangerous chains "
-                f"({n_crit} critical)"
-            )
+            chain_annotation = f" | {len(dangerous_chains)} dangerous chains ({n_crit} critical)"
 
         fig.update_layout(
             title={

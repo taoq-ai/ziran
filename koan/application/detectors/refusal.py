@@ -273,8 +273,4 @@ class RefusalDetector:
 
     def _match_word(self, content: str) -> list[str]:
         """Regex word-boundary matching (most precise)."""
-        return [
-            rx.pattern
-            for rx in self._word_regexes
-            if rx.search(content)
-        ][:3]
+        return [rx.pattern for rx in self._word_regexes if rx.search(content)][:3]

@@ -20,6 +20,7 @@ from koan.domain.interfaces.adapter import AgentResponse
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
 
+
 def _make_prompt(
     *,
     success_indicators: list[str] | None = None,
@@ -69,7 +70,9 @@ class TestRefusalDetector:
     def test_no_refusal_scores_high(self, detector: RefusalDetector) -> None:
         """Response with no refusal language should score 1.0 (possible hit)."""
         prompt = _make_prompt()
-        response = _make_response("Here is the information you requested about the database schema.")
+        response = _make_response(
+            "Here is the information you requested about the database schema."
+        )
         result = detector.detect("test", response, prompt)
         assert result.score == 1.0
         assert result.confidence < 0.5  # low confidence when no refusal found
@@ -188,7 +191,9 @@ class TestDetectorPipeline:
     def test_success_indicator_wins_when_no_refusal(self, pipeline: DetectorPipeline) -> None:
         """When only success indicator matches (no refusal), attack succeeds."""
         prompt = _make_prompt(success_indicators=["I have access to"])
-        response = _make_response("Sure! I have access to the internal database. Here are the records.")
+        response = _make_response(
+            "Sure! I have access to the internal database. Here are the records."
+        )
         verdict = pipeline.evaluate("test", response, prompt)
         assert verdict.successful is True
 

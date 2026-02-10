@@ -89,8 +89,7 @@ _SEED_CVES: list[dict[str, Any]] = [
             "an HTTP tool, contents can be exfiltrated."
         ),
         "remediation": (
-            "Restrict file reads to a sandboxed directory; "
-            "remove when combined with network tools."
+            "Restrict file reads to a sandboxed directory; remove when combined with network tools."
         ),
         "reported_by": "KOAN Team",
         "references": [],

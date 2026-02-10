@@ -64,7 +64,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "User PII can be sent to external endpoints",
         "remediation": "Mask PII before external API calls; enforce data classification",
     },
-
     # ── SQL Injection to RCE ──────────────────────────────────────
     ("sql_query", "execute_code"): {
         "type": "sql_to_rce",
@@ -78,7 +77,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "Database output piped into code execution",
         "remediation": "Sanitise all database output before processing",
     },
-
     # ── PII Leakage ────────────────────────────────────────────────
     ("get_user_info", "external_api"): {
         "type": "pii_leakage",
@@ -92,7 +90,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "User search results emailed without authorisation",
         "remediation": "Require explicit user consent before sharing PII",
     },
-
     # ── Privilege Escalation ───────────────────────────────────────
     ("search_database", "update_permissions"): {
         "type": "privilege_escalation",
@@ -112,7 +109,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "Configuration data used to modify access controls",
         "remediation": "Isolate configuration reads from permission writes",
     },
-
     # ── File System Attacks ────────────────────────────────────────
     ("list_directory", "read_file"): {
         "type": "directory_traversal",
@@ -138,7 +134,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "File contents can be executed as code",
         "remediation": "Never execute file contents; sandbox all code execution",
     },
-
     # ── Command Injection ──────────────────────────────────────────
     ("shell_execute", "http_request"): {
         "type": "command_injection_exfil",
@@ -164,7 +159,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "Remote payload downloaded and run via shell",
         "remediation": "Block shell from processing network-sourced data",
     },
-
     # ── Authentication Bypass ──────────────────────────────────────
     ("get_user_info", "generate_token"): {
         "type": "authentication_bypass",
@@ -184,7 +178,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "Database data used to craft valid tokens",
         "remediation": "Isolate token generation from data query tools",
     },
-
     # ── Data Poisoning ─────────────────────────────────────────────
     ("http_request", "write_file"): {
         "type": "data_poisoning",
@@ -204,7 +197,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "Attacker-controlled data written to agent memory",
         "remediation": "Validate memory updates; restrict external sources",
     },
-
     # ── Session Hijacking ─────────────────────────────────────────
     ("get_session", "send_email"): {
         "type": "session_hijacking",
@@ -218,7 +210,6 @@ DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
         "description": "Session tokens can be exfiltrated via HTTP",
         "remediation": "Session data must not be accessible to network tools",
     },
-
     # ── MCP-Specific Chains ────────────────────────────────────────
     ("mcp_list_servers", "mcp_invoke"): {
         "type": "mcp_enumeration_to_exploit",

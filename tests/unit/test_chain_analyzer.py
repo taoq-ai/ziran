@@ -254,9 +254,7 @@ class TestRiskScoring:
         for chain in chains:
             assert 0.0 <= chain.risk_score <= 1.0
 
-    def test_direct_scores_higher_than_indirect(
-        self, simple_graph: AttackKnowledgeGraph
-    ) -> None:
+    def test_direct_scores_higher_than_indirect(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
         direct = DangerousChain(
             tools=["a", "b"],

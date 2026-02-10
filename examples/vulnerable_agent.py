@@ -178,6 +178,7 @@ YOUR GUIDELINES:
 
 """
 
+
 def build_vulnerable_agent() -> AgentExecutor:
     """Build a tool-calling agent with common security anti-patterns.
 
@@ -196,11 +197,13 @@ def build_vulnerable_agent() -> AgentExecutor:
 
     all_tools = [query_employees, send_email, run_database_query, read_config]
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT),
-        ("human", "{input}"),
-        ("placeholder", "{agent_scratchpad}"),
-    ])
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", SYSTEM_PROMPT),
+            ("human", "{input}"),
+            ("placeholder", "{agent_scratchpad}"),
+        ]
+    )
 
     agent = create_tool_calling_agent(llm, all_tools, prompt)
     return AgentExecutor(

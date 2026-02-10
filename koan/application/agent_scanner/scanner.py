@@ -267,12 +267,8 @@ class AgentScanner:
             final_trust_score=phase_results[-1].trust_score if phase_results else 0.0,
             success=len(critical_paths) > 0 or any(p.vulnerabilities_found for p in phase_results),
             attack_results=[r.model_dump(mode="json") for r in self._attack_results],
-            dangerous_tool_chains=[
-                c.model_dump(mode="json") for c in dangerous_chains
-            ],
-            critical_chain_count=len(
-                [c for c in dangerous_chains if c.risk_level == "critical"]
-            ),
+            dangerous_tool_chains=[c.model_dump(mode="json") for c in dangerous_chains],
+            critical_chain_count=len([c for c in dangerous_chains if c.risk_level == "critical"]),
             metadata={
                 "duration_seconds": duration,
                 "capabilities_discovered": len(capabilities),
@@ -484,7 +480,10 @@ class AgentScanner:
 
                 # ── Detector pipeline ─────────────────────────────
                 verdict = self._detector_pipeline.evaluate(
-                    rendered_prompt, response, prompt_spec, attack,
+                    rendered_prompt,
+                    response,
+                    prompt_spec,
+                    attack,
                 )
 
                 if verdict.successful:
@@ -499,8 +498,7 @@ class AgentScanner:
                             "tool_calls": response.tool_calls,
                             "matched_indicators": verdict.matched_indicators,
                             "detector_scores": {
-                                r.detector_name: r.score
-                                for r in verdict.detector_results
+                                r.detector_name: r.score for r in verdict.detector_results
                             },
                             "detector_reasoning": verdict.reasoning,
                         },

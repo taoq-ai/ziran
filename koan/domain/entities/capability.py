@@ -93,9 +93,7 @@ class DangerousChain(BaseModel):
 
     tools: list[str] = Field(description="Tool names in the exploitation sequence")
     risk_level: str = Field(description="Severity: critical, high, medium, low")
-    vulnerability_type: str = Field(
-        description="Classification (data_exfiltration, sql_to_rce, …)"
-    )
+    vulnerability_type: str = Field(description="Classification (data_exfiltration, sql_to_rce, …)")
     exploit_description: str = Field(description="Human-readable explanation of the danger")
     remediation: str = Field(
         default="", description="Recommended fix for this dangerous combination"
@@ -103,9 +101,7 @@ class DangerousChain(BaseModel):
     graph_path: list[str] = Field(
         default_factory=list, description="Node IDs forming the path in the knowledge graph"
     )
-    risk_score: float = Field(
-        ge=0.0, le=1.0, default=0.0, description="Calculated risk score"
-    )
+    risk_score: float = Field(ge=0.0, le=1.0, default=0.0, description="Calculated risk score")
     evidence: dict[str, Any] = Field(
         default_factory=dict, description="Supporting evidence from the scan"
     )
