@@ -80,3 +80,45 @@ class ToolChain(BaseModel):
     def length(self) -> int:
         """Number of tools in the chain."""
         return len(self.tools)
+
+
+class DangerousChain(BaseModel):
+    """A dangerous tool combination found in an agent.
+
+    Represents a specific sequence of tools whose combination creates
+    a security vulnerability — e.g. ``read_file`` → ``http_request``
+    enables data exfiltration.  Discovered by the
+    :class:`ToolChainAnalyzer` during post-campaign analysis.
+    """
+
+    tools: list[str] = Field(description="Tool names in the exploitation sequence")
+    risk_level: str = Field(description="Severity: critical, high, medium, low")
+    vulnerability_type: str = Field(
+        description="Classification (data_exfiltration, sql_to_rce, …)"
+    )
+    exploit_description: str = Field(description="Human-readable explanation of the danger")
+    remediation: str = Field(
+        default="", description="Recommended fix for this dangerous combination"
+    )
+    graph_path: list[str] = Field(
+        default_factory=list, description="Node IDs forming the path in the knowledge graph"
+    )
+    risk_score: float = Field(
+        ge=0.0, le=1.0, default=0.0, description="Calculated risk score"
+    )
+    evidence: dict[str, Any] = Field(
+        default_factory=dict, description="Supporting evidence from the scan"
+    )
+    chain_type: str = Field(
+        default="direct", description="Chain topology: direct, indirect, or cycle"
+    )
+
+    @property
+    def is_critical(self) -> bool:
+        """Check if this chain is critical severity."""
+        return self.risk_level == "critical"
+
+    @property
+    def length(self) -> int:
+        """Number of tools in the chain."""
+        return len(self.tools)

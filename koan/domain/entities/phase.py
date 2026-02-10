@@ -102,6 +102,13 @@ class CampaignResult(BaseModel):
         default_factory=list,
         description="Serialised AttackResult dicts with prompts and agent responses",
     )
+    dangerous_tool_chains: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Dangerous tool chain combinations discovered by the chain analyzer",
+    )
+    critical_chain_count: int = Field(
+        default=0, description="Number of critical-severity tool chains found"
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property
