@@ -64,6 +64,7 @@ dev = [
 lint = [
     "ruff>=0.4",
     "mypy>=1.10",
+    "types-PyYAML>=6.0",
 ]
 test = [
     "pytest>=8.0,<9",
@@ -113,6 +114,7 @@ module = [
     "langchain_openai.*",
     "crewai.*",
     "networkx.*",
+    "plotly.*",
 ]
 ignore_missing_imports = true
 

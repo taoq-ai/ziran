@@ -18,7 +18,7 @@ from typing import Any
 
 # ── Node appearance by type ────────────────────────────────────────────
 
-_NODE_COLORS: dict[str, dict[str, str]] = {
+_NODE_COLORS: dict[str, dict[str, str | dict[str, str]]] = {
     "capability": {
         "background": "#3b82f6",
         "border": "#1d4ed8",

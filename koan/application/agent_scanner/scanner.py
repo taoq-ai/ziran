@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from koan.domain.entities.capability import AgentCapability, DangerousChain
+    from koan.domain.entities.capability import AgentCapability
     from koan.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = logging.getLogger(__name__)

@@ -7,7 +7,6 @@ import pytest
 from koan.application.skill_cve import SkillCVE, SkillCVEDatabase
 from koan.domain.entities.capability import AgentCapability, CapabilityType
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────
 
 

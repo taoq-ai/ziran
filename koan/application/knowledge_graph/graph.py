@@ -67,12 +67,12 @@ class AttackKnowledgeGraph:
     @property
     def node_count(self) -> int:
         """Total number of nodes in the graph."""
-        return self.graph.number_of_nodes()
+        return int(self.graph.number_of_nodes())
 
     @property
     def edge_count(self) -> int:
         """Total number of edges in the graph."""
-        return self.graph.number_of_edges()
+        return int(self.graph.number_of_edges())
 
     def add_agent_state(self, state_id: str, attributes: dict[str, Any]) -> None:
         """Add an agent state snapshot to the graph.

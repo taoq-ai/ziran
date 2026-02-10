@@ -15,7 +15,6 @@ from koan.application.knowledge_graph.graph import (
 )
 from koan.domain.entities.capability import DangerousChain
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────
 
 

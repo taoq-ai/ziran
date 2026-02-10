@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from koan.application.knowledge_graph.graph import EdgeType, NodeType
+from koan.application.knowledge_graph.graph import NodeType
 from koan.domain.entities.capability import DangerousChain
 
 if TYPE_CHECKING:
@@ -335,8 +335,8 @@ class ToolChainAnalyzer:
         chains: list[DangerousChain] = []
         tool_nodes = self._get_tool_nodes()
 
-        for source_id, source_data in tool_nodes:
-            for target_id, target_data in tool_nodes:
+        for source_id, _source_data in tool_nodes:
+            for target_id, _target_data in tool_nodes:
                 if source_id == target_id:
                     continue
                 if not self.graph.graph.has_edge(source_id, target_id):
@@ -365,7 +365,6 @@ class ToolChainAnalyzer:
         """Find dangerous chains A → X → … → B via intermediate nodes."""
         chains: list[DangerousChain] = []
         tool_nodes = self._get_tool_nodes()
-        tool_ids = {nid for nid, _ in tool_nodes}
 
         for source_id, _ in tool_nodes:
             for target_id, _ in tool_nodes:
@@ -397,7 +396,6 @@ class ToolChainAnalyzer:
                     if len(path) < 3:
                         continue  # must have at least 1 intermediate
 
-                    chain_tools = [n for n in path if n in tool_ids or n == source_id or n == target_id]
                     chains.append(
                         DangerousChain(
                             tools=[source_id, target_id],
@@ -439,7 +437,7 @@ class ToolChainAnalyzer:
                 continue
 
             # Check consecutive tool pairs in the cycle for dangerous patterns
-            full_cycle = cycle + [cycle[0]]  # close the cycle
+            full_cycle = [*cycle, cycle[0]]  # close the cycle
             for i in range(len(full_cycle) - 1):
                 src, tgt = full_cycle[i], full_cycle[i + 1]
                 if src not in tool_ids or tgt not in tool_ids:
@@ -471,7 +469,7 @@ class ToolChainAnalyzer:
     # ── Scoring ────────────────────────────────────────────────────
 
     def _calculate_risk_score(self, chain: DangerousChain) -> float:
-        """Calculate a 0.0–1.0 risk score for a chain.
+        """Calculate a 0.0-1.0 risk score for a chain.
 
         Factors:
         - Base weight from risk level (critical=1.0 … low=0.25).

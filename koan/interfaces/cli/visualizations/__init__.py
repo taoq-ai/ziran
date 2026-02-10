@@ -11,7 +11,6 @@ if it is not installed.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -101,9 +100,9 @@ class GraphVisualizer:
                 "Install it with: pip install plotly"
             ) from exc
 
-        G = graph.graph
+        nx_graph = graph.graph
 
-        if G.number_of_nodes() == 0:
+        if nx_graph.number_of_nodes() == 0:
             fig = go.Figure()
             fig.update_layout(
                 title="Knowledge Graph (empty)",
@@ -121,7 +120,7 @@ class GraphVisualizer:
             return fig
 
         # Compute layout
-        pos = nx.spring_layout(G, seed=42, k=2.0)
+        pos = nx.spring_layout(nx_graph, seed=42, k=2.0)
 
         # Build dangerous-chain edge set for highlighting
         chain_edges: set[tuple[str, str]] = set()
@@ -138,7 +137,7 @@ class GraphVisualizer:
         # ── Edge traces ───────────────────────────────────────────
         edge_traces: list[Any] = []
 
-        for u, v, data in G.edges(data=True):
+        for u, v, data in nx_graph.edges(data=True):
             if u not in pos or v not in pos:
                 continue
 
@@ -170,7 +169,7 @@ class GraphVisualizer:
 
         # ── Node traces (grouped by type for legend) ──────────────
         nodes_by_type: dict[str, list[tuple[str, dict[str, Any]]]] = {}
-        for n, d in G.nodes(data=True):
+        for n, d in nx_graph.nodes(data=True):
             ntype = d.get("node_type", "unknown")
             nodes_by_type.setdefault(ntype, []).append((n, d))
 
@@ -231,8 +230,8 @@ class GraphVisualizer:
             title={
                 "text": (
                     f"KOAN Attack Knowledge Graph — "
-                    f"{G.number_of_nodes()} nodes, "
-                    f"{G.number_of_edges()} edges"
+                    f"{nx_graph.number_of_nodes()} nodes, "
+                    f"{nx_graph.number_of_edges()} edges"
                     f"{chain_annotation}"
                 ),
                 "font": {"size": 16},
@@ -289,7 +288,7 @@ class GraphVisualizer:
         if self._figure is None:
             raise RuntimeError("Call create_interactive_viz() first")
 
-        return self._figure.to_html(full_html=False, include_plotlyjs="cdn")
+        return str(self._figure.to_html(full_html=False, include_plotlyjs="cdn"))
 
 
 # ── Helpers ────────────────────────────────────────────────────────────

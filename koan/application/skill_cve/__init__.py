@@ -8,7 +8,7 @@ and designed for community contribution via GitHub issues.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime  # noqa: TC003 — Pydantic needs this at runtime
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
