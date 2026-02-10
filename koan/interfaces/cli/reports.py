@@ -187,6 +187,43 @@ class ReportGenerator:
                 lines.append(f"\n_...and {len(result.critical_paths) - 10} more paths_")
             lines.append("")
 
+        # Dangerous Tool Chains
+        if result.dangerous_tool_chains:
+            lines.append("## ⛓️ Dangerous Tool Chains")
+            lines.append("")
+            lines.append(
+                f"**{len(result.dangerous_tool_chains)} dangerous tool combinations "
+                f"detected** ({result.critical_chain_count} critical)"
+            )
+            lines.append("")
+            lines.append("| Risk | Type | Tools | Description |")
+            lines.append("|------|------|-------|-------------|")
+            for chain in result.dangerous_tool_chains:
+                risk = chain.get("risk_level", "unknown")
+                vtype = chain.get("vulnerability_type", "unknown")
+                tools = " → ".join(chain.get("tools", []))
+                desc = chain.get("exploit_description", "")
+                risk_icon = {
+                    "critical": "🔴",
+                    "high": "🟠",
+                    "medium": "🟡",
+                    "low": "🟢",
+                }.get(risk, "⚪")
+                lines.append(f"| {risk_icon} {risk} | {vtype} | `{tools}` | {desc} |")
+            lines.append("")
+
+            # Remediation summary
+            chains_with_remediation = [
+                c for c in result.dangerous_tool_chains if c.get("remediation")
+            ]
+            if chains_with_remediation:
+                lines.append("### Remediation Guidance")
+                lines.append("")
+                for chain in chains_with_remediation:
+                    tools = " → ".join(chain.get("tools", []))
+                    lines.append(f"- **{tools}**: {chain['remediation']}")
+                lines.append("")
+
         # Footer
         lines.append("---")
         lines.append(

@@ -503,6 +503,12 @@ def _display_results(result: CampaignResult) -> None:
         else "[green]0[/green]",
     )
     summary_table.add_row("Critical Attack Paths", str(len(result.critical_paths)))
+    summary_table.add_row(
+        "Dangerous Tool Chains",
+        f"[bold red]{len(result.dangerous_tool_chains)}[/bold red]"
+        if result.dangerous_tool_chains
+        else "[green]0[/green]",
+    )
     summary_table.add_row("Final Trust Score", f"{result.final_trust_score:.2f}")
     summary_table.add_row(
         "Result",
@@ -560,6 +566,39 @@ def _display_results(result: CampaignResult) -> None:
             console.print(f"  {i}. {' → '.join(path)}")
         if len(result.critical_paths) > 5:
             console.print(f"\n  [dim]...and {len(result.critical_paths) - 5} more paths[/dim]")
+        console.print()
+
+    # Dangerous tool chains
+    if result.dangerous_tool_chains:
+        console.print("[bold red]⛓️  Dangerous Tool Chains:[/bold red]")
+        console.print()
+
+        chain_table = Table(show_header=True, header_style="bold")
+        chain_table.add_column("Risk", style="bold", width=10)
+        chain_table.add_column("Type", style="magenta")
+        chain_table.add_column("Tools", style="cyan")
+        chain_table.add_column("Description", style="dim", max_width=50)
+
+        for chain in result.dangerous_tool_chains[:10]:
+            risk = chain.get("risk_level", "unknown")
+            risk_style = {
+                "critical": "bold red",
+                "high": "red",
+                "medium": "yellow",
+                "low": "green",
+            }.get(risk, "white")
+            chain_table.add_row(
+                f"[{risk_style}]{risk}[/{risk_style}]",
+                chain.get("vulnerability_type", ""),
+                " → ".join(chain.get("tools", [])),
+                chain.get("exploit_description", "")[:50],
+            )
+
+        console.print(chain_table)
+        if len(result.dangerous_tool_chains) > 10:
+            console.print(
+                f"\n  [dim]...and {len(result.dangerous_tool_chains) - 10} more chains[/dim]"
+            )
         console.print()
 
 
