@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from koan.application.attacks.library import AttackLibrary
 from koan.application.detectors.pipeline import DetectorPipeline
+from koan.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from koan.application.knowledge_graph.graph import (
     AttackKnowledgeGraph,
     EdgeType,
@@ -37,7 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from koan.domain.entities.capability import AgentCapability
+    from koan.domain.entities.capability import AgentCapability, DangerousChain
     from koan.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = logging.getLogger(__name__)
@@ -250,6 +251,11 @@ class AgentScanner:
         # Analyze graph for attack paths
         critical_paths = self.graph.find_all_attack_paths()
 
+        # NEW: Analyze tool chains for dangerous combinations
+        chain_analyzer = ToolChainAnalyzer(self.graph)
+        dangerous_chains = chain_analyzer.analyze()
+        self._discovered_chains = dangerous_chains
+
         duration = (datetime.now(tz=UTC) - campaign_start).total_seconds()
 
         campaign_result = CampaignResult(
@@ -261,19 +267,28 @@ class AgentScanner:
             final_trust_score=phase_results[-1].trust_score if phase_results else 0.0,
             success=len(critical_paths) > 0 or any(p.vulnerabilities_found for p in phase_results),
             attack_results=[r.model_dump(mode="json") for r in self._attack_results],
+            dangerous_tool_chains=[
+                c.model_dump(mode="json") for c in dangerous_chains
+            ],
+            critical_chain_count=len(
+                [c for c in dangerous_chains if c.risk_level == "critical"]
+            ),
             metadata={
                 "duration_seconds": duration,
                 "capabilities_discovered": len(capabilities),
                 "graph_stats": self.graph.export_state()["stats"],
                 "attack_results_count": len(self._attack_results),
+                "dangerous_chain_count": len(dangerous_chains),
             },
         )
 
         logger.info(
-            "Campaign %s complete: %d vulnerabilities, %d critical paths (%.1fs)",
+            "Campaign %s complete: %d vulnerabilities, %d critical paths, "
+            "%d dangerous chains (%.1fs)",
             campaign_id,
             campaign_result.total_vulnerabilities,
             len(critical_paths),
+            len(dangerous_chains),
             duration,
         )
 
@@ -285,6 +300,7 @@ class AgentScanner:
                 extra={
                     "total_vulnerabilities": campaign_result.total_vulnerabilities,
                     "critical_paths": len(critical_paths),
+                    "dangerous_chains": len(dangerous_chains),
                     "duration_seconds": duration,
                 },
             )
