@@ -1,0 +1,191 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"       # stable:  v1.2.3
+      - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+" # alpha:   v1.2.3a1
+      - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+" # beta:    v1.2.3b1
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+" # rc:     v1.2.3rc1
+
+permissions:
+  contents: read
+
+# Prevent concurrent releases
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # ── Gate: full CI must pass before publishing ──────────────────────
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group lint
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        run: uv run mypy koan/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --group test
+
+      - name: Run tests
+        run: uv run pytest --cov=koan --cov-report=term-missing -v
+
+  # ── Build sdist + wheel ────────────────────────────────────────────
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for hatch-vcs
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build package
+        run: uv build
+
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION=$(uv run python -c "
+          from importlib.metadata import PathDistribution
+          from pathlib import Path
+          dists = list(Path('dist').glob('koan-*.tar.gz'))
+          # Extract version from filename: koan-<version>.tar.gz
+          name = dists[0].stem  # koan-<version>.tar
+          name = name.rsplit('.', 1)[0]  # koan-<version>
+          print(name.split('-', 1)[1])
+          ")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "Package version: $PKG_VERSION"
+          echo "Tag version:     $TAG_VERSION"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Version mismatch — tag=$TAG_VERSION but package=$PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 5
+
+  # ── Publish to PyPI (Trusted Publishing / OIDC) ───────────────────
+  publish-pypi:
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/koan/
+    permissions:
+      id-token: write  # required for OIDC trusted publishing
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ── Publish to TestPyPI (pre-releases only) ────────────────────────
+  publish-testpypi:
+    if: contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc')
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/koan/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  # ── Create GitHub Release with artifacts ───────────────────────────
+  github-release:
+    needs: [publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Determine pre-release flag
+        id: prerelease
+        run: |
+          if echo "${{ github.ref_name }}" | grep -qE '(a|b|rc)[0-9]+$'; then
+            echo "flag=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ steps.prerelease.outputs.flag }}
+          files: dist/*
