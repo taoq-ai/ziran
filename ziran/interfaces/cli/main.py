@@ -1,6 +1,6 @@
 """CLI main — Click commands with Rich output.
 
-Entry point for the ``koan`` command-line tool. Provides commands
+Entry point for the ``ziran`` command-line tool. Provides commands
 for scanning agents, discovering capabilities, and generating reports.
 """
 
@@ -17,7 +17,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from koan import __version__
+from ziran import __version__
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import OwaspLlmCategory

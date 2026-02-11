@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
+from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.knowledge_graph.graph import NodeType
 from ziran.domain.entities.phase import CORE_PHASES, CoverageLevel, ScanPhase
-from tests.conftest import MockAgentAdapter
 
 
 @pytest.mark.integration

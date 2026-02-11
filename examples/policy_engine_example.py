@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.table import Table
@@ -32,7 +33,9 @@ from ziran.domain.entities.attack import (
     OwaspLlmCategory,
 )
 from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
-from ziran.domain.entities.policy import PolicyVerdict
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.policy import PolicyVerdict
 
 console = Console()
 
