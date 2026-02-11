@@ -13,16 +13,33 @@ ZIRAN systematically discovers security weaknesses in AI agents — not just LLM
 
 ## 🎯 What Makes ZIRAN Different
 
-Unlike traditional LLM testing tools (PyRIT, Garak), ZIRAN is built for **AI agents**:
+Most security tools test the **LLM** (prompt injection, jailbreaks) or the **web application** (XSS, SQLi). ZIRAN tests the **AI agent** — the system that wields tools, retains memory, and chains multi-step reasoning. That's a fundamentally different attack surface.
 
-| | ZIRAN | PyRIT | Garak | Snyk Evo |
-|---|:---:|:---:|:---:|:---:|
-| **Tool Chain Analysis** | ✅ | ❌ | ❌ | ❌ |
-| **Multi-phase campaigns** | ✅ | Partial | ❌ | ❌ |
-| **Knowledge graph tracking** | ✅ | ❌ | ❌ | ❌ |
-| **Agent-aware (tools + memory)** | ✅ | ❌ | ❌ | Partial |
-| **Framework agnostic** | ✅ | ✅ | ✅ | ❌ |
-| **Open source** | ✅ | ✅ | ✅ | ❌ |
+### Landscape Comparison
+
+| | ZIRAN | [Shannon](https://github.com/KeygraphHQ/shannon) | [AWS Security Agent](https://aws.amazon.com/security-agent/) | [Garak](https://github.com/NVIDIA/garak) | [Promptfoo](https://github.com/promptfoo/promptfoo) | [PyRIT](https://github.com/Azure/PyRIT) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Target** | AI Agents | Web Apps | AWS Apps | LLMs | LLMs / RAGs | Gen AI Systems |
+| **Tool chain analysis** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Agent-aware (tools + memory)** | ✅ | ❌ | ❌ | ❌ | Partial | ❌ |
+| **Multi-phase campaigns** | ✅ | ✅ | ❌ | ❌ | ❌ | Partial |
+| **Knowledge graph tracking** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Exploit execution** | Prompt-level | Browser-level | Dynamic | Prompt-level | Prompt-level | Prompt-level |
+| **Framework agnostic** | ✅ | Node/Docker | AWS only | ✅ | ✅ | ✅ |
+| **CI/CD integration** | ✅ | Pro only | ❌ | ❌ | ✅ | ❌ |
+| **Open source** | ✅ Apache-2.0 | AGPL-3.0 | ❌ Proprietary | ✅ Apache-2.0 | ✅ MIT | ✅ MIT |
+
+### How ZIRAN Differs from Each
+
+**vs Shannon** — Shannon is an autonomous pentester for **web applications**. It uses browser automation to exploit XSS, SQLi, SSRF, and broken auth in running web apps. ZIRAN operates at a different layer: it tests **AI agents** for tool manipulation, memory poisoning, and dangerous tool chain composition — vulnerabilities that don't exist in traditional web apps.
+
+**vs AWS Security Agent** — AWS Security Agent is a closed-source, AWS-managed service for design reviews, code reviews, and penetration testing of cloud applications. It's tightly coupled to the AWS ecosystem and not available as a library. ZIRAN is open source, runs anywhere, and targets AI agent-specific attack surfaces.
+
+**vs Garak** — Garak probes **LLM responses** for hallucination, toxicity, prompt injection, and jailbreaks. It's the vulnerability scanner for the model layer. ZIRAN operates one level up — it tests **agents** that use those LLMs but adds tools, memory, and multi-step reasoning, which create entirely new attack vectors (tool chain exploitation, data exfiltration through tool composition).
+
+**vs Promptfoo** — Promptfoo is a developer-friendly eval and red-teaming framework focused on testing **prompts and RAG pipelines**. It excels at comparing model outputs and CI/CD integration. ZIRAN is purpose-built for agent security: it maps tool graphs, detects dangerous tool chains, and runs multi-phase campaigns that mimic real attacker behavior.
+
+**vs PyRIT** — PyRIT is Microsoft's framework for identifying risks in **generative AI systems** broadly. It provides attack orchestration and scoring but doesn't model agent tool chains or build knowledge graphs of agent capabilities. ZIRAN's tool chain analysis and Romance Scan methodology are specifically designed for the agent attack surface.
 
 ### Core Differentiators
 
