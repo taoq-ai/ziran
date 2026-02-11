@@ -14,6 +14,21 @@ from pydantic import BaseModel, Field
 from koan.domain.entities.phase import ScanPhase  # noqa: TC001
 
 
+class TokenUsage(BaseModel):
+    """Token consumption from a single LLM interaction or aggregated total."""
+
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
+    total_tokens: int = Field(default=0, ge=0)
+
+    def __add__(self, other: TokenUsage) -> TokenUsage:
+        return TokenUsage(
+            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
+            completion_tokens=self.completion_tokens + other.completion_tokens,
+            total_tokens=self.total_tokens + other.total_tokens,
+        )
+
+
 class AttackCategory(StrEnum):
     """Categories of attack vectors."""
 
@@ -107,3 +122,4 @@ class AttackResult(BaseModel):
     error: str | None = Field(
         default=None, description="Error message if the attack failed to execute"
     )
+    token_usage: TokenUsage = Field(default_factory=TokenUsage)

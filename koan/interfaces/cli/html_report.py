@@ -202,6 +202,8 @@ def build_html_report(
     trust_score = result_data.get("final_trust_score", 0)
     success = result_data.get("success", False)
     phases = result_data.get("phases_executed", [])
+    token_usage = result_data.get("token_usage", {})
+    coverage_level = result_data.get("coverage_level", "")
 
     # Build phase timeline HTML
     phases_html = _build_phases_html(phases)
@@ -227,6 +229,10 @@ def build_html_report(
         total_edges=stats.get("total_edges", 0),
         density=f"{stats.get('density', 0):.3f}",
         num_paths=len(paths),
+        prompt_tokens=f"{token_usage.get('prompt_tokens', 0):,}",
+        completion_tokens=f"{token_usage.get('completion_tokens', 0):,}",
+        total_tokens=f"{token_usage.get('total_tokens', 0):,}",
+        coverage_level=html.escape(coverage_level or "standard"),
         phases_html=phases_html,
         paths_html=paths_html,
         vulns_html=vulns_html,
@@ -868,6 +874,29 @@ _HTML_TEMPLATE = """\
       </div>
     </div>
     {legend_html}
+  </div>
+
+  <!-- Token Usage -->
+  <div class="section">
+    <div class="section-title">Token Usage</div>
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-value accent">{prompt_tokens}</div>
+        <div class="metric-label">Prompt Tokens</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value accent">{completion_tokens}</div>
+        <div class="metric-label">Completion Tokens</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" style="color:var(--orange)">{total_tokens}</div>
+        <div class="metric-label">Total Tokens</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" style="color:var(--purple)">{coverage_level}</div>
+        <div class="metric-label">Coverage</div>
+      </div>
+    </div>
   </div>
 
   <!-- Phases -->

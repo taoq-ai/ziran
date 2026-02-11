@@ -33,9 +33,16 @@ from typing import Any
 import yaml
 
 from koan.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector, Severity
-from koan.domain.entities.phase import ScanPhase
+from koan.domain.entities.phase import CoverageLevel, ScanPhase
 
 logger = logging.getLogger(__name__)
+
+# Severity tiers used by coverage levels
+_COVERAGE_SEVERITIES: dict[CoverageLevel, set[Severity]] = {
+    CoverageLevel.ESSENTIAL: {"critical"},
+    CoverageLevel.STANDARD: {"critical", "high"},
+    CoverageLevel.COMPREHENSIVE: {"critical", "high", "medium", "low"},
+}
 
 # Built-in vectors directory (relative to this file)
 _BUILTIN_VECTORS_DIR = Path(__file__).parent / "vectors"
@@ -111,16 +118,24 @@ class AttackLibrary:
         """
         return self._vectors.get(vector_id)
 
-    def get_attacks_for_phase(self, phase: ScanPhase) -> list[AttackVector]:
-        """Get all attack vectors targeting a specific phase.
+    def get_attacks_for_phase(
+        self,
+        phase: ScanPhase,
+        coverage: CoverageLevel = CoverageLevel.COMPREHENSIVE,
+    ) -> list[AttackVector]:
+        """Get attack vectors targeting a specific phase, filtered by coverage level.
 
         Args:
             phase: The scan phase to filter by.
+            coverage: Coverage level controlling which severity tiers are included.
 
         Returns:
-            List of vectors targeting this phase.
+            List of vectors targeting this phase within the coverage tier.
         """
-        return [v for v in self._vectors.values() if v.target_phase == phase]
+        allowed = _COVERAGE_SEVERITIES[coverage]
+        return [
+            v for v in self._vectors.values() if v.target_phase == phase and v.severity in allowed
+        ]
 
     def get_attacks_by_category(self, category: AttackCategory) -> list[AttackVector]:
         """Get all attack vectors in a specific category.

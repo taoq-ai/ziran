@@ -12,7 +12,7 @@ from koan.application.agent_scanner.scanner import (
     ProgressEventType,
 )
 from koan.application.attacks.library import AttackLibrary
-from koan.domain.entities.phase import ScanPhase
+from koan.domain.entities.phase import CoverageLevel, ScanPhase
 
 if TYPE_CHECKING:
     from tests.conftest import MockAgentAdapter
@@ -77,6 +77,7 @@ class TestAgentScanner:
         """Vulnerable adapter should produce vulnerability findings."""
         result = await vulnerable_scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.COMPREHENSIVE,
         )
         # The vulnerable adapter returns responses matching success indicators
         assert result.total_vulnerabilities > 0
@@ -92,6 +93,7 @@ class TestAgentScanner:
     async def test_graph_populated_during_campaign(self, vulnerable_scanner: AgentScanner) -> None:
         await vulnerable_scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.COMPREHENSIVE,
         )
         # Graph should have nodes from capability discovery + vulnerabilities
         assert vulnerable_scanner.graph.node_count > 0
@@ -105,6 +107,7 @@ class TestAgentScanner:
                 ScanPhase.EXFILTRATION,
             ],
             stop_on_critical=True,
+            coverage=CoverageLevel.COMPREHENSIVE,
         )
         # May stop before all phases if a critical vulnerability is found
         assert len(result.phases_executed) >= 1

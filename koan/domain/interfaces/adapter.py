@@ -30,6 +30,9 @@ class AgentResponse(BaseModel):
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="Framework-specific metadata"
     )
+    prompt_tokens: int = Field(default=0, ge=0, description="Prompt tokens consumed")
+    completion_tokens: int = Field(default=0, ge=0, description="Completion tokens consumed")
+    total_tokens: int = Field(default=0, ge=0, description="Total tokens consumed")
 
 
 class AgentState(BaseModel):

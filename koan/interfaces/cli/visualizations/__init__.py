@@ -118,8 +118,8 @@ class GraphVisualizer:
             self._figure = fig
             return fig
 
-        # Compute layout
-        pos = nx.spring_layout(nx_graph, seed=42, k=2.0)
+        # Compute hierarchical layout grouped by phase
+        pos = _hierarchical_phase_layout(nx_graph)
 
         # Build dangerous-chain edge set for highlighting
         chain_edges: set[tuple[str, str]] = set()
@@ -294,3 +294,86 @@ _RISK_RANK: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 def _risk_rank(level: str) -> int:
     return _RISK_RANK.get(level, 99)
+
+
+# ── Phase ordering for hierarchical layout ─────────────────────────────
+
+_PHASE_ORDER: list[str] = [
+    "reconnaissance",
+    "trust_building",
+    "capability_mapping",
+    "vulnerability_discovery",
+    "exploitation_setup",
+    "execution",
+    "persistence",
+    "exfiltration",
+]
+
+
+def _hierarchical_phase_layout(
+    graph: nx.MultiDiGraph,
+) -> dict[str, tuple[float, float]]:
+    """Compute a left-to-right hierarchical layout grouped by phase.
+
+    Nodes discovered in a phase are placed in the same vertical band.
+    Within each band, nodes are stacked vertically by type so that the
+    layout "tells a story" from reconnaissance → exfiltration.
+
+    Nodes without a ``discovered_in`` edge to a phase node fall back to
+    a spring-layout column on the far left (capabilities / tools).
+    """
+    # Map node → earliest phase via DISCOVERED_IN or EXECUTED_IN edges
+    node_phase: dict[str, str] = {}
+    for _u, v, data in graph.edges(data=True):
+        edge_type = data.get("edge_type", "")
+        if edge_type in ("discovered_in", "executed_in"):
+            target_data = graph.nodes.get(v, {})
+            if target_data.get("node_type") == "phase":
+                phase_name = target_data.get("name", v)
+                if _u not in node_phase:
+                    node_phase[_u] = phase_name
+
+    # Also assign phase nodes themselves
+    for n, d in graph.nodes(data=True):
+        if d.get("node_type") == "phase":
+            node_phase[n] = d.get("name", n)
+
+    # Build columns: index → list of nodes
+    phase_to_col: dict[str, int] = {p: i + 1 for i, p in enumerate(_PHASE_ORDER)}
+
+    columns: dict[int, list[str]] = {0: []}  # col 0 = unassigned
+    for col_idx in phase_to_col.values():
+        columns[col_idx] = []
+
+    for n in graph.nodes():
+        phase = node_phase.get(n)
+        col = phase_to_col.get(phase, 0) if phase else 0
+        columns[col].append(n)
+
+    # Sort nodes within each column by type for readability
+    _type_order = {"phase": 0, "capability": 1, "tool": 2, "vulnerability": 3, "data_source": 4}
+
+    pos: dict[str, tuple[float, float]] = {}
+    max_col = max(columns.keys()) if columns else 0
+    x_spacing = 2.0
+
+    for col_idx, nodes in columns.items():
+        if not nodes:
+            continue
+        nodes.sort(key=lambda n: _type_order.get(graph.nodes[n].get("node_type", ""), 5))
+        y_spacing = 1.2
+        y_start = -(len(nodes) - 1) * y_spacing / 2
+        x = col_idx * x_spacing
+        for i, n in enumerate(nodes):
+            pos[n] = (x, y_start + i * y_spacing)
+
+    # Fall back to spring layout for anything missed
+    missing = [n for n in graph.nodes() if n not in pos]
+    if missing:
+        sub = graph.subgraph(missing)
+        spring = nx.spring_layout(sub, seed=42, k=1.5)
+        x_offset = (max_col + 1) * x_spacing
+        for n, (sx, sy) in spring.items():
+            pos[n] = (sx + x_offset, sy)
+
+    return pos

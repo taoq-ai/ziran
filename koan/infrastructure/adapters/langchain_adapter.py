@@ -96,7 +96,8 @@ class LangChainAdapter(BaseAgentAdapter):
         """Send a message to the LangChain agent.
 
         Uses ``ainvoke`` for async execution and extracts tool calls
-        from intermediate steps.
+        from intermediate steps.  Captures token usage via LangChain's
+        ``get_openai_callback`` when available.
 
         Args:
             message: The message/prompt to send.
@@ -105,7 +106,20 @@ class LangChainAdapter(BaseAgentAdapter):
         Returns:
             Standardized agent response.
         """
-        result = await self.agent.ainvoke({"input": message, **kwargs})
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
+
+        # Try to capture token usage via LangChain callback
+        cb_ctx = _get_token_callback()
+        if cb_ctx is not None:
+            async with cb_ctx as cb:
+                result = await self.agent.ainvoke({"input": message, **kwargs})
+                prompt_tokens = cb.prompt_tokens
+                completion_tokens = cb.completion_tokens
+                total_tokens = cb.total_tokens
+        else:
+            result = await self.agent.ainvoke({"input": message, **kwargs})
 
         # Extract tool calls from intermediate_steps
         tool_calls: list[dict[str, Any]] = []
@@ -140,6 +154,9 @@ class LangChainAdapter(BaseAgentAdapter):
                 "model": getattr(self.agent, "llm", {}),
                 "hit_iteration_limit": hit_limit,
             },
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
         )
 
     async def discover_capabilities(self) -> list[AgentCapability]:
@@ -245,6 +262,22 @@ def _is_dangerous_tool(tool_name: str) -> bool:
     """
     name_lower = tool_name.lower()
     return any(keyword in name_lower for keyword in _DANGEROUS_KEYWORDS)
+
+
+def _get_token_callback() -> Any:
+    """Return a LangChain ``get_openai_callback`` async context manager, or *None*.
+
+    This keeps ``langchain_community`` an optional import — if the
+    callback helper is unavailable we gracefully skip token tracking.
+    """
+    try:
+        from langchain_community.callbacks.manager import (
+            get_openai_callback,
+        )
+
+        return get_openai_callback()
+    except Exception:
+        return None
 
 
 # Sentinel strings emitted by LangChain's AgentExecutor when the
