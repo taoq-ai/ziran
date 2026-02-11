@@ -5,7 +5,7 @@ This guide covers how to scan agents across different frameworks.
 ## LangChain Agents
 
 ```bash
-koan scan --framework langchain --agent-path my_agent.py
+ziran scan --framework langchain --agent-path my_agent.py
 ```
 
 Your agent file should export an `agent_executor` object:
@@ -20,7 +20,7 @@ agent_executor = AgentExecutor(agent=agent, tools=tools)
 ## CrewAI Agents
 
 ```bash
-koan scan --framework crewai --agent-path my_crew.py
+ziran scan --framework crewai --agent-path my_crew.py
 ```
 
 Your file should export a `crew` object:
@@ -37,7 +37,7 @@ crew = Crew(agents=[...], tasks=[...])
 Implement `BaseAgentAdapter` for any framework:
 
 ```python
-from koan.domain.interfaces.adapter import BaseAgentAdapter, AgentResponse
+from ziran.domain.interfaces.adapter import BaseAgentAdapter, AgentResponse
 
 class MyAdapter(BaseAgentAdapter):
     async def invoke(self, message: str, **kwargs) -> AgentResponse:
@@ -61,7 +61,7 @@ result = await scanner.run_campaign()
 
 ```bash
 # Run specific phases only
-koan scan --framework langchain --agent-path agent.py \
+ziran scan --framework langchain --agent-path agent.py \
   --phases reconnaissance trust_building vulnerability_discovery
 ```
 
@@ -69,20 +69,20 @@ koan scan --framework langchain --agent-path agent.py \
 
 ```bash
 # Stop campaign when a critical vulnerability is found (default)
-koan scan --framework langchain --agent-path agent.py --stop-on-critical
+ziran scan --framework langchain --agent-path agent.py --stop-on-critical
 
 # Continue even after critical findings
-koan scan --framework langchain --agent-path agent.py --no-stop-on-critical
+ziran scan --framework langchain --agent-path agent.py --no-stop-on-critical
 ```
 
 ### Custom Attack Vectors
 
 ```bash
-koan scan --framework langchain --agent-path agent.py --custom-attacks ./my_attacks/
+ziran scan --framework langchain --agent-path agent.py --custom-attacks ./my_attacks/
 ```
 
 ### Output Directory
 
 ```bash
-koan scan --framework langchain --agent-path agent.py --output ./my_results/
+ziran scan --framework langchain --agent-path agent.py --output ./my_results/
 ```

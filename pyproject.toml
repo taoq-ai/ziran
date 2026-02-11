@@ -1,5 +1,5 @@
 [project]
-name = "koan"
+name = "ziran"
 dynamic = ["version"]
 description = "AI Agent Security Testing Framework — multi-phase scan campaigns with knowledge graph tracking"
 readme = "README.md"
@@ -41,17 +41,17 @@ crewai = [
     "crewai>=0.30,<1",
 ]
 all = [
-    "koan[langchain,crewai]",
+    "ziran[langchain,crewai]",
 ]
 
 [project.scripts]
-koan = "koan.interfaces.cli.main:cli"
+ziran = "ziran.interfaces.cli.main:cli"
 
 [project.urls]
-Homepage = "https://github.com/taoq-ai/koan"
-Documentation = "https://github.com/taoq-ai/koan#readme"
-Repository = "https://github.com/taoq-ai/koan"
-Issues = "https://github.com/taoq-ai/koan/issues"
+Homepage = "https://github.com/taoq-ai/ziran"
+Documentation = "https://github.com/taoq-ai/ziran#readme"
+Repository = "https://github.com/taoq-ai/ziran"
+Issues = "https://github.com/taoq-ai/ziran/issues"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -61,7 +61,7 @@ build-backend = "hatchling.build"
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "koan/_version.py"
+version-file = "ziran/_version.py"
 
 [dependency-groups]
 dev = [
@@ -113,7 +113,7 @@ ignore = ["E501"]
 "examples/*.py" = ["E402"]  # imports after load_dotenv() is intentional
 
 [tool.ruff.lint.isort]
-known-first-party = ["koan"]
+known-first-party = ["ziran"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -143,14 +143,14 @@ markers = [
 addopts = "--strict-markers -v"
 
 [tool.coverage.run]
-source = ["koan"]
+source = ["ziran"]
 omit = [
-    "koan/infrastructure/adapters/langchain_adapter.py",
-    "koan/infrastructure/adapters/crewai_adapter.py",
-    "koan/infrastructure/adapters/bedrock_adapter.py",
-    "koan/interfaces/cli/main.py",
-    "koan/interfaces/cli/reports.py",
-    "koan/infrastructure/logging/logger.py",
+    "ziran/infrastructure/adapters/langchain_adapter.py",
+    "ziran/infrastructure/adapters/crewai_adapter.py",
+    "ziran/infrastructure/adapters/bedrock_adapter.py",
+    "ziran/interfaces/cli/main.py",
+    "ziran/interfaces/cli/reports.py",
+    "ziran/infrastructure/logging/logger.py",
 ]
 
 [tool.coverage.report]

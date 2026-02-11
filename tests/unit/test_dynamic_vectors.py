@@ -6,19 +6,19 @@ from pathlib import Path
 
 import pytest
 
-from koan.application.dynamic_vectors.config import (
+from ziran.application.dynamic_vectors.config import (
     DynamicVectorConfig,
     PromptTemplate,
     ToolPatternEntry,
     UniversalProbeConfig,
 )
-from koan.application.dynamic_vectors.generator import (
+from ziran.application.dynamic_vectors.generator import (
     DynamicVectorGenerator,
     _is_data_reader,
     _is_data_sender,
 )
-from koan.domain.entities.attack import AttackCategory
-from koan.domain.entities.capability import AgentCapability, CapabilityType
+from ziran.domain.entities.attack import AttackCategory
+from ziran.domain.entities.capability import AgentCapability, CapabilityType
 
 # ──────────────────────────────────────────────────────────────────────
 # Fixtures

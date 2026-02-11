@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from koan.application.static_analysis.analyzer import (
+from ziran.application.static_analysis.analyzer import (
     AnalysisReport,
     StaticAnalyzer,
     StaticFinding,
 )
-from koan.application.static_analysis.config import (
+from ziran.application.static_analysis.config import (
     CheckDefinition,
     DangerousToolCheck,
     PatternRule,

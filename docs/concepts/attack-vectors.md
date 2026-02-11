@@ -1,6 +1,6 @@
 # Attack Vectors
 
-KOAN ships with 21+ YAML-defined attack vectors across 8 categories.
+ZIRAN ships with 21+ YAML-defined attack vectors across 8 categories.
 
 ## Categories
 
@@ -58,8 +58,8 @@ vectors:
 
 ## Adding Custom Vectors
 
-Drop YAML files in any directory and point KOAN at them:
+Drop YAML files in any directory and point ZIRAN at them:
 
 ```bash
-koan scan --framework langchain --agent-path agent.py --custom-attacks ./my_vectors/
+ziran scan --framework langchain --agent-path agent.py --custom-attacks ./my_vectors/
 ```

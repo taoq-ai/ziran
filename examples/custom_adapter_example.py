@@ -1,7 +1,7 @@
-"""Example: Implementing a custom agent adapter for KOAN.
+"""Example: Implementing a custom agent adapter for ZIRAN.
 
 Demonstrates how to create a ``BaseAgentAdapter`` implementation so
-KOAN can scan any agent framework — not just LangChain or CrewAI.
+ZIRAN can scan any agent framework — not just LangChain or CrewAI.
 This example builds a minimal "echo bot" adapter and shows how the
 scanner would interact with it.  No API keys required.
 
@@ -25,8 +25,8 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-from koan.domain.entities.capability import AgentCapability, CapabilityType
-from koan.domain.interfaces.adapter import (
+from ziran.domain.entities.capability import AgentCapability, CapabilityType
+from ziran.domain.interfaces.adapter import (
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
@@ -42,7 +42,7 @@ class EchoBotAdapter(BaseAgentAdapter):
     """Adapter for a hypothetical "EchoBot" agent.
 
     This is the minimal scaffolding you need to integrate any custom
-    agent with KOAN.  Replace the stub logic with real calls to your
+    agent with ZIRAN.  Replace the stub logic with real calls to your
     agent framework.
     """
 

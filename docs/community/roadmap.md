@@ -29,6 +29,6 @@
 ## How to Influence the Roadmap
 
 - **Vote on issues** — 👍 issues that matter to you
-- **Open feature requests** — [Feature request template](https://github.com/taoq-ai/koan/issues/new?template=feature_request.md)
+- **Open feature requests** — [Feature request template](https://github.com/taoq-ai/ziran/issues/new?template=feature_request.md)
 - **Contribute code** — PRs for roadmap items are very welcome
-- **Share feedback** — [Discussions](https://github.com/taoq-ai/koan/discussions)
+- **Share feedback** — [Discussions](https://github.com/taoq-ai/ziran/discussions)

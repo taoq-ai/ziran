@@ -39,7 +39,7 @@ vectors:
 ## Using Custom Vectors
 
 ```bash
-koan scan --framework langchain --agent-path agent.py --custom-attacks ./my_attacks/
+ziran scan --framework langchain --agent-path agent.py --custom-attacks ./my_attacks/
 ```
 
-KOAN will load all `.yaml` and `.yml` files in the directory.
+ZIRAN will load all `.yaml` and `.yml` files in the directory.

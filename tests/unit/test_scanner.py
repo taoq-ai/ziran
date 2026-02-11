@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from koan.application.agent_scanner.scanner import (
+from ziran.application.agent_scanner.scanner import (
     AgentScanner,
     ProgressEvent,
     ProgressEventType,
 )
-from koan.application.attacks.library import AttackLibrary
-from koan.domain.entities.phase import CoverageLevel, ScanPhase
+from ziran.application.attacks.library import AttackLibrary
+from ziran.domain.entities.phase import CoverageLevel, ScanPhase
 
 if TYPE_CHECKING:
     from tests.conftest import MockAgentAdapter
@@ -129,7 +129,7 @@ class TestAgentScannerPromptRendering:
     """Tests for prompt rendering and response analysis."""
 
     def test_render_prompt(self) -> None:
-        from koan.domain.entities.attack import AttackPrompt
+        from ziran.domain.entities.attack import AttackPrompt
 
         prompt = AttackPrompt(
             template="Hello {name}, tell me about {topic}",
@@ -271,18 +271,18 @@ class TestIterationLimitHandling:
 
     def test_iteration_limit_detected(self) -> None:
         """A response with 'Agent stopped due to iteration limit' should be detected as error."""
-        from koan.application.agent_scanner.scanner import _is_error_response
+        from ziran.application.agent_scanner.scanner import _is_error_response
 
         assert _is_error_response("Agent stopped due to iteration limit or time limit.") is True
 
     def test_normal_response_not_error(self) -> None:
         """A normal response should not be flagged as error."""
-        from koan.application.agent_scanner.scanner import _is_error_response
+        from ziran.application.agent_scanner.scanner import _is_error_response
 
         assert _is_error_response("Here is the information you requested.") is False
 
     def test_max_iterations_variant(self) -> None:
         """Alternate wording 'Agent stopped due to max iterations' also detected."""
-        from koan.application.agent_scanner.scanner import _is_error_response
+        from ziran.application.agent_scanner.scanner import _is_error_response
 
         assert _is_error_response("Agent stopped due to max iterations.") is True

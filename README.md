@@ -1,21 +1,21 @@
-# KOAN 🧘 — AI Agent Security Testing
+# ZIRAN 🧘 — AI Agent Security Testing
 
-[![CI](https://github.com/taoq-ai/koan/actions/workflows/test.yml/badge.svg)](https://github.com/taoq-ai/koan/actions/workflows/test.yml)
-[![Lint](https://github.com/taoq-ai/koan/actions/workflows/lint.yml/badge.svg)](https://github.com/taoq-ai/koan/actions/workflows/lint.yml)
+[![CI](https://github.com/taoq-ai/ziran/actions/workflows/test.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/test.yml)
+[![Lint](https://github.com/taoq-ai/ziran/actions/workflows/lint.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/lint.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
 > **Test AI agents for vulnerabilities using Romance Scan methodology and knowledge graphs.**
 
-KOAN systematically discovers security weaknesses in AI agents — not just LLMs, but **agents with tools, memory, and multi-step reasoning**.
+ZIRAN systematically discovers security weaknesses in AI agents — not just LLMs, but **agents with tools, memory, and multi-step reasoning**.
 
 ---
 
-## 🎯 What Makes KOAN Different
+## 🎯 What Makes ZIRAN Different
 
-Unlike traditional LLM testing tools (PyRIT, Garak), KOAN is built for **AI agents**:
+Unlike traditional LLM testing tools (PyRIT, Garak), ZIRAN is built for **AI agents**:
 
-| | KOAN | PyRIT | Garak | Snyk Evo |
+| | ZIRAN | PyRIT | Garak | Snyk Evo |
 |---|:---:|:---:|:---:|:---:|
 | **Tool Chain Analysis** | ✅ | ❌ | ❌ | ❌ |
 | **Multi-phase campaigns** | ✅ | Partial | ❌ | ❌ |
@@ -40,7 +40,7 @@ Unlike traditional LLM testing tools (PyRIT, Garak), KOAN is built for **AI agen
 ```bash
 # Install with uv (recommended)
 pip install uv
-git clone https://github.com/taoq-ai/koan.git && cd koan
+git clone https://github.com/taoq-ai/ziran.git && cd ziran
 uv sync
 
 # Or with a specific framework adapter
@@ -53,7 +53,7 @@ uv sync --extra all          # everything
 
 ```bash
 # Scan a LangChain agent
-koan scan --framework langchain --agent-path my_agent.py
+ziran scan --framework langchain --agent-path my_agent.py
 
 # View the interactive HTML report
 open reports/campaign_*_report.html
@@ -63,9 +63,9 @@ open reports/campaign_*_report.html
 
 ```python
 import asyncio
-from koan.application.agent_scanner.scanner import AgentScanner
-from koan.application.attacks.library import AttackLibrary
-from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter
+from ziran.application.agent_scanner.scanner import AgentScanner
+from ziran.application.attacks.library import AttackLibrary
+from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
 
 adapter = LangChainAdapter(agent_executor=your_agent)
 scanner = AgentScanner(adapter=adapter, attack_library=AttackLibrary())
@@ -81,7 +81,7 @@ See [examples/](examples/) for full working examples.
 
 ---
 
-## 🔍 What KOAN Finds
+## 🔍 What ZIRAN Finds
 
 ### Prompt-Level Vulnerabilities
 - **Prompt Injection** — Direct and indirect instruction override
@@ -95,9 +95,9 @@ See [examples/](examples/) for full working examples.
 - **Privilege Escalation Paths** — `search_db` → `update_permissions`
 - **SQL to RCE** — `sql_query` → `execute_code`
 
-### Dangerous Tool Chains (Unique to KOAN)
+### Dangerous Tool Chains (Unique to ZIRAN)
 
-KOAN automatically analyzes your agent's tool graph to find dangerous combinations:
+ZIRAN automatically analyzes your agent's tool graph to find dangerous combinations:
 
 ```
 ⛓️  Dangerous Tool Chains:
@@ -115,7 +115,7 @@ KOAN automatically analyzes your agent's tool graph to find dangerous combinatio
 
 ## 🧪 Romance Scan Methodology
 
-KOAN's multi-phase campaign mirrors real-world social engineering:
+ZIRAN's multi-phase campaign mirrors real-world social engineering:
 
 | # | Phase | Goal |
 |---|-------|------|
@@ -134,7 +134,7 @@ Each phase builds on knowledge from previous phases, tracked via a **live knowle
 
 ## 📊 Reports
 
-KOAN generates three report formats:
+ZIRAN generates three report formats:
 
 - **Interactive HTML** — Knowledge graph visualization with clickable nodes, attack path highlighting, and dangerous chain callouts
 - **Markdown** — Clean summary with tables for CI/CD integration
@@ -144,10 +144,10 @@ KOAN generates three report formats:
 
 ## ⚙️ How It Works
 
-KOAN treats agent security testing as a **stateful, multi-phase campaign** — not a one-shot prompt check. Here's the pipeline:
+ZIRAN treats agent security testing as a **stateful, multi-phase campaign** — not a one-shot prompt check. Here's the pipeline:
 
 ```text
-Your Agent                    KOAN
+Your Agent                    ZIRAN
 ─────────                    ────
                     ┌──────────────────────────┐
  ┌───────────┐     │ 1. DISCOVER              │
@@ -183,7 +183,7 @@ Your Agent                    KOAN
 
 ### Step by step
 
-**1. Discover capabilities via the adapter layer.** You provide a thin `BaseAgentAdapter` (≈4 methods). KOAN calls `discover_capabilities()` and sends reconnaissance prompts through `invoke()`. The adapter abstracts the framework — LangChain, CrewAI, MCP, or your own — so KOAN never talks to a specific SDK directly.
+**1. Discover capabilities via the adapter layer.** You provide a thin `BaseAgentAdapter` (≈4 methods). ZIRAN calls `discover_capabilities()` and sends reconnaissance prompts through `invoke()`. The adapter abstracts the framework — LangChain, CrewAI, MCP, or your own — so ZIRAN never talks to a specific SDK directly.
 
 **2. Build the knowledge graph.** Every tool, data source, permission, and agent state becomes a node in a directed multigraph (`nx.MultiDiGraph`). Edges encode relationships: `uses_tool`, `accesses_data`, `can_chain_to`, `enables`. This graph accumulates state across all phases — later phases see everything earlier phases discovered.
 
@@ -197,7 +197,7 @@ Your Agent                    KOAN
 
 Pattern matching is substring-based so `tool_read_file` still matches the `read_file` pattern. Each chain gets a 0–1 risk score that factors in base severity, chain topology, and graph centrality of the involved nodes.
 
-**4. Execute attack campaigns.** The `AgentScanner` orchestrates multi-phase attacks. It pulls YAML-defined attack vectors from the `AttackLibrary`, renders prompt templates with context from the knowledge graph, sends them through the adapter, and evaluates responses using pluggable detectors. The Romance Scan methodology means KOAN builds trust first (like a real attacker) before testing boundaries — earlier phases produce low-suspicion probes; later phases attempt actual exploitation.
+**4. Execute attack campaigns.** The `AgentScanner` orchestrates multi-phase attacks. It pulls YAML-defined attack vectors from the `AttackLibrary`, renders prompt templates with context from the knowledge graph, sends them through the adapter, and evaluates responses using pluggable detectors. The Romance Scan methodology means ZIRAN builds trust first (like a real attacker) before testing boundaries — earlier phases produce low-suspicion probes; later phases attempt actual exploitation.
 
 **5. Score and report.** Results are aggregated into a `CampaignResult`: vulnerability counts, trust score trajectory, dangerous chain list, and per-phase breakdowns. Reports are emitted as interactive HTML (with graph visualization), Markdown (for CI/CD), and JSON (for programmatic consumption). Every finding includes the full attack path, evidence, and remediation guidance.
 
@@ -205,10 +205,10 @@ Pattern matching is substring-based so `tool_read_file` still matches the `read_
 
 ## 🛡️ Skill CVE Database
 
-KOAN ships with a curated database of **15 known vulnerabilities** in popular agent tools:
+ZIRAN ships with a curated database of **15 known vulnerabilities** in popular agent tools:
 
 ```python
-from koan.application.skill_cve import SkillCVEDatabase
+from ziran.application.skill_cve import SkillCVEDatabase
 
 db = SkillCVEDatabase()
 matches = db.check_agent(discovered_capabilities)
@@ -216,7 +216,7 @@ for cve in matches:
     print(f"{cve.cve_id}: {cve.skill_name} ({cve.severity})")
 ```
 
-Found a vulnerability? [Submit a Skill CVE](https://github.com/taoq-ai/koan/issues/new?template=skill_cve.md).
+Found a vulnerability? [Submit a Skill CVE](https://github.com/taoq-ai/ziran/issues/new?template=skill_cve.md).
 
 ---
 
@@ -226,13 +226,13 @@ Found a vulnerability? [Submit a Skill CVE](https://github.com/taoq-ai/koan/issu
 
 ```bash
 # List all vectors
-koan library --list
+ziran library --list
 
 # Filter by category
-koan library --category prompt_injection
+ziran library --category prompt_injection
 
 # Filter by phase
-koan library --phase reconnaissance
+ziran library --phase reconnaissance
 ```
 
 ### Custom Attack Vectors
@@ -253,7 +253,7 @@ vectors:
 ```
 
 ```bash
-koan scan --framework langchain --agent-path my_agent.py --custom-attacks my_attacks/
+ziran scan --framework langchain --agent-path my_agent.py --custom-attacks my_attacks/
 ```
 
 ---
@@ -263,8 +263,8 @@ koan scan --framework langchain --agent-path my_agent.py --custom-attacks my_att
 Test any AI agent by implementing the `BaseAgentAdapter` interface:
 
 ```python
-from koan.domain.interfaces.adapter import BaseAgentAdapter, AgentResponse
-from koan.domain.entities.capability import AgentCapability
+from ziran.domain.interfaces.adapter import BaseAgentAdapter, AgentResponse
+from ziran.domain.entities.capability import AgentCapability
 
 class MyAdapter(BaseAgentAdapter):
     async def invoke(self, message: str, **kwargs) -> AgentResponse:
@@ -291,13 +291,13 @@ uv run ruff check .
 uv run ruff format .
 
 # Type-check
-uv run mypy koan/
+uv run mypy ziran/
 
 # Run tests
 uv run pytest
 
 # Run tests with coverage
-uv run pytest --cov=koan --cov-report=term-missing
+uv run pytest --cov=ziran --cov-report=term-missing
 ```
 
 ---
@@ -307,10 +307,10 @@ uv run pytest --cov=koan --cov-report=term-missing
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 Ways to contribute:
-- 🐛 **Report bugs** — [Open an issue](https://github.com/taoq-ai/koan/issues/new?template=bug_report.md)
-- 💡 **Request features** — [Feature request](https://github.com/taoq-ai/koan/issues/new?template=feature_request.md)
-- 🛡️ **Submit Skill CVEs** — [Report a tool vulnerability](https://github.com/taoq-ai/koan/issues/new?template=skill_cve.md)
-- ⚔️ **Add attack vectors** — Drop YAML files into `koan/application/attacks/vectors/`
+- 🐛 **Report bugs** — [Open an issue](https://github.com/taoq-ai/ziran/issues/new?template=bug_report.md)
+- 💡 **Request features** — [Feature request](https://github.com/taoq-ai/ziran/issues/new?template=feature_request.md)
+- 🛡️ **Submit Skill CVEs** — [Report a tool vulnerability](https://github.com/taoq-ai/ziran/issues/new?template=skill_cve.md)
+- ⚔️ **Add attack vectors** — Drop YAML files into `ziran/application/attacks/vectors/`
 - 🔌 **Build adapters** — Add support for new agent frameworks
 
 ---

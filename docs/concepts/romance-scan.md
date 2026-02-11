@@ -1,6 +1,6 @@
 # Romance Scan Methodology
 
-KOAN's Romance Scan is a **multi-phase trust exploitation campaign** inspired by social engineering methodologies. Instead of throwing attacks at an agent randomly, KOAN builds trust incrementally — exactly like a real attacker would.
+ZIRAN's Romance Scan is a **multi-phase trust exploitation campaign** inspired by social engineering methodologies. Instead of throwing attacks at an agent randomly, ZIRAN builds trust incrementally — exactly like a real attacker would.
 
 ## Why Multi-Phase?
 
@@ -45,4 +45,4 @@ Each phase updates the **attack knowledge graph** — a directed graph that trac
 - **Nodes**: Agent capabilities, tools, data sources, vulnerabilities
 - **Edges**: Relationships (uses_tool, accesses_data, enables, can_chain_to)
 
-The graph enables KOAN to discover attack paths that span multiple phases and tool invocations.
+The graph enables ZIRAN to discover attack paths that span multiple phases and tool invocations.

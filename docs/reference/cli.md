@@ -2,12 +2,12 @@
 
 ## Commands
 
-### `koan scan`
+### `ziran scan`
 
 Run a security scan campaign against an AI agent.
 
 ```
-koan scan [OPTIONS]
+ziran scan [OPTIONS]
 ```
 
 | Option | Required | Description |
@@ -15,24 +15,24 @@ koan scan [OPTIONS]
 | `--framework` | Yes | Agent framework: `langchain`, `crewai`, `bedrock` |
 | `--agent-path` | Yes | Path to agent code/config file |
 | `--phases` | No | Specific phases to run (default: all core phases) |
-| `--output`, `-o` | No | Output directory (default: `koan_results`) |
+| `--output`, `-o` | No | Output directory (default: `ziran_results`) |
 | `--custom-attacks` | No | Directory with custom YAML attack vectors |
 | `--stop-on-critical` | No | Stop if critical vulnerability found (default: true) |
 
-### `koan discover`
+### `ziran discover`
 
 Discover agent capabilities without running attacks.
 
 ```
-koan discover --framework FRAMEWORK AGENT_PATH
+ziran discover --framework FRAMEWORK AGENT_PATH
 ```
 
-### `koan library`
+### `ziran library`
 
 Browse the attack vector library.
 
 ```
-koan library [OPTIONS]
+ziran library [OPTIONS]
 ```
 
 | Option | Description |
@@ -42,12 +42,12 @@ koan library [OPTIONS]
 | `--phase` | Filter by target phase |
 | `--custom-attacks` | Include custom YAML vectors |
 
-### `koan report`
+### `ziran report`
 
 Regenerate a report from a saved campaign result.
 
 ```
-koan report RESULT_FILE [OPTIONS]
+ziran report RESULT_FILE [OPTIONS]
 ```
 
 | Option | Description |

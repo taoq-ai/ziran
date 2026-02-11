@@ -1,6 +1,6 @@
-# Contributing to KOAN
+# Contributing to ZIRAN
 
-Thank you for your interest in contributing to KOAN! This guide will help you get started.
+Thank you for your interest in contributing to ZIRAN! This guide will help you get started.
 
 ## Getting Started
 
@@ -12,8 +12,8 @@ Thank you for your interest in contributing to KOAN! This guide will help you ge
 ### Setup
 
 ```bash
-git clone https://github.com/taoq-ai/koan.git
-cd koan
+git clone https://github.com/taoq-ai/ziran.git
+cd ziran
 uv sync --group dev
 ```
 
@@ -21,7 +21,7 @@ uv sync --group dev
 
 ```bash
 uv run pytest                                    # Run all tests
-uv run pytest --cov=koan --cov-report=term       # With coverage
+uv run pytest --cov=ziran --cov-report=term       # With coverage
 uv run pytest tests/unit/                        # Unit tests only
 uv run pytest -k "test_chain"                    # Run specific tests
 ```
@@ -31,27 +31,27 @@ uv run pytest -k "test_chain"                    # Run specific tests
 ```bash
 uv run ruff check .        # Lint
 uv run ruff format .       # Format
-uv run mypy koan/          # Type check
+uv run mypy ziran/          # Type check
 ```
 
 ## Ways to Contribute
 
 ### 🐛 Bug Reports
 
-Found a bug? [Open an issue](https://github.com/taoq-ai/koan/issues/new?template=bug_report.md) with:
+Found a bug? [Open an issue](https://github.com/taoq-ai/ziran/issues/new?template=bug_report.md) with:
 - Steps to reproduce
 - Expected vs actual behaviour
 - Environment details
 
 ### 💡 Feature Requests
 
-Have an idea? [Open a feature request](https://github.com/taoq-ai/koan/issues/new?template=feature_request.md).
+Have an idea? [Open a feature request](https://github.com/taoq-ai/ziran/issues/new?template=feature_request.md).
 
 ### ⚔️ Attack Vectors
 
 Add new attack vectors by creating YAML files:
 
-1. Create a file in `koan/application/attacks/vectors/`
+1. Create a file in `ziran/application/attacks/vectors/`
 2. Follow the existing YAML format
 3. Include success/failure indicators
 4. Add tests
@@ -61,7 +61,7 @@ Add new attack vectors by creating YAML files:
 
 Found a vulnerability in an agent tool?
 
-1. [Open a Skill CVE issue](https://github.com/taoq-ai/koan/issues/new?template=skill_cve.md)
+1. [Open a Skill CVE issue](https://github.com/taoq-ai/ziran/issues/new?template=skill_cve.md)
 2. Include tool name, framework, severity, and proof of concept
 3. The team will review, assign a CVE ID, and add it to the database
 
@@ -69,7 +69,7 @@ Found a vulnerability in an agent tool?
 
 Add support for new agent frameworks:
 
-1. Create a new adapter in `koan/infrastructure/adapters/`
+1. Create a new adapter in `ziran/infrastructure/adapters/`
 2. Implement `BaseAgentAdapter`
 3. Add an optional dependency group in `pyproject.toml`
 4. Add tests and documentation
@@ -94,7 +94,7 @@ Add support for new agent frameworks:
    uv run pytest
    uv run ruff check .
    uv run ruff format --check .
-   uv run mypy koan/
+   uv run mypy ziran/
    ```
 5. **Commit** with a clear message
 6. **Push** to your fork
@@ -126,7 +126,7 @@ Be respectful, inclusive, and constructive. We're building something to make AI 
 
 ## Questions?
 
-- Open a [GitHub Discussion](https://github.com/taoq-ai/koan/discussions)
+- Open a [GitHub Discussion](https://github.com/taoq-ai/ziran/discussions)
 - Email: leone@taoq.ai
 
 ---

@@ -1,6 +1,6 @@
 # Skill CVE Database
 
-KOAN maintains a curated database of known security vulnerabilities in popular AI agent tools and skills.
+ZIRAN maintains a curated database of known security vulnerabilities in popular AI agent tools and skills.
 
 ## What is a Skill CVE?
 
@@ -16,7 +16,7 @@ Example: `CVE-AGENT-2026-001` — ShellTool RCE in LangChain
 
 ## Current Database
 
-KOAN ships with 15 seed CVEs covering:
+ZIRAN ships with 15 seed CVEs covering:
 
 - **LangChain** — ShellTool, PythonREPL, SQL tools, file tools, Gmail, search
 - **CrewAI** — ScrapeWebsite, FileRead, CodeInterpreter
@@ -25,7 +25,7 @@ KOAN ships with 15 seed CVEs covering:
 ## Checking Your Agent
 
 ```python
-from koan.application.skill_cve import SkillCVEDatabase
+from ziran.application.skill_cve import SkillCVEDatabase
 
 db = SkillCVEDatabase()
 matches = db.check_agent(discovered_capabilities)
@@ -41,14 +41,14 @@ for cve in matches:
 
 Found a vulnerability in an agent tool? Help the community by submitting it:
 
-1. **Open a GitHub issue** using the [Skill CVE template](https://github.com/taoq-ai/koan/issues/new?template=skill_cve.md)
+1. **Open a GitHub issue** using the [Skill CVE template](https://github.com/taoq-ai/ziran/issues/new?template=skill_cve.md)
 2. Include:
    - Tool/skill name and version
    - Framework (LangChain, CrewAI, etc.)
    - Vulnerability type and severity
    - Description and proof of concept
    - Remediation guidance
-3. The KOAN team will review, assign a CVE ID, and add it to the database
+3. The ZIRAN team will review, assign a CVE ID, and add it to the database
 
 ## Vision
 

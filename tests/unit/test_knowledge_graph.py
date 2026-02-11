@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from koan.application.knowledge_graph.graph import (
+from ziran.application.knowledge_graph.graph import (
     AttackKnowledgeGraph,
     EdgeType,
     NodeType,
 )
-from koan.domain.entities.capability import AgentCapability, CapabilityType
+from ziran.domain.entities.capability import AgentCapability, CapabilityType
 
 
 class TestAttackKnowledgeGraph:

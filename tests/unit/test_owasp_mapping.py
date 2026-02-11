@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from koan.application.attacks.library import AttackLibrary
-from koan.domain.entities.attack import (
+from ziran.application.attacks.library import AttackLibrary
+from ziran.domain.entities.attack import (
     OWASP_LLM_DESCRIPTIONS,
     AttackCategory,
     AttackResult,
     AttackVector,
     OwaspLlmCategory,
 )
-from koan.domain.entities.phase import ScanPhase
+from ziran.domain.entities.phase import ScanPhase
 
 # ──────────────────────────────────────────────────────────────────────
 # OwaspLlmCategory enum

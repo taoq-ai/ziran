@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from koan.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
-from koan.interfaces.cli.html_report import (
+from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
+from ziran.interfaces.cli.html_report import (
     _build_attack_log_html,
     _build_node_tooltip,
     _build_paths_html,
@@ -16,7 +16,7 @@ from koan.interfaces.cli.html_report import (
     build_html_report,
     graph_state_to_vis,
 )
-from koan.interfaces.cli.reports import ReportGenerator
+from ziran.interfaces.cli.reports import ReportGenerator
 
 if TYPE_CHECKING:
     from pathlib import Path

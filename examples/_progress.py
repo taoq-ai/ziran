@@ -1,14 +1,14 @@
-"""Shared Rich progress bar for KOAN example scripts.
+"""Shared Rich progress bar for ZIRAN example scripts.
 
-Provides a ``KoanProgressBar`` context manager that hooks into the
+Provides a ``ZiranProgressBar`` context manager that hooks into the
 scanner's ``on_progress`` callback to display a live progress bar
 with per-attack and per-phase tracking.
 
 Usage::
 
-    from _progress import KoanProgressBar
+    from _progress import ZiranProgressBar
 
-    async with KoanProgressBar() as progress:
+    async with ZiranProgressBar() as progress:
         result = await scanner.run_campaign(
             phases=my_phases,
             on_progress=progress.callback,
@@ -34,11 +34,11 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from koan.application.agent_scanner.scanner import ProgressEvent, ProgressEventType
+from ziran.application.agent_scanner.scanner import ProgressEvent, ProgressEventType
 
 
-class KoanProgressBar:
-    """Rich-based progress bar driven by KOAN scanner progress events.
+class ZiranProgressBar:
+    """Rich-based progress bar driven by ZIRAN scanner progress events.
 
     Displays two nested bars:
     - **Campaign** — overall phase completion
@@ -46,7 +46,7 @@ class KoanProgressBar:
 
     Example::
 
-        async with KoanProgressBar() as pb:
+        async with ZiranProgressBar() as pb:
             result = await scanner.run_campaign(on_progress=pb.callback)
     """
 
@@ -58,7 +58,7 @@ class KoanProgressBar:
 
     # -- async context-manager -------------------------------------------------
 
-    async def __aenter__(self) -> KoanProgressBar:
+    async def __aenter__(self) -> ZiranProgressBar:
         self._progress = Progress(
             SpinnerColumn(),
             TextColumn("[bold blue]{task.description}"),
@@ -146,7 +146,7 @@ def print_summary(result: Any, *, console: Console | None = None) -> None:
     con = console or Console()
 
     table = Table(
-        title=f"[bold]KOAN Scan Results — {result.campaign_id}",
+        title=f"[bold]ZIRAN Scan Results — {result.campaign_id}",
         show_lines=True,
     )
     table.add_column("Metric", style="cyan")

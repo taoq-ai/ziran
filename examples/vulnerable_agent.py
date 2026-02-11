@@ -1,4 +1,4 @@
-"""Example: Deliberately vulnerable agent — showcasing KOAN detections.
+"""Example: Deliberately vulnerable agent — showcasing ZIRAN detections.
 
 A **real** LangChain ReAct agent backed by GPT-4o-mini that is
 intentionally built with common security anti-patterns that developers
@@ -217,18 +217,18 @@ def build_vulnerable_agent() -> AgentExecutor:
 
 
 # ---------------------------------------------------------------------------
-# 4. Run the KOAN scan
+# 4. Run the ZIRAN scan
 # ---------------------------------------------------------------------------
 
 
 async def main() -> None:
-    from _progress import KoanProgressBar, print_summary
+    from _progress import ZiranProgressBar, print_summary
 
-    from koan.application.agent_scanner.scanner import AgentScanner
-    from koan.application.attacks.library import AttackLibrary
-    from koan.domain.entities.phase import ScanPhase
-    from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter
-    from koan.interfaces.cli.reports import ReportGenerator
+    from ziran.application.agent_scanner.scanner import AgentScanner
+    from ziran.application.attacks.library import AttackLibrary
+    from ziran.domain.entities.phase import ScanPhase
+    from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
+    from ziran.interfaces.cli.reports import ReportGenerator
 
     executor = build_vulnerable_agent()
     adapter = LangChainAdapter(agent=executor)
@@ -248,7 +248,7 @@ async def main() -> None:
         ScanPhase.EXECUTION,
     ]
 
-    async with KoanProgressBar() as progress:
+    async with ZiranProgressBar() as progress:
         result = await scanner.run_campaign(
             phases=phases,
             stop_on_critical=False,

@@ -1,16 +1,16 @@
 # Tool Chain Analysis
 
-**Tool Chain Analysis is KOAN's unique differentiator.** No other AI security testing tool automatically detects dangerous tool combinations.
+**Tool Chain Analysis is ZIRAN's unique differentiator.** No other AI security testing tool automatically detects dangerous tool combinations.
 
 ## The Problem
 
 An agent with `read_file` is not inherently dangerous. An agent with `http_request` is not inherently dangerous. But an agent with **both** has a critical data exfiltration vulnerability — an attacker can read local files and send their contents to an external server.
 
-Traditional tools test individual prompts. KOAN reasons about **tool composition**.
+Traditional tools test individual prompts. ZIRAN reasons about **tool composition**.
 
 ## How It Works
 
-After a scan campaign completes, KOAN's `ToolChainAnalyzer` examines the knowledge graph:
+After a scan campaign completes, ZIRAN's `ToolChainAnalyzer` examines the knowledge graph:
 
 1. **Direct chains** — Tool A has a direct edge to Tool B, and (A, B) matches a known dangerous pattern
 2. **Indirect chains** — Tools A and B are connected through intermediate nodes (A → X → B)
@@ -18,7 +18,7 @@ After a scan campaign completes, KOAN's `ToolChainAnalyzer` examines the knowled
 
 ### Dangerous Pattern Database
 
-KOAN ships with 30+ dangerous tool chain patterns:
+ZIRAN ships with 30+ dangerous tool chain patterns:
 
 | Category | Example | Risk |
 |----------|---------|------|
@@ -46,7 +46,7 @@ Each chain receives a 0.0–1.0 risk score based on:
 ### Programmatic
 
 ```python
-from koan.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 
 analyzer = ToolChainAnalyzer(scanner.graph)
 chains = analyzer.analyze()

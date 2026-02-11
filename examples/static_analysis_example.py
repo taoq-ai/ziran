@@ -1,6 +1,6 @@
 """Example: Static security analysis of agent source code.
 
-Demonstrates KOAN's static analyzer — scans Python files for
+Demonstrates ZIRAN's static analyzer — scans Python files for
 security anti-patterns **without executing the agent or calling
 an LLM**.  No API keys required.
 
@@ -24,12 +24,12 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from koan.application.static_analysis.analyzer import (
+from ziran.application.static_analysis.analyzer import (
     AnalysisReport,
     StaticAnalyzer,
     StaticFinding,
 )
-from koan.application.static_analysis.config import (
+from ziran.application.static_analysis.config import (
     CheckDefinition,
     PatternRule,
     StaticAnalysisConfig,

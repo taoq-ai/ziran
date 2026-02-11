@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import pytest
 
-from koan.application.detectors.indicator import IndicatorDetector
-from koan.application.detectors.pipeline import DetectorPipeline
-from koan.application.detectors.refusal import RefusalDetector
-from koan.domain.entities.attack import AttackPrompt
-from koan.domain.interfaces.adapter import AgentResponse
+from ziran.application.detectors.indicator import IndicatorDetector
+from ziran.application.detectors.pipeline import DetectorPipeline
+from ziran.application.detectors.refusal import RefusalDetector
+from ziran.domain.entities.attack import AttackPrompt
+from ziran.domain.interfaces.adapter import AgentResponse
 
 # ──────────────────────────────────────────────────────────────────────
 # Helpers

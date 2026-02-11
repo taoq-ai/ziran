@@ -1,4 +1,4 @@
-"""Example: Scanning a CrewAI crew with KOAN.
+"""Example: Scanning a CrewAI crew with ZIRAN.
 
 A single-agent CrewAI crew with a Security Researcher role.
 Demonstrates the adapter pattern for non-LangChain frameworks.
@@ -39,15 +39,15 @@ def build_crew() -> Crew:
     )
 
 
-# --- 2. Wrap it with KOAN's adapter and run a scan ---------------------
+# --- 2. Wrap it with ZIRAN's adapter and run a scan ---------------------
 
 
 async def main() -> None:
-    from koan.application.agent_scanner.scanner import AgentScanner
-    from koan.application.attacks.library import AttackLibrary
-    from koan.domain.entities.phase import ScanPhase
-    from koan.infrastructure.adapters.crewai_adapter import CrewAIAdapter
-    from koan.interfaces.cli.reports import ReportGenerator
+    from ziran.application.agent_scanner.scanner import AgentScanner
+    from ziran.application.attacks.library import AttackLibrary
+    from ziran.domain.entities.phase import ScanPhase
+    from ziran.infrastructure.adapters.crewai_adapter import CrewAIAdapter
+    from ziran.interfaces.cli.reports import ReportGenerator
 
     # Build the crew & adapter
     crew = build_crew()

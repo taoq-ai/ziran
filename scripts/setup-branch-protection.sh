@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────
-# Configure branch protection rules for the koan repository
+# Configure branch protection rules for the ziran repository
 # using the GitHub CLI (gh).
 #
 # Prerequisites:

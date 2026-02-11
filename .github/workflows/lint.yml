@@ -28,4 +28,4 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Mypy
-        run: uv run mypy koan/
+        run: uv run mypy ziran/

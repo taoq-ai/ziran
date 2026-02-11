@@ -25,7 +25,7 @@ Fixes #
 
 - [ ] Tests pass (`uv run pytest`)
 - [ ] Linters pass (`uv run ruff check .`)
-- [ ] Type checks pass (`uv run mypy koan/`)
+- [ ] Type checks pass (`uv run mypy ziran/`)
 - [ ] Documentation updated (if applicable)
 - [ ] Added tests for new functionality
 
