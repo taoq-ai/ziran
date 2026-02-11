@@ -52,7 +52,7 @@ def generate_sarif(result: CampaignResult) -> dict[str, Any]:
     seen_rule_ids: set[str] = set()
 
     for raw in result.attack_results:
-        ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()  # type: ignore[union-attr]
+        ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
         if not ar.get("successful"):
             continue
 

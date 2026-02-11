@@ -86,9 +86,7 @@ class PoCGenerator:
         # attack_results in CampaignResult are serialized dicts
         successful: list[AttackResult] = []
         for raw in campaign_result.attack_results:
-            ar = (
-                AttackResult.model_validate(raw) if isinstance(raw, dict) else raw  # type: ignore[assignment]
-            )
+            ar = AttackResult.model_validate(raw) if isinstance(raw, dict) else raw
             if ar.successful:
                 successful.append(ar)
 

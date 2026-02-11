@@ -465,7 +465,7 @@ def poc(result_file: str, output: str | None, fmt: str) -> None:
 
     successful: list[_AttackResult] = []
     for raw in result.attack_results:
-        ar = _AttackResult.model_validate(raw) if isinstance(raw, dict) else raw  # type: ignore[arg-type]
+        ar = _AttackResult.model_validate(raw) if isinstance(raw, dict) else raw
         if ar.successful:
             successful.append(ar)
 
@@ -1173,7 +1173,7 @@ def _save_results(
     _successful = [
         _AttackResult.model_validate(r) if isinstance(r, dict) else r
         for r in result.attack_results
-        if (r.get("successful") if isinstance(r, dict) else r.successful)  # type: ignore[union-attr]
+        if (r.get("successful") if isinstance(r, dict) else r.successful)
     ]
     if _successful:
         from ziran.application.poc.generator import PoCGenerator

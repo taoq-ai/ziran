@@ -28,6 +28,7 @@ from ziran.domain.entities.attack import (
     AttackPrompt,
     AttackVector,
     OwaspLlmCategory,
+    Severity,
 )
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.entities.phase import ScanPhase
@@ -102,7 +103,7 @@ class DynamicVectorGenerator:
                 )
                 prompts = _render_prompts(prompt_templates, tool_name=cap.name)
 
-                severity = "critical" if cap.dangerous else "high"
+                severity: Severity = "critical" if cap.dangerous else "high"
                 vectors.append(
                     AttackVector(
                         id=f"dyn_{cap.id}_{category.value}",
@@ -249,7 +250,7 @@ class DynamicVectorGenerator:
                     description=(
                         f"Context-aware probe using knowledge of the agent's tools: {tool_list}."
                     ),
-                    severity=probe_cfg.severity,
+                    severity=probe_cfg.severity,  # type: ignore[arg-type]  # validated at config load
                     prompts=prompts,
                     tags=["dynamic", *probe_cfg.tags],
                     owasp_mapping=[OwaspLlmCategory(o) for o in probe_cfg.owasp],

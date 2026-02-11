@@ -103,14 +103,14 @@ class QualityGate:
 
         # 3. Per-severity threshold checks
         for sev in ("critical", "high", "medium", "low"):
-            threshold = self.config.severity_thresholds.max_for(sev)  # type: ignore[arg-type]
+            threshold = self.config.severity_thresholds.max_for(sev)
             actual = getattr(counts, sev)
             if threshold >= 0 and actual > threshold:
                 violations.append(
                     GateViolation(
                         rule=f"severity_threshold_{sev}",
                         message=(f"Found {actual} {sev} finding(s), max allowed is {threshold}"),
-                        severity=sev,  # type: ignore[arg-type]
+                        severity=sev,
                     )
                 )
 
@@ -148,7 +148,7 @@ class QualityGate:
         counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
 
         for raw in result.attack_results:
-            ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()  # type: ignore[union-attr]
+            ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
             if ar.get("successful"):
                 sev = ar.get("severity", "medium")
                 if sev in counts:

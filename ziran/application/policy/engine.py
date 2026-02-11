@@ -124,7 +124,7 @@ def _parse_attack_results(raw_results: list[Any]) -> list[AttackResult]:
         if isinstance(r, dict):
             out.append(AttackResult.model_validate(r))
         else:
-            out.append(r)  # type: ignore[arg-type]
+            out.append(r)
     return out
 
 
@@ -144,7 +144,7 @@ def _evaluate_rule(
                 message=f"Unknown rule type: {rule.rule_type.value}",
             )
         ]
-    return handler(rule, campaign_result, attack_results)
+    return list(handler(rule, campaign_result, attack_results))
 
 
 # ── Rule handlers ────────────────────────────────────────────────────
@@ -348,7 +348,7 @@ def _check_max_critical_paths(
     return []
 
 
-_RULE_HANDLERS: dict = {
+_RULE_HANDLERS: dict[RuleType, Any] = {
     RuleType.MIN_TRUST_SCORE: _check_min_trust_score,
     RuleType.MAX_CRITICAL_VULNS: _check_max_critical,
     RuleType.MAX_HIGH_VULNS: _check_max_high,

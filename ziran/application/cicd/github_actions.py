@@ -37,7 +37,7 @@ def emit_annotations(
     """
     annotations: list[str] = []
     for raw in result.attack_results:
-        ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()  # type: ignore[union-attr]
+        ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
         if not ar.get("successful"):
             continue
 
@@ -108,9 +108,9 @@ def write_step_summary(
 
     # Successful attacks detail table
     successful = [
-        (r if isinstance(r, dict) else r.model_dump())  # type: ignore[union-attr]
+        (r if isinstance(r, dict) else r.model_dump())
         for r in result.attack_results
-        if (r if isinstance(r, dict) else r.model_dump()).get("successful")  # type: ignore[union-attr]
+        if (r if isinstance(r, dict) else r.model_dump()).get("successful")
     ]
     if successful:
         lines.append("### Vulnerabilities Found")
