@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from koan.application.dynamic_vectors.config import (
+    DynamicVectorConfig,
+    PromptTemplate,
+    ToolPatternEntry,
+    UniversalProbeConfig,
+)
 from koan.application.dynamic_vectors.generator import (
     DynamicVectorGenerator,
     _is_data_reader,
@@ -15,6 +23,11 @@ from koan.domain.entities.capability import AgentCapability, CapabilityType
 # ──────────────────────────────────────────────────────────────────────
 # Fixtures
 # ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def default_config() -> DynamicVectorConfig:
+    return DynamicVectorConfig.default()
 
 
 @pytest.fixture()
@@ -281,18 +294,198 @@ class TestVectorStructure:
 
 
 class TestHelpers:
-    def test_is_data_reader(self, read_file_tool: AgentCapability) -> None:
-        assert _is_data_reader(read_file_tool)
+    def test_is_data_reader(
+        self, read_file_tool: AgentCapability, default_config: DynamicVectorConfig
+    ) -> None:
+        assert _is_data_reader(read_file_tool, default_config)
 
-    def test_is_not_data_reader(self, send_email_tool: AgentCapability) -> None:
-        assert not _is_data_reader(send_email_tool)
+    def test_is_not_data_reader(
+        self, send_email_tool: AgentCapability, default_config: DynamicVectorConfig
+    ) -> None:
+        assert not _is_data_reader(send_email_tool, default_config)
 
-    def test_is_data_sender(self, send_email_tool: AgentCapability) -> None:
-        assert _is_data_sender(send_email_tool)
+    def test_is_data_sender(
+        self, send_email_tool: AgentCapability, default_config: DynamicVectorConfig
+    ) -> None:
+        assert _is_data_sender(send_email_tool, default_config)
 
-    def test_is_not_data_sender(self, read_file_tool: AgentCapability) -> None:
-        assert not _is_data_sender(read_file_tool)
+    def test_is_not_data_sender(
+        self, read_file_tool: AgentCapability, default_config: DynamicVectorConfig
+    ) -> None:
+        assert not _is_data_sender(read_file_tool, default_config)
 
     def test_empty_capabilities(self, generator: DynamicVectorGenerator) -> None:
         vectors = generator.generate([])
         assert vectors == []
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Tests — DynamicVectorConfig
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestDynamicVectorConfig:
+    def test_default_loads(self) -> None:
+        config = DynamicVectorConfig.default()
+        assert len(config.tool_patterns) > 0
+        assert len(config.data_reader_keywords) > 0
+        assert len(config.data_sender_keywords) > 0
+
+    def test_default_has_category_prompts(self) -> None:
+        config = DynamicVectorConfig.default()
+        categories = {cp.category for cp in config.category_prompts}
+        assert "tool_manipulation" in categories
+        assert "data_exfiltration" in categories
+
+    def test_default_has_universal_probes(self) -> None:
+        config = DynamicVectorConfig.default()
+        assert len(config.universal_probes) >= 2
+        probe_ids = {p.id for p in config.universal_probes}
+        assert "dyn_sysextract" in probe_ids
+        assert "dyn_context_pi" in probe_ids
+
+    def test_prompts_for_category(self) -> None:
+        config = DynamicVectorConfig.default()
+        prompts = config.prompts_for_category("tool_manipulation")
+        assert len(prompts) >= 1
+        assert all(isinstance(p, PromptTemplate) for p in prompts)
+
+    def test_prompts_for_unknown_category(self) -> None:
+        config = DynamicVectorConfig.default()
+        assert config.prompts_for_category("nonexistent") == []
+
+    def test_merge_adds_new_patterns(self) -> None:
+        base = DynamicVectorConfig.default()
+        overlay = DynamicVectorConfig(
+            tool_patterns=[
+                ToolPatternEntry(
+                    pattern="my_custom_tool",
+                    category="tool_manipulation",
+                    owasp=["LLM07"],
+                )
+            ]
+        )
+        merged = base.merge(overlay)
+        patterns = {tp.pattern for tp in merged.tool_patterns}
+        assert "my_custom_tool" in patterns
+        # Original patterns still present
+        assert "shell" in patterns
+
+    def test_merge_replaces_existing_pattern(self) -> None:
+        base = DynamicVectorConfig.default()
+        overlay = DynamicVectorConfig(
+            tool_patterns=[
+                ToolPatternEntry(
+                    pattern="shell",
+                    category="data_exfiltration",
+                    owasp=["LLM06"],
+                )
+            ]
+        )
+        merged = base.merge(overlay)
+        shell_entries = [tp for tp in merged.tool_patterns if tp.pattern == "shell"]
+        assert len(shell_entries) == 1
+        assert shell_entries[0].category == "data_exfiltration"
+
+    def test_merge_deduplicates_keywords(self) -> None:
+        base = DynamicVectorConfig.default()
+        overlay = DynamicVectorConfig(data_reader_keywords=["read", "custom_reader"])
+        merged = base.merge(overlay)
+        assert merged.data_reader_keywords.count("read") == 1
+        assert "custom_reader" in merged.data_reader_keywords
+
+    def test_from_yaml_missing_file(self) -> None:
+        with pytest.raises(FileNotFoundError):
+            DynamicVectorConfig.from_yaml(Path("/nonexistent.yaml"))
+
+    def test_from_yaml_roundtrip(self, tmp_path: Path) -> None:
+        config = DynamicVectorConfig(
+            tool_patterns=[
+                ToolPatternEntry(
+                    pattern="test_tool",
+                    category="tool_manipulation",
+                    owasp=["LLM07"],
+                )
+            ],
+            data_reader_keywords=["read"],
+            data_sender_keywords=["send"],
+        )
+        import yaml
+
+        yaml_path = tmp_path / "cfg.yaml"
+        yaml_path.write_text(yaml.dump(config.model_dump()))
+
+        loaded = DynamicVectorConfig.from_yaml(yaml_path)
+        assert len(loaded.tool_patterns) == 1
+        assert loaded.tool_patterns[0].pattern == "test_tool"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Tests — Custom config integration
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestCustomConfigIntegration:
+    def test_custom_config_generates_vectors(self) -> None:
+        custom = DynamicVectorConfig(
+            tool_patterns=[
+                ToolPatternEntry(
+                    pattern="custom_tool",
+                    category="tool_manipulation",
+                    owasp=["LLM07"],
+                    prompts=[
+                        PromptTemplate(
+                            template="Test prompt for {tool_name}",
+                            success_indicators=["ok"],
+                            failure_indicators=["fail"],
+                        )
+                    ],
+                )
+            ],
+            category_prompts=[],
+            data_reader_keywords=["read"],
+            data_sender_keywords=["send"],
+        )
+        gen = DynamicVectorGenerator(config=custom)
+        cap = AgentCapability(
+            id="my_custom_tool",
+            name="my_custom_tool",
+            type=CapabilityType.TOOL,
+            dangerous=False,
+        )
+        vectors = gen.generate([cap])
+        tool_vecs = [v for v in vectors if "my_custom_tool" in v.id]
+        assert len(tool_vecs) >= 1
+        assert "Test prompt for my_custom_tool" in tool_vecs[0].prompts[0].template
+
+    def test_custom_universal_probes(self) -> None:
+        custom = DynamicVectorConfig(
+            universal_probes=[
+                UniversalProbeConfig(
+                    id="custom_probe",
+                    name="Custom Probe",
+                    category="prompt_injection",
+                    target_phase="vulnerability_discovery",
+                    severity="medium",
+                    owasp=["LLM01"],
+                    tags=["custom"],
+                    prompts=[
+                        PromptTemplate(
+                            template="Custom probe for {tool_list}",
+                            success_indicators=["found"],
+                            failure_indicators=["blocked"],
+                        )
+                    ],
+                )
+            ],
+        )
+        gen = DynamicVectorGenerator(config=custom)
+        cap = AgentCapability(
+            id="some_tool",
+            name="some_tool",
+            type=CapabilityType.TOOL,
+        )
+        vectors = gen.generate([cap])
+        probe = [v for v in vectors if v.id == "custom_probe"]
+        assert len(probe) == 1
+        assert "some_tool" in probe[0].prompts[0].template
