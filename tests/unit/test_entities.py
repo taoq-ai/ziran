@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import pytest
 
-from koan.domain.entities.attack import (
+from ziran.domain.entities.attack import (
     AttackCategory,
     AttackPrompt,
     AttackResult,
     AttackVector,
 )
-from koan.domain.entities.capability import (
+from ziran.domain.entities.capability import (
     AgentCapability,
     CapabilityType,
     ToolChain,
 )
-from koan.domain.entities.phase import (
+from ziran.domain.entities.phase import (
     CORE_PHASES,
     PHASE_ORDER,
     CampaignResult,

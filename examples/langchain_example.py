@@ -1,6 +1,6 @@
-"""Example: Scanning a LangChain agent with KOAN.
+"""Example: Scanning a LangChain agent with ZIRAN.
 
-Builds a simple ReAct agent backed by OpenAI and runs a KOAN
+Builds a simple ReAct agent backed by OpenAI and runs a ZIRAN
 security scan campaign against it.
 
 Prerequisites
@@ -73,17 +73,17 @@ def build_agent() -> AgentExecutor:
     )
 
 
-# --- 2. Wrap it with KOAN's adapter and run a scan ---------------------
+# --- 2. Wrap it with ZIRAN's adapter and run a scan ---------------------
 
 
 async def main() -> None:
-    from _progress import KoanProgressBar, print_summary
+    from _progress import ZiranProgressBar, print_summary
 
-    from koan.application.agent_scanner.scanner import AgentScanner
-    from koan.application.attacks.library import AttackLibrary
-    from koan.domain.entities.phase import ScanPhase
-    from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter
-    from koan.interfaces.cli.reports import ReportGenerator
+    from ziran.application.agent_scanner.scanner import AgentScanner
+    from ziran.application.attacks.library import AttackLibrary
+    from ziran.domain.entities.phase import ScanPhase
+    from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
+    from ziran.interfaces.cli.reports import ReportGenerator
 
     # Build the agent & adapter
     executor = build_agent()
@@ -102,7 +102,7 @@ async def main() -> None:
         ScanPhase.CAPABILITY_MAPPING,
     ]
 
-    async with KoanProgressBar() as progress:
+    async with ZiranProgressBar() as progress:
         result = await scanner.run_campaign(
             phases=phases,
             stop_on_critical=True,

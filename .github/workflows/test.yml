@@ -25,7 +25,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Run tests
-        run: uv run pytest --cov=koan --cov-report=xml --cov-report=term-missing -v
+        run: uv run pytest --cov=ziran --cov-report=xml --cov-report=term-missing -v
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

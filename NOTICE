@@ -9,7 +9,7 @@ This project includes code adapted from:
   Licensed under the Apache License, Version 2.0
 
   Specifically, refusal detection strings in
-  koan/application/detectors/refusal.py were adapted from:
+  ziran/application/detectors/refusal.py were adapted from:
     - garak/detectors/mitigation.py  (MitigationBypass detector)
     - garak/detectors/base.py         (StringDetector / REJECTION_STRINGS)
 

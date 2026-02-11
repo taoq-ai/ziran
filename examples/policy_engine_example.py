@@ -25,14 +25,14 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from koan.application.policy.engine import PolicyEngine
-from koan.domain.entities.attack import (
+from ziran.application.policy.engine import PolicyEngine
+from ziran.domain.entities.attack import (
     AttackCategory,
     AttackResult,
     OwaspLlmCategory,
 )
-from koan.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
-from koan.domain.entities.policy import PolicyVerdict
+from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
+from ziran.domain.entities.policy import PolicyVerdict
 
 console = Console()
 

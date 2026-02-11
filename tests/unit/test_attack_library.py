@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from koan.application.attacks.library import AttackLibrary
-from koan.domain.entities.attack import AttackCategory
-from koan.domain.entities.phase import ScanPhase
+from ziran.application.attacks.library import AttackLibrary
+from ziran.domain.entities.attack import AttackCategory
+from ziran.domain.entities.phase import ScanPhase
 
 
 class TestAttackLibrary:

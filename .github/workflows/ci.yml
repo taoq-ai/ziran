@@ -53,7 +53,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Mypy
-        run: uv run mypy koan
+        run: uv run mypy ziran
 
   test:
     runs-on: ubuntu-latest
@@ -77,7 +77,7 @@ jobs:
         run: uv sync --group test
 
       - name: Run tests
-        run: uv run pytest --cov=koan --cov-report=term-missing -v
+        run: uv run pytest --cov=ziran --cov-report=term-missing -v
 
       - name: Check coverage threshold
-        run: uv run pytest --cov=koan --cov-fail-under=80 --no-header -q
+        run: uv run pytest --cov=ziran --cov-fail-under=80 --no-header -q

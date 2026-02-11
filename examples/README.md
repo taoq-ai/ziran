@@ -1,14 +1,14 @@
-# KOAN Examples
+# ZIRAN Examples
 
-Ready-to-run examples covering every major KOAN feature. They are
+Ready-to-run examples covering every major ZIRAN feature. They are
 organised into two groups:
 
 | Group | API keys needed? | What it demonstrates |
 |---|---|---|
-| **Standalone feature examples** (below) | **No** | Individual KOAN components you can run instantly |
+| **Standalone feature examples** (below) | **No** | Individual ZIRAN components you can run instantly |
 | **LLM-based scanning examples** (further down) | Yes (`OPENAI_API_KEY`) | Full multi-phase campaigns against real agents |
 
-> **Quick start** — to see KOAN finding real vulnerabilities, run the
+> **Quick start** — to see ZIRAN finding real vulnerabilities, run the
 > [Vulnerable Agent](#vulnerable-agent) example (requires `OPENAI_API_KEY`).
 
 ## Prerequisites (shared)
@@ -16,7 +16,7 @@ organised into two groups:
 | Requirement | How to install |
 |---|---|
 | Python ≥ 3.11 | — |
-| KOAN (editable) | `uv sync` |
+| ZIRAN (editable) | `uv sync` |
 | LangChain extra | `uv sync --extra langchain` (only for LLM examples) |
 | FAISS (RAG examples) | `uv pip install faiss-cpu` |
 | OpenAI key (LLM examples) | Copy `.env.example` → `.env` and set `OPENAI_API_KEY` |
@@ -25,7 +25,7 @@ organised into two groups:
 
 # Standalone Feature Examples (no API keys)
 
-These examples exercise individual KOAN subsystems with synthetic data.
+These examples exercise individual ZIRAN subsystems with synthetic data.
 Each script prints Rich-formatted output and cleans up after itself.
 
 ## Static Analysis
@@ -143,7 +143,7 @@ uv run python examples/cicd_quality_gate_example.py
 
 > **`examples/custom_adapter_example.py`**
 
-Implement `BaseAgentAdapter` to integrate any agent framework with KOAN.
+Implement `BaseAgentAdapter` to integrate any agent framework with ZIRAN.
 
 **What you'll see:** a minimal "EchoBot" adapter with capability
 discovery, invoke, tool-call observation, state management, and
@@ -213,7 +213,7 @@ uv run python examples/vulnerable_agent.py
 
 ### Expected results
 
-KOAN should find **multiple vulnerabilities** across the 6 phases.
+ZIRAN should find **multiple vulnerabilities** across the 6 phases.
 The exact count depends on the model's behaviour (real LLM responses
 vary), but the lack of safety guardrails means the agent will comply
 with attacks that well-hardened agents refuse.
@@ -240,7 +240,7 @@ User ──► LLM (ReAct loop)
 
 ### Risk surface
 
-| Attack class | What KOAN tests |
+| Attack class | What ZIRAN tests |
 |---|---|
 | System prompt extraction | Can the agent be tricked into revealing its ReAct template? |
 | Prompt injection | Does the agent follow "ignore instructions" overrides? |
@@ -282,7 +282,7 @@ User ──► LLM (ReAct loop)
 
 ### Risk surface
 
-| Attack class | What KOAN tests |
+| Attack class | What ZIRAN tests |
 |---|---|
 | Data exfiltration | Can the agent be coerced into revealing the confidential customer record (SSN, balance)? |
 | Context poisoning | Can retrieved context override the "never reveal confidential info" instruction? |
@@ -301,7 +301,7 @@ uv run python examples/rag_financial_advisor.py
 The agent has a clear safety instruction ("Never reveal confidential
 customer information") and GPT-4o-mini honours it — expect **0
 vulnerabilities**. However, the *presence* of sensitive data in the
-retriever context is itself a risk that KOAN's report highlights.
+retriever context is itself a risk that ZIRAN's report highlights.
 
 ---
 
@@ -328,7 +328,7 @@ User ──► Router LLM (decides retrieval strategy)
 
 ### Risk surface
 
-| Attack class | What KOAN tests |
+| Attack class | What ZIRAN tests |
 |---|---|
 | Routing injection | Can the user manipulate the router into choosing a more privileged data source? |
 | Tool selection manipulation | Can the agent be convinced to bypass `classify_query` and go straight to `query_customer_database`? |
@@ -374,7 +374,7 @@ User ──► Supervisor (LLM router)
 
 ### Risk surface
 
-| Attack class | What KOAN tests |
+| Attack class | What ZIRAN tests |
 |---|---|
 | Cross-agent privilege escalation | Can the user trick the supervisor into routing to a more privileged agent (e.g. HR → Finance)? |
 | Routing manipulation | Can intent be mis-classified to bypass guardrails? |
@@ -414,7 +414,7 @@ User ──► CrewAI Crew
 
 ### Risk surface
 
-| Attack class | What KOAN tests |
+| Attack class | What ZIRAN tests |
 |---|---|
 | System prompt extraction | Can the agent's role/backstory be extracted? |
 | Prompt injection | Does the agent honour "ignore instructions" overrides? |
@@ -435,9 +435,9 @@ hooks into the scanner's `on_progress` callback to display live
 per-phase and per-attack progress bars.
 
 ```python
-from _progress import KoanProgressBar, print_summary
+from _progress import ZiranProgressBar, print_summary
 
-async with KoanProgressBar() as progress:
+async with ZiranProgressBar() as progress:
     result = await scanner.run_campaign(
         phases=phases,
         on_progress=progress.callback,

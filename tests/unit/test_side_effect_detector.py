@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from koan.application.detectors.pipeline import DetectorPipeline
-from koan.application.detectors.side_effect import (
+from ziran.application.detectors.pipeline import DetectorPipeline
+from ziran.application.detectors.side_effect import (
     SideEffectDetector,
     get_side_effect_summary,
 )
-from koan.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
-from koan.domain.entities.phase import ScanPhase
-from koan.domain.interfaces.adapter import AgentResponse
+from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
+from ziran.domain.entities.phase import ScanPhase
+from ziran.domain.interfaces.adapter import AgentResponse
 
 # ──────────────────────────────────────────────────────────────────────
 # Fixtures

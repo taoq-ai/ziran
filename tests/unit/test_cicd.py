@@ -8,21 +8,21 @@ from typing import Any
 
 import pytest
 
-from koan.application.cicd.gate import QualityGate
-from koan.application.cicd.github_actions import (
+from ziran.application.cicd.gate import QualityGate
+from ziran.application.cicd.github_actions import (
     emit_annotations,
     set_output,
     write_step_summary,
 )
-from koan.application.cicd.sarif import generate_sarif, write_sarif
-from koan.domain.entities.ci import (
+from ziran.application.cicd.sarif import generate_sarif, write_sarif
+from ziran.domain.entities.ci import (
     FindingCount,
     GateResult,
     GateStatus,
     QualityGateConfig,
     SeverityThresholds,
 )
-from koan.domain.entities.phase import CampaignResult
+from ziran.domain.entities.phase import CampaignResult
 
 # ──────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -244,7 +244,7 @@ class TestSarif:
         assert sarif["version"] == "2.1.0"
         assert len(sarif["runs"]) == 1
         run = sarif["runs"][0]
-        assert run["tool"]["driver"]["name"] == "KOAN"
+        assert run["tool"]["driver"]["name"] == "ZIRAN"
         assert len(run["results"]) > 0
 
     def test_sarif_rules_created(self, risky_campaign: CampaignResult) -> None:
@@ -305,7 +305,7 @@ class TestGitHubActions:
         gate = QualityGate()
         gate_result = gate.evaluate(risky_campaign)
         summary = write_step_summary(gate_result, risky_campaign)
-        assert "KOAN Security Gate" in summary
+        assert "ZIRAN Security Gate" in summary
         assert "test_agent" in summary
         assert "Critical" in summary
 
@@ -320,7 +320,7 @@ class TestGitHubActions:
         )
         assert summary_file.exists()
         content = summary_file.read_text()
-        assert "KOAN Security Gate" in content
+        assert "ZIRAN Security Gate" in content
 
     def test_set_output(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         output_file = tmp_path / "output.txt"

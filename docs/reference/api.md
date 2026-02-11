@@ -7,7 +7,7 @@
 The main campaign orchestrator.
 
 ```python
-from koan.application.agent_scanner.scanner import AgentScanner
+from ziran.application.agent_scanner.scanner import AgentScanner
 
 scanner = AgentScanner(
     adapter=my_adapter,
@@ -29,7 +29,7 @@ result = await scanner.run_campaign(
 Manages attack vectors.
 
 ```python
-from koan.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import AttackLibrary
 
 lib = AttackLibrary(custom_dirs=[Path("./my_attacks")])
 vectors = lib.get_attacks_for_phase(ScanPhase.RECONNAISSANCE)
@@ -40,7 +40,7 @@ vectors = lib.get_attacks_for_phase(ScanPhase.RECONNAISSANCE)
 NetworkX-based knowledge graph.
 
 ```python
-from koan.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
 graph = AttackKnowledgeGraph()
 graph.add_tool("read_file", {"description": "Read files"})
@@ -54,7 +54,7 @@ state = graph.export_state()
 Analyzes knowledge graphs for dangerous tool chains.
 
 ```python
-from koan.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 
 analyzer = ToolChainAnalyzer(graph)
 chains = analyzer.analyze()
@@ -65,7 +65,7 @@ chains = analyzer.analyze()
 Known vulnerabilities in agent tools.
 
 ```python
-from koan.application.skill_cve import SkillCVEDatabase
+from ziran.application.skill_cve import SkillCVEDatabase
 
 db = SkillCVEDatabase()
 matches = db.check_agent(capabilities)

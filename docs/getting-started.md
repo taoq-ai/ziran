@@ -12,15 +12,15 @@ Get your first security scan running in under 5 minutes.
 === "uv (recommended)"
 
     ```bash
-    git clone https://github.com/taoq-ai/koan.git
-    cd koan
+    git clone https://github.com/taoq-ai/ziran.git
+    cd ziran
     uv sync
     ```
 
 === "pip"
 
     ```bash
-    pip install koan-security
+    pip install ziran
     ```
 
 ### Framework Extras
@@ -38,16 +38,16 @@ uv sync --extra all          # Everything
 ### Option 1: CLI
 
 ```bash
-koan scan --framework langchain --agent-path my_agent.py
+ziran scan --framework langchain --agent-path my_agent.py
 ```
 
 ### Option 2: Python API
 
 ```python
 import asyncio
-from koan.application.agent_scanner.scanner import AgentScanner
-from koan.application.attacks.library import AttackLibrary
-from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter
+from ziran.application.agent_scanner.scanner import AgentScanner
+from ziran.application.attacks.library import AttackLibrary
+from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
 
 adapter = LangChainAdapter(agent_executor=your_agent)
 scanner = AgentScanner(adapter=adapter, attack_library=AttackLibrary())
@@ -65,7 +65,7 @@ uv run python examples/vulnerable_agent.py
 
 ## Understanding Results
 
-After a scan, KOAN generates three reports in the output directory:
+After a scan, ZIRAN generates three reports in the output directory:
 
 | File | Format | Use |
 |------|--------|-----|
@@ -82,5 +82,5 @@ open reports/campaign_*_report.html
 ## Next Steps
 
 - [Romance Scan Methodology](concepts/romance-scan.md) — How multi-phase campaigns work
-- [Tool Chain Analysis](concepts/tool-chains.md) — KOAN's unique differentiator
+- [Tool Chain Analysis](concepts/tool-chains.md) — ZIRAN's unique differentiator
 - [Scanning Agents](guides/scanning-agents.md) — Detailed scanning guide

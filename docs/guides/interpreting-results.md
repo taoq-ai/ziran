@@ -1,6 +1,6 @@
 # Interpreting Results
 
-How to read and act on KOAN scan results.
+How to read and act on ZIRAN scan results.
 
 ## Report Formats
 
@@ -32,7 +32,7 @@ Machine-parseable output for programmatic analysis and integration with other to
 
 ## Tool Chain Findings
 
-Tool chain findings are unique to KOAN. They represent **dangerous combinations** of tools, not individual vulnerabilities.
+Tool chain findings are unique to ZIRAN. They represent **dangerous combinations** of tools, not individual vulnerabilities.
 
 Example: `read_file → http_request` (Critical: Data Exfiltration)
 

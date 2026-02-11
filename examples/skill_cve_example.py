@@ -1,6 +1,6 @@
 """Example: Checking agent tools against the Skill CVE Database.
 
-Demonstrates how to use KOAN's curated database of known
+Demonstrates how to use ZIRAN's curated database of known
 vulnerabilities in popular agent tools (LangChain, CrewAI, etc.).
 No API keys required.
 
@@ -21,8 +21,8 @@ from __future__ import annotations
 from rich.console import Console
 from rich.table import Table
 
-from koan.application.skill_cve import SkillCVE, SkillCVEDatabase
-from koan.domain.entities.capability import AgentCapability, CapabilityType
+from ziran.application.skill_cve import SkillCVE, SkillCVEDatabase
+from ziran.domain.entities.capability import AgentCapability, CapabilityType
 
 console = Console()
 

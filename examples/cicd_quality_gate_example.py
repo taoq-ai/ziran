@@ -26,15 +26,15 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from koan.application.cicd.gate import QualityGate
-from koan.application.cicd.sarif import generate_sarif, write_sarif
-from koan.domain.entities.attack import (
+from ziran.application.cicd.gate import QualityGate
+from ziran.application.cicd.sarif import generate_sarif, write_sarif
+from ziran.domain.entities.attack import (
     AttackCategory,
     AttackResult,
     OwaspLlmCategory,
 )
-from koan.domain.entities.ci import GateResult, QualityGateConfig
-from koan.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
+from ziran.domain.entities.ci import GateResult, QualityGateConfig
+from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
 
 console = Console()
 

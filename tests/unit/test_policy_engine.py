@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING
 import pytest
 import yaml
 
-from koan.application.policy.engine import PolicyEngine
-from koan.domain.entities.attack import (
+from ziran.application.policy.engine import PolicyEngine
+from ziran.domain.entities.attack import (
     AttackCategory,
     AttackResult,
     OwaspLlmCategory,
 )
-from koan.domain.entities.phase import CampaignResult
-from koan.domain.entities.policy import (
+from ziran.domain.entities.phase import CampaignResult
+from ziran.domain.entities.policy import (
     Policy,
     PolicyRule,
     PolicyViolation,
@@ -164,7 +164,7 @@ class TestPolicyModels:
 
 class TestPolicyEngineLoading:
     def test_default_policy_loads(self, default_engine: PolicyEngine) -> None:
-        assert default_engine.policy.id == "koan-default"
+        assert default_engine.policy.id == "ziran-default"
         assert len(default_engine.policy.rules) > 0
 
     def test_from_yaml(self, tmp_path: Path) -> None:

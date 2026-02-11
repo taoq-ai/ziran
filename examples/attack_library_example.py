@@ -1,4 +1,4 @@
-"""Example: Browsing and filtering the KOAN attack vector library.
+"""Example: Browsing and filtering the ZIRAN attack vector library.
 
 Demonstrates how to explore the built-in library of 21+ attack
 vectors, filter by category/phase/OWASP mapping, and load custom
@@ -25,9 +25,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from koan.application.attacks.library import AttackLibrary
-from koan.domain.entities.attack import AttackCategory, OwaspLlmCategory
-from koan.domain.entities.phase import CoverageLevel, ScanPhase
+from ziran.application.attacks.library import AttackLibrary
+from ziran.domain.entities.attack import AttackCategory, OwaspLlmCategory
+from ziran.domain.entities.phase import CoverageLevel, ScanPhase
 
 console = Console()
 

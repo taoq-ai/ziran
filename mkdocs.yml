@@ -1,10 +1,10 @@
-site_name: KOAN — AI Agent Security Testing
-site_url: https://taoq-ai.github.io/koan/
+site_name: ZIRAN — AI Agent Security Testing
+site_url: https://taoq-ai.github.io/ziran/
 site_description: Test AI agents for vulnerabilities using Romance Scan methodology and knowledge graphs.
 site_author: TaoQ AI
 
-repo_name: taoq-ai/koan
-repo_url: https://github.com/taoq-ai/koan
+repo_name: taoq-ai/ziran
+repo_url: https://github.com/taoq-ai/ziran
 
 theme:
   name: material

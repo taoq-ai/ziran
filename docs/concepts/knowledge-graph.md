@@ -1,6 +1,6 @@
 # Knowledge Graph
 
-KOAN uses a **NetworkX-based directed multigraph** to track all discoveries, relationships, and attack paths during a scan campaign.
+ZIRAN uses a **NetworkX-based directed multigraph** to track all discoveries, relationships, and attack paths during a scan campaign.
 
 ## Node Types
 
@@ -33,7 +33,7 @@ The knowledge graph is rendered interactively in HTML reports using vis-network,
 ## Graph API
 
 ```python
-from koan.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
 graph = AttackKnowledgeGraph()
 

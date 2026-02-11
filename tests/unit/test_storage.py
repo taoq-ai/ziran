@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from koan.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
-from koan.infrastructure.storage.graph_storage import GraphStorage, GraphStorageError
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
+from ziran.infrastructure.storage.graph_storage import GraphStorage, GraphStorageError
 
 if TYPE_CHECKING:
     from pathlib import Path

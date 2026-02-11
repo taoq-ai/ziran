@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from koan.application.agent_scanner.scanner import AgentScanner
-from koan.application.attacks.library import AttackLibrary
-from koan.application.knowledge_graph.graph import NodeType
-from koan.domain.entities.phase import CORE_PHASES, CoverageLevel, ScanPhase
+from ziran.application.agent_scanner.scanner import AgentScanner
+from ziran.application.attacks.library import AttackLibrary
+from ziran.application.knowledge_graph.graph import NodeType
+from ziran.domain.entities.phase import CORE_PHASES, CoverageLevel, ScanPhase
 from tests.conftest import MockAgentAdapter
 
 
@@ -56,7 +56,7 @@ class TestFullCampaign:
 
     async def test_campaign_with_capabilities(self) -> None:
         """Campaign should discover and track capabilities."""
-        from koan.domain.entities.capability import AgentCapability, CapabilityType
+        from ziran.domain.entities.capability import AgentCapability, CapabilityType
 
         capabilities = [
             AgentCapability(

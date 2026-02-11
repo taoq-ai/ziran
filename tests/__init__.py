@@ -1,1 +1,1 @@
-"""Test suite for KOAN."""
+"""Test suite for ZIRAN."""

@@ -26,13 +26,13 @@ from pathlib import Path
 from rich.console import Console
 from rich.syntax import Syntax
 
-from koan.application.poc.generator import PoCGenerator
-from koan.domain.entities.attack import (
+from ziran.application.poc.generator import PoCGenerator
+from ziran.domain.entities.attack import (
     AttackCategory,
     AttackResult,
     OwaspLlmCategory,
 )
-from koan.domain.entities.phase import CampaignResult
+from ziran.domain.entities.phase import CampaignResult
 
 console = Console()
 

@@ -1,6 +1,6 @@
-name: "KOAN Agent Security Scan"
-description: "Run KOAN automated security scans on AI agents in your CI/CD pipeline"
-author: "KOAN Project"
+name: "ZIRAN Agent Security Scan"
+description: "Run ZIRAN automated security scans on AI agents in your CI/CD pipeline"
+author: "ZIRAN Project"
 
 branding:
   icon: "shield"
@@ -9,14 +9,14 @@ branding:
 inputs:
   command:
     description: >
-      The KOAN sub-command to run.
+      The ZIRAN sub-command to run.
       Supported: scan, audit, policy, ci
     required: false
     default: "ci"
 
   result-file:
     description: >
-      Path to a previously generated KOAN campaign result JSON file.
+      Path to a previously generated ZIRAN campaign result JSON file.
       Required for: policy, ci (when not running a live scan).
     required: false
     default: ""
@@ -31,7 +31,7 @@ inputs:
   policy-file:
     description: >
       Path to a custom YAML policy file.
-      If omitted the built-in KOAN policy is used.
+      If omitted the built-in ZIRAN policy is used.
     required: false
     default: ""
 
@@ -47,7 +47,7 @@ inputs:
       Path where the SARIF report will be written.
       Set to empty string to disable SARIF generation.
     required: false
-    default: "koan-results.sarif"
+    default: "ziran-results.sarif"
 
   severity-threshold:
     description: >
@@ -61,9 +61,9 @@ inputs:
     required: false
     default: "3.12"
 
-  koan-version:
+  ziran-version:
     description: >
-      KOAN package version or install spec.
+      ZIRAN package version or install spec.
       Use "." to install from local checkout.
     required: false
     default: "."
@@ -93,12 +93,12 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - name: Install KOAN
+    - name: Install ZIRAN
       shell: bash
       run: |
-        pip install --quiet "${{ inputs.koan-version }}"
+        pip install --quiet "${{ inputs.ziran-version }}"
 
-    - name: Run KOAN
+    - name: Run ZIRAN
       id: run
       shell: bash
       run: |
@@ -139,7 +139,7 @@ runs:
             ;;
         esac
 
-        koan $CMD $EXTRA_ARGS
+        ziran $CMD $EXTRA_ARGS
         EXIT_CODE=$?
 
         if [ $EXIT_CODE -eq 0 ]; then

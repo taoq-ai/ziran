@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a feature for KOAN
+about: Suggest a feature for ZIRAN
 title: "[Feature] "
 labels: enhancement
 assignees: ''

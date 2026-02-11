@@ -1,4 +1,4 @@
-"""Shared test fixtures for KOAN test suite."""
+"""Shared test fixtures for ZIRAN test suite."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from typing import Any
 
 import pytest
 
-from koan.domain.entities.attack import AttackCategory, AttackPrompt, AttackResult, AttackVector
-from koan.domain.entities.capability import AgentCapability, CapabilityType
-from koan.domain.entities.phase import ScanPhase
-from koan.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackResult, AttackVector
+from ziran.domain.entities.capability import AgentCapability, CapabilityType
+from ziran.domain.entities.phase import ScanPhase
+from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
 
 # ──────────────────────────────────────────────────────────────────────
 # Mock Agent Adapter

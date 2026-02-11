@@ -31,9 +31,9 @@ Hijacks agent reasoning.
 ## Listing Vectors
 
 ```bash
-koan library --list
-koan library --category prompt_injection
-koan library --phase reconnaissance
+ziran library --list
+ziran library --category prompt_injection
+ziran library --phase reconnaissance
 ```
 
 ## Vector Severity Levels

@@ -1,13 +1,13 @@
 # Framework Adapters
 
-KOAN uses adapters to communicate with different agent frameworks. This guide explains how to use built-in adapters and create custom ones.
+ZIRAN uses adapters to communicate with different agent frameworks. This guide explains how to use built-in adapters and create custom ones.
 
 ## Built-in Adapters
 
 ### LangChain
 
 ```python
-from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter
+from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
 
 adapter = LangChainAdapter(agent_executor=your_agent_executor)
 ```
@@ -17,7 +17,7 @@ Requires: `uv sync --extra langchain`
 ### CrewAI
 
 ```python
-from koan.infrastructure.adapters.crewai_adapter import CrewAIAdapter
+from ziran.infrastructure.adapters.crewai_adapter import CrewAIAdapter
 
 adapter = CrewAIAdapter(crew=your_crew)
 ```
@@ -29,8 +29,8 @@ Requires: `uv sync --extra crewai`
 Implement the `BaseAgentAdapter` abstract class:
 
 ```python
-from koan.domain.interfaces.adapter import BaseAgentAdapter, AgentResponse, AgentState
-from koan.domain.entities.capability import AgentCapability, CapabilityType
+from ziran.domain.interfaces.adapter import BaseAgentAdapter, AgentResponse, AgentState
+from ziran.domain.entities.capability import AgentCapability, CapabilityType
 
 class MyAdapter(BaseAgentAdapter):
     def __init__(self, my_agent):
@@ -74,5 +74,5 @@ class MyAdapter(BaseAgentAdapter):
 ### Tips
 
 - Mark dangerous tools in `discover_capabilities()` — this improves knowledge graph analysis
-- Include `tool_calls` in `AgentResponse` when possible — KOAN uses this for detection
+- Include `tool_calls` in `AgentResponse` when possible — ZIRAN uses this for detection
 - Implement `observe_tool_call()` if your framework supports tool call hooks

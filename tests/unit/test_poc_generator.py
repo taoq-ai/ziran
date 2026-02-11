@@ -7,18 +7,18 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from koan.application.poc.config import (
+from ziran.application.poc.config import (
     CurlPoCTemplate,
     PoCConfig,
     PythonPoCTemplate,
 )
-from koan.application.poc.generator import PoCGenerator, _escape_python_string
-from koan.domain.entities.attack import (
+from ziran.application.poc.generator import PoCGenerator, _escape_python_string
+from ziran.domain.entities.attack import (
     AttackCategory,
     AttackResult,
     OwaspLlmCategory,
 )
-from koan.domain.entities.phase import CampaignResult
+from ziran.domain.entities.phase import CampaignResult
 
 if TYPE_CHECKING:
     from pathlib import Path
