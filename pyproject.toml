@@ -49,7 +49,7 @@ ziran = "ziran.interfaces.cli.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/taoq-ai/ziran"
-Documentation = "https://github.com/taoq-ai/ziran#readme"
+Documentation = "https://taoq-ai.github.io/ziran/"
 Repository = "https://github.com/taoq-ai/ziran"
 Issues = "https://github.com/taoq-ai/ziran/issues"
 
