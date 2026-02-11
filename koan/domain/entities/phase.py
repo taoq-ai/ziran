@@ -13,6 +13,19 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class CoverageLevel(StrEnum):
+    """Controls how many attack vectors are used per phase.
+
+    - **essential** — critical severity only (~30 % of vectors, fastest)
+    - **standard** — critical + high (~65 % of vectors, balanced)
+    - **comprehensive** — all vectors (full coverage, slowest)
+    """
+
+    ESSENTIAL = "essential"
+    STANDARD = "standard"
+    COMPREHENSIVE = "comprehensive"
+
+
 class ScanPhase(StrEnum):
     """Multi-phase attack campaign modeled after social engineering trust exploitation.
 
@@ -80,6 +93,10 @@ class PhaseResult(BaseModel):
     )
     duration_seconds: float = Field(ge=0.0)
     error: str | None = Field(default=None, description="Error message if phase failed")
+    token_usage: dict[str, int] = Field(
+        default_factory=lambda: {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        description="Aggregate token consumption for this phase",
+    )
 
 
 class CampaignResult(BaseModel):
@@ -108,6 +125,13 @@ class CampaignResult(BaseModel):
     )
     critical_chain_count: int = Field(
         default=0, description="Number of critical-severity tool chains found"
+    )
+    token_usage: dict[str, int] = Field(
+        default_factory=lambda: {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        description="Grand-total token consumption across all phases",
+    )
+    coverage_level: str = Field(
+        default="standard", description="Coverage level used for this campaign"
     )
     metadata: dict[str, Any] = Field(default_factory=dict)
 

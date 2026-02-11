@@ -20,7 +20,7 @@ from rich.table import Table
 from koan import __version__
 from koan.application.agent_scanner.scanner import AgentScanner
 from koan.application.attacks.library import AttackLibrary
-from koan.domain.entities.phase import CampaignResult, ScanPhase
+from koan.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from koan.infrastructure.logging.logger import setup_logging
 from koan.infrastructure.storage.graph_storage import GraphStorage
 from koan.interfaces.cli.reports import ReportGenerator
@@ -116,6 +116,18 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     default=True,
     help="Stop if a critical vulnerability is found.",
 )
+@click.option(
+    "--coverage",
+    type=click.Choice(["essential", "standard", "comprehensive"], case_sensitive=False),
+    default="standard",
+    help="Attack coverage level: essential (critical only), standard (critical+high), comprehensive (all).",
+)
+@click.option(
+    "--concurrency",
+    type=int,
+    default=5,
+    help="Maximum concurrent attacks per phase (default: 5).",
+)
 def scan(
     framework: str,
     agent_path: str,
@@ -123,6 +135,8 @@ def scan(
     output: str,
     custom_attacks: str | None,
     stop_on_critical: bool,
+    coverage: str,
+    concurrency: int,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -147,6 +161,8 @@ def scan(
     config_table.add_row("Phases", ", ".join(phases) if phases else "all core phases")
     config_table.add_row("Output", output)
     config_table.add_row("Stop on Critical", str(stop_on_critical))
+    config_table.add_row("Coverage", coverage)
+    config_table.add_row("Concurrency", str(concurrency))
     if custom_attacks:
         config_table.add_row("Custom Attacks", custom_attacks)
     console.print(config_table)
@@ -176,12 +192,15 @@ def scan(
 
     # Run campaign
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library)
+    coverage_level = CoverageLevel(coverage.lower())
 
     with console.status("[bold yellow]Running security scan campaign...[/bold yellow]"):
         result = asyncio.run(
             scanner.run_campaign(
                 phases=phase_list,
                 stop_on_critical=stop_on_critical,
+                coverage=coverage_level,
+                max_concurrent_attacks=concurrency,
             )
         )
 
@@ -516,6 +535,16 @@ def _display_results(result: CampaignResult) -> None:
         if result.success
         else "[bold green]✅ PASSED[/bold green]",
     )
+
+    # Token usage (if tracked)
+    tokens = result.token_usage
+    if tokens.get("total_tokens", 0) > 0:
+        summary_table.add_row("Prompt Tokens", f"{tokens['prompt_tokens']:,}")
+        summary_table.add_row("Completion Tokens", f"{tokens['completion_tokens']:,}")
+        summary_table.add_row("Total Tokens", f"[bold]{tokens['total_tokens']:,}[/bold]")
+    if result.coverage_level:
+        summary_table.add_row("Coverage Level", result.coverage_level)
+
     console.print(summary_table)
 
     # Phase details

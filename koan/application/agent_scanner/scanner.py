@@ -12,6 +12,7 @@ and attempt exploitation — all tracked via the knowledge graph.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -26,10 +27,11 @@ from koan.application.knowledge_graph.graph import (
     EdgeType,
     NodeType,
 )
-from koan.domain.entities.attack import AttackPrompt, AttackResult, AttackVector
+from koan.domain.entities.attack import AttackPrompt, AttackResult, AttackVector, TokenUsage
 from koan.domain.entities.phase import (
     CORE_PHASES,
     CampaignResult,
+    CoverageLevel,
     PhaseResult,
     ScanPhase,
 )
@@ -49,6 +51,7 @@ class ProgressEventType(StrEnum):
 
     CAMPAIGN_START = "campaign_start"
     PHASE_START = "phase_start"
+    PHASE_ATTACKS_LOADED = "phase_attacks_loaded"
     ATTACK_START = "attack_start"
     ATTACK_COMPLETE = "attack_complete"
     PHASE_COMPLETE = "phase_complete"
@@ -149,6 +152,8 @@ class AgentScanner:
         stop_on_critical: bool = True,
         reset_between_phases: bool = False,
         on_progress: Callable[[ProgressEvent], None] | None = None,
+        coverage: CoverageLevel = CoverageLevel.STANDARD,
+        max_concurrent_attacks: int = 5,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -163,6 +168,8 @@ class AgentScanner:
             on_progress: Optional callback invoked with ProgressEvent on
                 each campaign, phase, and attack lifecycle event. Useful
                 for progress bars and real-time monitoring.
+            coverage: Controls how many vectors run per phase.
+            max_concurrent_attacks: Maximum parallel attacks within a phase.
 
         Returns:
             Complete campaign result with all findings and graph analysis.
@@ -173,17 +180,21 @@ class AgentScanner:
         campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
         campaign_start = datetime.now(tz=UTC)
 
-        # Store callback for use in _execute_phase
+        # Store callback + settings for use in _execute_phase
         self._on_progress = on_progress
+        self._coverage = coverage
+        self._max_concurrent = max_concurrent_attacks
 
         def _emit(event: ProgressEvent) -> None:
             if on_progress is not None:
                 on_progress(event)
 
         logger.info(
-            "Starting scan campaign %s with %d phases",
+            "Starting scan campaign %s with %d phases (coverage=%s, concurrency=%d)",
             campaign_id,
             len(phases),
+            coverage.value,
+            max_concurrent_attacks,
         )
 
         _emit(
@@ -198,6 +209,7 @@ class AgentScanner:
         capabilities = await self._discover_and_map_capabilities()
 
         phase_results: list[PhaseResult] = []
+        campaign_tokens = TokenUsage()
 
         for phase_idx, phase in enumerate(phases):
             self._current_phase = phase
@@ -218,6 +230,13 @@ class AgentScanner:
 
             result = await self._execute_phase(phase, phase_idx, len(phases))
             phase_results.append(result)
+
+            # Aggregate tokens
+            campaign_tokens = campaign_tokens + TokenUsage(
+                prompt_tokens=result.token_usage["prompt_tokens"],
+                completion_tokens=result.token_usage["completion_tokens"],
+                total_tokens=result.token_usage["total_tokens"],
+            )
 
             # Update knowledge graph with phase results
             self._update_graph_from_phase(result)
@@ -269,23 +288,32 @@ class AgentScanner:
             attack_results=[r.model_dump(mode="json") for r in self._attack_results],
             dangerous_tool_chains=[c.model_dump(mode="json") for c in dangerous_chains],
             critical_chain_count=len([c for c in dangerous_chains if c.risk_level == "critical"]),
+            token_usage={
+                "prompt_tokens": campaign_tokens.prompt_tokens,
+                "completion_tokens": campaign_tokens.completion_tokens,
+                "total_tokens": campaign_tokens.total_tokens,
+            },
+            coverage_level=coverage.value,
             metadata={
                 "duration_seconds": duration,
                 "capabilities_discovered": len(capabilities),
                 "graph_stats": self.graph.export_state()["stats"],
                 "attack_results_count": len(self._attack_results),
                 "dangerous_chain_count": len(dangerous_chains),
+                "coverage_level": coverage.value,
+                "max_concurrent_attacks": max_concurrent_attacks,
             },
         )
 
         logger.info(
             "Campaign %s complete: %d vulnerabilities, %d critical paths, "
-            "%d dangerous chains (%.1fs)",
+            "%d dangerous chains (%.1fs, %d tokens)",
             campaign_id,
             campaign_result.total_vulnerabilities,
             len(critical_paths),
             len(dangerous_chains),
             duration,
+            campaign_tokens.total_tokens,
         )
 
         _emit(
@@ -298,6 +326,7 @@ class AgentScanner:
                     "critical_paths": len(critical_paths),
                     "dangerous_chains": len(dangerous_chains),
                     "duration_seconds": duration,
+                    "total_tokens": campaign_tokens.total_tokens,
                 },
             )
         )
@@ -347,8 +376,9 @@ class AgentScanner:
     ) -> PhaseResult:
         """Execute a single scan phase.
 
-        Gets all attacks targeting this phase from the library,
-        executes them sequentially, and aggregates results.
+        Gets all attacks targeting this phase from the library (filtered by
+        coverage level), executes them with bounded concurrency, and
+        aggregates results including token usage.
 
         Args:
             phase: The phase to execute.
@@ -360,17 +390,45 @@ class AgentScanner:
         """
         start_time = datetime.now(tz=UTC)
 
-        # Get phase-specific attacks
-        attacks = self.attack_library.get_attacks_for_phase(phase)
-        logger.info("Phase %s has %d attack vectors", phase.value, len(attacks))
+        coverage: CoverageLevel = getattr(self, "_coverage", CoverageLevel.COMPREHENSIVE)
+        max_concurrent: int = getattr(self, "_max_concurrent", 5)
+
+        # Get phase-specific attacks filtered by coverage level
+        attacks = self.attack_library.get_attacks_for_phase(phase, coverage=coverage)
+        logger.info(
+            "Phase %s has %d attack vectors (coverage=%s)",
+            phase.value,
+            len(attacks),
+            coverage.value,
+        )
+
+        on_progress = getattr(self, "_on_progress", None)
+
+        # Emit PHASE_ATTACKS_LOADED so progress bars know the real total
+        if on_progress is not None:
+            on_progress(
+                ProgressEvent(
+                    event=ProgressEventType.PHASE_ATTACKS_LOADED,
+                    phase=phase.value,
+                    phase_index=phase_index,
+                    total_phases=total_phases,
+                    total_attacks=len(attacks),
+                    message=f"Loaded {len(attacks)} attacks for {phase.value}",
+                )
+            )
 
         vulnerabilities: list[str] = []
         discovered_capabilities: list[str] = []
         artifacts: dict[str, Any] = {}
+        phase_tokens = TokenUsage()
+        completed_count = 0
+        # Lock to safely mutate shared state from concurrent tasks
+        lock = asyncio.Lock()
+        semaphore = asyncio.Semaphore(max_concurrent)
 
-        on_progress = getattr(self, "_on_progress", None)
+        async def _run_attack(attack_idx: int, attack: AttackVector) -> None:
+            nonlocal completed_count, phase_tokens
 
-        for attack_idx, attack in enumerate(attacks):
             if on_progress is not None:
                 on_progress(
                     ProgressEvent(
@@ -386,35 +444,42 @@ class AgentScanner:
                 )
 
             try:
-                result = await self._execute_attack(attack)
+                async with semaphore:
+                    result = await self._execute_attack(attack)
+
                 # Tag result with the phase for reporting
                 result.evidence.setdefault("phase", phase.value)
-                self._attack_results.append(result)
 
-                if result.successful:
-                    vulnerabilities.append(result.vector_id)
-                    artifacts[result.vector_id] = {
-                        "name": result.vector_name,
-                        "category": result.category.value,
-                        "severity": result.severity,
-                        "evidence": result.evidence,
-                    }
+                async with lock:
+                    self._attack_results.append(result)
+                    phase_tokens = phase_tokens + result.token_usage
 
-                    # Add vulnerability to graph
-                    self.graph.add_vulnerability(
-                        result.vector_id,
-                        result.severity,
-                        {
+                    if result.successful:
+                        vulnerabilities.append(result.vector_id)
+                        artifacts[result.vector_id] = {
                             "name": result.vector_name,
                             "category": result.category.value,
-                            "phase": phase.value,
-                        },
-                    )
+                            "severity": result.severity,
+                            "evidence": result.evidence,
+                        }
+
+                        # Add vulnerability to graph
+                        self.graph.add_vulnerability(
+                            result.vector_id,
+                            result.severity,
+                            {
+                                "name": result.vector_name,
+                                "category": result.category.value,
+                                "phase": phase.value,
+                            },
+                        )
 
             except Exception:
                 logger.exception("Failed to execute attack %s", attack.id)
 
             if on_progress is not None:
+                async with lock:
+                    completed_count += 1
                 on_progress(
                     ProgressEvent(
                         event=ProgressEventType.ATTACK_COMPLETE,
@@ -428,6 +493,10 @@ class AgentScanner:
                         extra={"successful": attack.id in vulnerabilities},
                     )
                 )
+
+        # Run attacks concurrently with bounded parallelism
+        tasks = [_run_attack(idx, atk) for idx, atk in enumerate(attacks)]
+        await asyncio.gather(*tasks)
 
         # Calculate trust score
         trust_score = self._calculate_trust_score(phase, vulnerabilities)
@@ -443,6 +512,11 @@ class AgentScanner:
             vulnerabilities_found=vulnerabilities,
             graph_state=self.graph.export_state(),
             duration_seconds=duration,
+            token_usage={
+                "prompt_tokens": phase_tokens.prompt_tokens,
+                "completion_tokens": phase_tokens.completion_tokens,
+                "total_tokens": phase_tokens.total_tokens,
+            },
         )
 
     async def _execute_attack(self, attack: AttackVector) -> AttackResult:
@@ -450,12 +524,13 @@ class AgentScanner:
 
         Sends each prompt template in the vector to the agent and
         uses the detector pipeline to determine success/failure.
+        Tracks token consumption across all prompts.
 
         Args:
             attack: The attack vector to execute.
 
         Returns:
-            Attack result with success determination and evidence.
+            Attack result with success determination, evidence, and token usage.
         """
         if not attack.prompts:
             return AttackResult(
@@ -467,12 +542,21 @@ class AgentScanner:
                 error="No prompts defined for this attack vector",
             )
 
+        attack_tokens = TokenUsage()
+
         # Try each prompt in the vector
         for prompt_spec in attack.prompts:
             rendered_prompt = self._render_prompt(prompt_spec)
 
             try:
                 response = await self.adapter.invoke(rendered_prompt)
+
+                # Accumulate token usage
+                attack_tokens = attack_tokens + TokenUsage(
+                    prompt_tokens=response.prompt_tokens,
+                    completion_tokens=response.completion_tokens,
+                    total_tokens=response.total_tokens,
+                )
 
                 # ── Error sentinel check ──────────────────────────
                 if _is_error_response(response.content):
@@ -504,6 +588,7 @@ class AgentScanner:
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
+                        token_usage=attack_tokens,
                     )
 
             except Exception as e:
@@ -517,6 +602,7 @@ class AgentScanner:
             severity=attack.severity,
             successful=False,
             evidence={"note": "All prompts were blocked or failed"},
+            token_usage=attack_tokens,
         )
 
     @staticmethod
@@ -573,8 +659,8 @@ class AgentScanner:
     def _update_graph_from_phase(self, result: PhaseResult) -> None:
         """Update the knowledge graph with phase execution results.
 
-        Adds phase node, links vulnerabilities, and creates
-        edges representing the phase progression.
+        Adds phase node, links vulnerabilities via proper edges so that
+        ``find_all_attack_paths`` can discover capability → vulnerability paths.
 
         Args:
             result: The phase result to record in the graph.
@@ -591,21 +677,24 @@ class AgentScanner:
 
         # Link vulnerabilities to the phase they were discovered in
         for vuln_id in result.vulnerabilities_found:
+            # vuln → phase  (DISCOVERED_IN)
             self.graph.add_edge(
                 vuln_id,
                 phase_node_id,
                 EdgeType.DISCOVERED_IN,
             )
 
-            # Link vulnerabilities to capabilities that might enable them
-            for cap_id, cap_data in self.graph.get_nodes_by_type(NodeType.CAPABILITY):
-                if cap_data.get("dangerous", False):
-                    self.graph.add_edge(
-                        cap_id,
-                        vuln_id,
-                        EdgeType.ENABLES,
-                        {"risk": "high"},
-                    )
+            # For every capability in the graph, create an ENABLES edge
+            # to the vulnerability so that attack-path search can traverse
+            # capability → vulnerability.  Previously this was gated on
+            # ``dangerous`` which left most graphs disconnected.
+            for cap_id, _cap_data in self.graph.get_nodes_by_type(NodeType.CAPABILITY):
+                self.graph.add_edge(
+                    cap_id,
+                    vuln_id,
+                    EdgeType.ENABLES,
+                    {"phase": result.phase.value},
+                )
 
 
 # ---------------------------------------------------------------------------

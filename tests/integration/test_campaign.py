@@ -7,7 +7,7 @@ import pytest
 from koan.application.agent_scanner.scanner import AgentScanner
 from koan.application.attacks.library import AttackLibrary
 from koan.application.knowledge_graph.graph import NodeType
-from koan.domain.entities.phase import CORE_PHASES, ScanPhase
+from koan.domain.entities.phase import CORE_PHASES, CoverageLevel, ScanPhase
 from tests.conftest import MockAgentAdapter
 
 
@@ -124,6 +124,7 @@ class TestFullCampaign:
 
         await scanner.run_campaign(
             phases=[ScanPhase.RECONNAISSANCE],
+            coverage=CoverageLevel.COMPREHENSIVE,
         )
 
         # Adapter should have been invoked at least once
@@ -184,6 +185,7 @@ vectors:
 
         result = await scanner.run_campaign(
             phases=[ScanPhase.RECONNAISSANCE],
+            coverage=CoverageLevel.COMPREHENSIVE,
         )
 
         assert len(result.phases_executed) == 1

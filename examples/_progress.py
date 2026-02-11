@@ -97,14 +97,23 @@ class KoanProgressBar:
             )
 
         elif event.event == ProgressEventType.PHASE_START:
-            # Reset / create the per-phase task
+            # Create a placeholder phase task (total set once attacks are loaded)
             if self._phase_task is not None:
                 self._progress.remove_task(self._phase_task)
             label = _phase_label(event.phase or "unknown")
             self._phase_task = self._progress.add_task(
                 label,
-                total=max(event.total_attacks, 1),
+                total=None,  # indeterminate until PHASE_ATTACKS_LOADED
             )
+
+        elif event.event == ProgressEventType.PHASE_ATTACKS_LOADED:
+            # Now we know exactly how many attacks this phase has
+            if self._phase_task is not None:
+                self._progress.update(
+                    self._phase_task,
+                    total=max(event.total_attacks, 1),
+                    completed=0,
+                )
 
         elif event.event == ProgressEventType.ATTACK_COMPLETE:
             if self._phase_task is not None:

@@ -145,7 +145,21 @@ class ReportGenerator:
         lines.append(f"| Critical Attack Paths | {len(result.critical_paths)} |")
         lines.append(f"| Final Trust Score | {result.final_trust_score:.2f} |")
         lines.append(f"| Overall Result | {'⚠️ VULNERABLE' if result.success else '✅ PASSED'} |")
+        if result.coverage_level:
+            lines.append(f"| Coverage Level | {result.coverage_level} |")
         lines.append("")
+
+        # Token Usage
+        tokens = result.token_usage
+        if tokens.get("total_tokens", 0) > 0:
+            lines.append("## Token Usage")
+            lines.append("")
+            lines.append("| Metric | Count |")
+            lines.append("|--------|------:|")
+            lines.append(f"| Prompt Tokens | {tokens['prompt_tokens']:,} |")
+            lines.append(f"| Completion Tokens | {tokens['completion_tokens']:,} |")
+            lines.append(f"| **Total Tokens** | **{tokens['total_tokens']:,}** |")
+            lines.append("")
 
         # Phase Results
         lines.append("## Phase Results")
