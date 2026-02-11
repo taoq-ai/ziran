@@ -72,6 +72,7 @@ def print_verdict(verdict: PolicyVerdict, label: str) -> None:
 
 # ── Synthetic campaign results ───────────────────────────────────────
 
+
 def _phase(name: ScanPhase, *, vulns: list[str] | None = None) -> PhaseResult:
     """Build a minimal PhaseResult for example purposes."""
     return PhaseResult(

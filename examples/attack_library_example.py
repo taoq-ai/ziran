@@ -90,9 +90,7 @@ def main() -> None:
 
     # ── 4. Coverage levels ──────────────────────────────────────
     console.rule("[bold cyan]4. Coverage levels — ESSENTIAL vs COMPREHENSIVE")
-    essential = library.get_attacks_for_phase(
-        ScanPhase.EXECUTION, coverage=CoverageLevel.ESSENTIAL
-    )
+    essential = library.get_attacks_for_phase(ScanPhase.EXECUTION, coverage=CoverageLevel.ESSENTIAL)
     comprehensive = library.get_attacks_for_phase(
         ScanPhase.EXECUTION, coverage=CoverageLevel.COMPREHENSIVE
     )

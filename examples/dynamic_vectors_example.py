@@ -122,7 +122,9 @@ def main() -> None:
     if exfil_vectors:
         print_vectors(exfil_vectors, "Cross-tool exfiltration chains")
     else:
-        console.print("  [dim]No exfiltration chains generated (tools may not match reader+sender pattern)[/dim]")
+        console.print(
+            "  [dim]No exfiltration chains generated (tools may not match reader+sender pattern)[/dim]"
+        )
 
     # Show all categories generated
     categories = {v.category.value for v in dangerous_vectors}

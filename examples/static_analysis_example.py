@@ -166,8 +166,7 @@ def main() -> None:
     # This file triggers both built-in and custom checks
     both_file = tmp / "both_issues.py"
     both_file.write_text(
-        'api_key = "sk-abc123456789012345678901234567890123"\n'
-        'token = "svc-token-abc123xyz789"\n'
+        'api_key = "sk-abc123456789012345678901234567890123"\ntoken = "svc-token-abc123xyz789"\n'
     )
     merged_findings = merged_analyzer.analyze_file(both_file)
     print_findings(merged_findings, "Merged config — both default + custom")

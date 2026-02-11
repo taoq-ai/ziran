@@ -142,9 +142,7 @@ class EchoBotAdapter(BaseAgentAdapter):
         inputs: dict[str, Any],
         outputs: Any,
     ) -> None:
-        self._tool_log.append(
-            {"tool": tool_name, "inputs": inputs, "outputs": outputs}
-        )
+        self._tool_log.append({"tool": tool_name, "inputs": inputs, "outputs": outputs})
 
 
 # ── Step 2: Exercise the adapter ────────────────────────────────────
