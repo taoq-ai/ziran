@@ -32,7 +32,13 @@ from typing import Any
 
 import yaml
 
-from koan.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector, Severity
+from koan.domain.entities.attack import (
+    AttackCategory,
+    AttackPrompt,
+    AttackVector,
+    OwaspLlmCategory,
+    Severity,
+)
 from koan.domain.entities.phase import CoverageLevel, ScanPhase
 
 logger = logging.getLogger(__name__)
@@ -170,6 +176,17 @@ class AttackLibrary:
         """
         return [v for v in self._vectors.values() if tag in v.tags]
 
+    def get_attacks_by_owasp(self, owasp_id: OwaspLlmCategory) -> list[AttackVector]:
+        """Get all attack vectors mapped to a specific OWASP LLM category.
+
+        Args:
+            owasp_id: The OWASP LLM Top 10 category to filter by.
+
+        Returns:
+            List of vectors mapped to this OWASP category.
+        """
+        return [v for v in self._vectors.values() if owasp_id in v.owasp_mapping]
+
     def search(
         self,
         phase: ScanPhase | None = None,
@@ -283,4 +300,7 @@ class AttackLibrary:
             prompts=prompts,
             tags=data.get("tags", []),
             references=data.get("references", []),
+            owasp_mapping=[
+                OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])
+            ],
         )

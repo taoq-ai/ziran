@@ -42,6 +42,59 @@ class AttackCategory(StrEnum):
     CHAIN_OF_THOUGHT_MANIPULATION = "chain_of_thought_manipulation"
 
 
+class OwaspLlmCategory(StrEnum):
+    """OWASP Top 10 for Large Language Model Applications (2025).
+
+    Standard taxonomy for classifying LLM security risks.
+    See: https://owasp.org/www-project-top-10-for-large-language-model-applications/
+    """
+
+    LLM01 = "LLM01"
+    """Prompt Injection — direct or indirect manipulation of LLM input."""
+
+    LLM02 = "LLM02"
+    """Insecure Output Handling — insufficient validation of LLM output."""
+
+    LLM03 = "LLM03"
+    """Training Data Poisoning — manipulation of training/fine-tuning data."""
+
+    LLM04 = "LLM04"
+    """Model Denial of Service — resource-exhausting inputs."""
+
+    LLM05 = "LLM05"
+    """Supply Chain Vulnerabilities — compromised components or data."""
+
+    LLM06 = "LLM06"
+    """Sensitive Information Disclosure — leaking private data in responses."""
+
+    LLM07 = "LLM07"
+    """Insecure Plugin Design — unsafe tool/plugin interfaces."""
+
+    LLM08 = "LLM08"
+    """Excessive Agency — overly broad tool permissions or autonomy."""
+
+    LLM09 = "LLM09"
+    """Overreliance — blind trust in LLM output without verification."""
+
+    LLM10 = "LLM10"
+    """Unbounded Consumption — uncontrolled resource usage."""
+
+
+#: Human-readable descriptions for each OWASP LLM category.
+OWASP_LLM_DESCRIPTIONS: dict[OwaspLlmCategory, str] = {
+    OwaspLlmCategory.LLM01: "Prompt Injection",
+    OwaspLlmCategory.LLM02: "Insecure Output Handling",
+    OwaspLlmCategory.LLM03: "Training Data Poisoning",
+    OwaspLlmCategory.LLM04: "Model Denial of Service",
+    OwaspLlmCategory.LLM05: "Supply Chain Vulnerabilities",
+    OwaspLlmCategory.LLM06: "Sensitive Information Disclosure",
+    OwaspLlmCategory.LLM07: "Insecure Plugin Design",
+    OwaspLlmCategory.LLM08: "Excessive Agency",
+    OwaspLlmCategory.LLM09: "Overreliance",
+    OwaspLlmCategory.LLM10: "Unbounded Consumption",
+}
+
+
 Severity = Literal["low", "medium", "high", "critical"]
 
 
@@ -87,6 +140,10 @@ class AttackVector(BaseModel):
     references: list[str] = Field(
         default_factory=list, description="Links to research/documentation"
     )
+    owasp_mapping: list[OwaspLlmCategory] = Field(
+        default_factory=list,
+        description="OWASP Top 10 for LLM Applications categories this vector maps to",
+    )
 
     @property
     def is_critical(self) -> bool:
@@ -121,5 +178,9 @@ class AttackResult(BaseModel):
     prompt_used: str | None = Field(default=None, description="The actual prompt that was sent")
     error: str | None = Field(
         default=None, description="Error message if the attack failed to execute"
+    )
+    owasp_mapping: list[OwaspLlmCategory] = Field(
+        default_factory=list,
+        description="OWASP Top 10 for LLM Applications categories for this finding",
     )
     token_usage: TokenUsage = Field(default_factory=TokenUsage)

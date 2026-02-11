@@ -20,6 +20,7 @@ from rich.table import Table
 from koan import __version__
 from koan.application.agent_scanner.scanner import AgentScanner
 from koan.application.attacks.library import AttackLibrary
+from koan.domain.entities.attack import OwaspLlmCategory
 from koan.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from koan.infrastructure.logging.logger import setup_logging
 from koan.infrastructure.storage.graph_storage import GraphStorage
@@ -297,11 +298,19 @@ def discover(framework: str, agent_path: str) -> None:
     default=None,
     help="Include custom YAML attack vectors directory.",
 )
+@click.option(
+    "--owasp",
+    "owasp_filter",
+    type=click.Choice([c.value for c in OwaspLlmCategory], case_sensitive=False),
+    default=None,
+    help="Filter vectors by OWASP LLM Top 10 category (e.g., LLM01).",
+)
 def library(
     list_all: bool,
     category: str | None,
     phase: str | None,
     custom_attacks: str | None,
+    owasp_filter: str | None,
 ) -> None:
     """Browse the attack vector library.
 
@@ -310,6 +319,7 @@ def library(
         koan library --list
         koan library --category prompt_injection
         koan library --phase reconnaissance
+        koan library --owasp LLM01
     """
     custom_dirs = [Path(custom_attacks)] if custom_attacks else None
     lib = AttackLibrary(custom_dirs=custom_dirs)
@@ -320,6 +330,9 @@ def library(
         vectors = [v for v in vectors if v.target_phase == ScanPhase(phase)]
     if category:
         vectors = [v for v in vectors if v.category.value == category]
+    if owasp_filter:
+        owasp_cat = OwaspLlmCategory(owasp_filter)
+        vectors = [v for v in vectors if owasp_cat in v.owasp_mapping]
 
     if not vectors:
         console.print("[yellow]No matching attack vectors found.[/yellow]")
@@ -331,6 +344,7 @@ def library(
     table.add_column("Category", style="magenta")
     table.add_column("Phase", style="blue")
     table.add_column("Severity", style="red")
+    table.add_column("OWASP", style="yellow")
     table.add_column("Prompts", style="green", justify="right")
 
     for v in vectors:
@@ -341,12 +355,15 @@ def library(
             "low": "green",
         }.get(v.severity, "white")
 
+        owasp_str = ", ".join(c.value for c in v.owasp_mapping) if v.owasp_mapping else "—"
+
         table.add_row(
             v.id,
             v.name,
             v.category.value,
             v.target_phase.value,
             f"[{severity_style}]{v.severity}[/{severity_style}]",
+            owasp_str,
             str(v.prompt_count),
         )
 

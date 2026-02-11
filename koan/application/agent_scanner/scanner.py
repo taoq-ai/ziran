@@ -540,6 +540,7 @@ class AgentScanner:
                 severity=attack.severity,
                 successful=False,
                 error="No prompts defined for this attack vector",
+                owasp_mapping=attack.owasp_mapping,
             )
 
         attack_tokens = TokenUsage()
@@ -588,6 +589,7 @@ class AgentScanner:
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
+                        owasp_mapping=attack.owasp_mapping,
                         token_usage=attack_tokens,
                     )
 
@@ -602,6 +604,7 @@ class AgentScanner:
             severity=attack.severity,
             successful=False,
             evidence={"note": "All prompts were blocked or failed"},
+            owasp_mapping=attack.owasp_mapping,
             token_usage=attack_tokens,
         )
 

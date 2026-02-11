@@ -7,8 +7,11 @@ machine-parseable JSON output.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+
+from koan.domain.entities.attack import OWASP_LLM_DESCRIPTIONS, OwaspLlmCategory
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -159,6 +162,52 @@ class ReportGenerator:
             lines.append(f"| Prompt Tokens | {tokens['prompt_tokens']:,} |")
             lines.append(f"| Completion Tokens | {tokens['completion_tokens']:,} |")
             lines.append(f"| **Total Tokens** | **{tokens['total_tokens']:,}** |")
+            lines.append("")
+
+        # OWASP LLM Top 10 Compliance Summary
+        owasp_findings: Counter[OwaspLlmCategory] = Counter()
+        owasp_tested: set[OwaspLlmCategory] = set()
+        for phase_result in result.phases_executed:
+            for _vid, artifact in phase_result.artifacts.items():
+                owasp_cats = artifact.get("owasp_mapping", [])
+                for cat_val in owasp_cats:
+                    try:
+                        cat = OwaspLlmCategory(cat_val)
+                    except ValueError:
+                        continue
+                    owasp_tested.add(cat)
+                    if _vid in phase_result.vulnerabilities_found:
+                        owasp_findings[cat] += 1
+
+        # Also collect from attack_results if present
+        for ar in getattr(result, "attack_results", []):
+            for cat_val in getattr(ar, "owasp_mapping", []) or []:
+                try:
+                    cat = OwaspLlmCategory(cat_val)
+                except ValueError:
+                    continue
+                owasp_tested.add(cat)
+                if ar.successful:
+                    owasp_findings[cat] += 1
+
+        if owasp_tested:
+            lines.append("## OWASP LLM Top 10 Compliance")
+            lines.append("")
+            lines.append("| Category | Description | Status | Findings |")
+            lines.append("|----------|-------------|--------|----------|")
+            for cat in OwaspLlmCategory:
+                desc = OWASP_LLM_DESCRIPTIONS.get(cat, "")
+                if cat in owasp_findings:
+                    count = owasp_findings[cat]
+                    status = "🔴 FAIL"
+                    findings = f"{count} vulnerabilit{'y' if count == 1 else 'ies'}"
+                elif cat in owasp_tested:
+                    status = "✅ PASS"
+                    findings = "—"
+                else:
+                    status = "⚪ Not tested"
+                    findings = "—"
+                lines.append(f"| {cat.value} | {desc} | {status} | {findings} |")
             lines.append("")
 
         # Phase Results

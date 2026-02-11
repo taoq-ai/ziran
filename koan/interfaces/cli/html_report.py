@@ -216,6 +216,8 @@ def build_html_report(
     # Build attack log HTML
     attack_results = result_data.get("attack_results", [])
     attack_log_html = _build_attack_log_html(attack_results)
+    # Build OWASP compliance HTML
+    owasp_html = _build_owasp_html(attack_results, phases)
 
     return _HTML_TEMPLATE.format(
         campaign_id=html.escape(campaign_id),
@@ -238,6 +240,7 @@ def build_html_report(
         vulns_html=vulns_html,
         legend_html=legend_html,
         attack_log_html=attack_log_html,
+        owasp_html=owasp_html,
         vis_nodes_json=json.dumps(vis_data["nodes"]),
         vis_edges_json=json.dumps(vis_data["edges"]),
         critical_paths_json=json.dumps(paths),
@@ -342,6 +345,75 @@ def _build_legend_html() -> str:
             f"</div>"
         )
     parts.append("</div>")
+    return "\n".join(parts)
+
+
+_OWASP_DESCRIPTIONS: dict[str, str] = {
+    "LLM01": "Prompt Injection",
+    "LLM02": "Insecure Output Handling",
+    "LLM03": "Training Data Poisoning",
+    "LLM04": "Model Denial of Service",
+    "LLM05": "Supply Chain Vulnerabilities",
+    "LLM06": "Sensitive Information Disclosure",
+    "LLM07": "Insecure Plugin Design",
+    "LLM08": "Excessive Agency",
+    "LLM09": "Overreliance",
+    "LLM10": "Unbounded Consumption",
+}
+
+
+def _build_owasp_html(
+    attack_results: list[dict[str, Any]],
+    phases: list[dict[str, Any]],
+) -> str:
+    """Build an OWASP LLM Top 10 compliance summary table."""
+    from collections import Counter
+
+    findings: Counter[str] = Counter()
+    tested: set[str] = set()
+
+    # Gather from attack_results
+    for ar in attack_results:
+        for cat in ar.get("owasp_mapping", []):
+            tested.add(cat)
+            if ar.get("successful"):
+                findings[cat] += 1
+
+    # Gather from phase artifacts
+    for p in phases:
+        artifacts = p.get("artifacts", {})
+        vuln_ids = set(p.get("vulnerabilities_found", []))
+        for vid, art in artifacts.items():
+            for cat in art.get("owasp_mapping", []):
+                tested.add(cat)
+                if vid in vuln_ids:
+                    findings[cat] += 1
+
+    if not tested:
+        return '<p class="muted">No OWASP mapping data available.</p>'
+
+    parts: list[str] = ['<table class="owasp-table">']
+    parts.append(
+        "<tr><th>Category</th><th>Description</th><th>Status</th><th>Findings</th></tr>"
+    )
+    for cat_id in ("LLM01", "LLM02", "LLM03", "LLM04", "LLM05",
+                    "LLM06", "LLM07", "LLM08", "LLM09", "LLM10"):
+        desc = html.escape(_OWASP_DESCRIPTIONS.get(cat_id, ""))
+        if cat_id in findings:
+            count = findings[cat_id]
+            status = '<span class="sev-badge sev-critical">FAIL</span>'
+            finding_text = f"{count} vuln{'s' if count != 1 else ''}"
+        elif cat_id in tested:
+            status = '<span class="sev-badge sev-ok">PASS</span>'
+            finding_text = "—"
+        else:
+            status = '<span class="sev-badge sev-untested">N/T</span>'
+            finding_text = "—"
+        parts.append(
+            f"<tr><td><strong>{cat_id}</strong></td>"
+            f"<td>{desc}</td><td>{status}</td><td>{finding_text}</td></tr>"
+        )
+    parts.append("</table>")
     return "\n".join(parts)
 
 
@@ -625,6 +697,29 @@ _HTML_TEMPLATE = """\
   .sev-critical {{ background: rgba(239,68,68,0.2); color: #fca5a5; }}
   .sev-medium {{ background: rgba(245,158,11,0.2); color: #fcd34d; }}
   .sev-low {{ background: rgba(16,185,129,0.2); color: #6ee7b7; }}
+  .sev-ok {{ background: rgba(16,185,129,0.2); color: #6ee7b7; }}
+  .sev-untested {{ background: rgba(148,163,184,0.2); color: #94a3b8; }}
+
+  /* OWASP table */
+  .owasp-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }}
+  .owasp-table th {{
+    text-align: left;
+    padding: 6px 8px;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #334155;
+  }}
+  .owasp-table td {{
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(51,65,85,0.5);
+  }}
 
   /* Legend */
   .legend-grid {{
@@ -909,6 +1004,12 @@ _HTML_TEMPLATE = """\
   <div class="section">
     <div class="section-title">Vulnerabilities</div>
     {vulns_html}
+  </div>
+
+  <!-- OWASP LLM Top 10 Compliance -->
+  <div class="section">
+    <div class="section-title">OWASP LLM Top 10</div>
+    {owasp_html}
   </div>
 
   <!-- Attack Paths -->
