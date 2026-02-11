@@ -607,6 +607,125 @@ def _display_policy_verdict(verdict: Any) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# audit command (static analysis)
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.argument("path", type=click.Path(exists=True))
+@click.option(
+    "--severity",
+    type=click.Choice(["critical", "high", "medium", "low"], case_sensitive=False),
+    default=None,
+    help="Only show findings at this severity or above.",
+)
+def audit(path: str, severity: str | None) -> None:
+    """Static security analysis of agent source code.
+
+    Scans Python files for common agent security anti-patterns such as
+    hard-coded secrets, dangerous tool permissions, SQL injection risks,
+    and PII exposure — all without executing the agent.
+
+    PATH can be a single file or a directory (recursive scan).
+
+    \b
+    Examples:
+        koan audit ./my_agent.py
+        koan audit ./agents/ --severity high
+    """
+    from koan.application.static_analysis.analyzer import (
+        AnalysisReport,
+        StaticAnalyzer,
+    )
+
+    target = Path(path)
+    analyzer = StaticAnalyzer()
+
+    if target.is_file():
+        findings = analyzer.analyze_file(target)
+        report = AnalysisReport(files_analyzed=1, findings=findings)
+    else:
+        report = analyzer.analyze_directory(target)
+
+    # Filter by severity if requested
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    if severity:
+        min_level = severity_order[severity]
+        report.findings = [f for f in report.findings if severity_order[f.severity] <= min_level]
+
+    _display_audit_report(report)
+
+
+def _display_audit_report(report: Any) -> None:
+    """Render an AnalysisReport to the console."""
+    console.print()
+
+    if not report.findings:
+        console.print(
+            Panel(
+                "[bold green]No issues found[/bold green]",
+                title="Static Analysis",
+                expand=False,
+            )
+        )
+        console.print(f"[dim]Files analysed: {report.files_analyzed}[/dim]")
+        return
+
+    # Summary
+    console.print(
+        Panel(
+            f"[bold]Found {report.total_issues} issue(s) "
+            f"in {report.files_analyzed} file(s)[/bold]\n"
+            f"  [red]Critical: {report.critical_count}[/red]  "
+            f"[yellow]High: {report.high_count}[/yellow]",
+            title="Static Analysis",
+            expand=False,
+        )
+    )
+    console.print()
+
+    severity_styles = {
+        "critical": "bold red",
+        "high": "yellow",
+        "medium": "cyan",
+        "low": "dim",
+    }
+
+    findings_table = Table(show_lines=True)
+    findings_table.add_column("Check", style="cyan", width=6)
+    findings_table.add_column("Severity", width=10)
+    findings_table.add_column("Message")
+    findings_table.add_column("Location", style="dim")
+
+    for f in report.findings:
+        sev_style = severity_styles.get(f.severity, "white")
+        loc = f.file_path
+        if f.line_number:
+            loc += f":{f.line_number}"
+        findings_table.add_row(
+            f.check_id,
+            f"[{sev_style}]{f.severity}[/{sev_style}]",
+            f.message,
+            loc,
+        )
+
+    console.print(findings_table)
+
+    # Recommendations
+    recs = {f.check_id: f.recommendation for f in report.findings if f.recommendation}
+    if recs:
+        console.print()
+        console.print("[bold]Recommendations:[/bold]")
+        for check_id, rec in sorted(recs.items()):
+            console.print(f"  [cyan]{check_id}[/cyan]: {rec}")
+
+    if not report.passed:
+        console.print()
+        console.print("[bold red]FAILED — critical issues found[/bold red]")
+        sys.exit(1)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
 
