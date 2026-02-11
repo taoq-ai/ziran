@@ -1,0 +1,163 @@
+name: "KOAN Agent Security Scan"
+description: "Run KOAN automated security scans on AI agents in your CI/CD pipeline"
+author: "KOAN Project"
+
+branding:
+  icon: "shield"
+  color: "red"
+
+inputs:
+  command:
+    description: >
+      The KOAN sub-command to run.
+      Supported: scan, audit, policy, ci
+    required: false
+    default: "ci"
+
+  result-file:
+    description: >
+      Path to a previously generated KOAN campaign result JSON file.
+      Required for: policy, ci (when not running a live scan).
+    required: false
+    default: ""
+
+  source-path:
+    description: >
+      Path to the agent source code directory.
+      Required for: audit.
+    required: false
+    default: "."
+
+  policy-file:
+    description: >
+      Path to a custom YAML policy file.
+      If omitted the built-in KOAN policy is used.
+    required: false
+    default: ""
+
+  gate-config:
+    description: >
+      Path to a quality-gate YAML config.
+      If omitted, default thresholds are used.
+    required: false
+    default: ""
+
+  sarif-output:
+    description: >
+      Path where the SARIF report will be written.
+      Set to empty string to disable SARIF generation.
+    required: false
+    default: "koan-results.sarif"
+
+  severity-threshold:
+    description: >
+      Only report findings at or above this severity.
+      Options: critical, high, medium, low
+    required: false
+    default: "low"
+
+  python-version:
+    description: "Python version to use."
+    required: false
+    default: "3.12"
+
+  koan-version:
+    description: >
+      KOAN package version or install spec.
+      Use "." to install from local checkout.
+    required: false
+    default: "."
+
+outputs:
+  status:
+    description: "Gate result: passed or failed"
+    value: ${{ steps.run.outputs.status }}
+  trust-score:
+    description: "Agent trust score (0.0-1.0)"
+    value: ${{ steps.run.outputs.trust_score }}
+  total-findings:
+    description: "Total number of security findings"
+    value: ${{ steps.run.outputs.total_findings }}
+  critical-findings:
+    description: "Number of critical findings"
+    value: ${{ steps.run.outputs.critical_findings }}
+  sarif-file:
+    description: "Path to the generated SARIF file"
+    value: ${{ steps.run.outputs.sarif_file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install KOAN
+      shell: bash
+      run: |
+        pip install --quiet "${{ inputs.koan-version }}"
+
+    - name: Run KOAN
+      id: run
+      shell: bash
+      run: |
+        set +e
+
+        CMD="${{ inputs.command }}"
+        EXTRA_ARGS=""
+
+        case "$CMD" in
+          ci)
+            if [ -n "${{ inputs.result-file }}" ]; then
+              EXTRA_ARGS="${{ inputs.result-file }}"
+            else
+              echo "::error::result-file is required for the 'ci' command"
+              exit 1
+            fi
+            if [ -n "${{ inputs.gate-config }}" ]; then
+              EXTRA_ARGS="$EXTRA_ARGS --gate-config ${{ inputs.gate-config }}"
+            fi
+            if [ -n "${{ inputs.policy-file }}" ]; then
+              EXTRA_ARGS="$EXTRA_ARGS --policy ${{ inputs.policy-file }}"
+            fi
+            if [ -n "${{ inputs.sarif-output }}" ]; then
+              EXTRA_ARGS="$EXTRA_ARGS --sarif ${{ inputs.sarif-output }}"
+            fi
+            ;;
+          audit)
+            EXTRA_ARGS="${{ inputs.source-path }}"
+            if [ -n "${{ inputs.severity-threshold }}" ]; then
+              EXTRA_ARGS="$EXTRA_ARGS --severity ${{ inputs.severity-threshold }}"
+            fi
+            ;;
+          policy)
+            EXTRA_ARGS="${{ inputs.result-file }}"
+            if [ -n "${{ inputs.policy-file }}" ]; then
+              EXTRA_ARGS="$EXTRA_ARGS --policy ${{ inputs.policy-file }}"
+            fi
+            ;;
+        esac
+
+        koan $CMD $EXTRA_ARGS
+        EXIT_CODE=$?
+
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "status=passed" >> "$GITHUB_OUTPUT"
+        else
+          echo "status=failed" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Upload SARIF if it exists
+        if [ -n "${{ inputs.sarif-output }}" ] && [ -f "${{ inputs.sarif-output }}" ]; then
+          echo "sarif_file=${{ inputs.sarif-output }}" >> "$GITHUB_OUTPUT"
+        fi
+
+        exit $EXIT_CODE
+
+    - name: Upload SARIF
+      if: always() && inputs.sarif-output != '' && hashFiles(inputs.sarif-output) != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-output }}
+      continue-on-error: true
