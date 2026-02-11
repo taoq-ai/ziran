@@ -23,8 +23,5 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      - name: Install MkDocs
-        run: uv tool install mkdocs-material
-
       - name: Deploy to GitHub Pages
-        run: uvx --from mkdocs-material mkdocs gh-deploy --force
+        run: uvx --with mkdocs-material mkdocs gh-deploy --force
