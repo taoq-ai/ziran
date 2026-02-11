@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path as _Path
 from typing import TYPE_CHECKING
 
 import pytest
 
+from koan.application.poc.config import (
+    CurlPoCTemplate,
+    PoCConfig,
+    PythonPoCTemplate,
+)
 from koan.application.poc.generator import PoCGenerator, _escape_python_string
 from koan.domain.entities.attack import (
     AttackCategory,
@@ -207,3 +213,77 @@ class TestEscapePythonString:
     def test_triple_quotes_escaped(self) -> None:
         result = _escape_python_string('say """hello"""')
         assert '"""' not in result
+
+
+# ──────────────────────────────────────────────────────────────────────
+# PoCConfig tests
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestPoCConfig:
+    """Tests for the PoCConfig Pydantic model."""
+
+    def test_default_loads(self) -> None:
+        cfg = PoCConfig.default()
+        assert cfg.generator_label
+        assert cfg.python_template.shebang.startswith("#!")
+        assert cfg.curl_template.max_response_chars > 0
+        assert cfg.markdown_template.title
+
+    def test_from_yaml_roundtrip(self, tmp_path: Path) -> None:
+        yaml_content = """\
+generator_label: My Custom Label
+python_template:
+  shebang: "#!/usr/bin/env python3.12"
+"""
+        cfg_file = tmp_path / "poc.yaml"
+        cfg_file.write_text(yaml_content)
+        cfg = PoCConfig.from_yaml(cfg_file)
+        assert cfg.generator_label == "My Custom Label"
+        assert cfg.python_template.shebang == "#!/usr/bin/env python3.12"
+
+    def test_from_yaml_missing_file(self) -> None:
+        with pytest.raises(FileNotFoundError):
+            PoCConfig.from_yaml(_Path("/not/real.yaml"))
+
+    def test_from_yaml_invalid(self, tmp_path: Path) -> None:
+        p = tmp_path / "bad.yaml"
+        p.write_text("- list not mapping")
+        with pytest.raises(ValueError, match="expected mapping"):
+            PoCConfig.from_yaml(p)
+
+    def test_merge_overrides_label(self) -> None:
+        base = PoCConfig.default()
+        other = PoCConfig(generator_label="Overridden")
+        merged = base.merge(other)
+        assert merged.generator_label == "Overridden"
+
+    def test_merge_keeps_base_when_other_is_default(self) -> None:
+        base = PoCConfig(generator_label="Custom Base")
+        other = PoCConfig()  # all defaults
+        merged = base.merge(other)
+        assert merged.generator_label == "Custom Base"
+
+    def test_custom_config_in_generator(
+        self, tmp_path: Path, successful_result: AttackResult
+    ) -> None:
+        cfg = PoCConfig(
+            generator_label="TEST FRAMEWORK",
+            python_template=PythonPoCTemplate(
+                shebang="#!/usr/bin/env python3.11",
+            ),
+        )
+        gen = PoCGenerator(output_dir=tmp_path / "pocs", config=cfg)
+        path = gen.generate_python_poc(successful_result, "camp_cfg")
+        content = path.read_text()
+        assert "TEST FRAMEWORK" in content
+        assert "#!/usr/bin/env python3.11" in content
+
+    def test_custom_curl_endpoint(self, tmp_path: Path, successful_result: AttackResult) -> None:
+        cfg = PoCConfig(
+            curl_template=CurlPoCTemplate(default_endpoint="http://my-agent:3000/api"),
+        )
+        gen = PoCGenerator(output_dir=tmp_path / "pocs", config=cfg)
+        path = gen.generate_curl_poc(successful_result, campaign_id="camp_curl")
+        content = path.read_text()
+        assert "my-agent:3000" in content

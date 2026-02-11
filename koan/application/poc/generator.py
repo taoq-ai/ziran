@@ -8,12 +8,17 @@ Supports multiple output formats:
   - **cURL**: HTTP-based PoC for API-accessible agents.
   - **Markdown**: Human-readable reproduction steps.
 
-Each PoC includes:
-  - The exact attack prompt that succeeded
-  - Expected success indicators
-  - OWASP category mapping
-  - Evidence from the original attack
-  - Instructions for running the reproduction
+All template text, formatting options, and labels are loaded from a
+:class:`~.config.PoCConfig` (backed by YAML) so organisations can
+customise the output without code changes.
+
+Example::
+
+    config = PoCConfig.default()
+    generator = PoCGenerator(output_dir=Path("./pocs"), config=config)
+    for result in campaign.attack_results:
+        if result.successful:
+            generator.generate_python_poc(result, campaign_id="abc123")
 """
 
 from __future__ import annotations
@@ -24,6 +29,8 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from mdutils.mdutils import MdUtils
+
+from koan.application.poc.config import PoCConfig
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,6 +45,11 @@ class PoCGenerator:
     Creates scripts and documentation from successful attack results
     that allow security teams to reproduce and validate findings.
 
+    Args:
+        output_dir: Directory where generated PoC files are written.
+        config: Template / formatting configuration.
+            Defaults to the built-in config shipped with KOAN.
+
     Example::
 
         generator = PoCGenerator(output_dir=Path("./pocs"))
@@ -46,9 +58,14 @@ class PoCGenerator:
                 generator.generate_python_poc(result, campaign_id="abc123")
     """
 
-    def __init__(self, output_dir: Path) -> None:
+    def __init__(
+        self,
+        output_dir: Path,
+        config: PoCConfig | None = None,
+    ) -> None:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.config = config or PoCConfig.default()
 
     def generate_all(
         self,
@@ -103,6 +120,7 @@ class PoCGenerator:
         Returns:
             Path to the generated Python script.
         """
+        tpl = self.config.python_template
         owasp_str = ", ".join(c.value for c in result.owasp_mapping) or "N/A"
         prompt_escaped = _escape_python_string(result.prompt_used or "")
         indicators = result.evidence.get("matched_indicators", [])
@@ -110,8 +128,10 @@ class PoCGenerator:
         result.evidence.get("tool_calls", [])
         result.evidence.get("side_effects", {})
 
+        imports_block = "\n".join(f"import {m}" for m in tpl.imports)
+
         script = textwrap.dedent(f'''\
-            #!/usr/bin/env python3
+            {tpl.shebang}
             """Proof-of-Concept: {result.vector_name}
 
             Campaign:  {campaign_id}
@@ -121,14 +141,13 @@ class PoCGenerator:
             OWASP:     {owasp_str}
 
             Generated: {datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}
-            Generator: KOAN AI Agent Security Testing Framework
+            Generator: {self.config.generator_label}
 
             This script reproduces a confirmed vulnerability finding.
             Run it against the same agent configuration to validate the issue.
             """
 
-            import asyncio
-            import sys
+            {imports_block}
 
 
             # ── Attack payload ──────────────────────────────────────────
@@ -168,13 +187,13 @@ class PoCGenerator:
                         print(f"    - {{tool_name}}")
 
                 if matched:
-                    print(f"[!] VULNERABLE — Matched indicators: {{matched}}")
+                    print(f"[!] {tpl.vulnerable_text_match}")
                     return True
                 elif response.tool_calls:
-                    print(f"[!] VULNERABLE — Dangerous tool execution detected")
+                    print(f"[!] {tpl.vulnerable_tool_match}")
                     return True
                 else:
-                    print(f"[-] Not reproduced — no indicators matched")
+                    print(f"[-] {tpl.not_reproduced}")
                     return False
 
 
@@ -183,16 +202,14 @@ class PoCGenerator:
                 print("KOAN Proof-of-Concept: {result.vector_name}")
                 print("=" * 60)
                 print()
-                print("To reproduce, configure your agent adapter and call:")
-                print("  asyncio.run(reproduce(your_adapter))")
-                print()
-                print("Example with LangChain:")
-                print("  from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter")
-                print("  adapter = LangChainAdapter(your_agent_executor)")
-                print("  asyncio.run(reproduce(adapter))")
-                print()
-                sys.exit(0)
         ''')
+
+        # Append run instructions from config
+        for instruction in tpl.run_instructions:
+            script += f'    print("{instruction}")\n'
+
+        script += "    print()\n"
+        script += "    sys.exit(0)\n"
 
         filename = f"poc_{result.vector_id}_{campaign_id}.py"
         filepath = self.output_dir / filename
@@ -202,19 +219,22 @@ class PoCGenerator:
     def generate_curl_poc(
         self,
         result: AttackResult,
-        endpoint: str = "http://localhost:8000/invoke",
+        endpoint: str | None = None,
         campaign_id: str = "unknown",
     ) -> Path:
         """Generate a cURL-based PoC for API-accessible agents.
 
         Args:
             result: Successful attack result.
-            endpoint: The agent's HTTP endpoint.
+            endpoint: The agent's HTTP endpoint.  Falls back to
+                the config default if not given.
             campaign_id: Campaign identifier.
 
         Returns:
             Path to the generated shell script.
         """
+        tpl = self.config.curl_template
+        effective_endpoint = endpoint or tpl.default_endpoint
         prompt_json = json.dumps({"message": result.prompt_used or ""})
         owasp_str = ", ".join(c.value for c in result.owasp_mapping) or "N/A"
         indicators = result.evidence.get("matched_indicators", [])
@@ -232,7 +252,7 @@ class PoCGenerator:
 
             set -euo pipefail
 
-            ENDPOINT="${{1:-{endpoint}}}"
+            ENDPOINT="${{1:-{effective_endpoint}}}"
 
             echo "=== KOAN PoC: {result.vector_name} ==="
             echo "Sending attack payload to $ENDPOINT ..."
@@ -243,7 +263,7 @@ class PoCGenerator:
 
             echo ""
             echo "Response:"
-            echo "$RESPONSE" | head -c 500
+            echo "$RESPONSE" | head -c {tpl.max_response_chars}
             echo ""
             echo ""
 
@@ -251,7 +271,7 @@ class PoCGenerator:
             VULNERABLE=0
         """)
 
-        for ind in indicators[:5]:
+        for ind in indicators[: tpl.max_indicators]:
             ind_escaped = ind.replace("'", "'\\''")
             script += f"    echo \"$RESPONSE\" | grep -qi '{ind_escaped}' && VULNERABLE=1\n"
 
@@ -288,11 +308,12 @@ class PoCGenerator:
         Returns:
             Path to the generated Markdown file.
         """
+        tpl = self.config.markdown_template
         filepath = self.output_dir / f"poc_guide_{campaign_id}.md"
 
         md = MdUtils(
             file_name=str(filepath.with_suffix("")),  # mdutils appends .md
-            title="KOAN Vulnerability Reproduction Guide",
+            title=tpl.title,
         )
 
         # ── Summary metadata ────────────────────────────────────────
@@ -370,7 +391,7 @@ class PoCGenerator:
             snippet = result.evidence.get("response_snippet", "")
             if snippet:
                 md.new_header(level=3, title="Agent Response (snippet)", add_table_of_contents="n")
-                md.insert_code(snippet[:500])
+                md.insert_code(snippet[: tpl.max_response_snippet_chars])
 
             # Detector reasoning
             reasoning = result.evidence.get("detector_reasoning", "")
@@ -381,8 +402,8 @@ class PoCGenerator:
             md.new_paragraph("---")
 
         # ── Footer ──────────────────────────────────────────────────
-        koan_link = md.new_inline_link(link="https://github.com/taoq-ai/koan", text="KOAN")
-        md.new_paragraph(f"*Generated by {koan_link} — AI Agent Security Testing Framework*")
+        koan_link = md.new_inline_link(link=tpl.footer_link_url, text=tpl.footer_link_text)
+        md.new_paragraph(f"*Generated by {koan_link} — {tpl.footer_tagline}*")
 
         md.create_md_file()
         return filepath

@@ -11,11 +11,22 @@ from koan.application.static_analysis.analyzer import (
     StaticAnalyzer,
     StaticFinding,
 )
+from koan.application.static_analysis.config import (
+    CheckDefinition,
+    DangerousToolCheck,
+    PatternRule,
+    StaticAnalysisConfig,
+)
 
 
 @pytest.fixture()
 def analyzer() -> StaticAnalyzer:
     return StaticAnalyzer()
+
+
+@pytest.fixture()
+def default_config() -> StaticAnalysisConfig:
+    return StaticAnalysisConfig.default()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -279,3 +290,94 @@ class TestEdgeCases:
         )
         assert f.line_number == 42
         assert f.recommendation == "fix it"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# StaticAnalysisConfig tests
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestStaticAnalysisConfig:
+    def test_default_loads(self, default_config: StaticAnalysisConfig) -> None:
+        assert len(default_config.secret_checks) >= 1
+        assert len(default_config.dangerous_tool_checks) >= 1
+        assert len(default_config.skip_directories) >= 1
+
+    def test_from_yaml_roundtrip(self, tmp_path: Path) -> None:
+        """Write a minimal YAML, load it, and verify contents."""
+        yaml_content = """\
+secret_checks:
+  - check_id: SA099
+    message: Custom secret check
+    severity: critical
+    patterns:
+      - pattern: "MY_CUSTOM_SECRET"
+        description: Custom secret
+skip_directories:
+  - vendor
+"""
+        cfg_file = tmp_path / "custom.yaml"
+        cfg_file.write_text(yaml_content)
+        cfg = StaticAnalysisConfig.from_yaml(cfg_file)
+        assert cfg.secret_checks[0].check_id == "SA099"
+        assert cfg.skip_directories == ["vendor"]
+
+    def test_from_yaml_missing_file(self) -> None:
+        with pytest.raises(FileNotFoundError):
+            StaticAnalysisConfig.from_yaml(Path("/not/real.yaml"))
+
+    def test_from_yaml_invalid_content(self, tmp_path: Path) -> None:
+        p = tmp_path / "bad.yaml"
+        p.write_text("- just a list")
+        with pytest.raises(ValueError, match="expected mapping"):
+            StaticAnalysisConfig.from_yaml(p)
+
+    def test_merge_adds_checks(self, default_config: StaticAnalysisConfig) -> None:
+        extra = StaticAnalysisConfig(
+            secret_checks=[
+                CheckDefinition(
+                    check_id="SA099",
+                    message="Extra secret",
+                    severity="low",
+                    patterns=[PatternRule(pattern="EXTRA_SECRET")],
+                )
+            ],
+        )
+        merged = default_config.merge(extra)
+        ids = [c.check_id for c in merged.secret_checks]
+        assert "SA001" in ids
+        assert "SA099" in ids
+
+    def test_merge_replaces_by_key(self, default_config: StaticAnalysisConfig) -> None:
+        replacement = StaticAnalysisConfig(
+            dangerous_tool_checks=[
+                DangerousToolCheck(
+                    pattern=default_config.dangerous_tool_checks[0].pattern,
+                    description="Overridden description",
+                )
+            ],
+        )
+        merged = default_config.merge(replacement)
+        found = [
+            c for c in merged.dangerous_tool_checks if c.description == "Overridden description"
+        ]
+        assert len(found) == 1
+
+    def test_custom_config_analyzer(self, tmp_path: Path) -> None:
+        """Analyzer with a custom config detects custom patterns."""
+        cfg = StaticAnalysisConfig(
+            secret_checks=[
+                CheckDefinition(
+                    check_id="SA999",
+                    message="Custom secret found",
+                    severity="critical",
+                    patterns=[PatternRule(pattern=r"SUPER_SECRET_XYZ")],
+                )
+            ],
+            skip_directories=[],
+        )
+        analyzer = StaticAnalyzer(config=cfg)
+        src = tmp_path / "agent.py"
+        src.write_text('key = "SUPER_SECRET_XYZ_123"\n')
+        findings = analyzer.analyze_file(src)
+        assert any(f.check_id == "SA999" for f in findings)

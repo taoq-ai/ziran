@@ -1,0 +1,45 @@
+# PoC Generator — Default Configuration
+# =======================================
+# Template text, formatting options, and labels for all output formats.
+# Extend by creating your own YAML and merging:
+#
+#   config = PoCConfig.default()
+#   custom = PoCConfig.from_yaml("my_poc.yaml")
+#   merged = config.merge(custom)
+
+generator_label: "KOAN AI Agent Security Testing Framework"
+
+# ── Python PoC scripts ──────────────────────────────────────────────
+
+python_template:
+  shebang: "#!/usr/bin/env python3"
+  imports:
+    - asyncio
+    - sys
+  run_instructions:
+    - "To reproduce, configure your agent adapter and call:"
+    - "  asyncio.run(reproduce(your_adapter))"
+    - ""
+    - "Example with LangChain:"
+    - "  from koan.infrastructure.adapters.langchain_adapter import LangChainAdapter"
+    - "  adapter = LangChainAdapter(your_agent_executor)"
+    - "  asyncio.run(reproduce(adapter))"
+  vulnerable_text_match: "VULNERABLE — Matched indicators: {matched}"
+  vulnerable_tool_match: "VULNERABLE — Dangerous tool execution detected"
+  not_reproduced: "Not reproduced — no indicators matched"
+
+# ── cURL PoC scripts ────────────────────────────────────────────────
+
+curl_template:
+  default_endpoint: "http://localhost:8000/invoke"
+  max_response_chars: 500
+  max_indicators: 5
+
+# ── Markdown reproduction guide ─────────────────────────────────────
+
+markdown_template:
+  title: "KOAN Vulnerability Reproduction Guide"
+  footer_link_text: "KOAN"
+  footer_link_url: "https://github.com/taoq-ai/koan"
+  footer_tagline: "AI Agent Security Testing Framework"
+  max_response_snippet_chars: 500

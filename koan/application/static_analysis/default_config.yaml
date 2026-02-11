@@ -1,0 +1,162 @@
+# Static Analysis — Default Configuration
+# =========================================
+# All regex patterns, check metadata, and skip rules.
+# Extend by creating your own YAML and merging:
+#
+#   config = StaticAnalysisConfig.default()
+#   custom = StaticAnalysisConfig.from_yaml("my_rules.yaml")
+#   merged = config.merge(custom)
+
+# ── SA001 — Secrets in source code ──────────────────────────────────
+
+secret_checks:
+  - check_id: SA001
+    message: "Potential secret or API key in source code"
+    severity: critical
+    recommendation: >
+      Use environment variables or a secrets manager
+      instead of hard-coding secrets.
+    skip_comments: true
+    patterns:
+      - pattern: '(?i)(api[_-]?key|secret[_-]?key|password|token|credential)\s*[:=]\s*[''"][^''"]{8,}[''"]'
+        description: "Generic secret assignment"
+      - pattern: '(?i)(aws_secret|aws_access_key|openai_api_key)\s*[:=]\s*[''"][^''"]+[''"]'
+        description: "Cloud / AI provider key"
+      - pattern: 'sk-[a-zA-Z0-9]{20,}'
+        description: "OpenAI-style API key"
+      - pattern: 'AKIA[0-9A-Z]{16}'
+        description: "AWS access key ID"
+      - pattern: '(?i)Bearer\s+[a-zA-Z0-9\-._~+/]+=*'
+        description: "Bearer token"
+
+# ── SA003 — Dangerous tool permissions ──────────────────────────────
+
+dangerous_tool_checks:
+  - pattern: '(?i)(subprocess|os\.system|os\.popen|exec\(|eval\(|__import__)'
+    description: "Direct shell/code execution — agent could run arbitrary commands"
+  - pattern: '(?i)(shell_execute|run_command|execute_command|bash|terminal)'
+    description: "Shell execution tool — high privilege escalation risk"
+  - pattern: '(?i)(write_file|delete_file|rmtree|unlink|shutil\.rmtree)'
+    description: "Filesystem modification tool — data integrity risk"
+  - pattern: '(?i)(send_email|smtp|sendgrid|ses\.send)'
+    description: "Email sending capability — social engineering / spam risk"
+  - pattern: '(?i)(requests\.post|httpx\.post|urllib\.request)'
+    description: "Outbound HTTP — potential data exfiltration channel"
+
+# ── SA009 — SQL injection risk ──────────────────────────────────────
+
+sql_injection_checks:
+  - check_id: SA009
+    message: "Potential SQL injection — use parameterised queries"
+    severity: high
+    recommendation: >
+      Use parameterised queries (cursor.execute(sql, params))
+      instead of string interpolation.
+    skip_comments: true
+    patterns:
+      - pattern: '(?i)(execute|cursor\.execute)\s*\(\s*f["\x27]'
+        description: "f-string in execute()"
+      - pattern: '(?i)(execute|cursor\.execute)\s*\(\s*[''"].*%s'
+        description: "%-formatting in execute()"
+      - pattern: '(?i)\.format\(.*\).*(?:execute|query)'
+        description: ".format() in query"
+      - pattern: '(?i)(execute|cursor\.execute)\s*\(\s*.*\+\s*'
+        description: "String concatenation in execute()"
+
+# ── SA010 — PII exposure risk ───────────────────────────────────────
+
+pii_checks:
+  - check_id: SA010
+    message: "PII field reference — ensure access controls are in place"
+    severity: high
+    recommendation: >
+      Redact or mask PII before exposing to agents.
+      Apply role-based access controls.
+    skip_comments: false
+    patterns:
+      - pattern: '(?i)\bssn\b'
+        description: "SSN field name"
+      - pattern: '(?i)\b(social_security|social_security_number)\b'
+        description: "Social security number field"
+      - pattern: '(?i)\b(credit_card|card_number|cvv)\b'
+        description: "Credit card field"
+      - pattern: '(?i)\b(date_of_birth|dob)\b'
+        description: "Date of birth field"
+      - pattern: '\b\d{3}-\d{2}-\d{4}\b'
+        description: "SSN format (###-##-####)"
+
+# ── SA008 — Hard-coded credentials ─────────────────────────────────
+
+hardcoded_cred_checks:
+  - check_id: SA008
+    message: "Hard-coded credential detected"
+    severity: critical
+    recommendation: >
+      Remove hard-coded credentials. Use environment
+      variables, a vault, or a .env file.
+    skip_comments: true
+    patterns:
+      - pattern: '(?i)(password|passwd|pwd)\s*[:=]\s*[''"][^''"]{4,}[''"]'
+        description: "Password assignment"
+      - pattern: '(?i)(db_password|database_password|mysql_password|postgres_password)\s*[:=]\s*[''"][^''"]+[''"]'
+        description: "Database password"
+      - pattern: '(?i)(connection_string|conn_str)\s*[:=]\s*[''"].*password.*[''"]'
+        description: "Connection string with password"
+
+# ── SA006 — Verbose error messages ──────────────────────────────────
+
+verbose_error_checks:
+  - check_id: SA006
+    message: "Verbose error exposure — may leak internals to the agent"
+    severity: low
+    recommendation: >
+      Return generic error messages to the agent.
+      Log detailed tracebacks server-side only.
+    skip_comments: false
+    patterns:
+      - pattern: '(?i)traceback\.format_exc'
+        description: "traceback.format_exc()"
+      - pattern: '(?i)except.*:\s*\n\s*return\s+str\('
+        description: "Returning raw exception string"
+      - pattern: '(?i)\.format_exception'
+        description: "traceback.format_exception()"
+
+# ── SA007 — Unrestricted tool list ──────────────────────────────────
+
+unrestricted_tool_checks:
+  - check_id: SA007
+    message: "Unrestricted / large tool list — increases attack surface"
+    severity: high
+    recommendation: >
+      Limit tools to the minimum set required.
+      Apply the principle of least privilege.
+    skip_comments: true
+    patterns:
+      - pattern: '(?i)load_tools\s*\(\s*\[.*\]\s*\)'
+        description: "load_tools() call"
+      - pattern: '(?i)tool_names\s*[:=]\s*\[.*,.*,.*,.*,.*\]'
+        description: "Large tool_names list"
+
+# ── SA002 — Input validation heuristic ──────────────────────────────
+
+input_validation:
+  check_id: SA002
+  message: "No input validation detected in tool definitions"
+  severity: high
+  recommendation: >
+    Add input validation (type checks, length limits,
+    allow-lists) to all tool functions.
+  tool_definition_pattern: '(?i)@tool|def\s+\w+.*->.*str'
+  validation_pattern: '(?i)(validate|sanitize|strip|len\(|re\.\w+\(|if\s+not\s+\w+|raise\s+ValueError)'
+
+# ── Skip directories ────────────────────────────────────────────────
+
+skip_directories:
+  - ".venv"
+  - "venv"
+  - "__pycache__"
+  - ".git"
+  - "node_modules"
+  - "dist"
+  - ".tox"
+  - ".mypy_cache"
