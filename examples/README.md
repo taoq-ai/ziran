@@ -1,8 +1,12 @@
 # KOAN Examples
 
-Ready-to-run examples that demonstrate KOAN scanning across common
-agent architectures. Each example builds a different kind of agent
-and runs a multi-phase security campaign against it.
+Ready-to-run examples covering every major KOAN feature. They are
+organised into two groups:
+
+| Group | API keys needed? | What it demonstrates |
+|---|---|---|
+| **Standalone feature examples** (below) | **No** | Individual KOAN components you can run instantly |
+| **LLM-based scanning examples** (further down) | Yes (`OPENAI_API_KEY`) | Full multi-phase campaigns against real agents |
 
 > **Quick start** — to see KOAN finding real vulnerabilities, run the
 > [Vulnerable Agent](#vulnerable-agent) example (requires `OPENAI_API_KEY`).
@@ -13,11 +17,149 @@ and runs a multi-phase security campaign against it.
 |---|---|
 | Python ≥ 3.11 | — |
 | KOAN (editable) | `uv sync` |
-| LangChain extra | `uv sync --extra langchain` |
+| LangChain extra | `uv sync --extra langchain` (only for LLM examples) |
 | FAISS (RAG examples) | `uv pip install faiss-cpu` |
 | OpenAI key (LLM examples) | Copy `.env.example` → `.env` and set `OPENAI_API_KEY` |
 
 ---
+
+# Standalone Feature Examples (no API keys)
+
+These examples exercise individual KOAN subsystems with synthetic data.
+Each script prints Rich-formatted output and cleans up after itself.
+
+## Static Analysis
+
+> **`examples/static_analysis_example.py`**
+
+Scan Python source files for hard-coded secrets, dangerous patterns,
+and prompt-injection risks **without running any agent**.
+
+**What you'll see:** single-file analysis, directory scanning, custom
+`StaticAnalysisConfig` patterns, and config merging.
+
+```bash
+uv run python examples/static_analysis_example.py
+```
+
+---
+
+## Attack Library
+
+> **`examples/attack_library_example.py`**
+
+Browse and filter the built-in library of 40+ attack vectors.
+
+**What you'll see:** category breakdown, filtering by phase / OWASP
+category / severity, multi-criteria search, and loading custom YAML
+vectors.
+
+```bash
+uv run python examples/attack_library_example.py
+```
+
+---
+
+## Dynamic Vector Generator
+
+> **`examples/dynamic_vectors_example.py`**
+
+Generate tailored attack vectors from an agent's discovered capabilities.
+
+**What you'll see:** vectors generated for a simple tool set vs. a
+dangerous tool set, and exfiltration-chain detection.
+
+```bash
+uv run python examples/dynamic_vectors_example.py
+```
+
+---
+
+## Skill CVE Database
+
+> **`examples/skill_cve_example.py`**
+
+Check agent tools against a database of known LLM-tool vulnerabilities.
+
+**What you'll see:** browsing all CVEs, filtering by framework and
+severity, checking agent capabilities for matches, and submitting a
+custom CVE entry.
+
+```bash
+uv run python examples/skill_cve_example.py
+```
+
+---
+
+## PoC Generation
+
+> **`examples/poc_generation_example.py`**
+
+Generate proof-of-concept scripts from attack results.
+
+**What you'll see:** Python PoC, cURL PoC, Markdown guide, and
+`generate_all` producing a full set of reproducible exploits from a
+`CampaignResult`.
+
+```bash
+uv run python examples/poc_generation_example.py
+```
+
+---
+
+## Policy Engine
+
+> **`examples/policy_engine_example.py`**
+
+Evaluate scan results against organisational security policies.
+
+**What you'll see:** built-in default policy, pass/fail verdicts with
+violations, custom YAML policy with stricter thresholds, and the
+difference between errors and warnings.
+
+```bash
+uv run python examples/policy_engine_example.py
+```
+
+---
+
+## CI/CD Quality Gate & SARIF Reports
+
+> **`examples/cicd_quality_gate_example.py`**
+
+Run a quality gate and generate SARIF reports for GitHub Code Scanning.
+
+**What you'll see:** default gate (zero critical tolerance), custom
+YAML config, programmatic `QualityGateConfig`, SARIF output with
+rules and results, and exit-code semantics for pipeline integration.
+
+```bash
+uv run python examples/cicd_quality_gate_example.py
+```
+
+---
+
+## Custom Agent Adapter
+
+> **`examples/custom_adapter_example.py`**
+
+Implement `BaseAgentAdapter` to integrate any agent framework with KOAN.
+
+**What you'll see:** a minimal "EchoBot" adapter with capability
+discovery, invoke, tool-call observation, state management, and
+high-risk capability identification.
+
+```bash
+uv run python examples/custom_adapter_example.py
+```
+
+---
+
+# LLM-Based Scanning Examples (require API keys)
+
+The following examples require an `OPENAI_API_KEY` (and sometimes
+additional dependencies). They build real agents and run full
+multi-phase security campaigns.
 
 ## Vulnerable Agent
 
