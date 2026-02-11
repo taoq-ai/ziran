@@ -495,6 +495,118 @@ def poc(result_file: str, output: str | None, fmt: str) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# policy command
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.argument("result_file", type=click.Path(exists=True))
+@click.option(
+    "--policy",
+    "-p",
+    "policy_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to a YAML policy file (default: built-in KOAN policy).",
+)
+def policy(result_file: str, policy_path: str | None) -> None:
+    """Evaluate campaign results against an organisational security policy.
+
+    Checks a scan result JSON file against a set of policy rules and
+    reports violations, warnings, and an overall pass/fail status.
+
+    \b
+    Examples:
+        koan policy ./koan_results/campaign_123_report.json
+        koan policy ./koan_results/campaign_123_report.json --policy my_policy.yaml
+    """
+    from koan.application.policy.engine import PolicyEngine
+
+    filepath = Path(result_file)
+
+    try:
+        with filepath.open() as f:
+            data = json.load(f)
+        result = CampaignResult.model_validate(data)
+    except Exception as e:
+        console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        sys.exit(1)
+
+    try:
+        if policy_path:
+            engine = PolicyEngine.from_yaml(Path(policy_path))
+        else:
+            engine = PolicyEngine.default()
+    except Exception as e:
+        console.print(f"[bold red]Error loading policy:[/bold red] {e}")
+        sys.exit(1)
+
+    verdict = engine.evaluate(result)
+    _display_policy_verdict(verdict)
+
+
+def _display_policy_verdict(verdict: Any) -> None:
+    """Render a PolicyVerdict to the console."""
+    from koan.domain.entities.policy import PolicyVerdict
+
+    assert isinstance(verdict, PolicyVerdict)
+
+    status_style = "bold green" if verdict.passed else "bold red"
+    status_text = "PASSED" if verdict.passed else "FAILED"
+
+    console.print()
+    console.print(
+        Panel(
+            f"[{status_style}]{status_text}[/{status_style}]  {verdict.policy_name}",
+            title="Policy Evaluation",
+            expand=False,
+        )
+    )
+    console.print()
+
+    if verdict.violations:
+        err_table = Table(
+            title="[red]Errors (blocking)[/red]",
+            show_lines=True,
+        )
+        err_table.add_column("Rule", style="red")
+        err_table.add_column("Message", style="white")
+        for v in verdict.violations:
+            err_table.add_row(v.rule_type.value, v.message)
+        console.print(err_table)
+        console.print()
+
+    if verdict.warnings:
+        warn_table = Table(
+            title="[yellow]Warnings[/yellow]",
+            show_lines=True,
+        )
+        warn_table.add_column("Rule", style="yellow")
+        warn_table.add_column("Message", style="white")
+        for w in verdict.warnings:
+            warn_table.add_row(w.rule_type.value, w.message)
+        console.print(warn_table)
+        console.print()
+
+    if verdict.info:
+        info_table = Table(
+            title="[blue]Informational[/blue]",
+            show_lines=True,
+        )
+        info_table.add_column("Rule", style="blue")
+        info_table.add_column("Message", style="dim")
+        for i in verdict.info:
+            info_table.add_row(i.rule_type.value, i.message)
+        console.print(info_table)
+        console.print()
+
+    console.print(f"[dim]{verdict.summary}[/dim]")
+
+    if not verdict.passed:
+        sys.exit(1)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
 
