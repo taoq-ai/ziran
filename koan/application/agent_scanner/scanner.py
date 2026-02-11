@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from koan.application.attacks.library import AttackLibrary
 from koan.application.detectors.pipeline import DetectorPipeline
+from koan.application.detectors.side_effect import get_side_effect_summary
 from koan.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from koan.application.knowledge_graph.graph import (
     AttackKnowledgeGraph,
@@ -572,6 +573,8 @@ class AgentScanner:
                 )
 
                 if verdict.successful:
+                    # Build side-effect summary for evidence
+                    side_effects = get_side_effect_summary(response.tool_calls)
                     return AttackResult(
                         vector_id=attack.id,
                         vector_name=attack.name,
@@ -586,6 +589,7 @@ class AgentScanner:
                                 r.detector_name: r.score for r in verdict.detector_results
                             },
                             "detector_reasoning": verdict.reasoning,
+                            "side_effects": side_effects,
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
