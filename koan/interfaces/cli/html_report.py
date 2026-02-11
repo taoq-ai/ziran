@@ -393,11 +393,19 @@ def _build_owasp_html(
         return '<p class="muted">No OWASP mapping data available.</p>'
 
     parts: list[str] = ['<table class="owasp-table">']
-    parts.append(
-        "<tr><th>Category</th><th>Description</th><th>Status</th><th>Findings</th></tr>"
-    )
-    for cat_id in ("LLM01", "LLM02", "LLM03", "LLM04", "LLM05",
-                    "LLM06", "LLM07", "LLM08", "LLM09", "LLM10"):
+    parts.append("<tr><th>Category</th><th>Description</th><th>Status</th><th>Findings</th></tr>")
+    for cat_id in (
+        "LLM01",
+        "LLM02",
+        "LLM03",
+        "LLM04",
+        "LLM05",
+        "LLM06",
+        "LLM07",
+        "LLM08",
+        "LLM09",
+        "LLM10",
+    ):
         desc = html.escape(_OWASP_DESCRIPTIONS.get(cat_id, ""))
         if cat_id in findings:
             count = findings[cat_id]

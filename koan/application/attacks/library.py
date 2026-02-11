@@ -300,7 +300,5 @@ class AttackLibrary:
             prompts=prompts,
             tags=data.get("tags", []),
             references=data.get("references", []),
-            owasp_mapping=[
-                OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])
-            ],
+            owasp_mapping=[OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])],
         )

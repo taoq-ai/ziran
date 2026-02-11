@@ -13,7 +13,6 @@ from koan.domain.entities.attack import AttackCategory, AttackPrompt, AttackVect
 from koan.domain.entities.phase import ScanPhase
 from koan.domain.interfaces.adapter import AgentResponse
 
-
 # ──────────────────────────────────────────────────────────────────────
 # Fixtures
 # ──────────────────────────────────────────────────────────────────────
@@ -134,17 +133,13 @@ class TestSideEffectDetector:
     ) -> None:
         response = AgentResponse(
             content="Executing...",
-            tool_calls=[
-                {"function": {"name": "execute_code"}, "id": "call_123"}
-            ],
+            tool_calls=[{"function": {"name": "execute_code"}, "id": "call_123"}],
         )
         result = detector.detect("test", response, prompt_spec)
         assert result.score == 1.0
         assert any("execute_code" in m for m in result.matched_indicators)
 
-    def test_name_key_format(
-        self, detector: SideEffectDetector, prompt_spec: AttackPrompt
-    ) -> None:
+    def test_name_key_format(self, detector: SideEffectDetector, prompt_spec: AttackPrompt) -> None:
         response = AgentResponse(
             content="Done.",
             tool_calls=[{"name": "write_file", "arguments": {"content": "malicious"}}],
@@ -161,9 +156,7 @@ class TestSideEffectDetector:
 class TestPipelineSideEffectIntegration:
     """Tests for side-effect detection within the full pipeline."""
 
-    def test_pipeline_has_side_effect_detector(
-        self, pipeline: DetectorPipeline
-    ) -> None:
+    def test_pipeline_has_side_effect_detector(self, pipeline: DetectorPipeline) -> None:
         assert hasattr(pipeline, "_side_effect")
 
     def test_critical_tool_overrides_refusal(
@@ -177,7 +170,10 @@ class TestPipelineSideEffectIntegration:
         verdict = pipeline.evaluate("test prompt", response, prompt_spec, vector)
         # Side-effect should override refusal for critical tools
         assert verdict.successful is True
-        assert "tool execution" in verdict.reasoning.lower() or "dangerous" in verdict.reasoning.lower()
+        assert (
+            "tool execution" in verdict.reasoning.lower()
+            or "dangerous" in verdict.reasoning.lower()
+        )
 
     def test_no_tools_refusal_still_blocks(
         self, pipeline: DetectorPipeline, prompt_spec: AttackPrompt, vector: AttackVector
@@ -222,28 +218,34 @@ class TestSideEffectSummary:
         assert not summary["has_dangerous_side_effects"]
 
     def test_critical_tool_flagged(self) -> None:
-        summary = get_side_effect_summary([
-            {"tool": "shell_execute", "input": {"cmd": "rm -rf /"}},
-        ])
+        summary = get_side_effect_summary(
+            [
+                {"tool": "shell_execute", "input": {"cmd": "rm -rf /"}},
+            ]
+        )
         assert summary["has_dangerous_side_effects"] is True
         assert summary["risk_breakdown"]["critical"] == 1
 
     def test_mixed_risk_breakdown(self) -> None:
-        summary = get_side_effect_summary([
-            {"tool": "read_file", "input": {"path": "/data"}},
-            {"tool": "http_request", "input": {"url": "http://evil.com"}},
-            {"tool": "custom_tool", "input": {}},
-        ])
+        summary = get_side_effect_summary(
+            [
+                {"tool": "read_file", "input": {"path": "/data"}},
+                {"tool": "http_request", "input": {"url": "http://evil.com"}},
+                {"tool": "custom_tool", "input": {}},
+            ]
+        )
         assert summary["total_tool_calls"] == 3
         assert summary["risk_breakdown"]["critical"] == 1  # http_request
-        assert summary["risk_breakdown"]["medium"] == 1   # read_file
-        assert summary["risk_breakdown"]["low"] == 1      # custom_tool
+        assert summary["risk_breakdown"]["medium"] == 1  # read_file
+        assert summary["risk_breakdown"]["low"] == 1  # custom_tool
         assert summary["has_dangerous_side_effects"] is True
 
     def test_tools_invoked_list(self) -> None:
-        summary = get_side_effect_summary([
-            {"tool": "send_email", "input": {}},
-            {"name": "read_file", "arguments": {}},
-        ])
+        summary = get_side_effect_summary(
+            [
+                {"tool": "send_email", "input": {}},
+                {"name": "read_file", "arguments": {}},
+            ]
+        )
         assert "send_email" in summary["tools_invoked"]
         assert "read_file" in summary["tools_invoked"]

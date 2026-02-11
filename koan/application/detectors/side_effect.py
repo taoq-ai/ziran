@@ -20,7 +20,6 @@ The detector classifies tool calls into risk tiers:
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Any
 
 from koan.domain.entities.detection import DetectorResult
@@ -145,11 +144,9 @@ class SideEffectDetector:
         critical_tools = [c for c in classifications if c["risk"] == "critical"]
         high_tools = [c for c in classifications if c["risk"] == "high"]
         medium_tools = [c for c in classifications if c["risk"] == "medium"]
-        low_tools = [c for c in classifications if c["risk"] == "low"]
+        [c for c in classifications if c["risk"] == "low"]
 
-        matched_indicators = [
-            f"{c['tool_name']} ({c['description']})" for c in classifications
-        ]
+        matched_indicators = [f"{c['tool_name']} ({c['description']})" for c in classifications]
 
         # ── Scoring based on risk tier ────────────────────────────
         if critical_tools:
@@ -200,9 +197,7 @@ class SideEffectDetector:
             ),
         )
 
-    def _classify_tool_calls(
-        self, tool_calls: list[dict[str, Any]]
-    ) -> list[dict[str, str]]:
+    def _classify_tool_calls(self, tool_calls: list[dict[str, Any]]) -> list[dict[str, str]]:
         """Classify each tool call by risk tier.
 
         Args:
@@ -222,11 +217,13 @@ class SideEffectDetector:
 
             # Check patterns from most to least dangerous
             risk, desc = self._match_pattern(tool_lower)
-            classifications.append({
-                "tool_name": tool_name,
-                "risk": risk,
-                "description": desc,
-            })
+            classifications.append(
+                {
+                    "tool_name": tool_name,
+                    "risk": risk,
+                    "description": desc,
+                }
+            )
 
         return classifications
 

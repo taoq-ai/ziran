@@ -28,6 +28,7 @@ dependencies = [
     "rich>=13.7",
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
+    "mdutils>=1.6",
 ]
 
 [project.optional-dependencies]

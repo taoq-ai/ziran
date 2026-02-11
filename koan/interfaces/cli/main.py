@@ -417,6 +417,84 @@ def report(result_file: str, fmt: str) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# poc command
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.argument("result_file", type=click.Path(exists=True))
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=None,
+    help="Output directory for PoC files (default: same dir as result + /pocs).",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["python", "curl", "markdown", "all"], case_sensitive=False),
+    default="all",
+    help="PoC output format.",
+)
+def poc(result_file: str, output: str | None, fmt: str) -> None:
+    """Generate proof-of-concept exploit scripts from scan results.
+
+    Creates reproducible PoC artifacts for all confirmed vulnerabilities
+    in a campaign result file.
+
+    \b
+    Examples:
+        koan poc ./koan_results/campaign_123_report.json
+        koan poc ./koan_results/campaign_123_report.json --format python
+        koan poc ./koan_results/campaign_123_report.json -o ./my_pocs/
+    """
+    from koan.application.poc.generator import PoCGenerator
+
+    filepath = Path(result_file)
+
+    try:
+        with filepath.open() as f:
+            data = json.load(f)
+        result = CampaignResult.model_validate(data)
+    except Exception as e:
+        console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        sys.exit(1)
+
+    from koan.domain.entities.attack import AttackResult as _AttackResult
+
+    successful: list[_AttackResult] = []
+    for raw in result.attack_results:
+        ar = _AttackResult.model_validate(raw) if isinstance(raw, dict) else raw  # type: ignore[arg-type]
+        if ar.successful:
+            successful.append(ar)
+
+    if not successful:
+        console.print("[yellow]No successful attacks found — no PoCs to generate.[/yellow]")
+        return
+
+    poc_dir = Path(output) if output else filepath.parent / "pocs"
+    generator = PoCGenerator(output_dir=poc_dir)
+
+    generated: list[Path] = []
+    if fmt in ("python", "all"):
+        for r in successful:
+            path = generator.generate_python_poc(r, result.campaign_id)
+            generated.append(path)
+    if fmt in ("curl", "all"):
+        for r in successful:
+            path = generator.generate_curl_poc(r, campaign_id=result.campaign_id)
+            generated.append(path)
+    if fmt in ("markdown", "all"):
+        path = generator.generate_markdown_guide(successful, result.campaign_id)
+        generated.append(path)
+
+    console.print(f"[green]Generated {len(generated)} PoC artifact(s) in {poc_dir}/[/green]")
+    for p in generated:
+        console.print(f"  [dim]{p.name}[/dim]")
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
 
@@ -684,6 +762,22 @@ def _save_results(
         storage = GraphStorage(output_dir=output_dir)
         graph_path = storage.save(graph, result.campaign_id)
         console.print(f"  [dim]Graph state: {graph_path}[/dim]")
+
+    # Generate PoCs for successful attacks
+    from koan.domain.entities.attack import AttackResult as _AttackResult
+
+    _successful = [
+        _AttackResult.model_validate(r) if isinstance(r, dict) else r
+        for r in result.attack_results
+        if (r.get("successful") if isinstance(r, dict) else r.successful)  # type: ignore[union-attr]
+    ]
+    if _successful:
+        from koan.application.poc.generator import PoCGenerator
+
+        poc_dir = output_dir / "pocs"
+        poc_gen = PoCGenerator(output_dir=poc_dir)
+        poc_paths = poc_gen.generate_all(result)
+        console.print(f"  [dim]PoC artifacts: {len(poc_paths)} files in {poc_dir}/[/dim]")
 
 
 if __name__ == "__main__":

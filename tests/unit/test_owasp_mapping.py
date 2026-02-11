@@ -6,14 +6,13 @@ import pytest
 
 from koan.application.attacks.library import AttackLibrary
 from koan.domain.entities.attack import (
+    OWASP_LLM_DESCRIPTIONS,
     AttackCategory,
     AttackResult,
     AttackVector,
-    OWASP_LLM_DESCRIPTIONS,
     OwaspLlmCategory,
 )
 from koan.domain.entities.phase import ScanPhase
-
 
 # ──────────────────────────────────────────────────────────────────────
 # OwaspLlmCategory enum
@@ -140,9 +139,7 @@ class TestAttackLibraryOwasp:
     def test_all_builtin_vectors_have_owasp_mapping(self, library: AttackLibrary) -> None:
         """Every built-in vector should have at least one OWASP mapping."""
         for vector in library.vectors:
-            assert len(vector.owasp_mapping) > 0, (
-                f"Vector {vector.id} has no owasp_mapping"
-            )
+            assert len(vector.owasp_mapping) > 0, f"Vector {vector.id} has no owasp_mapping"
 
     def test_get_attacks_by_owasp_lmm01(self, library: AttackLibrary) -> None:
         lmm01_attacks = library.get_attacks_by_owasp(OwaspLlmCategory.LLM01)
@@ -161,17 +158,13 @@ class TestAttackLibraryOwasp:
         for attack in pi_attacks:
             assert OwaspLlmCategory.LLM01 in attack.owasp_mapping
 
-    def test_data_exfiltration_maps_to_lmm02_and_lmm06(
-        self, library: AttackLibrary
-    ) -> None:
+    def test_data_exfiltration_maps_to_lmm02_and_lmm06(self, library: AttackLibrary) -> None:
         de_attacks = library.get_attacks_by_category(AttackCategory.DATA_EXFILTRATION)
         for attack in de_attacks:
             assert OwaspLlmCategory.LLM02 in attack.owasp_mapping
             assert OwaspLlmCategory.LLM06 in attack.owasp_mapping
 
-    def test_get_attacks_by_owasp_untested_returns_empty(
-        self, library: AttackLibrary
-    ) -> None:
+    def test_get_attacks_by_owasp_untested_returns_empty(self, library: AttackLibrary) -> None:
         """LLM04 (DoS) and LLM05 (Supply Chain) aren't mapped to any built-in vector."""
         lmm04 = library.get_attacks_by_owasp(OwaspLlmCategory.LLM04)
         assert lmm04 == []
