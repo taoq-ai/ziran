@@ -726,6 +726,179 @@ def _display_audit_report(report: Any) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# ci command (CI/CD quality gate)
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.argument("result_file", type=click.Path(exists=True))
+@click.option(
+    "--gate-config",
+    "-g",
+    "gate_config_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to a quality-gate YAML config (default: built-in thresholds).",
+)
+@click.option(
+    "--policy",
+    "-p",
+    "policy_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to a YAML policy file for additional evaluation.",
+)
+@click.option(
+    "--sarif",
+    "sarif_path",
+    type=click.Path(),
+    default=None,
+    help="Write a SARIF v2.1.0 report to this path.",
+)
+@click.option(
+    "--github-annotations/--no-github-annotations",
+    default=True,
+    help="Emit GitHub Actions annotations (default: on).",
+)
+@click.option(
+    "--github-summary/--no-github-summary",
+    default=True,
+    help="Write a GitHub Actions step summary (default: on).",
+)
+def ci(
+    result_file: str,
+    gate_config_path: str | None,
+    policy_path: str | None,
+    sarif_path: str | None,
+    *,
+    github_annotations: bool,
+    github_summary: bool,
+) -> None:
+    """Evaluate campaign results for CI/CD quality gating.
+
+    Runs quality-gate checks against a scan result JSON file
+    and emits outputs suitable for CI/CD environments:
+
+    \b
+      - GitHub Actions annotations (::error / ::warning)
+      - SARIF v2.1.0 report for GitHub Code Scanning
+      - Step summary in Markdown
+      - Non-zero exit code on failure
+
+    \b
+    Examples:
+        koan ci ./koan_results/campaign_123_report.json
+        koan ci results.json --gate-config gate.yaml --sarif results.sarif
+        koan ci results.json --no-github-annotations --sarif results.sarif
+    """
+    from koan.application.cicd.gate import QualityGate
+    from koan.application.cicd.github_actions import (
+        emit_annotations,
+        set_output,
+        write_step_summary,
+    )
+    from koan.application.cicd.sarif import write_sarif
+
+    filepath = Path(result_file)
+
+    # 1. Load campaign result
+    try:
+        with filepath.open() as f:
+            data = json.load(f)
+        result = CampaignResult.model_validate(data)
+    except Exception as e:
+        console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        sys.exit(1)
+
+    # 2. Build quality gate
+    try:
+        gate = QualityGate.from_yaml(Path(gate_config_path)) if gate_config_path else QualityGate()
+    except Exception as e:
+        console.print(f"[bold red]Error loading gate config:[/bold red] {e}")
+        sys.exit(1)
+
+    # 3. Evaluate
+    gate_result = gate.evaluate(result)
+
+    # 4. Console output (always shown)
+    _display_gate_result(gate_result)
+
+    # 5. SARIF output
+    if sarif_path:
+        try:
+            written = write_sarif(result, Path(sarif_path))
+            console.print(f"[dim]SARIF report: {written}[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: SARIF generation failed: {e}[/yellow]")
+
+    # 6. GitHub annotations
+    if github_annotations:
+        annotations = emit_annotations(result)
+        for ann in annotations:
+            print(ann)
+
+    # 7. GitHub step summary
+    if github_summary:
+        write_step_summary(gate_result, result)
+
+    # 8. GitHub outputs
+    set_output("status", gate_result.status.value)
+    set_output("trust_score", f"{gate_result.trust_score:.2f}")
+    set_output("total_findings", str(gate_result.finding_counts.total))
+    set_output("critical_findings", str(gate_result.finding_counts.critical))
+
+    # 9. Policy evaluation (optional overlay)
+    if policy_path:
+        try:
+            from koan.application.policy.engine import PolicyEngine
+
+            engine = PolicyEngine.from_yaml(Path(policy_path))
+            verdict = engine.evaluate(result)
+            _display_policy_verdict(verdict)
+        except Exception as e:
+            console.print(f"[yellow]Warning: policy evaluation failed: {e}[/yellow]")
+
+    # 10. Exit code
+    sys.exit(gate_result.exit_code)
+
+
+def _display_gate_result(gate: Any) -> None:
+    """Render a GateResult to the console."""
+    from koan.domain.entities.ci import GateResult
+
+    assert isinstance(gate, GateResult)
+
+    status_style = "bold green" if gate.passed else "bold red"
+    status_text = "PASSED" if gate.passed else "FAILED"
+    counts = gate.finding_counts
+
+    console.print()
+    console.print(
+        Panel(
+            f"[{status_style}]{status_text}[/{status_style}]  "
+            f"Trust: {gate.trust_score:.2f}  |  "
+            f"Findings: {counts.total} "
+            f"(C:{counts.critical} H:{counts.high} M:{counts.medium} L:{counts.low})",
+            title="CI/CD Quality Gate",
+            expand=False,
+        )
+    )
+    console.print()
+
+    if gate.violations:
+        viol_table = Table(title="[red]Gate Violations[/red]", show_lines=True)
+        viol_table.add_column("Rule", style="red")
+        viol_table.add_column("Message", style="white")
+        viol_table.add_column("Severity", style="yellow")
+        for v in gate.violations:
+            viol_table.add_row(v.rule, v.message, v.severity)
+        console.print(viol_table)
+        console.print()
+
+    console.print(f"[dim]{gate.summary}[/dim]")
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
 
