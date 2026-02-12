@@ -84,14 +84,26 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 @click.option(
     "--framework",
     type=click.Choice(["langchain", "crewai", "bedrock"], case_sensitive=False),
-    required=True,
-    help="Agent framework to test.",
+    default=None,
+    help="Agent framework to test (for in-process scanning).",
 )
 @click.option(
     "--agent-path",
     type=click.Path(exists=True),
-    required=True,
-    help="Path to agent code/config file.",
+    default=None,
+    help="Path to agent code/config file (for in-process scanning).",
+)
+@click.option(
+    "--target",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to YAML target config for remote agent scanning.",
+)
+@click.option(
+    "--protocol",
+    type=click.Choice(["rest", "openai", "mcp", "a2a", "auto"], case_sensitive=False),
+    default=None,
+    help="Override protocol type (used with --target).",
 )
 @click.option(
     "--phases",
@@ -130,8 +142,10 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     help="Maximum concurrent attacks per phase (default: 5).",
 )
 def scan(
-    framework: str,
-    agent_path: str,
+    framework: str | None,
+    agent_path: str | None,
+    target: str | None,
+    protocol: str | None,
     phases: tuple[str, ...],
     output: str,
     custom_attacks: str | None,
@@ -144,12 +158,41 @@ def scan(
     Executes a multi-phase security assessment that progressively
     discovers and tests for vulnerabilities.
 
+    Use --framework + --agent-path for in-process scanning, or
+    --target for remote agent scanning over HTTPS.
+
     \b
     Examples:
         koan scan --framework langchain --agent-path ./my_agent.py
+        koan scan --target ./target.yaml
+        koan scan --target ./target.yaml --protocol a2a
         koan scan --framework crewai --agent-path ./crew.py --phases reconnaissance trust_building
-        koan scan --framework langchain --agent-path ./agent.py --custom-attacks ./my_attacks/
     """
+    # Validate mutually exclusive options
+    has_local = framework is not None or agent_path is not None
+    has_remote = target is not None
+
+    if has_local and has_remote:
+        console.print(
+            "[bold red]Error:[/bold red] --framework/--agent-path and --target "
+            "are mutually exclusive. Use one or the other."
+        )
+        sys.exit(1)
+
+    if not has_local and not has_remote:
+        console.print(
+            "[bold red]Error:[/bold red] Provide either --framework + --agent-path "
+            "(in-process) or --target (remote) to specify the agent."
+        )
+        sys.exit(1)
+
+    if has_local and (framework is None or agent_path is None):
+        console.print(
+            "[bold red]Error:[/bold red] Both --framework and --agent-path "
+            "are required for in-process scanning."
+        )
+        sys.exit(1)
+
     console.print(Panel(BANNER, style="bold green", expand=False))
     console.print()
 
@@ -157,8 +200,15 @@ def scan(
     config_table = Table(title="Scan Configuration", show_header=False)
     config_table.add_column("Key", style="cyan")
     config_table.add_column("Value", style="white")
-    config_table.add_row("Framework", framework)
-    config_table.add_row("Agent Path", agent_path)
+    if has_remote:
+        config_table.add_row("Mode", "Remote (HTTPS)")
+        config_table.add_row("Target Config", str(target))
+        if protocol:
+            config_table.add_row("Protocol Override", protocol)
+    else:
+        config_table.add_row("Mode", "In-Process")
+        config_table.add_row("Framework", str(framework))
+        config_table.add_row("Agent Path", str(agent_path))
     config_table.add_row("Phases", ", ".join(phases) if phases else "all core phases")
     config_table.add_row("Output", output)
     config_table.add_row("Stop on Critical", str(stop_on_critical))
@@ -171,7 +221,10 @@ def scan(
 
     # Load adapter
     try:
-        adapter = _load_agent_adapter(framework, agent_path)
+        if has_remote:
+            adapter = _load_remote_adapter(str(target), protocol)
+        else:
+            adapter = _load_agent_adapter(str(framework), str(agent_path))
     except Exception as e:
         console.print(f"[bold red]Error loading agent:[/bold red] {e}")
         sys.exit(1)
@@ -224,25 +277,71 @@ def scan(
 @click.option(
     "--framework",
     type=click.Choice(["langchain", "crewai", "bedrock"], case_sensitive=False),
-    required=True,
-    help="Agent framework.",
+    default=None,
+    help="Agent framework (for in-process discovery).",
 )
-@click.argument("agent_path", type=click.Path(exists=True))
-def discover(framework: str, agent_path: str) -> None:
+@click.option(
+    "--target",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to YAML target config for remote agent discovery.",
+)
+@click.option(
+    "--protocol",
+    type=click.Choice(["rest", "openai", "mcp", "a2a", "auto"], case_sensitive=False),
+    default=None,
+    help="Override protocol type (used with --target).",
+)
+@click.argument("agent_path", type=click.Path(exists=True), required=False, default=None)
+def discover(
+    framework: str | None,
+    target: str | None,
+    protocol: str | None,
+    agent_path: str | None,
+) -> None:
     """Discover capabilities of an agent without testing.
 
     Introspects the agent to find all available tools, skills,
     and permissions — without sending any attack prompts.
 
+    Use --framework + AGENT_PATH for local agents, or --target for remote.
+
     \b
     Examples:
         koan discover --framework langchain ./my_agent.py
+        koan discover --target ./target.yaml
     """
     console.print(Panel(BANNER, style="bold cyan", expand=False))
     console.print()
 
+    has_local = framework is not None or agent_path is not None
+    has_remote = target is not None
+
+    if has_local and has_remote:
+        console.print(
+            "[bold red]Error:[/bold red] --framework/AGENT_PATH and --target "
+            "are mutually exclusive."
+        )
+        sys.exit(1)
+
+    if not has_local and not has_remote:
+        console.print(
+            "[bold red]Error:[/bold red] Provide either --framework + AGENT_PATH "
+            "or --target."
+        )
+        sys.exit(1)
+
     try:
-        adapter = _load_agent_adapter(framework, agent_path)
+        if has_remote:
+            adapter = _load_remote_adapter(str(target), protocol)
+        else:
+            if framework is None or agent_path is None:
+                console.print(
+                    "[bold red]Error:[/bold red] Both --framework and AGENT_PATH "
+                    "are required for in-process discovery."
+                )
+                sys.exit(1)
+            adapter = _load_agent_adapter(framework, agent_path)
     except Exception as e:
         console.print(f"[bold red]Error loading agent:[/bold red] {e}")
         sys.exit(1)
@@ -950,6 +1049,46 @@ def _load_agent_adapter(framework: str, agent_path: str) -> Any:
 
     else:
         raise click.ClickException(f"Unsupported framework: {framework}")
+
+
+def _load_remote_adapter(target_path: str, protocol_override: str | None = None) -> Any:
+    """Load an HTTP agent adapter from a YAML target config.
+
+    Args:
+        target_path: Path to the YAML target configuration file.
+        protocol_override: Optional protocol to override the config value.
+
+    Returns:
+        Configured HttpAgentAdapter instance.
+
+    Raises:
+        click.ClickException: If the config is invalid or can't be loaded.
+    """
+    try:
+        from ziran.domain.entities.target import ProtocolType, load_target_config
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+    except ImportError as e:
+        raise click.ClickException(
+            f"Failed to import HTTP adapter components: {e}"
+        ) from e
+
+    try:
+        config = load_target_config(Path(target_path))
+    except Exception as e:
+        raise click.ClickException(
+            f"Failed to load target config from {target_path}: {e}"
+        ) from e
+
+    if protocol_override:
+        config.protocol = ProtocolType(protocol_override)
+
+    console.print(f"[dim]Target: {config.url}[/dim]")
+    console.print(f"[dim]Protocol: {config.protocol.value}[/dim]")
+    if config.auth:
+        console.print(f"[dim]Auth: {config.auth.type.value}[/dim]")
+    console.print()
+
+    return HttpAgentAdapter(config)
 
 
 def _load_python_object(filepath: str, object_name: str) -> Any:
