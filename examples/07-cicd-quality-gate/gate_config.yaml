@@ -1,0 +1,9 @@
+# Lenient gate: allow up to 1 critical and require trust >= 0.5
+min_trust_score: 0.5
+max_critical_findings: 1
+fail_on_policy_violation: false
+severity_thresholds:
+  critical: 1
+  high: 5
+  medium: -1      # unlimited
+  low: -1

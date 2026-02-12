@@ -1,0 +1,5 @@
+{
+  "EMP-001": {"name": "Alice Johnson", "department": "Engineering", "leave_balance": 15, "salary_band": "L5"},
+  "EMP-002": {"name": "Bob Smith", "department": "Marketing", "leave_balance": 8, "salary_band": "L4"},
+  "EMP-003": {"name": "Carol Davis", "department": "Finance", "leave_balance": 22, "salary_band": "L6"}
+}

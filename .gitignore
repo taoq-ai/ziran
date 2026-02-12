@@ -9,7 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
-koan/_version.py
+ziran/_version.py
 develop-eggs/
 dist/
 downloads/
