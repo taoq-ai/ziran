@@ -11,14 +11,12 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from fixtures import CLEAN_CAMPAIGN, RISKY_CAMPAIGN
 from rich.console import Console
 from rich.table import Table
-
 from ziran.application.cicd.gate import QualityGate
 from ziran.application.cicd.sarif import generate_sarif, write_sarif
 from ziran.domain.entities.ci import GateResult, QualityGateConfig
-
-from fixtures import CLEAN_CAMPAIGN, RISKY_CAMPAIGN
 
 console = Console()
 HERE = Path(__file__).resolve().parent
@@ -69,7 +67,7 @@ def main() -> None:
     console.rule("[bold cyan]2. Custom quality-gate config from YAML")
 
     lenient_gate = QualityGate.from_yaml(HERE / "gate_config.yaml")
-    console.print(f"  Loaded config from: gate_config.yaml")
+    console.print("  Loaded config from: gate_config.yaml")
     console.print(f"  max_critical_findings : {lenient_gate.config.max_critical_findings}")
     console.print(f"  min_trust_score       : {lenient_gate.config.min_trust_score}")
 

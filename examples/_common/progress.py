@@ -35,7 +35,6 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.table import Table
-
 from ziran.application.agent_scanner.scanner import ProgressEvent, ProgressEventType
 
 

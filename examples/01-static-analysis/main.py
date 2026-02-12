@@ -10,7 +10,6 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
-
 from ziran.application.static_analysis.analyzer import (
     AnalysisReport,
     StaticAnalyzer,

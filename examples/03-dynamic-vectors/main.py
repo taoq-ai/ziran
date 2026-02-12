@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from rich.console import Console
 from rich.table import Table
-
 from ziran.application.dynamic_vectors.generator import DynamicVectorGenerator
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 

@@ -11,7 +11,6 @@ from typing import Any
 
 from rich.console import Console
 from rich.table import Table
-
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.interfaces.adapter import (
     AgentResponse,

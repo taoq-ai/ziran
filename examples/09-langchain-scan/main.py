@@ -71,13 +71,13 @@ def build_agent() -> AgentExecutor:
 
 async def main() -> None:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from _common.progress import ZiranProgressBar, print_summary
-
     from ziran.application.agent_scanner.scanner import AgentScanner
     from ziran.application.attacks.library import AttackLibrary
     from ziran.domain.entities.phase import ScanPhase
     from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
     from ziran.interfaces.cli.reports import ReportGenerator
+
+    from _common.progress import ZiranProgressBar, print_summary
 
     executor = build_agent()
     adapter = LangChainAdapter(agent=executor)

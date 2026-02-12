@@ -10,7 +10,6 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
-
 from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import AttackCategory, OwaspLlmCategory
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase

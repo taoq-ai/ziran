@@ -10,17 +10,15 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from rich.console import Console
-from rich.syntax import Syntax
-
-from ziran.application.poc.generator import PoCGenerator
-from ziran.domain.entities.phase import CampaignResult
-
 from fixtures import (
     DATA_EXFIL_RESULT,
     PROMPT_INJECTION_RESULT,
     ROLE_PLAY_RESULT,
 )
+from rich.console import Console
+from rich.syntax import Syntax
+from ziran.application.poc.generator import PoCGenerator
+from ziran.domain.entities.phase import CampaignResult
 
 console = Console()
 

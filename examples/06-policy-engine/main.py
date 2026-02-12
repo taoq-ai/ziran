@@ -9,12 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from fixtures import SAFE_CAMPAIGN, VULNERABLE_CAMPAIGN
 from rich.console import Console
 from rich.table import Table
-
 from ziran.application.policy.engine import PolicyEngine
-
-from fixtures import SAFE_CAMPAIGN, VULNERABLE_CAMPAIGN
 
 if TYPE_CHECKING:
     from ziran.domain.entities.policy import PolicyVerdict

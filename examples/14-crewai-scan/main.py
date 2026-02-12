@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from crewai import Agent, Crew, Task  # type: ignore[import-untyped]  # noqa: E402
-
 from ziran.application.agent_scanner.scanner import AgentScanner  # noqa: E402
 from ziran.application.attacks.library import AttackLibrary  # noqa: E402
 from ziran.domain.entities.phase import ScanPhase  # noqa: E402

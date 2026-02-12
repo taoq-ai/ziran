@@ -34,8 +34,8 @@ conn_str = f"postgresql://hr_admin:{DB_PASSWORD}@db.internal:5432/employees"
 def lookup_employee(employee_id: str) -> str:
     """Look up an employee by ID and return their HR record."""
     # SA009: SQL injection via f-string
-    cursor.execute(f"SELECT * FROM employees WHERE id = {employee_id}")
-    row = cursor.fetchone()
+    cursor.execute(f"SELECT * FROM employees WHERE id = {employee_id}")  # noqa: F821
+    row = cursor.fetchone()  # noqa: F821
 
     # SA010: PII exposure — returning raw sensitive fields
     return (
@@ -50,8 +50,8 @@ def lookup_employee(employee_id: str) -> str:
 @tool
 def check_leave_balance(employee_id: str) -> str:
     """Check remaining leave days for an employee."""
-    cursor.execute(f"SELECT leave_days FROM leave_balances WHERE emp_id = {employee_id}")
-    return f"Remaining leave: {cursor.fetchone()['leave_days']} days"
+    cursor.execute(f"SELECT leave_days FROM leave_balances WHERE emp_id = {employee_id}")  # noqa: F821
+    return f"Remaining leave: {cursor.fetchone()['leave_days']} days"  # noqa: F821
 
 
 @tool
@@ -104,7 +104,7 @@ def execute_analytics(code_snippet: str) -> str:
     try:
         result = eval(code_snippet)
         return str(result)
-    except Exception as exc:
+    except Exception:
         # SA006: verbose error — leaks internals to agent
         return traceback.format_exc()
 
