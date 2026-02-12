@@ -201,8 +201,9 @@ jobs:
           files: dist/*
 
   # ── Update floating major version tag for GitHub Actions ───────────
-  # Consumers reference `taoq-ai/ziran@v1` — this tag always points
+  # Consumers reference `taoq-ai/ziran@v0` — this tag always points
   # to the latest stable release so they automatically get patches.
+  # Uses the GitHub API instead of git push to bypass tag protection rules.
   update-action-tag:
     if: ${{ !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc') }}
     needs: [github-release]
@@ -210,15 +211,19 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Update v0 tag
+      - name: Update floating major tag
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          MAJOR=$(echo "${{ github.ref_name }}" | grep -oE '^v[0-9]+' )
-          echo "Updating ${MAJOR} tag to point to ${{ github.ref_name }}"
-          git tag -fa "${MAJOR}" -m "Release ${{ github.ref_name }}"
-          git push origin "${MAJOR}" --force
+          MAJOR=$(echo "${{ github.ref_name }}" | grep -oE '^v[0-9]+')
+          SHA=$(gh api repos/${{ github.repository }}/git/ref/tags/${{ github.ref_name }} --jq '.object.sha')
+          echo "Updating ${MAJOR} → ${SHA} (${{ github.ref_name }})"
+
+          # Try to update existing tag ref; create if it doesn't exist
+          if gh api repos/${{ github.repository }}/git/refs/tags/${MAJOR} --silent 2>/dev/null; then
+            gh api --method PATCH repos/${{ github.repository }}/git/refs/tags/${MAJOR} \
+              -f sha="${SHA}" -F force=true
+          else
+            gh api --method POST repos/${{ github.repository }}/git/refs \
+              -f ref="refs/tags/${MAJOR}" -f sha="${SHA}"
+          fi
