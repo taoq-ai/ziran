@@ -1,0 +1,21 @@
+# Ziran Target Config: MCP Server (Model Context Protocol)
+# Scans an agent exposed as an MCP server over HTTP (streamable transport).
+
+url: https://mcp-server.example.com
+protocol: mcp
+timeout: 30.0
+
+# Authentication
+auth:
+  type: bearer
+  env_var: MCP_AUTH_TOKEN          # Reads from $MCP_AUTH_TOKEN
+
+# TLS
+tls:
+  verify: true
+
+# Retry
+retry:
+  max_retries: 3
+  backoff_factor: 0.5
+  retry_on: [429, 500, 502, 503, 504]

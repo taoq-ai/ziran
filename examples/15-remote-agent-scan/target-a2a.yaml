@@ -1,0 +1,49 @@
+# Ziran Target Config: A2A Agent (Agent-to-Agent Protocol)
+# Scans an agent exposed via Google's A2A protocol.
+#
+# A2A provides rich structured discovery through Agent Cards,
+# multi-turn task tracking, and standard security schemes.
+# See: https://google.github.io/A2A/
+
+url: https://a2a-agent.example.com
+protocol: a2a
+timeout: 60.0
+
+# A2A-specific settings
+a2a:
+  # Custom Agent Card URL (defaults to /.well-known/agent-card.json)
+  # agent_card_url: https://a2a-agent.example.com/.well-known/agent-card.json
+
+  # Protocol binding: HTTP+JSON (default) or JSON-RPC
+  protocol_binding: HTTP+JSON
+
+  # A2A protocol version
+  a2a_version: "1.0"
+
+  # Wait for task completion (true) or return immediately (false)
+  blocking: true
+
+  # Fetch extended Agent Card for additional metadata
+  use_extended_card: false
+
+  # Enable streaming responses (if agent supports it)
+  enable_streaming: false
+
+# Authentication
+auth:
+  type: bearer
+  env_var: A2A_AUTH_TOKEN          # Reads from $A2A_AUTH_TOKEN
+
+# TLS
+tls:
+  verify: true
+
+# Retry
+retry:
+  max_retries: 3
+  backoff_factor: 0.5
+  retry_on: [429, 500, 502, 503, 504]
+
+# Extra headers
+headers:
+  X-Client: ziran-scanner

@@ -40,8 +40,11 @@ langchain = [
 crewai = [
     "crewai>=0.30,<1",
 ]
+a2a = [
+    "a2a-sdk>=0.3",
+]
 all = [
-    "ziran[langchain,crewai]",
+    "ziran[langchain,crewai,a2a]",
 ]
 
 [project.scripts]
@@ -111,10 +114,15 @@ known-first-party = ["ziran"]
 
 [tool.mypy]
 python_version = "3.11"
+plugins = ["pydantic.mypy"]
 strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
 
 [[tool.mypy.overrides]]
 module = [
@@ -125,6 +133,8 @@ module = [
     "networkx.*",
     "plotly.*",
     "mdutils.*",
+    "a2a.*",
+    "a2a_sdk.*",
 ]
 ignore_missing_imports = true
 
@@ -143,6 +153,7 @@ omit = [
     "ziran/infrastructure/adapters/langchain_adapter.py",
     "ziran/infrastructure/adapters/crewai_adapter.py",
     "ziran/infrastructure/adapters/bedrock_adapter.py",
+    "ziran/infrastructure/adapters/http_adapter.py",
     "ziran/interfaces/cli/main.py",
     "ziran/interfaces/cli/reports.py",
     "ziran/infrastructure/logging/logger.py",

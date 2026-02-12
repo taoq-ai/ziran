@@ -187,12 +187,31 @@ class AttackLibrary:
         """
         return [v for v in self._vectors.values() if owasp_id in v.owasp_mapping]
 
+    def get_attacks_by_protocol(self, protocol: str) -> list[AttackVector]:
+        """Get attack vectors applicable to a specific protocol.
+
+        Vectors with an empty ``protocol_filter`` apply to all protocols.
+        Vectors with a non-empty filter apply only to the listed protocols.
+
+        Args:
+            protocol: Protocol name (rest, openai, mcp, a2a).
+
+        Returns:
+            List of applicable vectors.
+        """
+        return [
+            v
+            for v in self._vectors.values()
+            if not v.protocol_filter or protocol in v.protocol_filter
+        ]
+
     def search(
         self,
         phase: ScanPhase | None = None,
         category: AttackCategory | None = None,
         severity: Severity | None = None,
         tags: list[str] | None = None,
+        protocol: str | None = None,
     ) -> list[AttackVector]:
         """Search vectors with multiple filters (AND logic).
 
@@ -201,6 +220,7 @@ class AttackLibrary:
             category: Filter by attack category.
             severity: Filter by severity level.
             tags: Filter by tags (vector must have all specified tags).
+            protocol: Filter by protocol (vectors without a protocol_filter match all).
 
         Returns:
             Vectors matching all specified filters.
@@ -215,6 +235,8 @@ class AttackLibrary:
             results = [v for v in results if v.severity == severity]
         if tags:
             results = [v for v in results if all(t in v.tags for t in tags)]
+        if protocol is not None:
+            results = [v for v in results if not v.protocol_filter or protocol in v.protocol_filter]
 
         return results
 
@@ -301,4 +323,5 @@ class AttackLibrary:
             tags=data.get("tags", []),
             references=data.get("references", []),
             owasp_mapping=[OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])],
+            protocol_filter=data.get("protocol_filter", []),
         )

@@ -32,6 +32,10 @@ That's a fundamentally different attack surface.
 | Tool chain analysis | **Yes** | — | — | — | — |
 | Multi-phase campaigns | **Yes** | — | — | Partial | Yes |
 | Knowledge graph tracking | **Yes** | — | — | — | — |
+| Remote agent scanning (HTTPS) | **Yes** | REST only | HTTP provider | Partial | — |
+| Multi-protocol (REST/OpenAI/MCP/A2A) | **Yes** | — | — | — | — |
+| A2A protocol support | **Yes** | — | — | — | — |
+| Protocol auto-detection | **Yes** | — | — | — | — |
 | CI/CD quality gate | **Yes** | — | Yes | — | Pro |
 | Open source | Apache-2.0 | Apache-2.0 | MIT | MIT | AGPL-3.0 |
 
@@ -40,7 +44,9 @@ That's a fundamentally different attack surface.
 - **Tool Chain Analysis** — Detects dangerous tool combinations (`read_file` → `http_request` = data exfiltration). No other tool does this.
 - **Romance Scan** — Multi-phase campaigns that build trust before testing boundaries, like a real attacker.
 - **Knowledge Graph** — Every discovered capability, relationship, and attack path is tracked in a live graph.
-- **Framework Agnostic** — LangChain, CrewAI, MCP, or [write your own adapter](examples/08-custom-adapter/).
+- **Remote Agent Scanning** — Test any published agent over HTTPS with YAML-driven target configuration. Supports REST, OpenAI-compatible, MCP, and A2A protocols with automatic detection.
+- **A2A Protocol Support** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents, including Agent Card discovery, task lifecycle attacks, and multi-turn manipulation.
+- **Framework Agnostic** — LangChain, CrewAI, MCP, remote HTTPS agents, or [write your own adapter](examples/08-custom-adapter/).
 
 ---
 
@@ -52,6 +58,7 @@ pip install ziran
 # with framework adapters
 pip install ziran[langchain]    # LangChain support
 pip install ziran[crewai]       # CrewAI support
+pip install ziran[a2a]          # A2A protocol support
 pip install ziran[all]          # everything
 ```
 
@@ -62,8 +69,14 @@ pip install ziran[all]          # everything
 ### CLI
 
 ```bash
-# scan a LangChain agent
+# scan a LangChain agent (in-process)
 ziran scan --framework langchain --agent-path my_agent.py
+
+# scan a remote agent over HTTPS
+ziran scan --target target.yaml
+
+# discover capabilities of a remote agent
+ziran discover --target target.yaml
 
 # view the interactive HTML report
 open reports/campaign_*_report.html
@@ -85,7 +98,49 @@ print(f"Vulnerabilities found: {result.total_vulnerabilities}")
 print(f"Dangerous tool chains: {len(result.dangerous_tool_chains)}")
 ```
 
-See [examples/](examples/) for 14 runnable demos — from static analysis to multi-agent supervisor scans.
+See [examples/](examples/) for 15 runnable demos — from static analysis to remote agent scanning.
+
+---
+
+## Remote Agent Scanning
+
+ZIRAN can test any published agent over HTTPS — no source code or in-process access required. Define your target in a YAML file and ZIRAN handles the rest:
+
+```yaml
+# target.yaml
+name: my-agent
+url: https://agent.example.com
+protocol: auto  # auto | rest | openai | mcp | a2a
+
+auth:
+  type: bearer
+  token_env: AGENT_API_KEY
+
+tls:
+  verify: true
+```
+
+**Supported protocols:**
+
+| Protocol | Use Case | Auto-detected via |
+|---|---|---|
+| **REST** | Generic HTTP endpoints | Fallback default |
+| **OpenAI-compatible** | Chat completions API (`/v1/chat/completions`) | Path probing |
+| **MCP** | Model Context Protocol agents (JSON-RPC 2.0) | JSON-RPC response |
+| **A2A** | Google Agent-to-Agent protocol | `/.well-known/agent.json` |
+
+```bash
+# auto-detect protocol and scan
+ziran scan --target target.yaml
+
+# force a specific protocol
+ziran scan --target target.yaml --protocol openai
+
+# A2A agent with Agent Card discovery
+ziran scan --target a2a_target.yaml --protocol a2a
+```
+
+See [examples/15-remote-agent-scan/](examples/15-remote-agent-scan/) for ready-to-use target configurations.
 
 ---
 
@@ -194,7 +249,7 @@ Use ZIRAN as a quality gate in your pipeline:
   with:
     command: scan
     framework: langchain        # langchain | crewai | bedrock
-    agent-path: my_agent.py
+    agent-path: my_agent.py     # OR use target: target.yaml for remote agents
     coverage: standard           # essential | standard | comprehensive
     gate-config: gate_config.yaml
   env:

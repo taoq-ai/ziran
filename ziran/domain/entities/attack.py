@@ -144,6 +144,10 @@ class AttackVector(BaseModel):
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories this vector maps to",
     )
+    protocol_filter: list[str] = Field(
+        default_factory=list,
+        description="Protocols this vector applies to (empty = all). Values: rest, openai, mcp, a2a.",
+    )
 
     @property
     def is_critical(self) -> bool:

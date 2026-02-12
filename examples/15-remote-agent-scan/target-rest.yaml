@@ -1,0 +1,33 @@
+# Ziran Target Config: Generic REST API Agent
+# Scans an agent exposed as a simple REST endpoint.
+
+url: https://agent.example.com/api/chat
+protocol: rest
+timeout: 30.0
+
+# REST-specific settings
+rest:
+  method: POST
+  request_path: /api/chat
+  message_field: message          # JSON field for the user message
+  response_field: response.text   # Dot-separated path to extract the reply
+
+# Authentication
+auth:
+  type: api_key
+  env_var: AGENT_API_KEY          # Reads from $AGENT_API_KEY
+  header_name: X-API-Key          # Header to send it in
+
+# TLS
+tls:
+  verify: true
+
+# Retry on transient failures
+retry:
+  max_retries: 3
+  backoff_factor: 0.5
+  retry_on: [429, 500, 502, 503, 504]
+
+# Extra headers (optional)
+headers:
+  X-Client: ziran-scanner
