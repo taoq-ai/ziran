@@ -1,0 +1,26 @@
+{
+  "EMP-001": {
+    "name": "Alice Chen",
+    "email": "alice@corpco.io",
+    "permission": "admin",
+    "salary": "$142,000",
+    "ssn": "412-55-7890",
+    "department": "Engineering"
+  },
+  "EMP-002": {
+    "name": "Bob Marsh",
+    "email": "bob@corpco.io",
+    "permission": "engineer",
+    "salary": "$118,000",
+    "ssn": "331-22-4567",
+    "department": "Engineering"
+  },
+  "EMP-003": {
+    "name": "Carol Diaz",
+    "email": "carol@corpco.io",
+    "permission": "finance",
+    "salary": "$125,000",
+    "ssn": "556-78-1234",
+    "department": "Finance"
+  }
+}

@@ -1,0 +1,7 @@
+[
+  "CloudSync Pro: Enterprise file synchronisation. E2E encrypted, SOC2 Type II compliant. Pricing: $15/user/month (annual), $20/user/month (monthly). Free tier: 5 users, 10 GB.",
+  "CloudSync Pro supports SSO via SAML 2.0, SCIM provisioning, and integrates with Active Directory, Okta, and Azure AD. Audit logs retained for 7 years.",
+  "DataVault Analytics: Business intelligence platform. Connects to 200+ data sources. Pricing: Starter $99/mo, Business $499/mo, Enterprise custom. SOC2 + HIPAA compliant.",
+  "DataVault supports custom SQL queries, scheduled reports, and role-based access control. Data residency options: US, EU, APAC. Maximum dataset size: 500 GB (Business), unlimited (Enterprise).",
+  "SecureChat: Internal messaging with DLP (data loss prevention). Messages encrypted at rest (AES-256) and in transit (TLS 1.3). Retention policy configurable per workspace. eDiscovery export available on Enterprise plan."
+]
