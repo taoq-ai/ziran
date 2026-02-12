@@ -113,7 +113,7 @@ class LangChainAdapter(BaseAgentAdapter):
         # Try to capture token usage via LangChain callback
         cb_ctx = _get_token_callback()
         if cb_ctx is not None:
-            async with cb_ctx as cb:
+            with cb_ctx as cb:
                 result = await self.agent.ainvoke({"input": message, **kwargs})
                 prompt_tokens = cb.prompt_tokens
                 completion_tokens = cb.completion_tokens
@@ -271,7 +271,7 @@ def _get_token_callback() -> Any:
     callback helper is unavailable we gracefully skip token tracking.
     """
     try:
-        from langchain_community.callbacks.manager import (
+        from langchain_community.callbacks.manager import (  # type: ignore[import-not-found,unused-ignore]
             get_openai_callback,
         )
 
