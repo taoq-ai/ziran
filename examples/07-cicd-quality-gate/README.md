@@ -44,7 +44,7 @@ See [`ziran-scan.yml`](ziran-scan.yml) for a ready-to-copy workflow that demonst
 Usage:
 
 ```yaml
-- uses: taoq-ai/ziran@v1
+- uses: taoq-ai/ziran@v0
   with:
     command: ci
     result-file: scan_results/campaign_report.json

@@ -29,7 +29,7 @@ jobs:
 
       - name: Run ZIRAN action (ci mode)
         id: ziran
-        uses: taoq-ai/ziran@v1
+        uses: taoq-ai/ziran@v0
         with:
           command: ci
           result-file: tests/fixtures/sample_campaign_result.json
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run ZIRAN action (audit mode)
         id: ziran
-        uses: taoq-ai/ziran@v1
+        uses: taoq-ai/ziran@v0
         with:
           command: audit
           source-path: examples/07-cicd-quality-gate

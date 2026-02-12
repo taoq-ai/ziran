@@ -190,7 +190,7 @@ Use ZIRAN as a quality gate in your pipeline:
 
 ```yaml
 # .github/workflows/security.yml
-- uses: taoq-ai/ziran@v1
+- uses: taoq-ai/ziran@v0
   with:
     command: scan
     framework: langchain        # langchain | crewai | bedrock
@@ -204,7 +204,7 @@ Use ZIRAN as a quality gate in your pipeline:
 ### Offline CI gate (evaluate a previous scan result)
 
 ```yaml
-- uses: taoq-ai/ziran@v1
+- uses: taoq-ai/ziran@v0
   with:
     command: ci
     result-file: scan_results/campaign_report.json

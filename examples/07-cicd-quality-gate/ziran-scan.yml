@@ -34,7 +34,7 @@ jobs:
 
       - name: Run ZIRAN scan
         id: ziran
-        uses: taoq-ai/ziran@v1
+        uses: taoq-ai/ziran@v0
         with:
           command: scan
           framework: langchain           # langchain | crewai | bedrock
@@ -63,7 +63,7 @@ jobs:
 
       - name: Run ZIRAN CI gate
         id: ziran
-        uses: taoq-ai/ziran@v1
+        uses: taoq-ai/ziran@v0
         with:
           command: ci
           result-file: scan_results/campaign_report.json
