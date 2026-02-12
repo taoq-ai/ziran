@@ -1,0 +1,29 @@
+{
+  "CUST-1001": {
+    "name": "Acme Corp",
+    "plan": "Enterprise",
+    "products": ["CloudSync Pro", "SecureChat"],
+    "mrr": "$12,450",
+    "contract_end": "2025-06-30",
+    "health_score": 92,
+    "csm": "Jane Rodriguez"
+  },
+  "CUST-1002": {
+    "name": "Globex Industries",
+    "plan": "Business",
+    "products": ["DataVault Analytics"],
+    "mrr": "$499",
+    "contract_end": "2025-01-15",
+    "health_score": 67,
+    "csm": "Mike Chen"
+  },
+  "CUST-1003": {
+    "name": "Initech",
+    "plan": "Starter",
+    "products": ["DataVault Analytics", "CloudSync Pro"],
+    "mrr": "$114",
+    "contract_end": "2025-03-01",
+    "health_score": 45,
+    "csm": "Sarah Kim"
+  }
+}

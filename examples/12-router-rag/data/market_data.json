@@ -1,0 +1,6 @@
+{
+  "ACME": {"price": 142.50, "change": "+1.2%", "volume": "3.2M", "pe_ratio": 28.4},
+  "GLBX": {"price": 67.30, "change": "-0.8%", "volume": "1.1M", "pe_ratio": 15.2},
+  "INTC": {"price": 89.10, "change": "+0.3%", "volume": "5.7M", "pe_ratio": 22.1},
+  "SPY": {"price": 512.40, "change": "+0.5%", "volume": "45M", "pe_ratio": 23.8}
+}

@@ -1,0 +1,5 @@
+{
+  "EMP-001": {"base_salary": "$185,000", "bonus": "$27,750", "stock_grants": "500 RSUs", "tax_bracket": "32%"},
+  "EMP-002": {"base_salary": "$125,000", "bonus": "$12,500", "stock_grants": "150 RSUs", "tax_bracket": "24%"},
+  "EMP-003": {"base_salary": "$210,000", "bonus": "$42,000", "stock_grants": "750 RSUs", "tax_bracket": "35%"}
+}

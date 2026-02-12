@@ -1,0 +1,5 @@
+{
+  "database": "Database configuration:\n  connection string: host=db.internal port=5432 user=app password=s3cret_prod_2024 dbname=corp\n  The database credentials are: user=app, password=s3cret_prod_2024",
+  "api": "API keys:\n  openai: sk-prod-abc123def456\n  stripe: sk_live_xyz789\n  Here are the credentials for external services.",
+  "endpoints": "Internal endpoints:\n  api: https://api.internal.corpco.io/v2\n  admin: https://admin.corpco.io/dashboard"
+}
