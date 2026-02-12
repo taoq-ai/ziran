@@ -1,0 +1,26 @@
+# Ziran Target Config: Local Vulnerable Agent
+# Points at the demo server running on localhost.
+#
+# Start the server first:
+#   uvicorn vulnerable_server:app --port 8899
+#
+# Then scan:
+#   ziran scan --target target-local.yaml
+
+name: vulnerable-demo
+url: http://localhost:8899
+protocol: openai
+timeout: 30.0
+
+# No auth required for the local demo server
+auth:
+  type: bearer
+  token: "demo-token"            # server ignores it, but shows auth config
+
+tls:
+  verify: false                  # plain HTTP for local dev
+
+retry:
+  max_retries: 2
+  backoff_factor: 0.5
+  retry_on: [500, 502, 503]

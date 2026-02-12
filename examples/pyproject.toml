@@ -28,6 +28,10 @@ rag = [
 all = [
     "ziran-examples[langchain,crewai,rag]",
 ]
+remote = [
+    "fastapi[standard]>=0.110",
+    "uvicorn>=0.29",
+]
 
 [build-system]
 requires = ["hatchling"]
