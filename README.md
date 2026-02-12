@@ -186,16 +186,34 @@ Three output formats, generated automatically:
 
 Use ZIRAN as a quality gate in your pipeline:
 
+### Live scan (runs the full attack suite against your agent)
+
 ```yaml
-# GitHub Actions
+# .github/workflows/security.yml
 - uses: taoq-ai/ziran@v1
   with:
+    command: scan
+    framework: langchain        # langchain | crewai | bedrock
     agent-path: my_agent.py
-    framework: langchain
-    fail-on: high            # fail the build on high+ findings
+    coverage: standard           # essential | standard | comprehensive
+    gate-config: gate_config.yaml
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}   # or ANTHROPIC_API_KEY, etc.
 ```
 
-Or with the Python API — see [07-cicd-quality-gate](examples/07-cicd-quality-gate/).
+### Offline CI gate (evaluate a previous scan result)
+
+```yaml
+- uses: taoq-ai/ziran@v1
+  with:
+    command: ci
+    result-file: scan_results/campaign_report.json
+    gate-config: gate_config.yaml
+```
+
+**Outputs:** `status` (passed/failed), `trust-score`, `total-findings`, `critical-findings`, `sarif-file`.
+
+See the [full example workflow](examples/07-cicd-quality-gate/ziran-scan.yml) or use the [Python API](examples/07-cicd-quality-gate/).
 
 ---
 

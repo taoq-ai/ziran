@@ -1,0 +1,79 @@
+# ──────────────────────────────────────────────────────────────────────
+# Example: ZIRAN GitHub Action workflow
+# Copy this file to .github/workflows/ in your repository.
+# ──────────────────────────────────────────────────────────────────────
+name: Agent Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write   # required for SARIF upload to GitHub Code Scanning
+
+jobs:
+  # ── Job 1: Live scan ──────────────────────────────────────────────
+  # Scans your agent against ZIRAN's attack library, then evaluates
+  # the results through the quality gate.  Requires LLM API keys.
+  scan:
+    name: ZIRAN Live Scan
+    runs-on: ubuntu-latest
+
+    # Pass your LLM provider's API key as an environment variable.
+    # ZIRAN itself is provider-agnostic — set whichever key your
+    # agent framework needs:
+    #   OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, AWS_*, etc.
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ZIRAN scan
+        id: ziran
+        uses: taoq-ai/ziran@v1
+        with:
+          command: scan
+          framework: langchain           # langchain | crewai | bedrock
+          agent-path: my_agent.py        # path to your agent source file
+          coverage: standard             # essential | standard | comprehensive
+          gate-config: gate_config.yaml  # optional quality-gate thresholds
+          sarif-output: ziran-results.sarif
+
+      - name: Check results
+        if: always()
+        run: |
+          echo "Gate status:       ${{ steps.ziran.outputs.status }}"
+          echo "Trust score:       ${{ steps.ziran.outputs.trust-score }}"
+          echo "Total findings:    ${{ steps.ziran.outputs.total-findings }}"
+          echo "Critical findings: ${{ steps.ziran.outputs.critical-findings }}"
+
+  # ── Job 2: Offline CI gate ────────────────────────────────────────
+  # Evaluates a pre-existing campaign result JSON file through the
+  # quality gate.  No LLM API keys required — useful for re-gating
+  # previous scans or running in restricted environments.
+  gate:
+    name: ZIRAN Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ZIRAN CI gate
+        id: ziran
+        uses: taoq-ai/ziran@v1
+        with:
+          command: ci
+          result-file: scan_results/campaign_report.json
+          gate-config: gate_config.yaml
+          sarif-output: ziran-results.sarif
+
+      - name: Check gate result
+        if: always()
+        run: |
+          echo "Gate: ${{ steps.ziran.outputs.status }}"
+          if [ "${{ steps.ziran.outputs.status }}" = "failed" ]; then
+            echo "::warning::Quality gate failed — review findings in the Security tab"
+          fi

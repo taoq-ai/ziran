@@ -28,6 +28,47 @@ inputs:
     required: false
     default: "."
 
+  # ── Live scan inputs ──────────────────────────────────────────────
+  framework:
+    description: >
+      Agent framework to scan.
+      Required for: scan.
+      Options: langchain, crewai, bedrock
+    required: false
+    default: ""
+
+  agent-path:
+    description: >
+      Path to the agent source file or configuration.
+      Required for: scan.
+    required: false
+    default: ""
+
+  coverage:
+    description: >
+      Scan coverage level.
+      Options: essential, standard, comprehensive
+    required: false
+    default: "standard"
+
+  concurrency:
+    description: "Maximum number of concurrent attack workers."
+    required: false
+    default: "5"
+
+  stop-on-critical:
+    description: "Stop the scan immediately when a critical finding is detected."
+    required: false
+    default: "true"
+
+  custom-attacks:
+    description: >
+      Path to a directory of custom YAML attack vectors.
+      If omitted, only built-in vectors are used.
+    required: false
+    default: ""
+
+  # ── Common inputs ─────────────────────────────────────────────────
   policy-file:
     description: >
       Path to a custom YAML policy file.
@@ -64,9 +105,9 @@ inputs:
   ziran-version:
     description: >
       ZIRAN package version or install spec.
-      Use "." to install from local checkout.
+      Use "." to install from local checkout (e.g. for testing).
     required: false
-    default: "."
+    default: "ziran"
 
 outputs:
   status:
@@ -108,6 +149,58 @@ runs:
         EXTRA_ARGS=""
 
         case "$CMD" in
+          scan)
+            # ── Validate required scan inputs ───────────────────────
+            if [ -z "${{ inputs.framework }}" ]; then
+              echo "::error::framework is required for the 'scan' command"
+              exit 1
+            fi
+            if [ -z "${{ inputs.agent-path }}" ]; then
+              echo "::error::agent-path is required for the 'scan' command"
+              exit 1
+            fi
+
+            SCAN_ARGS="--framework ${{ inputs.framework }}"
+            SCAN_ARGS="$SCAN_ARGS --agent-path ${{ inputs.agent-path }}"
+            SCAN_ARGS="$SCAN_ARGS --coverage ${{ inputs.coverage }}"
+            SCAN_ARGS="$SCAN_ARGS --concurrency ${{ inputs.concurrency }}"
+            SCAN_ARGS="$SCAN_ARGS -o ziran_results"
+
+            if [ "${{ inputs.stop-on-critical }}" = "false" ]; then
+              SCAN_ARGS="$SCAN_ARGS --no-stop-on-critical"
+            fi
+            if [ -n "${{ inputs.custom-attacks }}" ]; then
+              SCAN_ARGS="$SCAN_ARGS --custom-attacks ${{ inputs.custom-attacks }}"
+            fi
+
+            echo "::group::Running ZIRAN scan"
+            ziran scan $SCAN_ARGS
+            SCAN_EXIT=$?
+            echo "::endgroup::"
+
+            # ── Chain into CI gate for outputs & SARIF ──────────────
+            RESULT_JSON=$(find ziran_results -name 'campaign_*_report.json' | head -n1)
+            if [ -z "$RESULT_JSON" ]; then
+              echo "::error::Scan completed but no campaign result JSON was found"
+              exit ${SCAN_EXIT:-1}
+            fi
+
+            CI_ARGS="$RESULT_JSON"
+            if [ -n "${{ inputs.gate-config }}" ]; then
+              CI_ARGS="$CI_ARGS --gate-config ${{ inputs.gate-config }}"
+            fi
+            if [ -n "${{ inputs.policy-file }}" ]; then
+              CI_ARGS="$CI_ARGS --policy ${{ inputs.policy-file }}"
+            fi
+            if [ -n "${{ inputs.sarif-output }}" ]; then
+              CI_ARGS="$CI_ARGS --sarif ${{ inputs.sarif-output }}"
+            fi
+
+            echo "::group::Running ZIRAN CI gate"
+            ziran ci $CI_ARGS
+            EXIT_CODE=$?
+            echo "::endgroup::"
+            ;;
           ci)
             if [ -n "${{ inputs.result-file }}" ]; then
               EXTRA_ARGS="${{ inputs.result-file }}"
@@ -137,10 +230,17 @@ runs:
               EXTRA_ARGS="$EXTRA_ARGS --policy ${{ inputs.policy-file }}"
             fi
             ;;
+          *)
+            echo "::error::Unknown command '$CMD'. Supported: scan, ci, audit, policy"
+            exit 1
+            ;;
         esac
 
-        ziran $CMD $EXTRA_ARGS
-        EXIT_CODE=$?
+        # For scan, EXIT_CODE is already set above; skip the generic run
+        if [ "$CMD" != "scan" ]; then
+          ziran $CMD $EXTRA_ARGS
+          EXIT_CODE=$?
+        fi
 
         if [ $EXIT_CODE -eq 0 ]; then
           echo "status=passed" >> "$GITHUB_OUTPUT"

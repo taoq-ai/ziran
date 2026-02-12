@@ -1,0 +1,80 @@
+name: Action Self-Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "ziran/**"
+      - ".github/workflows/action-test.yml"
+      - "tests/fixtures/sample_campaign_result.json"
+  pull_request:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "ziran/**"
+      - ".github/workflows/action-test.yml"
+      - "tests/fixtures/sample_campaign_result.json"
+
+permissions:
+  contents: read
+  security-events: write  # required for SARIF upload
+
+jobs:
+  test-ci-command:
+    name: "Test: ci command (offline gate)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ZIRAN action (ci mode)
+        id: ziran
+        uses: taoq-ai/ziran@v1
+        with:
+          command: ci
+          result-file: tests/fixtures/sample_campaign_result.json
+          sarif-output: ziran-results.sarif
+        continue-on-error: true  # the fixture has critical findings → gate will fail
+
+      - name: Verify outputs are populated
+        shell: bash
+        run: |
+          echo "Status:            ${{ steps.ziran.outputs.status }}"
+          echo "Trust score:       ${{ steps.ziran.outputs.trust-score }}"
+          echo "Total findings:    ${{ steps.ziran.outputs.total-findings }}"
+          echo "Critical findings: ${{ steps.ziran.outputs.critical-findings }}"
+
+          # The fixture has 3 vulnerabilities and 2 critical → gate should fail
+          if [ "${{ steps.ziran.outputs.status }}" != "failed" ]; then
+            echo "::error::Expected status=failed but got ${{ steps.ziran.outputs.status }}"
+            exit 1
+          fi
+
+      - name: Verify SARIF file was generated
+        shell: bash
+        run: |
+          if [ ! -f "ziran-results.sarif" ]; then
+            echo "::error::SARIF file was not generated"
+            exit 1
+          fi
+          echo "SARIF file size: $(wc -c < ziran-results.sarif) bytes"
+
+  test-audit-command:
+    name: "Test: audit command"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ZIRAN action (audit mode)
+        id: ziran
+        uses: taoq-ai/ziran@v1
+        with:
+          command: audit
+          source-path: examples/07-cicd-quality-gate
+          severity-threshold: medium
+        continue-on-error: true
+
+      - name: Verify action completed
+        shell: bash
+        run: |
+          echo "Audit completed with status: ${{ steps.ziran.outputs.status }}"

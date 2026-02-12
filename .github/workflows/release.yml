@@ -189,3 +189,22 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ steps.prerelease.outputs.flag }}
           files: dist/*
+
+  # ── Update floating major version tag for GitHub Actions ───────────
+  # Consumers reference `taoq-ai/ziran@v1` — this tag always points
+  # to the latest stable release so they automatically get patches.
+  update-action-tag:
+    if: ${{ !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc') }}
+    needs: [github-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update v1 tag
+        run: |
+          MAJOR=$(echo "${{ github.ref_name }}" | grep -oE '^v[0-9]+' )
+          echo "Updating ${MAJOR} tag to point to ${{ github.ref_name }}"
+          git tag -fa "${MAJOR}" -m "Release ${{ github.ref_name }}"
+          git push origin "${MAJOR}" --force
