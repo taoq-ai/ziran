@@ -8,12 +8,14 @@ Ollama, LiteLLM proxies, and similar.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ziran.domain.entities.target import TargetConfig
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.target import TargetConfig
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +77,13 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
         # Parse tool calls
         tool_calls = []
         for tc in tool_calls_raw:
-            tool_calls.append({
-                "id": tc.get("id", ""),
-                "name": tc.get("function", {}).get("name", ""),
-                "arguments": tc.get("function", {}).get("arguments", "{}"),
-            })
+            tool_calls.append(
+                {
+                    "id": tc.get("id", ""),
+                    "name": tc.get("function", {}).get("name", ""),
+                    "arguments": tc.get("function", {}).get("arguments", "{}"),
+                }
+            )
 
         # Extract token usage
         usage = data.get("usage", {})

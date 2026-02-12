@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ziran.domain.entities.target import TargetConfig
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.target import TargetConfig
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +57,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
             try:
                 result = await self._jsonrpc_call(
                     method,
-                    {
-                        "messages": [{"role": "user", "content": {"type": "text", "text": message}}]
-                    },
+                    {"messages": [{"role": "user", "content": {"type": "text", "text": message}}]},
                 )
                 content = self._extract_content(result)
                 return {
@@ -70,7 +70,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
 
         # If no completion method works, return an indicator message
         return {
-            "content": f"[MCP server does not support direct messaging — use tools/call]",
+            "content": "[MCP server does not support direct messaging — use tools/call]",
             "tool_calls": [],
             "metadata": {"protocol": "mcp"},
         }
@@ -87,13 +87,15 @@ class MCPProtocolHandler(BaseProtocolHandler):
         try:
             result = await self._jsonrpc_call("tools/list", {})
             for tool in result.get("tools", []):
-                capabilities.append({
-                    "id": tool.get("name", "unknown"),
-                    "name": tool.get("name", "unknown"),
-                    "type": "tool",
-                    "description": tool.get("description", ""),
-                    "parameters": tool.get("inputSchema", {}),
-                })
+                capabilities.append(
+                    {
+                        "id": tool.get("name", "unknown"),
+                        "name": tool.get("name", "unknown"),
+                        "type": "tool",
+                        "description": tool.get("description", ""),
+                        "parameters": tool.get("inputSchema", {}),
+                    }
+                )
         except ProtocolError:
             logger.debug("MCP tools/list not available")
 
@@ -101,13 +103,15 @@ class MCPProtocolHandler(BaseProtocolHandler):
         try:
             result = await self._jsonrpc_call("resources/list", {})
             for resource in result.get("resources", []):
-                capabilities.append({
-                    "id": resource.get("uri", resource.get("name", "unknown")),
-                    "name": resource.get("name", "unknown"),
-                    "type": "data_access",
-                    "description": resource.get("description", ""),
-                    "mimeType": resource.get("mimeType", ""),
-                })
+                capabilities.append(
+                    {
+                        "id": resource.get("uri", resource.get("name", "unknown")),
+                        "name": resource.get("name", "unknown"),
+                        "type": "data_access",
+                        "description": resource.get("description", ""),
+                        "mimeType": resource.get("mimeType", ""),
+                    }
+                )
         except ProtocolError:
             logger.debug("MCP resources/list not available")
 
@@ -115,12 +119,14 @@ class MCPProtocolHandler(BaseProtocolHandler):
         try:
             result = await self._jsonrpc_call("prompts/list", {})
             for prompt in result.get("prompts", []):
-                capabilities.append({
-                    "id": prompt.get("name", "unknown"),
-                    "name": prompt.get("name", "unknown"),
-                    "type": "skill",
-                    "description": prompt.get("description", ""),
-                })
+                capabilities.append(
+                    {
+                        "id": prompt.get("name", "unknown"),
+                        "name": prompt.get("name", "unknown"),
+                        "type": "skill",
+                        "description": prompt.get("description", ""),
+                    }
+                )
         except ProtocolError:
             logger.debug("MCP prompts/list not available")
 
@@ -141,9 +147,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
         except ProtocolError:
             return False
 
-    async def _call_tool(
-        self, tool_name: str, arguments: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _call_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Invoke a specific MCP tool.
 
         Args:
@@ -164,9 +168,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
             "metadata": {"method": "tools/call", "protocol": "mcp"},
         }
 
-    async def _jsonrpc_call(
-        self, method: str, params: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _jsonrpc_call(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Execute a JSON-RPC 2.0 call.
 
         Args:
@@ -207,7 +209,8 @@ class MCPProtocolHandler(BaseProtocolHandler):
             msg = f"MCP JSON-RPC error {err.get('code')}: {err.get('message', 'unknown')}"
             raise ProtocolError(msg)
 
-        return data.get("result", {})
+        result: dict[str, Any] = data.get("result", {})
+        return result
 
     @staticmethod
     def _extract_content(result: dict[str, Any]) -> str:

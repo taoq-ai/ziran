@@ -17,7 +17,6 @@ import httpx
 
 from ziran.domain.entities.a2a import (
     A2AAgentCard,
-    A2AArtifact,
     A2AMessage,
     A2APart,
     A2ASendMessageConfiguration,
@@ -65,15 +64,15 @@ class A2AProtocolHandler(BaseProtocolHandler):
             Dict with ``content``, ``tool_calls``, and ``metadata``.
         """
         msg = A2AMessage(
-            messageId=str(uuid.uuid4()),
-            contextId=self._context_id,
-            taskId=self._task_id,
+            message_id=str(uuid.uuid4()),
+            context_id=self._context_id,
+            task_id=self._task_id,
             role="ROLE_USER",
             parts=[A2APart(text=message)],
         )
 
         configuration = A2ASendMessageConfiguration(
-            acceptedOutputModes=["text/plain", "application/json"],
+            accepted_output_modes=["text/plain", "application/json"],
             blocking=self._a2a.blocking,
         )
 
@@ -86,7 +85,7 @@ class A2AProtocolHandler(BaseProtocolHandler):
 
         # Update context for multi-turn
         if response.task:
-            self._context_id = response.task.contextId or self._context_id
+            self._context_id = response.task.context_id or self._context_id
             self._task_id = response.task.id
 
         content = response.extract_text()
@@ -113,50 +112,60 @@ class A2AProtocolHandler(BaseProtocolHandler):
 
         # Map skills
         for skill in card.skills:
-            capabilities.append({
-                "id": skill.id,
-                "name": skill.name,
-                "type": "skill",
-                "description": skill.description,
-                "tags": skill.tags,
-                "examples": skill.examples,
-                "input_modes": skill.inputModes,
-                "output_modes": skill.outputModes,
-            })
+            capabilities.append(
+                {
+                    "id": skill.id,
+                    "name": skill.name,
+                    "type": "skill",
+                    "description": skill.description,
+                    "tags": skill.tags,
+                    "examples": skill.examples,
+                    "input_modes": skill.input_modes,
+                    "output_modes": skill.output_modes,
+                }
+            )
 
         # Map security schemes as capabilities (attack surface)
         schemes = card.parse_security_schemes()
         for name, scheme in schemes.items():
-            capabilities.append({
-                "id": f"security_scheme_{name}",
-                "name": f"Auth: {name} ({scheme.type})",
-                "type": "permission",
-                "description": scheme.description or f"Security scheme: {scheme.type}",
-                "auth_type": scheme.type,
-            })
+            capabilities.append(
+                {
+                    "id": f"security_scheme_{name}",
+                    "name": f"Auth: {name} ({scheme.type})",
+                    "type": "permission",
+                    "description": scheme.description or f"Security scheme: {scheme.type}",
+                    "auth_type": scheme.type,
+                }
+            )
 
         # Map agent-level capabilities
         if card.capabilities.streaming:
-            capabilities.append({
-                "id": "a2a_streaming",
-                "name": "SSE Streaming",
-                "type": "skill",
-                "description": "Agent supports Server-Sent Events streaming",
-            })
-        if card.capabilities.pushNotifications:
-            capabilities.append({
-                "id": "a2a_push_notifications",
-                "name": "Push Notifications (WebHooks)",
-                "type": "external_api",
-                "description": "Agent supports push notification webhooks",
-            })
-        if card.capabilities.extendedAgentCard:
-            capabilities.append({
-                "id": "a2a_extended_card",
-                "name": "Extended Agent Card",
-                "type": "permission",
-                "description": "Agent provides additional capabilities to authenticated clients",
-            })
+            capabilities.append(
+                {
+                    "id": "a2a_streaming",
+                    "name": "SSE Streaming",
+                    "type": "skill",
+                    "description": "Agent supports Server-Sent Events streaming",
+                }
+            )
+        if card.capabilities.push_notifications:
+            capabilities.append(
+                {
+                    "id": "a2a_push_notifications",
+                    "name": "Push Notifications (WebHooks)",
+                    "type": "external_api",
+                    "description": "Agent supports push notification webhooks",
+                }
+            )
+        if card.capabilities.extended_agent_card:
+            capabilities.append(
+                {
+                    "id": "a2a_extended_card",
+                    "name": "Extended Agent Card",
+                    "type": "permission",
+                    "description": "Agent provides additional capabilities to authenticated clients",
+                }
+            )
 
         return capabilities
 
@@ -213,10 +222,7 @@ class A2AProtocolHandler(BaseProtocolHandler):
         )
 
         # Optionally fetch extended card
-        if (
-            self._a2a.use_extended_card
-            and self._agent_card.capabilities.extendedAgentCard
-        ):
+        if self._a2a.use_extended_card and self._agent_card.capabilities.extended_agent_card:
             await self._fetch_extended_card()
 
         return self._agent_card
@@ -356,13 +362,13 @@ class A2AProtocolHandler(BaseProtocolHandler):
 
         if response.task:
             metadata["task_id"] = response.task.id
-            metadata["context_id"] = response.task.contextId
+            metadata["context_id"] = response.task.context_id
             metadata["task_state"] = response.task.status.state
             metadata["is_terminal"] = response.task.is_terminal
             metadata["input_required"] = response.task.is_input_required
             metadata["auth_required"] = response.task.is_auth_required
         elif response.message:
-            metadata["message_id"] = response.message.messageId
+            metadata["message_id"] = response.message.message_id
 
         return metadata
 
@@ -380,17 +386,21 @@ class A2AProtocolHandler(BaseProtocolHandler):
         for artifact in response.task.artifacts:
             for part in artifact.parts:
                 if part.data:
-                    tool_calls.append({
-                        "name": artifact.name or artifact.artifactId,
-                        "output": part.data,
-                    })
-                elif part.mediaType and part.mediaType == "application/json" and part.text:
+                    tool_calls.append(
+                        {
+                            "name": artifact.name or artifact.artifact_id,
+                            "output": part.data,
+                        }
+                    )
+                elif part.media_type and part.media_type == "application/json" and part.text:
                     try:
                         parsed = json.loads(part.text)
-                        tool_calls.append({
-                            "name": artifact.name or artifact.artifactId,
-                            "output": parsed,
-                        })
+                        tool_calls.append(
+                            {
+                                "name": artifact.name or artifact.artifact_id,
+                                "output": parsed,
+                            }
+                        )
                     except json.JSONDecodeError:
                         pass
 

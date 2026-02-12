@@ -8,12 +8,14 @@ that don't follow a standard protocol.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ziran.domain.entities.target import TargetConfig
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.target import TargetConfig
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +116,7 @@ def _extract_field(data: Any, field_path: str) -> str:
     return str(current)
 
 
-def _default_rest() -> Any:  # noqa: ANN401
+def _default_rest() -> Any:
     """Create default RestConfig (avoids circular import at module level)."""
     from ziran.domain.entities.target import RestConfig
 

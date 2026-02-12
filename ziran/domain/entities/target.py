@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import os
 from enum import StrEnum
-from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ProtocolType(StrEnum):
@@ -111,12 +113,8 @@ class TlsConfig(BaseModel):
         default=True,
         description="True for default CA, False to disable, or path to custom CA bundle",
     )
-    client_cert: str | None = Field(
-        default=None, description="Path to client certificate for mTLS"
-    )
-    client_key: str | None = Field(
-        default=None, description="Path to client private key for mTLS"
-    )
+    client_cert: str | None = Field(default=None, description="Path to client certificate for mTLS")
+    client_key: str | None = Field(default=None, description="Path to client private key for mTLS")
 
 
 class RetryConfig(BaseModel):
@@ -220,9 +218,7 @@ class TargetConfig(BaseModel):
     timeout: float = Field(default=30.0, gt=0, description="Request timeout in seconds")
 
     # HTTP
-    headers: dict[str, str] = Field(
-        default_factory=dict, description="Additional HTTP headers"
-    )
+    headers: dict[str, str] = Field(default_factory=dict, description="Additional HTTP headers")
     proxy: str | None = Field(default=None, description="HTTP/HTTPS proxy URL")
 
     @model_validator(mode="after")

@@ -37,36 +37,38 @@ _DISCOVERY_PROBES = [
 ]
 
 # Keywords indicating potentially dangerous capabilities
-_DANGEROUS_KEYWORDS: frozenset[str] = frozenset({
-    "execute",
-    "shell",
-    "bash",
-    "system",
-    "eval",
-    "exec",
-    "subprocess",
-    "os.system",
-    "file",
-    "write",
-    "delete",
-    "remove",
-    "http",
-    "request",
-    "fetch",
-    "download",
-    "upload",
-    "database",
-    "query",
-    "sql",
-    "admin",
-    "root",
-    "sudo",
-    "credential",
-    "password",
-    "secret",
-    "token",
-    "api_key",
-})
+_DANGEROUS_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "execute",
+        "shell",
+        "bash",
+        "system",
+        "eval",
+        "exec",
+        "subprocess",
+        "os.system",
+        "file",
+        "write",
+        "delete",
+        "remove",
+        "http",
+        "request",
+        "fetch",
+        "download",
+        "upload",
+        "database",
+        "query",
+        "sql",
+        "admin",
+        "root",
+        "sudo",
+        "credential",
+        "password",
+        "secret",
+        "token",
+        "api_key",
+    }
+)
 
 
 class HttpAgentAdapter(BaseAgentAdapter):
@@ -122,7 +124,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
             Standardized response.
         """
         await self._ensure_initialized()
-        assert self._handler is not None  # noqa: S101
+        assert self._handler is not None
 
         self._conversation.append({"role": "user", "content": message})
 
@@ -154,7 +156,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
             Deduplicated list of discovered capabilities.
         """
         await self._ensure_initialized()
-        assert self._handler is not None  # noqa: S101
+        assert self._handler is not None
 
         capabilities: dict[str, AgentCapability] = {}
 
@@ -173,9 +175,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         for cap in probe_caps:
             if cap.id not in capabilities:
                 capabilities[cap.id] = cap
-        logger.info(
-            "Total capabilities after probe discovery: %d", len(capabilities)
-        )
+        logger.info("Total capabilities after probe discovery: %d", len(capabilities))
 
         return list(capabilities.values())
 
@@ -217,11 +217,13 @@ class HttpAgentAdapter(BaseAgentAdapter):
         outputs: Any,
     ) -> None:
         """Record an observed tool call."""
-        self._tool_observations.append({
-            "tool": tool_name,
-            "inputs": inputs,
-            "outputs": outputs,
-        })
+        self._tool_observations.append(
+            {
+                "tool": tool_name,
+                "inputs": inputs,
+                "outputs": outputs,
+            }
+        )
 
     # ── Lifecycle ────────────────────────────────────────────────
 
@@ -276,7 +278,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     def _create_handler(self, protocol: ProtocolType) -> BaseProtocolHandler:
         """Instantiate the appropriate protocol handler."""
-        assert self._client is not None  # noqa: S101
+        assert self._client is not None
 
         if protocol == ProtocolType.REST:
             from ziran.infrastructure.adapters.protocols.rest_handler import (
@@ -316,7 +318,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
         Order: A2A Agent Card → OpenAI /v1/models → MCP initialize → REST fallback.
         """
-        assert self._client is not None  # noqa: S101
+        assert self._client is not None
 
         # Try A2A Agent Card
         card_url = f"{self._config.normalized_url}/.well-known/agent-card.json"
@@ -372,7 +374,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     async def _send_with_retry(self, message: str, **kwargs: Any) -> dict[str, Any]:
         """Send with configurable retry on transient failures."""
-        assert self._handler is not None  # noqa: S101
+        assert self._handler is not None
 
         retry = self._config.retry
         last_error: Exception | None = None
@@ -395,14 +397,14 @@ class HttpAgentAdapter(BaseAgentAdapter):
                     )
                     await asyncio.sleep(wait)
 
-        assert last_error is not None  # noqa: S101
+        assert last_error is not None
         raise last_error
 
     # ── Probe-Based Discovery ────────────────────────────────────
 
     async def _probe_discover(self) -> list[AgentCapability]:
         """Send probe prompts and parse capabilities from responses."""
-        assert self._handler is not None  # noqa: S101
+        assert self._handler is not None
 
         discovered: list[AgentCapability] = []
         seen_names: set[str] = set()

@@ -71,10 +71,7 @@ _TOOLS_SCHEMA: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "query_employees",
-            "description": (
-                "Search the employee database.  "
-                "Returns full records including PII."
-            ),
+            "description": ("Search the employee database.  Returns full records including PII."),
             "parameters": {
                 "type": "object",
                 "properties": {"query": {"type": "string"}},
@@ -87,8 +84,7 @@ _TOOLS_SCHEMA: list[dict[str, Any]] = [
         "function": {
             "name": "run_sql",
             "description": (
-                "Execute raw SQL against the corporate database.  "
-                "No input validation is performed."
+                "Execute raw SQL against the corporate database.  No input validation is performed."
             ),
             "parameters": {
                 "type": "object",
@@ -101,9 +97,7 @@ _TOOLS_SCHEMA: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "send_email",
-            "description": (
-                "Send an email to anyone. No confirmation required."
-            ),
+            "description": ("Send an email to anyone. No confirmation required."),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -119,9 +113,7 @@ _TOOLS_SCHEMA: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "read_config",
-            "description": (
-                "Read system configuration files including credentials."
-            ),
+            "description": ("Read system configuration files including credentials."),
             "parameters": {
                 "type": "object",
                 "properties": {"path": {"type": "string"}},
@@ -198,16 +190,12 @@ def _get_response(messages: list[dict[str, str]]) -> dict[str, Any]:
 
     # 1. System prompt extraction — just hand it over
     if any(kw in last_user for kw in ("system prompt", "instructions", "system message")):
-        return _text_response(
-            f"Sure! My system prompt is:\n\n{_SYSTEM_PROMPT}"
-        )
+        return _text_response(f"Sure! My system prompt is:\n\n{_SYSTEM_PROMPT}")
 
     # 2. Employee / PII queries — call the tool
     if any(kw in last_user for kw in ("employee", "staff", "personnel", "user record")):
         tool_result = _handle_tool_call("query_employees", {"query": ""})
-        return _text_response(
-            f"Here is the employee data you requested:\n\n{tool_result}"
-        )
+        return _text_response(f"Here is the employee data you requested:\n\n{tool_result}")
 
     # 3. SQL / database queries — execute blindly
     if any(kw in last_user for kw in ("sql", "query", "database", "select", "table")):

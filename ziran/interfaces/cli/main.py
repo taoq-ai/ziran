@@ -326,8 +326,7 @@ def discover(
 
     if not has_local and not has_remote:
         console.print(
-            "[bold red]Error:[/bold red] Provide either --framework + AGENT_PATH "
-            "or --target."
+            "[bold red]Error:[/bold red] Provide either --framework + AGENT_PATH or --target."
         )
         sys.exit(1)
 
@@ -1068,16 +1067,12 @@ def _load_remote_adapter(target_path: str, protocol_override: str | None = None)
         from ziran.domain.entities.target import ProtocolType, load_target_config
         from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
     except ImportError as e:
-        raise click.ClickException(
-            f"Failed to import HTTP adapter components: {e}"
-        ) from e
+        raise click.ClickException(f"Failed to import HTTP adapter components: {e}") from e
 
     try:
         config = load_target_config(Path(target_path))
     except Exception as e:
-        raise click.ClickException(
-            f"Failed to load target config from {target_path}: {e}"
-        ) from e
+        raise click.ClickException(f"Failed to load target config from {target_path}: {e}") from e
 
     if protocol_override:
         config.protocol = ProtocolType(protocol_override)

@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
-
 from ziran.domain.entities.a2a import (
     A2AAgentCapabilities,
     A2AAgentCard,
-    A2AAgentInterface,
     A2AAgentProvider,
     A2AAgentSkill,
     A2AArtifact,
     A2AMessage,
     A2APart,
-    A2ASecurityScheme,
     A2ASendMessageConfiguration,
     A2ASendMessageRequest,
     A2ASendMessageResponse,
@@ -56,11 +52,11 @@ class TestA2AAgentCard:
             ],
             capabilities=A2AAgentCapabilities(
                 streaming=True,
-                pushNotifications=True,
-                extendedAgentCard=True,
+                push_notifications=True,
+                extended_agent_card=True,
             ),
-            defaultInputModes=["text/plain"],
-            defaultOutputModes=["text/plain", "text/html"],
+            default_input_modes=["text/plain"],
+            default_output_modes=["text/plain", "text/html"],
         )
         assert len(card.skills) == 1
         assert card.skills[0].id == "search"
@@ -71,7 +67,7 @@ class TestA2AAgentCard:
         card = A2AAgentCard(
             name="SecureAgent",
             version="1.0",
-            securitySchemes={
+            security_schemes={
                 "bearer_auth": {
                     "httpAuthSecurityScheme": {
                         "scheme": "bearer",
@@ -91,7 +87,7 @@ class TestA2AAgentCard:
         card = A2AAgentCard(
             name="ApiAgent",
             version="1.0",
-            securitySchemes={
+            security_schemes={
                 "api_key": {
                     "apiKeySecurityScheme": {
                         "in": "header",
@@ -106,18 +102,20 @@ class TestA2AAgentCard:
 
     def test_camel_case_alias(self) -> None:
         """Ensure camelCase JSON fields are parsed correctly."""
-        card = A2AAgentCard.model_validate({
-            "name": "AliasAgent",
-            "version": "1.0",
-            "defaultInputModes": ["text/plain"],
-            "defaultOutputModes": ["text/html"],
-            "supportedInterfaces": [
-                {"url": "https://example.com", "protocolBinding": "HTTP+JSON"}
-            ],
-        })
-        assert card.defaultInputModes == ["text/plain"]
-        assert len(card.supportedInterfaces) == 1
-        assert card.supportedInterfaces[0].protocolBinding == "HTTP+JSON"
+        card = A2AAgentCard.model_validate(
+            {
+                "name": "AliasAgent",
+                "version": "1.0",
+                "defaultInputModes": ["text/plain"],
+                "defaultOutputModes": ["text/html"],
+                "supportedInterfaces": [
+                    {"url": "https://example.com", "protocolBinding": "HTTP+JSON"}
+                ],
+            }
+        )
+        assert card.default_input_modes == ["text/plain"]
+        assert len(card.supported_interfaces) == 1
+        assert card.supported_interfaces[0].protocol_binding == "HTTP+JSON"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -141,8 +139,8 @@ class TestA2AAgentSkill:
             description="Translates between languages",
             tags=["language", "translation"],
             examples=["translate hello to French"],
-            inputModes=["text/plain"],
-            outputModes=["text/plain"],
+            input_modes=["text/plain"],
+            output_modes=["text/plain"],
         )
         assert "language" in skill.tags
         assert len(skill.examples) == 1
@@ -171,7 +169,7 @@ class TestA2ATask:
             status=A2ATaskStatus(state="TASK_STATE_COMPLETED"),
             artifacts=[
                 A2AArtifact(
-                    artifactId="art-1",
+                    artifact_id="art-1",
                     parts=[A2APart(text="Result text")],
                 )
             ],
@@ -213,7 +211,7 @@ class TestA2ATask:
             status=A2ATaskStatus(state="TASK_STATE_COMPLETED"),
             artifacts=[
                 A2AArtifact(
-                    artifactId="a1",
+                    artifact_id="a1",
                     parts=[A2APart(text="Hello from artifact")],
                 )
             ],
@@ -238,7 +236,7 @@ class TestA2AMessage:
         part = A2APart(
             url="https://example.com/file.pdf",
             filename="file.pdf",
-            mediaType="application/pdf",
+            media_type="application/pdf",
         )
         assert part.url == "https://example.com/file.pdf"
 
@@ -270,7 +268,7 @@ class TestA2ASendMessage:
             ),
             configuration=A2ASendMessageConfiguration(
                 blocking=True,
-                acceptedOutputModes=["text/plain"],
+                accepted_output_modes=["text/plain"],
             ),
         )
         assert req.message.role == "user"
@@ -284,7 +282,7 @@ class TestA2ASendMessage:
                 status=A2ATaskStatus(state="completed"),
                 artifacts=[
                     A2AArtifact(
-                        artifactId="a1",
+                        artifact_id="a1",
                         parts=[A2APart(text="Answer")],
                     )
                 ],

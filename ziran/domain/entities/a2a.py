@@ -14,7 +14,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ── Agent Discovery Objects ──────────────────────────────────────
 
 
@@ -29,8 +28,8 @@ class A2AAgentCapabilities(BaseModel):
     """Declared capabilities of an A2A agent."""
 
     streaming: bool = False
-    pushNotifications: bool = Field(default=False, alias="pushNotifications")
-    extendedAgentCard: bool = Field(default=False, alias="extendedAgentCard")
+    push_notifications: bool = Field(default=False, alias="pushNotifications")
+    extended_agent_card: bool = Field(default=False, alias="extendedAgentCard")
 
     model_config = {"populate_by_name": True}
 
@@ -43,8 +42,8 @@ class A2AAgentSkill(BaseModel):
     description: str = ""
     tags: list[str] = Field(default_factory=list)
     examples: list[str] = Field(default_factory=list)
-    inputModes: list[str] = Field(default_factory=list, alias="inputModes")
-    outputModes: list[str] = Field(default_factory=list, alias="outputModes")
+    input_modes: list[str] = Field(default_factory=list, alias="inputModes")
+    output_modes: list[str] = Field(default_factory=list, alias="outputModes")
 
     model_config = {"populate_by_name": True}
 
@@ -71,8 +70,8 @@ class A2AAgentInterface(BaseModel):
     """Declares a protocol binding + URL combination."""
 
     url: str
-    protocolBinding: str = Field(default="HTTP+JSON", alias="protocolBinding")
-    protocolVersion: str = Field(default="1.0", alias="protocolVersion")
+    protocol_binding: str = Field(default="HTTP+JSON", alias="protocolBinding")
+    protocol_version: str = Field(default="1.0", alias="protocolVersion")
     tenant: str | None = None
 
     model_config = {"populate_by_name": True}
@@ -88,19 +87,19 @@ class A2AAgentCard(BaseModel):
     description: str = ""
     version: str = ""
     provider: A2AAgentProvider | None = None
-    documentationUrl: str | None = Field(default=None, alias="documentationUrl")
-    iconUrl: str | None = Field(default=None, alias="iconUrl")
+    documentation_url: str | None = Field(default=None, alias="documentationUrl")
+    icon_url: str | None = Field(default=None, alias="iconUrl")
 
-    supportedInterfaces: list[A2AAgentInterface] = Field(
+    supported_interfaces: list[A2AAgentInterface] = Field(
         default_factory=list, alias="supportedInterfaces"
     )
     capabilities: A2AAgentCapabilities = Field(default_factory=A2AAgentCapabilities)
     skills: list[A2AAgentSkill] = Field(default_factory=list)
 
-    defaultInputModes: list[str] = Field(default_factory=list, alias="defaultInputModes")
-    defaultOutputModes: list[str] = Field(default_factory=list, alias="defaultOutputModes")
+    default_input_modes: list[str] = Field(default_factory=list, alias="defaultInputModes")
+    default_output_modes: list[str] = Field(default_factory=list, alias="defaultOutputModes")
 
-    securitySchemes: dict[str, dict[str, Any]] = Field(
+    security_schemes: dict[str, dict[str, Any]] = Field(
         default_factory=dict, alias="securitySchemes"
     )
     security: list[dict[str, list[str]]] = Field(default_factory=list)
@@ -114,7 +113,7 @@ class A2AAgentCard(BaseModel):
             Mapping of scheme name to parsed security scheme.
         """
         result: dict[str, A2ASecurityScheme] = {}
-        for name, raw in self.securitySchemes.items():
+        for name, raw in self.security_schemes.items():
             scheme_type = "unknown"
             if "apiKeySecurityScheme" in raw:
                 scheme_type = "apiKey"
@@ -133,9 +132,7 @@ class A2AAgentCard(BaseModel):
                     description = v["description"]
                     break
 
-            result[name] = A2ASecurityScheme(
-                type=scheme_type, description=description, raw=raw
-            )
+            result[name] = A2ASecurityScheme(type=scheme_type, description=description, raw=raw)
         return result
 
 
@@ -150,7 +147,7 @@ class A2APart(BaseModel):
     url: str | None = None
     data: dict[str, Any] | None = None
     filename: str | None = None
-    mediaType: str | None = Field(default=None, alias="mediaType")
+    media_type: str | None = Field(default=None, alias="mediaType")
 
     model_config = {"populate_by_name": True}
 
@@ -158,9 +155,9 @@ class A2APart(BaseModel):
 class A2AMessage(BaseModel):
     """A message in the A2A protocol."""
 
-    messageId: str | None = Field(default=None, alias="messageId")
-    taskId: str | None = Field(default=None, alias="taskId")
-    contextId: str | None = Field(default=None, alias="contextId")
+    message_id: str | None = Field(default=None, alias="messageId")
+    task_id: str | None = Field(default=None, alias="taskId")
+    context_id: str | None = Field(default=None, alias="contextId")
     role: str = "ROLE_USER"
     parts: list[A2APart] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -171,7 +168,7 @@ class A2AMessage(BaseModel):
 class A2AArtifact(BaseModel):
     """An output artifact from a task."""
 
-    artifactId: str = Field(default="", alias="artifactId")
+    artifact_id: str = Field(default="", alias="artifactId")
     name: str = ""
     description: str = ""
     parts: list[A2APart] = Field(default_factory=list)
@@ -192,7 +189,7 @@ class A2ATask(BaseModel):
     """The core unit of work in A2A."""
 
     id: str
-    contextId: str = Field(default="", alias="contextId")
+    context_id: str = Field(default="", alias="contextId")
     status: A2ATaskStatus = Field(default_factory=A2ATaskStatus)
     artifacts: list[A2AArtifact] = Field(default_factory=list)
     history: list[A2AMessage] = Field(default_factory=list)
@@ -241,11 +238,11 @@ class A2ATask(BaseModel):
 class A2ASendMessageConfiguration(BaseModel):
     """Configuration for a SendMessage request."""
 
-    acceptedOutputModes: list[str] = Field(
+    accepted_output_modes: list[str] = Field(
         default_factory=lambda: ["text/plain"], alias="acceptedOutputModes"
     )
     blocking: bool = False
-    historyLength: int | None = Field(default=None, alias="historyLength")
+    history_length: int | None = Field(default=None, alias="historyLength")
 
     model_config = {"populate_by_name": True}
 

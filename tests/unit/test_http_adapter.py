@@ -2,23 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
 
 from ziran.domain.entities.target import (
     A2AConfig,
-    AuthConfig,
-    AuthType,
     ProtocolType,
     RestConfig,
-    RetryConfig,
     TargetConfig,
-    TlsConfig,
 )
-from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+from ziran.infrastructure.adapters.protocols import ProtocolError
 
 # ──────────────────────────────────────────────────────────────────────
 # ProtocolError
@@ -146,9 +141,7 @@ class TestOpenAIProtocolHandler:
         return AsyncMock(spec=httpx.AsyncClient)
 
     @pytest.mark.asyncio()
-    async def test_send_chat_completion(
-        self, config: TargetConfig, mock_client: AsyncMock
-    ) -> None:
+    async def test_send_chat_completion(self, config: TargetConfig, mock_client: AsyncMock) -> None:
         from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
 
         mock_response = MagicMock()
@@ -304,9 +297,7 @@ class TestA2AProtocolHandler:
         mock_response.json.return_value = {
             "name": "TestA2AAgent",
             "version": "1.0",
-            "skills": [
-                {"id": "echo", "name": "Echo", "description": "Echoes input"}
-            ],
+            "skills": [{"id": "echo", "name": "Echo", "description": "Echoes input"}],
         }
         mock_response.raise_for_status = MagicMock()
         mock_client.get.return_value = mock_response
@@ -318,9 +309,7 @@ class TestA2AProtocolHandler:
         assert len(card.skills) == 1
 
     @pytest.mark.asyncio()
-    async def test_discover_maps_skills(
-        self, config: TargetConfig, mock_client: AsyncMock
-    ) -> None:
+    async def test_discover_maps_skills(self, config: TargetConfig, mock_client: AsyncMock) -> None:
         from ziran.infrastructure.adapters.protocols.a2a_handler import A2AProtocolHandler
 
         mock_response = MagicMock()

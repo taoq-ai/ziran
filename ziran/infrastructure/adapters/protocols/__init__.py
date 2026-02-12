@@ -78,7 +78,7 @@ class BaseProtocolHandler(ABC):
             True if the endpoint responds successfully.
         """
 
-    async def close(self) -> None:
+    async def close(self) -> None:  # noqa: B027
         """Clean up any protocol-specific resources.
 
         Called when the adapter is torn down. Override if the handler

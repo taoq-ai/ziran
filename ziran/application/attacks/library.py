@@ -236,9 +236,7 @@ class AttackLibrary:
         if tags:
             results = [v for v in results if all(t in v.tags for t in tags)]
         if protocol is not None:
-            results = [
-                v for v in results if not v.protocol_filter or protocol in v.protocol_filter
-            ]
+            results = [v for v in results if not v.protocol_filter or protocol in v.protocol_filter]
 
         return results
 
