@@ -1,0 +1,47 @@
+[project]
+name = "ziran-examples"
+version = "0.1.0"
+description = "Ready-to-run examples for the ZIRAN AI Agent Security Testing Framework"
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+
+dependencies = [
+    "ziran",
+    "rich>=13.7",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+langchain = [
+    "langchain>=0.2,<1",
+    "langchain-community>=0.2",
+    "langchain-openai>=0.1",
+]
+crewai = [
+    "crewai>=0.30,<1",
+]
+rag = [
+    "ziran-examples[langchain]",
+    "faiss-cpu>=1.7",
+]
+all = [
+    "ziran-examples[langchain,crewai,rag]",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["_common"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"*/main.py" = ["E402"]
