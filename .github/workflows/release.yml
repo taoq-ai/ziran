@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for hatch-vcs
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -52,6 +54,8 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for hatch-vcs
 
       - uses: astral-sh/setup-uv@v4
         with:
