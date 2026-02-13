@@ -68,7 +68,7 @@ class Policy(BaseModel):
     """A named collection of security rules.
 
     Policies are typically loaded from YAML files and evaluated against
-    :class:`~koan.domain.entities.phase.CampaignResult` instances.
+    :class:`~ziran.domain.entities.phase.CampaignResult` instances.
     """
 
     id: str

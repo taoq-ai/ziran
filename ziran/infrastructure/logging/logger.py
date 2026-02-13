@@ -59,7 +59,7 @@ def setup_logging(
         file_handler.setFormatter(file_formatter)
         root_logger.addHandler(file_handler)
 
-    # Set koan logger
+    # Set ziran logger
     ziran_logger = logging.getLogger("ziran")
     ziran_logger.setLevel(level)
 
@@ -69,7 +69,7 @@ def setup_logging(
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a named logger within the koan namespace.
+    """Get a named logger within the ziran namespace.
 
     Args:
         name: Logger name (will be prefixed with 'ziran.').

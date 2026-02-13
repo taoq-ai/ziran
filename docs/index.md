@@ -17,7 +17,7 @@ ZIRAN is the first open-source framework designed specifically for **agent secur
 
 ```bash
 pip install uv
-git clone https://github.com/taoq-ai/ziran.git && cd koan
+git clone https://github.com/taoq-ai/ziran.git && cd ziran
 uv sync --extra langchain
 
 # Scan a vulnerable example agent

@@ -1,9 +1,9 @@
 """Organizational Policy Engine — evaluate campaign results against rules.
 
-The engine loads a :class:`~koan.domain.entities.policy.Policy` (typically
+The engine loads a :class:`~ziran.domain.entities.policy.Policy` (typically
 from YAML) and checks every rule against a
-:class:`~koan.domain.entities.phase.CampaignResult`, producing a
-:class:`~koan.domain.entities.policy.PolicyVerdict`.
+:class:`~ziran.domain.entities.phase.CampaignResult`, producing a
+:class:`~ziran.domain.entities.policy.PolicyVerdict`.
 
 Example::
 

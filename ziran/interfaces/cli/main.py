@@ -33,11 +33,12 @@ console = Console()
 # ──────────────────────────────────────────────────────────────────────
 
 BANNER = r"""
- _  _____   ___    _    _   _
-| |/ / _ \ / _ \  | \  | | |
-|   < | | / /_\ \ |  \ | | |
-|   < | | |  _  | | . \| | |
-|_|\_\___|_| | |_||_|\___|_|
+ _______ _____ _____            _   _
+|___  / |  __ \_   _|     /\   | \ | |
+   / /  | |__) || |      /  \  |  \| |
+  / /   |  _  / | |     / /\ \ | . ` |
+ / /__  | | \ \_| |_   / ____ \| |\  |
+/_____| |_|  \_\_____| /_/    \_\_| \_|
 
 AI Agent Security Testing Framework
 """
@@ -63,11 +64,11 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 
     Get started:
 
-        koan scan --framework langchain --agent-path ./my_agent.py
+        ziran scan --framework langchain --agent-path ./my_agent.py
 
-        koan discover ./my_agent.py
+        ziran discover ./my_agent.py
 
-        koan library --list
+        ziran library --list
     """
     ctx.ensure_object(dict)
 
@@ -163,10 +164,10 @@ def scan(
 
     \b
     Examples:
-        koan scan --framework langchain --agent-path ./my_agent.py
-        koan scan --target ./target.yaml
-        koan scan --target ./target.yaml --protocol a2a
-        koan scan --framework crewai --agent-path ./crew.py --phases reconnaissance trust_building
+        ziran scan --framework langchain --agent-path ./my_agent.py
+        ziran scan --target ./target.yaml
+        ziran scan --target ./target.yaml --protocol a2a
+        ziran scan --framework crewai --agent-path ./crew.py --phases reconnaissance trust_building
     """
     # Validate mutually exclusive options
     has_local = framework is not None or agent_path is not None
@@ -308,8 +309,8 @@ def discover(
 
     \b
     Examples:
-        koan discover --framework langchain ./my_agent.py
-        koan discover --target ./target.yaml
+        ziran discover --framework langchain ./my_agent.py
+        ziran discover --target ./target.yaml
     """
     console.print(Panel(BANNER, style="bold cyan", expand=False))
     console.print()
@@ -414,10 +415,10 @@ def library(
 
     \b
     Examples:
-        koan library --list
-        koan library --category prompt_injection
-        koan library --phase reconnaissance
-        koan library --owasp LLM01
+        ziran library --list
+        ziran library --category prompt_injection
+        ziran library --phase reconnaissance
+        ziran library --owasp LLM01
     """
     custom_dirs = [Path(custom_attacks)] if custom_attacks else None
     lib = AttackLibrary(custom_dirs=custom_dirs)
@@ -487,8 +488,8 @@ def report(result_file: str, fmt: str) -> None:
 
     \b
     Examples:
-        koan report ./ziran_results/campaign_123_report.json
-        koan report ./ziran_results/campaign_123_report.json --format markdown
+        ziran report ./ziran_results/campaign_123_report.json
+        ziran report ./ziran_results/campaign_123_report.json --format markdown
     """
     filepath = Path(result_file)
 
@@ -543,9 +544,9 @@ def poc(result_file: str, output: str | None, fmt: str) -> None:
 
     \b
     Examples:
-        koan poc ./ziran_results/campaign_123_report.json
-        koan poc ./ziran_results/campaign_123_report.json --format python
-        koan poc ./ziran_results/campaign_123_report.json -o ./my_pocs/
+        ziran poc ./ziran_results/campaign_123_report.json
+        ziran poc ./ziran_results/campaign_123_report.json --format python
+        ziran poc ./ziran_results/campaign_123_report.json -o ./my_pocs/
     """
     from ziran.application.poc.generator import PoCGenerator
 
@@ -615,8 +616,8 @@ def policy(result_file: str, policy_path: str | None) -> None:
 
     \b
     Examples:
-        koan policy ./ziran_results/campaign_123_report.json
-        koan policy ./ziran_results/campaign_123_report.json --policy my_policy.yaml
+        ziran policy ./ziran_results/campaign_123_report.json
+        ziran policy ./ziran_results/campaign_123_report.json --policy my_policy.yaml
     """
     from ziran.application.policy.engine import PolicyEngine
 
@@ -728,8 +729,8 @@ def audit(path: str, severity: str | None) -> None:
 
     \b
     Examples:
-        koan audit ./my_agent.py
-        koan audit ./agents/ --severity high
+        ziran audit ./my_agent.py
+        ziran audit ./agents/ --severity high
     """
     from ziran.application.static_analysis.analyzer import (
         AnalysisReport,
@@ -885,9 +886,9 @@ def ci(
 
     \b
     Examples:
-        koan ci ./ziran_results/campaign_123_report.json
-        koan ci results.json --gate-config gate.yaml --sarif results.sarif
-        koan ci results.json --no-github-annotations --sarif results.sarif
+        ziran ci ./ziran_results/campaign_123_report.json
+        ziran ci results.json --gate-config gate.yaml --sarif results.sarif
+        ziran ci results.json --no-github-annotations --sarif results.sarif
     """
     from ziran.application.cicd.gate import QualityGate
     from ziran.application.cicd.github_actions import (

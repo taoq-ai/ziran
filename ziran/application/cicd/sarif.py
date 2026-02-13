@@ -81,7 +81,7 @@ def generate_sarif(result: CampaignResult) -> dict[str, Any]:
                     "driver": {
                         "name": "ZIRAN",
                         "version": _ZIRAN_VERSION,
-                        "informationUri": "https://github.com/your-org/koan",
+                        "informationUri": "https://github.com/taoq-ai/ziran",
                         "rules": rules,
                     }
                 },

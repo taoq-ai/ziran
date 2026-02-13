@@ -1,8 +1,8 @@
 """Quality-gate evaluator for CI/CD pipelines.
 
-Evaluates a :class:`~koan.domain.entities.phase.CampaignResult`
-against a :class:`~koan.domain.entities.ci.QualityGateConfig`
-and produces a :class:`~koan.domain.entities.ci.GateResult`
+Evaluates a :class:`~ziran.domain.entities.phase.CampaignResult`
+against a :class:`~ziran.domain.entities.ci.QualityGateConfig`
+and produces a :class:`~ziran.domain.entities.ci.GateResult`
 that determines whether a pipeline should pass or fail.
 
 Usage::

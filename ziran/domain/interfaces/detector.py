@@ -19,7 +19,7 @@ class BaseDetector(ABC):
     """Abstract base for all attack-success detectors.
 
     Detectors evaluate a single prompt/response pair and return a
-    :class:`~koan.domain.entities.detection.DetectorResult` with a
+    :class:`~ziran.domain.entities.detection.DetectorResult` with a
     score between 0.0 (safe) and 1.0 (attack succeeded).
 
     The pipeline calls detectors in priority order and uses a
