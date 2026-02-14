@@ -42,7 +42,7 @@ That's a fundamentally different attack surface.
 **Key differentiators:**
 
 - **Tool Chain Analysis** — Detects dangerous tool combinations (`read_file` → `http_request` = data exfiltration). No other tool does this.
-- **Romance Scan** — Multi-phase campaigns that build trust before testing boundaries, like a real attacker.
+- **Multi-Phase Trust Exploitation** — Progressive campaigns that build trust before testing boundaries, like a real attacker.
 - **Knowledge Graph** — Every discovered capability, relationship, and attack path is tracked in a live graph.
 - **Remote Agent Scanning** — Test any published agent over HTTPS with YAML-driven target configuration. Supports REST, OpenAI-compatible, MCP, and A2A protocols with automatic detection.
 - **A2A Protocol Support** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents, including Agent Card discovery, task lifecycle attacks, and multi-turn manipulation.
@@ -206,7 +206,7 @@ flowchart LR
     style P fill:#2d2d44,stroke:#e94560,color:#fff
 ```
 
-### Romance Scan Phases
+### Multi-Phase Trust Exploitation
 
 | Phase | Goal |
 |-------|------|

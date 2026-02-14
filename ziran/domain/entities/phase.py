@@ -1,8 +1,8 @@
 """Scan phase definitions and campaign result models.
 
-The Romance Scan methodology models multi-phase trust exploitation campaigns
-inspired by social engineering patterns. Each phase builds on the previous
-to progressively discover and exploit agent vulnerabilities.
+The Multi-Phase Trust Exploitation methodology models progressive trust
+exploitation campaigns inspired by social engineering patterns. Each phase
+builds on the previous to discover and exploit agent vulnerabilities.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ CORE_PHASES: list[ScanPhase] = [
     ScanPhase.EXECUTION,
 ]
 
-# Backward-compatible alias
+# Backward-compatible alias (deprecated)
 RomanceScanPhase = ScanPhase
 
 
