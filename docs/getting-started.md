@@ -2,19 +2,26 @@
 
 Get your first security scan running in under 5 minutes.
 
+!!! info "What you'll learn"
+
+    1. Install ZIRAN with your preferred framework
+    2. Run your first agent scan (local or remote)
+    3. Read the HTML report and understand findings
+    4. Set up a CI/CD quality gate
+
 ## Prerequisites
 
 - **Python 3.11+**
 - [**uv**](https://docs.astral.sh/uv/) (recommended) or pip
+- An **API key** for your LLM provider (for live scans — not required for static analysis or offline examples)
 
 ## Installation
 
 === "uv (recommended)"
 
     ```bash
-    git clone https://github.com/taoq-ai/ziran.git
-    cd ziran
-    uv sync
+    pip install uv
+    pip install ziran
     ```
 
 === "pip"
@@ -28,20 +35,45 @@ Get your first security scan running in under 5 minutes.
 Install support for your agent framework:
 
 ```bash
-uv sync --extra langchain   # LangChain
-uv sync --extra crewai      # CrewAI
-uv sync --extra all          # Everything
+pip install ziran[langchain]   # LangChain agents
+pip install ziran[crewai]      # CrewAI agents
+pip install ziran[a2a]         # A2A protocol (Agent-to-Agent)
+pip install ziran[all]         # Everything
 ```
 
 ## Your First Scan
 
-### Option 1: CLI
+### Option 1: Scan a Local Agent (CLI)
 
 ```bash
 ziran scan --framework langchain --agent-path my_agent.py
 ```
 
-### Option 2: Python API
+Your agent file should export an `agent_executor` (LangChain) or `crew` (CrewAI) object.
+
+### Option 2: Scan a Remote Agent
+
+Create a target configuration file:
+
+```yaml
+# target.yaml
+name: "My Agent"
+url: "https://my-agent.example.com"
+protocol: openai   # rest | openai | mcp | a2a | auto
+auth:
+  type: bearer
+  token_env: MY_API_KEY
+```
+
+Then scan it:
+
+```bash
+ziran scan --target target.yaml
+```
+
+ZIRAN auto-detects the protocol if you set `protocol: auto`.
+
+### Option 3: Python API
 
 ```python
 import asyncio
@@ -57,21 +89,33 @@ print(f"Found {result.total_vulnerabilities} vulnerabilities")
 print(f"Dangerous tool chains: {len(result.dangerous_tool_chains)}")
 ```
 
-### Option 3: Example Script
+### Option 4: Run an Example
+
+ZIRAN ships with 15 examples — from static analysis to multi-agent scanning:
 
 ```bash
-uv run python examples/vulnerable_agent.py
+git clone https://github.com/taoq-ai/ziran.git && cd ziran
+uv sync --extra langchain
+
+# No API key required
+uv run python examples/01-static-analysis/main.py
+
+# Requires OPENAI_API_KEY
+uv run python examples/10-vulnerable-agent/main.py
 ```
+
+See the full [examples catalog](https://github.com/taoq-ai/ziran/tree/main/examples).
 
 ## Understanding Results
 
-After a scan, ZIRAN generates three reports in the output directory:
+After a scan, ZIRAN generates reports in the output directory:
 
-| File | Format | Use |
-|------|--------|-----|
+| File | Format | Best For |
+|------|--------|----------|
 | `campaign_*_report.html` | Interactive HTML | Visual analysis with knowledge graph |
-| `campaign_*_report.md` | Markdown | Human-readable summary |
-| `campaign_*_report.json` | JSON | Programmatic analysis |
+| `campaign_*_report.md` | Markdown | Code reviews and CI/CD pipelines |
+| `campaign_*_report.json` | JSON | Programmatic consumption |
+| `*.sarif` | SARIF | GitHub Security tab integration |
 
 Open the HTML report for the richest experience:
 
@@ -79,8 +123,31 @@ Open the HTML report for the richest experience:
 open reports/campaign_*_report.html
 ```
 
-## Next Steps
+### Severity Levels
 
-- [Romance Scan Methodology](concepts/romance-scan.md) — How multi-phase campaigns work
-- [Tool Chain Analysis](concepts/tool-chains.md) — ZIRAN's unique differentiator
-- [Scanning Agents](guides/scanning-agents.md) — Detailed scanning guide
+| Level | Meaning | Action |
+|-------|---------|--------|
+| **Critical** | Immediate exploitation possible | Fix immediately |
+| **High** | Significant risk with effort | Fix before production |
+| **Medium** | Moderate risk, specific conditions | Plan remediation |
+| **Low** | Minor / informational | Monitor |
+
+### Key Sections in the Report
+
+- **Campaign Summary** — Pass/fail status, trust score, vulnerability count
+- **Knowledge Graph** — Interactive visualization of agent capabilities and attack paths
+- **Tool Chain Findings** — Dangerous tool combinations with remediation steps
+- **Phase Timeline** — Detailed results from each scan phase
+- **OWASP Mapping** — Findings mapped to OWASP Top 10 for LLM Applications
+
+## What's Next?
+
+| Goal | Guide |
+|------|-------|
+| Understand how multi-phase scanning works | [Trust Exploitation Methodology](concepts/romance-scan.md) |
+| Learn about tool chain analysis | [Tool Chain Analysis](concepts/tool-chains.md) |
+| Scan remote agents over HTTPS | [Remote Agent Scanning](guides/remote-agents.md) |
+| Set up CI/CD quality gates | [CI/CD Integration](guides/cicd-integration.md) |
+| Scan source code without running agents | [Static Analysis](guides/static-analysis.md) |
+| Write custom attack vectors | [Custom Attacks](guides/custom-attacks.md) |
+| Build an adapter for your framework | [Framework Adapters](guides/adapters.md) |
