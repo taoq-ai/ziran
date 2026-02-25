@@ -1,0 +1,36 @@
+# Ziran Target Config: Amazon Bedrock AgentCore Runtime
+# Scans an agent deployed on AgentCore via its REST /invocations endpoint.
+#
+# AgentCore agents expose a simple POST /invocations endpoint that
+# accepts JSON payloads. Use the REST protocol with matching field config.
+#
+# Deploy an agent first:
+#   pip install bedrock-agentcore strands-agents
+#   agentcore configure -e my_agent.py
+#   agentcore launch
+
+url: https://<your-agentcore-endpoint>
+protocol: rest
+timeout: 60.0
+
+# REST config matching AgentCore's /invocations contract
+rest:
+  method: POST
+  request_path: /invocations
+  message_field: prompt           # AgentCore expects {"prompt": "..."}
+  response_field: result          # AgentCore returns {"result": "..."}
+
+# Authentication — use IAM-based bearer token or API key
+auth:
+  type: bearer
+  env_var: AGENTCORE_TOKEN        # Reads from $AGENTCORE_TOKEN
+
+# TLS
+tls:
+  verify: true
+
+# Retry
+retry:
+  max_retries: 3
+  backoff_factor: 1.0
+  retry_on: [429, 500, 502, 503, 504]
