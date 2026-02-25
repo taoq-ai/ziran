@@ -1,0 +1,28 @@
+# Ziran Target Config: OpenAI-Compatible with Custom Model
+# Demonstrates overriding model name and parameters for any
+# OpenAI-compatible endpoint (vLLM, Ollama, LiteLLM proxy, etc.).
+
+url: https://api.openai.com
+protocol: openai
+timeout: 60.0
+
+# OpenAI-specific settings
+openai:
+  model: gpt-4o                   # Override model (default: gpt-4)
+  temperature: 0.7                # Sampling temperature (optional)
+  max_tokens: 4096                # Max response tokens (optional)
+
+# Authentication
+auth:
+  type: bearer
+  env_var: OPENAI_API_KEY         # Reads from $OPENAI_API_KEY
+
+# TLS
+tls:
+  verify: true
+
+# Retry
+retry:
+  max_retries: 3
+  backoff_factor: 1.0
+  retry_on: [429, 500, 502, 503, 504]

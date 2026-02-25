@@ -1,0 +1,17 @@
+# Ziran Target Config: Ollama (Local LLM)
+# Scans a local Ollama instance via its OpenAI-compatible API.
+# Start Ollama first:  ollama serve && ollama pull llama3
+
+url: http://localhost:11434
+protocol: openai
+timeout: 120.0
+
+# OpenAI-specific settings
+openai:
+  model: llama3                   # Model pulled in Ollama
+  temperature: 0.8
+
+# No auth needed for local Ollama
+# No TLS for localhost
+tls:
+  verify: false
