@@ -145,7 +145,9 @@ class AgentScanner:
         self.graph = AttackKnowledgeGraph()
         self._current_phase: ScanPhase | None = None
         self._attack_results: list[AttackResult] = []
-        self._detector_pipeline = DetectorPipeline()
+        self._detector_pipeline = DetectorPipeline(
+            llm_client=self.config.get("llm_client"),
+        )
 
     async def run_campaign(
         self,
