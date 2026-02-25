@@ -51,6 +51,10 @@ These examples call an LLM provider. Set `OPENAI_API_KEY` in `../.env` first.
 | 12 | [Router RAG](12-router-rag/) | Dynamic router → knowledge base / customer DB / market API | `--extra rag` |
 | 13 | [Supervisor Multi-Agent](13-supervisor-multi-agent/) | Supervisor delegates to HR, Finance, IT sub-agents | `--extra langchain` |
 | 14 | [CrewAI Scan](14-crewai-scan/) | CrewAI research crew (native adapter, no LangChain) | `--extra crewai` |
+| 15 | [Remote Agent Scan](15-remote-agent-scan/) | Scan agents over HTTP (REST, OpenAI, MCP, A2A) | `--extra remote` |
+| 16 | [LLM-as-a-Judge](16-llm-judge/) | Enhanced detection with AI-powered judge (multi-provider) | `--extra langchain` + `litellm` |
+| 17 | [Bedrock Agent Scan](17-bedrock-agent-scan/) | Scan an Amazon Bedrock Agent via the AWS SDK | `--extra bedrock` |
+| 18 | [AgentCore Scan](18-agentcore-scan/) | Scan an AgentCore-deployed agent in-process (mock included) | `--extra agentcore` |
 
 ---
 

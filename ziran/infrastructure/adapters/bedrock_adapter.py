@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def _import_boto3() -> Any:
     """Lazy-import boto3 and return the module."""
     try:
-        import boto3  # type: ignore[import-not-found]
+        import boto3
 
         return boto3
     except ImportError as e:

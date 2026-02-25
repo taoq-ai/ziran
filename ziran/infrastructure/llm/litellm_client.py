@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 def _import_litellm() -> Any:
     """Lazy-import litellm and return the module."""
     try:
-        import litellm  # type: ignore[import-not-found]
+        import litellm
 
         return litellm
     except ImportError as e:

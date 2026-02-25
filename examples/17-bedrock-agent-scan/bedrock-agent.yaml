@@ -1,0 +1,15 @@
+# Ziran Bedrock Agent Configuration
+#
+# Edit this file with your Bedrock Agent details.
+#
+# Find your agent_id in the AWS Console:
+#   Bedrock → Agents → [your agent] → Agent overview
+#
+# The alias_id is optional — defaults to the latest draft.
+
+agent_id: "XXXXXXXXXX"           # ← replace with your agent ID
+alias_id: "TSTALIASID"           # ← replace (or use TSTALIASID for draft)
+region: "us-east-1"              # ← your agent's AWS region
+
+# Optional: override AWS credentials (defaults to standard boto3 chain)
+# aws_profile: "my-profile"
