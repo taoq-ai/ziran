@@ -8,6 +8,8 @@ Tests cover:
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from ziran.application.detectors.indicator import IndicatorDetector
@@ -241,3 +243,36 @@ class TestDetectorPipeline:
         response = _make_response("Your request denied due to insufficient permissions.")
         verdict = pipeline.evaluate("test", response, prompt)
         assert verdict.successful is False
+
+
+# ──────────────────────────────────────────────────────────────────────
+# DetectorPipeline + LLM judge integration
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestDetectorPipelineWithLLMJudge:
+    """Tests for DetectorPipeline when an LLM client is provided."""
+
+    def test_pipeline_without_llm_has_no_judge(self) -> None:
+        pipeline = DetectorPipeline()
+        assert pipeline._llm_judge is None
+
+    def test_pipeline_with_llm_creates_judge(self) -> None:
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig
+
+        mock_client = AsyncMock(spec=BaseLLMClient)
+        mock_client.config = LLMConfig()
+
+        pipeline = DetectorPipeline(llm_client=mock_client)
+        assert pipeline._llm_judge is not None
+
+    def test_ambiguous_case_without_llm_defaults_safe(self) -> None:
+        """Without LLM judge, ambiguous cases default to safe."""
+        pipeline = DetectorPipeline()
+        prompt = _make_prompt(success_indicators=["impossible_xyz_999"])
+        response = _make_response("Some generic response about the weather.")
+
+        verdict = pipeline.evaluate("test", response, prompt)
+        assert verdict.successful is False
+        assert "No strong signal" in verdict.reasoning

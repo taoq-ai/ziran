@@ -7,6 +7,7 @@ for scanning agents, discovering capabilities, and generating reports.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -84,7 +85,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock"], case_sensitive=False),
+    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
     default=None,
     help="Agent framework to test (for in-process scanning).",
 )
@@ -142,6 +143,22 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     default=5,
     help="Maximum concurrent attacks per phase (default: 5).",
 )
+@click.option(
+    "--llm-provider",
+    type=str,
+    default=None,
+    envvar="ZIRAN_LLM_PROVIDER",
+    help="LLM provider for AI-powered features (e.g. 'openai', 'anthropic', 'bedrock'). "
+    "Uses LiteLLM routing. Env: ZIRAN_LLM_PROVIDER.",
+)
+@click.option(
+    "--llm-model",
+    type=str,
+    default=None,
+    envvar="ZIRAN_LLM_MODEL",
+    help="LLM model name for AI-powered features (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'). "
+    "Env: ZIRAN_LLM_MODEL.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -153,6 +170,8 @@ def scan(
     stop_on_critical: bool,
     coverage: str,
     concurrency: int,
+    llm_provider: str | None,
+    llm_model: str | None,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -217,6 +236,9 @@ def scan(
     config_table.add_row("Concurrency", str(concurrency))
     if custom_attacks:
         config_table.add_row("Custom Attacks", custom_attacks)
+    if llm_provider or llm_model:
+        config_table.add_row("LLM Provider", llm_provider or "litellm")
+        config_table.add_row("LLM Model", llm_model or "gpt-4o")
     console.print(config_table)
     console.print()
 
@@ -246,7 +268,29 @@ def scan(
         phase_list = [ScanPhase(p) for p in phases]
 
     # Run campaign
-    scanner = AgentScanner(adapter=adapter, attack_library=attack_library)
+    scanner_config: dict[str, Any] = {}
+
+    # Initialize LLM client if provider/model specified
+    llm_client = None
+    if llm_provider or llm_model:
+        try:
+            from ziran.infrastructure.llm import create_llm_client
+
+            llm_client = create_llm_client(
+                provider=llm_provider or "litellm",
+                model=llm_model or "gpt-4o",
+            )
+            scanner_config["llm_client"] = llm_client
+            console.print("[dim]LLM backbone enabled for AI-powered features[/dim]")
+        except ImportError:
+            console.print(
+                "[yellow]Warning:[/yellow] litellm not installed. "
+                "LLM-powered features disabled. Run: uv sync --extra llm"
+            )
+        except Exception as e:
+            console.print(f"[yellow]Warning:[/yellow] Failed to initialize LLM client: {e}")
+
+    scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
     coverage_level = CoverageLevel(coverage.lower())
 
     with console.status("[bold yellow]Running security scan campaign...[/bold yellow]"):
@@ -277,7 +321,7 @@ def scan(
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock"], case_sensitive=False),
+    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
     default=None,
     help="Agent framework (for in-process discovery).",
 )
@@ -1042,13 +1086,64 @@ def _load_agent_adapter(framework: str, agent_path: str) -> Any:
         return CrewAIAdapter(crew)
 
     elif framework == "bedrock":
-        raise click.ClickException(
-            "Bedrock adapter is not yet implemented. "
-            "Contributions welcome at https://github.com/taoq-ai/ziran"
-        )
+        try:
+            from ziran.infrastructure.adapters.bedrock_adapter import BedrockAdapter
+        except ImportError as e:
+            raise click.ClickException(
+                f"boto3 not installed. Run: uv sync --extra bedrock\n{e}"
+            ) from e
+
+        # Load Bedrock config from YAML or use agent_path as agent ID
+        bedrock_config = _load_bedrock_config(agent_path)
+        return BedrockAdapter(**bedrock_config)
+
+    elif framework == "agentcore":
+        try:
+            from ziran.infrastructure.adapters.agentcore_adapter import AgentCoreAdapter
+        except ImportError as e:
+            raise click.ClickException(
+                f"bedrock-agentcore not installed. Run: uv sync --extra agentcore\n{e}"
+            ) from e
+
+        entrypoint = _load_python_object(agent_path, "invoke")
+        # Try to also load the app object for capability discovery
+        app = None
+        with contextlib.suppress(click.ClickException):
+            app = _load_python_object(agent_path, "app")
+        return AgentCoreAdapter(entrypoint, app=app)
 
     else:
         raise click.ClickException(f"Unsupported framework: {framework}")
+
+
+def _load_bedrock_config(agent_path: str) -> dict[str, Any]:
+    """Load Bedrock agent configuration from a YAML file or agent ID string.
+
+    If ``agent_path`` ends with ``.yaml`` or ``.yml``, it's read as a
+    YAML config with keys ``agent_id``, ``agent_alias_id``,
+    ``region_name``, etc. Otherwise it's treated as a bare agent ID.
+
+    Args:
+        agent_path: Path to YAML config or a Bedrock agent ID.
+
+    Returns:
+        Dict of kwargs for ``BedrockAdapter.__init__``.
+    """
+    if agent_path.endswith((".yaml", ".yml")):
+        import yaml
+
+        path = Path(agent_path)
+        if not path.exists():
+            raise click.ClickException(f"Bedrock config file not found: {agent_path}")
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            raise click.ClickException(f"Invalid YAML in Bedrock config: {exc}") from exc
+        if not isinstance(data, dict) or "agent_id" not in data:
+            raise click.ClickException("Bedrock config YAML must contain at least 'agent_id'")
+        return data
+    else:
+        return {"agent_id": agent_path}
 
 
 def _load_remote_adapter(target_path: str, protocol_override: str | None = None) -> Any:

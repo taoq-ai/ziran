@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -286,3 +287,46 @@ class TestIterationLimitHandling:
         from ziran.application.agent_scanner.scanner import _is_error_response
 
         assert _is_error_response("Agent stopped due to max iterations.") is True
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Scanner + LLM client wiring
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestScannerLLMClientWiring:
+    """Tests that AgentScanner passes llm_client to DetectorPipeline."""
+
+    def test_scanner_without_llm(self, mock_adapter: MockAgentAdapter) -> None:
+        scanner = AgentScanner(adapter=mock_adapter, attack_library=AttackLibrary())
+        assert scanner._detector_pipeline._llm_judge is None
+
+    def test_scanner_with_llm_client_in_config(self, mock_adapter: MockAgentAdapter) -> None:
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig
+
+        mock_client = AsyncMock(spec=BaseLLMClient)
+        mock_client.config = LLMConfig()
+
+        scanner = AgentScanner(
+            adapter=mock_adapter,
+            attack_library=AttackLibrary(),
+            config={"llm_client": mock_client},
+        )
+        assert scanner._detector_pipeline._llm_judge is not None
+
+    def test_scanner_with_none_llm_client(self, mock_adapter: MockAgentAdapter) -> None:
+        scanner = AgentScanner(
+            adapter=mock_adapter,
+            attack_library=AttackLibrary(),
+            config={"llm_client": None},
+        )
+        assert scanner._detector_pipeline._llm_judge is None
+
+    def test_scanner_with_empty_config(self, mock_adapter: MockAgentAdapter) -> None:
+        scanner = AgentScanner(
+            adapter=mock_adapter,
+            attack_library=AttackLibrary(),
+            config={},
+        )
+        assert scanner._detector_pipeline._llm_judge is None
