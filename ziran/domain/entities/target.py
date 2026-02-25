@@ -150,6 +150,31 @@ class RestConfig(BaseModel):
     )
 
 
+class OpenAIConfig(BaseModel):
+    """Configuration specific to the OpenAI-compatible protocol.
+
+    Allows overriding the model name, temperature, and max_tokens
+    sent to any OpenAI-compatible endpoint (OpenAI, Azure OpenAI,
+    vLLM, Ollama, LiteLLM proxies, etc.).
+    """
+
+    model: str = Field(
+        default="gpt-4",
+        description="Model name to request (e.g. 'gpt-4o', 'llama3', 'claude-3-haiku')",
+    )
+    temperature: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature (omitted from request if None)",
+    )
+    max_tokens: int | None = Field(
+        default=None,
+        gt=0,
+        description="Maximum tokens in the response (omitted from request if None)",
+    )
+
+
 class A2AConfig(BaseModel):
     """Configuration specific to the A2A protocol."""
 
@@ -207,6 +232,9 @@ class TargetConfig(BaseModel):
 
     # Protocol-specific config
     rest: RestConfig | None = Field(default=None, description="REST-specific configuration")
+    openai: OpenAIConfig | None = Field(
+        default=None, description="OpenAI-compatible protocol configuration"
+    )
     a2a: A2AConfig | None = Field(default=None, description="A2A-specific configuration")
 
     # Security
@@ -228,6 +256,8 @@ class TargetConfig(BaseModel):
             self.a2a = A2AConfig()
         if self.protocol == ProtocolType.REST and self.rest is None:
             self.rest = RestConfig()
+        if self.protocol == ProtocolType.OPENAI and self.openai is None:
+            self.openai = OpenAIConfig()
         return self
 
     @property

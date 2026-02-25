@@ -516,3 +516,62 @@ class TestAttackLibraryProtocolFilter:
         assert len(results) > 0
         for v in results:
             assert not v.protocol_filter or "a2a" in v.protocol_filter
+
+
+# ──────────────────────────────────────────────────────────────────────
+# OpenAI handler config forwarding
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestOpenAIHandlerConfig:
+    """Tests for OpenAIProtocolHandler with temperature/max_tokens."""
+
+    @pytest.fixture()
+    def mock_client(self) -> AsyncMock:
+        client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
+            "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
+        }
+        mock_response.raise_for_status = MagicMock()
+        client.post.return_value = mock_response
+        return client
+
+    async def test_temperature_in_request(self, mock_client: AsyncMock) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(mock_client, config, model="gpt-4o", temperature=0.7)
+
+        await handler.send("Hello")
+
+        call_kwargs = mock_client.post.call_args
+        body = call_kwargs[1]["json"]
+        assert body["temperature"] == 0.7
+        assert body["model"] == "gpt-4o"
+
+    async def test_max_tokens_in_request(self, mock_client: AsyncMock) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(mock_client, config, model="gpt-4o", max_tokens=512)
+
+        await handler.send("Hello")
+
+        body = mock_client.post.call_args[1]["json"]
+        assert body["max_tokens"] == 512
+
+    async def test_no_temp_or_max_tokens_omitted(self, mock_client: AsyncMock) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(mock_client, config)
+
+        await handler.send("Hello")
+
+        body = mock_client.post.call_args[1]["json"]
+        assert "temperature" not in body
+        assert "max_tokens" not in body

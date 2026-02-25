@@ -292,7 +292,14 @@ class HttpAgentAdapter(BaseAgentAdapter):
                 OpenAIProtocolHandler,
             )
 
-            return OpenAIProtocolHandler(self._client, self._config)
+            openai_cfg = self._config.openai
+            return OpenAIProtocolHandler(
+                self._client,
+                self._config,
+                model=openai_cfg.model if openai_cfg else "gpt-4",
+                temperature=openai_cfg.temperature if openai_cfg else None,
+                max_tokens=openai_cfg.max_tokens if openai_cfg else None,
+            )
 
         if protocol == ProtocolType.MCP:
             from ziran.infrastructure.adapters.protocols.mcp_handler import (

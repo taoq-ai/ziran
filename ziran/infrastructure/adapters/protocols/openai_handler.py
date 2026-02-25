@@ -31,9 +31,13 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
         client: httpx.AsyncClient,
         config: TargetConfig,
         model: str = _DEFAULT_MODEL,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> None:
         super().__init__(client, config)
         self._model = model
+        self._temperature = temperature
+        self._max_tokens = max_tokens
         self._conversation: list[dict[str, str]] = []
 
     async def send(self, message: str, **kwargs: Any) -> dict[str, Any]:
@@ -54,6 +58,10 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
             "model": self._model,
             "messages": list(self._conversation),
         }
+        if self._temperature is not None:
+            body["temperature"] = self._temperature
+        if self._max_tokens is not None:
+            body["max_tokens"] = self._max_tokens
 
         try:
             response = await self._client.post(url, json=body)

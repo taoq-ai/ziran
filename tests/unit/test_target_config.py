@@ -8,11 +8,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from ziran.domain.entities.target import (
     A2AConfig,
     AuthConfig,
     AuthType,
+    OpenAIConfig,
     ProtocolType,
     RestConfig,
     RetryConfig,
@@ -290,3 +292,97 @@ class TestLoadTargetConfig:
 
         with pytest.raises(TargetConfigError):
             load_target_config(config_file)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# OpenAIConfig
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestOpenAIConfig:
+    """Tests for the OpenAI-compatible protocol configuration."""
+
+    def test_defaults(self) -> None:
+        config = OpenAIConfig()
+        assert config.model == "gpt-4"
+        assert config.temperature is None
+        assert config.max_tokens is None
+
+    def test_custom_values(self) -> None:
+        config = OpenAIConfig(model="gpt-4o", temperature=0.5, max_tokens=2048)
+        assert config.model == "gpt-4o"
+        assert config.temperature == 0.5
+        assert config.max_tokens == 2048
+
+    def test_temperature_bounds(self) -> None:
+        OpenAIConfig(temperature=0.0)  # OK
+        OpenAIConfig(temperature=2.0)  # OK
+        with pytest.raises(ValidationError):
+            OpenAIConfig(temperature=-0.1)
+        with pytest.raises(ValidationError):
+            OpenAIConfig(temperature=2.1)
+
+    def test_max_tokens_positive(self) -> None:
+        OpenAIConfig(max_tokens=1)  # OK
+        with pytest.raises(ValidationError):
+            OpenAIConfig(max_tokens=0)
+        with pytest.raises(ValidationError):
+            OpenAIConfig(max_tokens=-1)
+
+
+@pytest.mark.unit
+class TestTargetConfigOpenAI:
+    """Tests for TargetConfig with OpenAI protocol."""
+
+    def test_openai_protocol_auto_creates_config(self) -> None:
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        assert config.openai is not None
+        assert config.openai.model == "gpt-4"
+
+    def test_openai_protocol_preserves_custom_config(self) -> None:
+        config = TargetConfig(
+            url="https://api.openai.com",
+            protocol=ProtocolType.OPENAI,
+            openai=OpenAIConfig(model="gpt-4o", temperature=0.7, max_tokens=1024),
+        )
+        assert config.openai is not None
+        assert config.openai.model == "gpt-4o"
+        assert config.openai.temperature == 0.7
+        assert config.openai.max_tokens == 1024
+
+    def test_non_openai_protocol_no_auto_config(self) -> None:
+        config = TargetConfig(url="https://agent.example.com", protocol=ProtocolType.REST)
+        assert config.openai is None
+
+    def test_load_openai_yaml(self, tmp_path: Path) -> None:
+        yaml_content = textwrap.dedent("""\
+            url: https://api.openai.com
+            protocol: openai
+            openai:
+              model: gpt-4o
+              temperature: 0.3
+              max_tokens: 2048
+        """)
+        config_file = tmp_path / "target.yaml"
+        config_file.write_text(yaml_content)
+
+        config = load_target_config(config_file)
+        assert config.protocol == ProtocolType.OPENAI
+        assert config.openai is not None
+        assert config.openai.model == "gpt-4o"
+        assert config.openai.temperature == 0.3
+        assert config.openai.max_tokens == 2048
+
+    def test_load_openai_yaml_minimal(self, tmp_path: Path) -> None:
+        """OpenAI protocol without explicit config auto-creates defaults."""
+        yaml_content = textwrap.dedent("""\
+            url: https://api.openai.com
+            protocol: openai
+        """)
+        config_file = tmp_path / "target.yaml"
+        config_file.write_text(yaml_content)
+
+        config = load_target_config(config_file)
+        assert config.openai is not None
+        assert config.openai.model == "gpt-4"

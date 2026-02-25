@@ -71,3 +71,4 @@ site/
 reports/
 ziran_results/
 ziran-results.sarif
+.claude/
