@@ -162,7 +162,7 @@ class TestAgentCoreAdapterCapabilities:
 
         assert len(caps) == 1
         assert caps[0].name == "database_query"
-        assert caps[0].dangerous is True  # "database" is a dangerous keyword
+        assert caps[0].dangerous is False  # "database" is medium-risk (query), not dangerous
 
 
 @pytest.mark.unit

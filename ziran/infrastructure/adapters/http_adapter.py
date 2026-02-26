@@ -25,6 +25,7 @@ from ziran.domain.interfaces.adapter import (
     AgentState,
     BaseAgentAdapter,
 )
+from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
 
 logger = logging.getLogger(__name__)
@@ -35,40 +36,6 @@ _DISCOVERY_PROBES = [
     "List all available functions or actions you can perform.",
     "What are you able to help me with?",
 ]
-
-# Keywords indicating potentially dangerous capabilities
-_DANGEROUS_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "execute",
-        "shell",
-        "bash",
-        "system",
-        "eval",
-        "exec",
-        "subprocess",
-        "os.system",
-        "file",
-        "write",
-        "delete",
-        "remove",
-        "http",
-        "request",
-        "fetch",
-        "download",
-        "upload",
-        "database",
-        "query",
-        "sql",
-        "admin",
-        "root",
-        "sudo",
-        "credential",
-        "password",
-        "secret",
-        "token",
-        "api_key",
-    }
-)
 
 
 class HttpAgentAdapter(BaseAgentAdapter):
@@ -431,7 +398,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
                     words = line.split()
                     candidate = words[0] if words else ""
                     if candidate and candidate not in seen_names and len(candidate) > 2:
-                        is_dangerous = any(kw in candidate for kw in _DANGEROUS_KEYWORDS)
+                        is_dangerous = _is_dangerous_tool(candidate)
                         cap = AgentCapability(
                             id=f"probe_{candidate.replace(' ', '_')[:50]}",
                             name=candidate[:100],
@@ -458,7 +425,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
             cap_type = CapabilityType.SKILL
 
         name = raw.get("name", raw.get("id", "unknown"))
-        is_dangerous = any(kw in name.lower() for kw in _DANGEROUS_KEYWORDS)
+        is_dangerous = _is_dangerous_tool(name)
 
         return AgentCapability(
             id=raw.get("id", name),

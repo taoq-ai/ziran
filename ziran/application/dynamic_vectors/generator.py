@@ -19,6 +19,8 @@ Flow::
 
 from __future__ import annotations
 
+import re
+
 from ziran.application.dynamic_vectors.config import (
     DynamicVectorConfig,
     PromptTemplate,
@@ -88,10 +90,11 @@ class DynamicVectorGenerator:
     def _vectors_for_tool(self, cap: AgentCapability) -> list[AttackVector]:
         """Generate attack vectors targeting a specific tool."""
         vectors: list[AttackVector] = []
-        tool_lower = cap.name.lower()
+        tool_lower = cap.name.lower().replace("_", " ").replace("-", " ")
 
         for entry in self.config.tool_patterns:
-            if entry.pattern in tool_lower:
+            pattern_norm = entry.pattern.replace("_", " ").replace("-", " ")
+            if re.search(rf"\b{re.escape(pattern_norm)}\b", tool_lower, re.IGNORECASE):
                 category = AttackCategory(entry.category)
                 owasp = [OwaspLlmCategory(o) for o in entry.owasp]
 
@@ -306,10 +309,10 @@ def _fallback_prompts(tool_name: str) -> list[AttackPrompt]:
 
 
 def _is_data_reader(cap: AgentCapability, config: DynamicVectorConfig) -> bool:
-    name_lower = cap.name.lower()
-    return any(kw in name_lower for kw in config.data_reader_keywords)
+    name_lower = cap.name.lower().replace("_", " ").replace("-", " ")
+    return any(re.search(rf"\b{re.escape(kw)}\b", name_lower) for kw in config.data_reader_keywords)
 
 
 def _is_data_sender(cap: AgentCapability, config: DynamicVectorConfig) -> bool:
-    name_lower = cap.name.lower()
-    return any(kw in name_lower for kw in config.data_sender_keywords)
+    name_lower = cap.name.lower().replace("_", " ").replace("-", " ")
+    return any(re.search(rf"\b{re.escape(kw)}\b", name_lower) for kw in config.data_sender_keywords)

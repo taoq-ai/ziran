@@ -22,40 +22,9 @@ if TYPE_CHECKING:
 
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 
 logger = logging.getLogger(__name__)
-
-
-# Tool names that heuristically indicate dangerous capabilities
-_DANGEROUS_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "execute",
-        "shell",
-        "bash",
-        "code",
-        "eval",
-        "run",
-        "file",
-        "write",
-        "delete",
-        "remove",
-        "database",
-        "sql",
-        "query",
-        "api",
-        "web",
-        "http",
-        "request",
-        "fetch",
-        "email",
-        "send",
-        "system",
-        "os",
-        "lambda",
-        "invoke",
-        "browser",
-    }
-)
 
 
 class AgentCoreAdapter(BaseAgentAdapter):
@@ -257,9 +226,3 @@ class AgentCoreAdapter(BaseAgentAdapter):
                 "output": str(outputs),
             }
         )
-
-
-def _is_dangerous_tool(tool_name: str) -> bool:
-    """Heuristic check for potentially dangerous tools."""
-    name_lower = tool_name.lower()
-    return any(keyword in name_lower for keyword in _DANGEROUS_KEYWORDS)

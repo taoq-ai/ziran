@@ -18,6 +18,7 @@ from typing import Any
 
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 
 logger = logging.getLogger(__name__)
 
@@ -255,26 +256,6 @@ class BedrockAdapter(BaseAgentAdapter):
         )
 
 
-# Action group names that heuristically indicate dangerous capabilities
-_DANGEROUS_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "execute",
-        "shell",
-        "code",
-        "file",
-        "write",
-        "delete",
-        "database",
-        "sql",
-        "admin",
-        "system",
-        "lambda",
-        "invoke",
-    }
-)
-
-
 def _is_dangerous_action_group(name: str) -> bool:
     """Heuristic check for potentially dangerous action groups."""
-    name_lower = name.lower()
-    return any(keyword in name_lower for keyword in _DANGEROUS_KEYWORDS)
+    return _is_dangerous_tool(name)

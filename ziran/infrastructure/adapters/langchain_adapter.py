@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 
 if TYPE_CHECKING:
     from langchain.agents import AgentExecutor
@@ -29,39 +30,6 @@ except ImportError as e:
     raise ImportError(
         "LangChain is required for LangChainAdapter. Install it with: uv sync --extra langchain"
     ) from e
-
-
-# Tool names that heuristically indicate dangerous capabilities
-_DANGEROUS_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "execute",
-        "shell",
-        "bash",
-        "code",
-        "eval",
-        "run",
-        "file",
-        "write",
-        "delete",
-        "remove",
-        "database",
-        "sql",
-        "query",
-        "db",
-        "api",
-        "web",
-        "http",
-        "request",
-        "fetch",
-        "email",
-        "send",
-        "publish",
-        "system",
-        "os",
-        "subprocess",
-        "exec",
-    }
-)
 
 
 class LangChainAdapter(BaseAgentAdapter):
@@ -249,19 +217,6 @@ class LangChainAdapter(BaseAgentAdapter):
                 "output": str(outputs),
             }
         )
-
-
-def _is_dangerous_tool(tool_name: str) -> bool:
-    """Heuristic check for potentially dangerous tools.
-
-    Args:
-        tool_name: The tool name to evaluate.
-
-    Returns:
-        True if the tool name contains any dangerous keywords.
-    """
-    name_lower = tool_name.lower()
-    return any(keyword in name_lower for keyword in _DANGEROUS_KEYWORDS)
 
 
 def _get_token_callback() -> Any:
