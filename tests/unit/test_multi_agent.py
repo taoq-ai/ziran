@@ -253,7 +253,12 @@ class TestTopologyDiscoverer:
 
         disc = TopologyDiscoverer.__new__(TopologyDiscoverer)
         mentions = disc._extract_agent_mentions(
-            [{"probe": "test", "response": "I'll delegate this to the 'research_agent' and 'writing_agent'."}]
+            [
+                {
+                    "probe": "test",
+                    "response": "I'll delegate this to the 'research_agent' and 'writing_agent'.",
+                }
+            ]
         )
         mention_ids = {a.id for a in mentions}
         assert "research_agent" in mention_ids
