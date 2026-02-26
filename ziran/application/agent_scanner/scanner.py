@@ -121,6 +121,11 @@ class AgentScanner:
         ScanPhase.EXFILTRATION: 0.1,
     }
 
+    #: Default per-attack timeout in seconds.
+    DEFAULT_ATTACK_TIMEOUT: ClassVar[float] = 60.0
+    #: Default per-phase timeout in seconds.
+    DEFAULT_PHASE_TIMEOUT: ClassVar[float] = 300.0
+
     def __init__(
         self,
         adapter: BaseAgentAdapter,
@@ -135,9 +140,19 @@ class AgentScanner:
             attack_library: Pre-built attack library (created if not provided).
             custom_attacks_dir: Additional directory of custom YAML attack vectors.
             config: Optional configuration overrides.
+                Supported keys:
+                - ``attack_timeout`` (float): Per-attack timeout in seconds.
+                - ``phase_timeout`` (float): Per-phase timeout in seconds.
+                - ``llm_client``: LLM client for AI-powered detectors.
         """
         self.adapter = adapter
         self.config = config or {}
+        self._attack_timeout: float = float(
+            self.config.get("attack_timeout", self.DEFAULT_ATTACK_TIMEOUT)
+        )
+        self._phase_timeout: float = float(
+            self.config.get("phase_timeout", self.DEFAULT_PHASE_TIMEOUT)
+        )
 
         custom_dirs = [custom_attacks_dir] if custom_attacks_dir else None
         self.attack_library = attack_library or AttackLibrary(custom_dirs=custom_dirs)
@@ -344,6 +359,9 @@ class AgentScanner:
         """
         try:
             capabilities = await self.adapter.discover_capabilities()
+        except (ConnectionError, OSError) as exc:
+            logger.warning("Failed to discover capabilities (connection error): %s", exc)
+            return []
         except Exception:
             logger.exception("Failed to discover capabilities")
             return []
@@ -448,7 +466,8 @@ class AgentScanner:
 
             try:
                 async with semaphore:
-                    result = await self._execute_attack(attack)
+                    async with asyncio.timeout(self._attack_timeout):
+                        result = await self._execute_attack(attack)
 
                 # Tag result with the phase for reporting
                 result.evidence.setdefault("phase", phase.value)
@@ -477,6 +496,12 @@ class AgentScanner:
                             },
                         )
 
+            except TimeoutError:
+                logger.warning(
+                    "Attack %s timed out after %.0fs",
+                    attack.id,
+                    self._attack_timeout,
+                )
             except Exception:
                 logger.exception("Failed to execute attack %s", attack.id)
 
@@ -499,7 +524,15 @@ class AgentScanner:
 
         # Run attacks concurrently with bounded parallelism
         tasks = [_run_attack(idx, atk) for idx, atk in enumerate(attacks)]
-        await asyncio.gather(*tasks)
+        try:
+            async with asyncio.timeout(self._phase_timeout):
+                await asyncio.gather(*tasks)
+        except TimeoutError:
+            logger.warning(
+                "Phase %s timed out after %.0fs",
+                phase.value,
+                self._phase_timeout,
+            )
 
         # Calculate trust score
         trust_score = self._calculate_trust_score(phase, vulnerabilities)
@@ -567,7 +600,7 @@ class AgentScanner:
                     continue
 
                 # ── Detector pipeline ─────────────────────────────
-                verdict = self._detector_pipeline.evaluate(
+                verdict = await self._detector_pipeline.evaluate(
                     rendered_prompt,
                     response,
                     prompt_spec,
@@ -599,6 +632,10 @@ class AgentScanner:
                         token_usage=attack_tokens,
                     )
 
+            except TimeoutError:
+                logger.warning("Prompt for %s timed out", attack.id)
+            except (ConnectionError, OSError) as exc:
+                logger.warning("Connection error executing prompt for %s: %s", attack.id, exc)
             except Exception as e:
                 logger.warning("Error executing prompt for %s: %s", attack.id, str(e))
 
