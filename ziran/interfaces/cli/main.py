@@ -171,6 +171,14 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     default=300.0,
     help="Per-phase timeout in seconds (default: 300).",
 )
+@click.option(
+    "--strategy",
+    type=click.Choice(["fixed", "adaptive", "llm-adaptive"], case_sensitive=False),
+    default="fixed",
+    help="Campaign execution strategy: 'fixed' (sequential phases), "
+    "'adaptive' (rule-based adaptation), or 'llm-adaptive' (LLM-driven). "
+    "Default: fixed.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -186,6 +194,7 @@ def scan(
     llm_model: str | None,
     attack_timeout: float,
     phase_timeout: float,
+    strategy: str,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -248,6 +257,8 @@ def scan(
     config_table.add_row("Stop on Critical", str(stop_on_critical))
     config_table.add_row("Coverage", coverage)
     config_table.add_row("Concurrency", str(concurrency))
+    if strategy != "fixed":
+        config_table.add_row("Strategy", strategy)
     if custom_attacks:
         config_table.add_row("Custom Attacks", custom_attacks)
     if llm_provider or llm_model:
@@ -310,6 +321,11 @@ def scan(
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
     coverage_level = CoverageLevel(coverage.lower())
 
+    # Build campaign strategy
+    campaign_strategy = _build_strategy(strategy, stop_on_critical, llm_client)
+    if strategy != "fixed":
+        console.print(f"[dim]Campaign strategy: {strategy}[/dim]")
+
     with console.status("[bold yellow]Running security scan campaign...[/bold yellow]"):
         result = asyncio.run(
             scanner.run_campaign(
@@ -317,6 +333,7 @@ def scan(
                 stop_on_critical=stop_on_critical,
                 coverage=coverage_level,
                 max_concurrent_attacks=concurrency,
+                strategy=campaign_strategy,
             )
         )
 
@@ -1451,6 +1468,45 @@ def _save_results(
         poc_gen = PoCGenerator(output_dir=poc_dir)
         poc_paths = poc_gen.generate_all(result)
         console.print(f"  [dim]PoC artifacts: {len(poc_paths)} files in {poc_dir}/[/dim]")
+
+
+def _build_strategy(
+    strategy_name: str,
+    stop_on_critical: bool,
+    llm_client: Any | None = None,
+) -> Any:
+    """Build a campaign strategy from its CLI name.
+
+    Args:
+        strategy_name: One of 'fixed', 'adaptive', 'llm-adaptive'.
+        stop_on_critical: Whether to stop on critical findings.
+        llm_client: LLM client instance (required for 'llm-adaptive').
+
+    Returns:
+        A CampaignStrategy instance.
+    """
+    from ziran.application.strategies.adaptive import AdaptiveStrategy
+    from ziran.application.strategies.fixed import FixedStrategy
+
+    if strategy_name == "adaptive":
+        return AdaptiveStrategy(stop_on_critical=stop_on_critical)
+
+    if strategy_name == "llm-adaptive":
+        if llm_client is None:
+            console.print(
+                "[yellow]Warning:[/yellow] llm-adaptive strategy requires --llm-provider/--llm-model. "
+                "Falling back to adaptive strategy."
+            )
+            return AdaptiveStrategy(stop_on_critical=stop_on_critical)
+        from ziran.application.strategies.llm_adaptive import LLMAdaptiveStrategy
+
+        return LLMAdaptiveStrategy(
+            llm_client=llm_client,
+            stop_on_critical=stop_on_critical,
+        )
+
+    # Default: fixed
+    return FixedStrategy(stop_on_critical=stop_on_critical)
 
 
 if __name__ == "__main__":
