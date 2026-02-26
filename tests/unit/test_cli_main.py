@@ -31,6 +31,7 @@ def runner() -> CliRunner:
 
 # ── Minimal campaign result for report/poc/policy/ci commands ────────
 
+
 def _minimal_campaign_result() -> dict[str, Any]:
     return {
         "campaign_id": "test_campaign_001",
@@ -100,6 +101,7 @@ def _vulnerable_campaign_result() -> dict[str, Any]:
 
 # ── CLI group & version ─────────────────────────────────────────────
 
+
 class TestCLIGroup:
     def test_version(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["--version"])
@@ -117,6 +119,7 @@ class TestCLIGroup:
 
 
 # ── scan command ────────────────────────────────────────────────────
+
 
 class TestScanCommand:
     def test_scan_no_args_errors(self, runner: CliRunner) -> None:
@@ -161,9 +164,12 @@ class TestScanCommand:
                 cli,
                 [
                     "scan",
-                    "--framework", "langchain",
-                    "--agent-path", f.name,
-                    "--output", tempfile.mkdtemp(),
+                    "--framework",
+                    "langchain",
+                    "--agent-path",
+                    f.name,
+                    "--output",
+                    tempfile.mkdtemp(),
                 ],
                 catch_exceptions=False,
             )
@@ -180,6 +186,7 @@ class TestScanCommand:
 
 # ── discover command ────────────────────────────────────────────────
 
+
 class TestDiscoverCommand:
     def test_discover_no_args_errors(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["discover"])
@@ -191,6 +198,7 @@ class TestDiscoverCommand:
 
 
 # ── library command ─────────────────────────────────────────────────
+
 
 class TestLibraryCommand:
     def test_library_list_all(self, runner: CliRunner) -> None:
@@ -211,6 +219,7 @@ class TestLibraryCommand:
 
 
 # ── report command ──────────────────────────────────────────────────
+
 
 class TestReportCommand:
     def test_report_terminal(self, runner: CliRunner) -> None:
@@ -258,6 +267,7 @@ class TestReportCommand:
 
 # ── poc command ─────────────────────────────────────────────────────
 
+
 class TestPocCommand:
     def test_poc_no_successful_attacks(self, runner: CliRunner) -> None:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
@@ -285,6 +295,7 @@ class TestPocCommand:
 
 # ── policy command ──────────────────────────────────────────────────
 
+
 class TestPolicyCommand:
     def test_policy_default(self, runner: CliRunner) -> None:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
@@ -311,6 +322,7 @@ class TestPolicyCommand:
 
 # ── audit command ───────────────────────────────────────────────────
 
+
 class TestAuditCommand:
     def test_audit_clean_file(self, runner: CliRunner) -> None:
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
@@ -334,12 +346,15 @@ class TestAuditCommand:
 
 # ── ci command ──────────────────────────────────────────────────────
 
+
 class TestCiCommand:
     def test_ci_minimal_result(self, runner: CliRunner) -> None:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json.dump(_minimal_campaign_result(), f)
             f.flush()
-            result = runner.invoke(cli, ["ci", f.name, "--no-github-annotations", "--no-github-summary"])
+            result = runner.invoke(
+                cli, ["ci", f.name, "--no-github-annotations", "--no-github-summary"]
+            )
         assert result.exit_code in (0, 1)
 
     def test_ci_with_sarif(self, runner: CliRunner) -> None:
@@ -349,7 +364,14 @@ class TestCiCommand:
             sarif_path = tempfile.mktemp(suffix=".sarif")
             result = runner.invoke(
                 cli,
-                ["ci", f.name, "--sarif", sarif_path, "--no-github-annotations", "--no-github-summary"],
+                [
+                    "ci",
+                    f.name,
+                    "--sarif",
+                    sarif_path,
+                    "--no-github-annotations",
+                    "--no-github-summary",
+                ],
             )
         assert result.exit_code in (0, 1)
 
@@ -362,6 +384,7 @@ class TestCiCommand:
 
 
 # ── Helper: _load_python_object ─────────────────────────────────────
+
 
 class TestLoadPythonObject:
     def test_load_existing_object(self) -> None:
@@ -390,6 +413,7 @@ class TestLoadPythonObject:
 
 
 # ── Helper: _load_bedrock_config ────────────────────────────────────
+
 
 class TestLoadBedrockConfig:
     def test_load_agent_id_string(self) -> None:
@@ -420,6 +444,7 @@ class TestLoadBedrockConfig:
 
 # ── Helper: _load_agent_adapter ────────────────────────────────────
 
+
 class TestLoadAgentAdapter:
     def test_unsupported_framework(self) -> None:
         from ziran.interfaces.cli.main import _load_agent_adapter
@@ -429,6 +454,7 @@ class TestLoadAgentAdapter:
 
 
 # ── Helper: _display_results ────────────────────────────────────────
+
 
 class TestDisplayResults:
     def test_display_minimal(self) -> None:

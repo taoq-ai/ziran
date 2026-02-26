@@ -15,6 +15,7 @@ from ziran.interfaces.cli.visualizations import (
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
 def _empty_graph() -> MagicMock:
     """Graph wrapper whose .graph is an empty MultiDiGraph."""
     g = MagicMock()
@@ -51,6 +52,7 @@ def _mock_plotly():
 
 
 # ── GraphVisualizer tests ───────────────────────────────────────────
+
 
 class TestGraphVisualizer:
     def test_empty_graph(self) -> None:
@@ -107,6 +109,7 @@ class TestGraphVisualizer:
 
 # ── _hierarchical_phase_layout ───────────────────────────────────────
 
+
 class TestHierarchicalLayout:
     def test_empty_graph(self) -> None:
         pos = _hierarchical_phase_layout(nx.MultiDiGraph())
@@ -131,6 +134,7 @@ class TestHierarchicalLayout:
 
 
 # ── _risk_rank ───────────────────────────────────────────────────────
+
 
 class TestRiskRank:
     @pytest.mark.parametrize(

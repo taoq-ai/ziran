@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 # ── helpers ──────────────────────────────────────────────────────────
 
+
 def _campaign_data(*, vulnerable: bool = False) -> dict[str, Any]:
     base: dict[str, Any] = {
         "campaign_id": "test_campaign_001",
@@ -90,6 +91,7 @@ def _make_result(*, vulnerable: bool = False):
 
 # ── Tests ────────────────────────────────────────────────────────────
 
+
 class TestReportGenerator:
     def test_save_json(self, tmp_path: Path) -> None:
         gen = ReportGenerator(output_dir=tmp_path)
@@ -123,7 +125,9 @@ class TestReportGenerator:
     def test_save_html(self, tmp_path: Path) -> None:
         gen = ReportGenerator(output_dir=tmp_path)
         result = _make_result()
-        with patch("ziran.interfaces.cli.html_report.build_html_report", return_value="<html></html>") as m:
+        with patch(
+            "ziran.interfaces.cli.html_report.build_html_report", return_value="<html></html>"
+        ) as m:
             out = gen.save_html(result)
         assert out.exists()
         assert out.read_text() == "<html></html>"
@@ -142,7 +146,9 @@ class TestReportGenerator:
         result = _make_result()
         # Inject a graph_state into the phase
         result.phases_executed[0].graph_state = {"nodes": [{"id": "x"}], "edges": [], "stats": {}}
-        with patch("ziran.interfaces.cli.html_report.build_html_report", return_value="<html/>") as m:
+        with patch(
+            "ziran.interfaces.cli.html_report.build_html_report", return_value="<html/>"
+        ) as m:
             gen.save_html(result)
         m.assert_called_once()
 

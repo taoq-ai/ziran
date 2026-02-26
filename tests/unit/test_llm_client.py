@@ -328,9 +328,10 @@ class TestLiteLLMClientExtras:
         """When api_key_env is set but env var is empty, _api_key should be None."""
         cfg = LLMConfig(model="gpt-4", api_key_env="EMPTY_KEY_FOR_TEST")
 
-        with patch.dict("os.environ", {"EMPTY_KEY_FOR_TEST": ""}), patch(
-            "ziran.infrastructure.llm.litellm_client._import_litellm"
-        ) as m:
+        with (
+            patch.dict("os.environ", {"EMPTY_KEY_FOR_TEST": ""}),
+            patch("ziran.infrastructure.llm.litellm_client._import_litellm") as m,
+        ):
             m.return_value = MagicMock()
 
             from ziran.infrastructure.llm.litellm_client import LiteLLMClient

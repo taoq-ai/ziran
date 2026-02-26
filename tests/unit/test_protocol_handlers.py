@@ -252,9 +252,7 @@ class TestMCPHandler:
                     json={
                         "jsonrpc": "2.0",
                         "id": body["id"],
-                        "result": {
-                            "content": [{"type": "text", "text": "Completed!"}]
-                        },
+                        "result": {"content": [{"type": "text", "text": "Completed!"}]},
                     },
                 )
             if method == "tools/list":
@@ -263,11 +261,7 @@ class TestMCPHandler:
                     json={
                         "jsonrpc": "2.0",
                         "id": body["id"],
-                        "result": {
-                            "tools": [
-                                {"name": "search", "description": "Search stuff"}
-                            ]
-                        },
+                        "result": {"tools": [{"name": "search", "description": "Search stuff"}]},
                     },
                 )
             if method == "tools/call":
@@ -276,9 +270,7 @@ class TestMCPHandler:
                     json={
                         "jsonrpc": "2.0",
                         "id": body["id"],
-                        "result": {
-                            "content": [{"type": "text", "text": "tool result"}]
-                        },
+                        "result": {"content": [{"type": "text", "text": "tool result"}]},
                     },
                 )
             if method == "resources/list":
@@ -289,7 +281,11 @@ class TestMCPHandler:
                         "id": body["id"],
                         "result": {
                             "resources": [
-                                {"uri": "file:///data.txt", "name": "data", "description": "A data file"}
+                                {
+                                    "uri": "file:///data.txt",
+                                    "name": "data",
+                                    "description": "A data file",
+                                }
                             ]
                         },
                     },
@@ -301,9 +297,7 @@ class TestMCPHandler:
                         "jsonrpc": "2.0",
                         "id": body["id"],
                         "result": {
-                            "prompts": [
-                                {"name": "summarize", "description": "Summarize text"}
-                            ]
+                            "prompts": [{"name": "summarize", "description": "Summarize text"}]
                         },
                     },
                 )
@@ -549,7 +543,9 @@ class TestA2AHandler:
                 },
             )
 
-        cfg = TargetConfig(url="https://agent.example.com", a2a=A2AConfig(protocol_binding="JSONRPC"))
+        cfg = TargetConfig(
+            url="https://agent.example.com", a2a=A2AConfig(protocol_binding="JSONRPC")
+        )
         client = _mock_client(_handler)
         h = A2AProtocolHandler(client, cfg)
         result = await h.send("hello")
@@ -570,7 +566,9 @@ class TestA2AHandler:
                 },
             )
 
-        cfg = TargetConfig(url="https://agent.example.com", a2a=A2AConfig(protocol_binding="JSONRPC"))
+        cfg = TargetConfig(
+            url="https://agent.example.com", a2a=A2AConfig(protocol_binding="JSONRPC")
+        )
         client = _mock_client(_handler)
         h = A2AProtocolHandler(client, cfg)
         with pytest.raises(ProtocolError, match="Agent error"):
