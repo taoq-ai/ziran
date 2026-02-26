@@ -158,7 +158,7 @@ class WebSocketProtocolHandler(BaseProtocolHandler):
             "metadata": metadata,
         }
 
-    async def stream_send(  # type: ignore[override]
+    async def stream_send(
         self,
         message: str,
         **kwargs: Any,

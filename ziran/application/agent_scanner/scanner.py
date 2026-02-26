@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.domain.entities.capability import AgentCapability
-    from ziran.domain.interfaces.adapter import BaseAgentAdapter
+    from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -600,9 +600,7 @@ class AgentScanner:
                 use_streaming = getattr(self, "_streaming", False)
 
                 if use_streaming:
-                    response = await self._invoke_streaming(
-                        rendered_prompt, attack.name
-                    )
+                    response = await self._invoke_streaming(rendered_prompt, attack.name)
                 else:
                     response = await self.adapter.invoke(rendered_prompt)
 

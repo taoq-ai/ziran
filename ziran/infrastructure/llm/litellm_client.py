@@ -14,8 +14,12 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from ziran.domain.entities.streaming import LLMResponseChunk
 
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMError, LLMResponse
 
@@ -160,7 +164,7 @@ class LiteLLMClient(BaseLLMClient):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncIterator[LLMResponseChunk]:  # type: ignore[override]
+    ) -> AsyncIterator[LLMResponseChunk]:
         """Stream a chat completion via LiteLLM.
 
         Uses ``litellm.acompletion(stream=True)`` to yield chunks as

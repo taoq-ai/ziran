@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -30,6 +29,8 @@ from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from ziran.domain.entities.streaming import AgentResponseChunk
 
 logger = logging.getLogger(__name__)
@@ -146,9 +147,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
             if chunk.is_final:
                 # Track conversation for multi-turn
                 full_content = "".join(accumulated_content)
-                self._conversation.append(
-                    {"role": "assistant", "content": full_content}
-                )
+                self._conversation.append({"role": "assistant", "content": full_content})
             yield chunk
 
     async def discover_capabilities(self) -> list[AgentCapability]:

@@ -8,12 +8,13 @@ framework through a consistent contract.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from ziran.domain.entities.capability import AgentCapability
     from ziran.domain.entities.streaming import AgentResponseChunk
 
@@ -108,9 +109,7 @@ class BaseAgentAdapter(ABC):
         context. Used between phases or campaigns.
         """
 
-    async def stream(
-        self, message: str, **kwargs: Any
-    ) -> AsyncIterator[AgentResponseChunk]:
+    async def stream(self, message: str, **kwargs: Any) -> AsyncIterator[AgentResponseChunk]:
         """Stream a response from the agent chunk by chunk.
 
         Default implementation falls back to ``invoke()`` and yields

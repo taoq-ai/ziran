@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -18,6 +17,8 @@ from ziran.domain.entities.streaming import AgentResponseChunk
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from ziran.domain.entities.target import TargetConfig
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,7 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
         """Clear the conversation history."""
         self._conversation.clear()
 
-    async def stream_send(  # type: ignore[override]
+    async def stream_send(
         self,
         message: str,
         **kwargs: Any,
@@ -186,9 +187,7 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
         accumulated_tool_calls: dict[int, dict[str, Any]] = {}
 
         try:
-            async with self._client.stream(
-                "POST", url, json=body, headers=headers
-            ) as response:
+            async with self._client.stream("POST", url, json=body, headers=headers) as response:
                 if response.status_code >= 400:
                     await response.aread()
                     msg = f"OpenAI streaming request failed with status {response.status_code}"
@@ -250,9 +249,9 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
                                     "arguments": "",
                                 }
                             else:
-                                accumulated_tool_calls[idx]["arguments"] += (
-                                    tc.get("function", {}).get("arguments", "")
-                                )
+                                accumulated_tool_calls[idx]["arguments"] += tc.get(
+                                    "function", {}
+                                ).get("arguments", "")
                             tool_call_delta = accumulated_tool_calls[idx]
 
                         finish_reason = choices[0].get("finish_reason")

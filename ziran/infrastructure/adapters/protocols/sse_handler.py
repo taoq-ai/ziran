@@ -137,7 +137,7 @@ class SSEProtocolHandler(BaseProtocolHandler):
             "metadata": metadata,
         }
 
-    async def stream_send(  # type: ignore[override]
+    async def stream_send(
         self,
         message: str,
         **kwargs: Any,
@@ -171,9 +171,7 @@ class SSEProtocolHandler(BaseProtocolHandler):
                     raise ProtocolError(msg, status_code=response.status_code)
 
                 accumulated_tool_calls: dict[int, dict[str, Any]] = {}
-                async for chunk in self._parse_sse_stream(
-                    response, accumulated_tool_calls
-                ):
+                async for chunk in self._parse_sse_stream(response, accumulated_tool_calls):
                     yield chunk
 
         except httpx.HTTPError as exc:

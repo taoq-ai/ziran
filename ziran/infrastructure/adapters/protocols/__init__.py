@@ -8,10 +8,11 @@ agents over different wire protocols.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import httpx
 
     from ziran.domain.entities.streaming import AgentResponseChunk
