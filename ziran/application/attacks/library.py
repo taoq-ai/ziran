@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from ziran.domain.entities.attack import (
     AttackCategory,
@@ -258,8 +259,10 @@ class AttackLibrary:
         for yaml_file in yaml_files:
             try:
                 self._load_file(yaml_file)
+            except (yaml.YAMLError, ValidationError, KeyError, OSError) as exc:
+                logger.warning("Failed to load attack vectors from %s: %s", yaml_file, exc)
             except Exception:
-                logger.exception("Failed to load attack vectors from %s", yaml_file)
+                logger.exception("Unexpected error loading attack vectors from %s", yaml_file)
 
     def _load_file(self, filepath: Path) -> None:
         """Load attack vectors from a single YAML file.
@@ -284,9 +287,16 @@ class AttackLibrary:
                         filepath,
                     )
                 self._vectors[vector.id] = vector
+            except (ValidationError, KeyError, ValueError) as exc:
+                logger.warning(
+                    "Failed to parse vector '%s' from %s: %s",
+                    vector_data.get("id", "unknown"),
+                    filepath,
+                    exc,
+                )
             except Exception:
                 logger.exception(
-                    "Failed to parse vector '%s' from %s",
+                    "Unexpected error parsing vector '%s' from %s",
                     vector_data.get("id", "unknown"),
                     filepath,
                 )

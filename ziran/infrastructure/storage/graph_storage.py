@@ -71,7 +71,7 @@ class GraphStorage:
                 json.dump(state, f, indent=2, default=str)
             logger.info("Graph saved to %s", filepath)
             return filepath
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             raise GraphStorageError(f"Failed to save graph to {filepath}: {e}") from e
 
     def load(self, campaign_id: str) -> AttackKnowledgeGraph:
@@ -106,7 +106,7 @@ class GraphStorage:
             return graph
         except json.JSONDecodeError as e:
             raise GraphStorageError(f"Invalid JSON in {filepath}: {e}") from e
-        except Exception as e:
+        except (OSError, KeyError, TypeError) as e:
             raise GraphStorageError(f"Failed to load graph from {filepath}: {e}") from e
 
     def save_campaign_result(
@@ -130,7 +130,7 @@ class GraphStorage:
                 json.dump(result, f, indent=2, default=str)
             logger.info("Campaign result saved to %s", filepath)
             return filepath
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             raise GraphStorageError(f"Failed to save campaign result to {filepath}: {e}") from e
 
     def list_campaigns(self) -> list[str]:

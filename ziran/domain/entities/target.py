@@ -299,6 +299,6 @@ def load_target_config(path: Path) -> TargetConfig:
 
     try:
         return TargetConfig(**data)
-    except Exception as exc:
+    except (ValueError, TypeError, KeyError) as exc:
         msg = f"Invalid target configuration: {exc}"
         raise TargetConfigError(msg) from exc
