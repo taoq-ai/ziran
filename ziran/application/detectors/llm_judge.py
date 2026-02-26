@@ -16,6 +16,7 @@ always run first.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -120,6 +121,15 @@ class LLMJudgeDetector:
                 max_tokens=256,
             )
             return self._parse_verdict(llm_response.content)
+        except (json.JSONDecodeError, KeyError, ValueError) as exc:
+            logger.warning("LLM judge response parsing failed: %s", exc)
+            return DetectorResult(
+                detector_name="llm_judge",
+                score=0.5,
+                confidence=0.0,
+                matched_indicators=[],
+                reasoning=f"LLM judge parse error: {exc}",
+            )
         except Exception as exc:
             logger.warning("LLM judge failed: %s", exc)
             return DetectorResult(
