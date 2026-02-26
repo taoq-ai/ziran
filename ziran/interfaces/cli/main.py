@@ -171,6 +171,11 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     default=300.0,
     help="Per-phase timeout in seconds (default: 300).",
 )
+@click.option(
+    "--streaming / --no-streaming",
+    default=False,
+    help="Use streaming invocation for attacks (real-time response monitoring).",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -186,6 +191,7 @@ def scan(
     llm_model: str | None,
     attack_timeout: float,
     phase_timeout: float,
+    streaming: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -248,6 +254,8 @@ def scan(
     config_table.add_row("Stop on Critical", str(stop_on_critical))
     config_table.add_row("Coverage", coverage)
     config_table.add_row("Concurrency", str(concurrency))
+    if streaming:
+        config_table.add_row("Streaming", "enabled")
     if custom_attacks:
         config_table.add_row("Custom Attacks", custom_attacks)
     if llm_provider or llm_model:
@@ -317,6 +325,7 @@ def scan(
                 stop_on_critical=stop_on_critical,
                 coverage=coverage_level,
                 max_concurrent_attacks=concurrency,
+                streaming=streaming,
             )
         )
 

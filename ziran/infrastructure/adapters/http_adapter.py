@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
+from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -27,6 +28,9 @@ from ziran.domain.interfaces.adapter import (
 )
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.streaming import AgentResponseChunk
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +115,41 @@ class HttpAgentAdapter(BaseAgentAdapter):
             completion_tokens=metadata.get("completion_tokens", 0),
             total_tokens=metadata.get("total_tokens", 0),
         )
+
+    async def stream(
+        self,
+        message: str,
+        **kwargs: Any,
+    ) -> AsyncIterator[AgentResponseChunk]:
+        """Stream a message to the remote agent, yielding response chunks.
+
+        Delegates to the protocol handler's ``stream_send()`` method,
+        which uses SSE, WebSocket, or falls back to single-chunk mode
+        depending on the protocol.
+
+        Args:
+            message: The prompt text.
+            **kwargs: Protocol-specific options.
+
+        Yields:
+            ``AgentResponseChunk`` instances as they arrive.
+        """
+        await self._ensure_initialized()
+        assert self._handler is not None
+
+        self._conversation.append({"role": "user", "content": message})
+
+        accumulated_content: list[str] = []
+        async for chunk in self._handler.stream_send(message, **kwargs):
+            if chunk.content_delta:
+                accumulated_content.append(chunk.content_delta)
+            if chunk.is_final:
+                # Track conversation for multi-turn
+                full_content = "".join(accumulated_content)
+                self._conversation.append(
+                    {"role": "assistant", "content": full_content}
+                )
+            yield chunk
 
     async def discover_capabilities(self) -> list[AgentCapability]:
         """Discover agent capabilities via structured + probe-based discovery.

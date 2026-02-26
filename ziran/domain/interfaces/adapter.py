@@ -8,12 +8,14 @@ framework through a consistent contract.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from ziran.domain.entities.capability import AgentCapability
+    from ziran.domain.entities.streaming import AgentResponseChunk
 
 
 class AgentResponse(BaseModel):
@@ -105,6 +107,38 @@ class BaseAgentAdapter(ABC):
         Clears conversation history, memory, and any accumulated
         context. Used between phases or campaigns.
         """
+
+    async def stream(
+        self, message: str, **kwargs: Any
+    ) -> AsyncIterator[AgentResponseChunk]:
+        """Stream a response from the agent chunk by chunk.
+
+        Default implementation falls back to ``invoke()`` and yields
+        a single final chunk. Override in adapters that support native
+        streaming (SSE, WebSocket, LangChain streaming callbacks, etc.).
+
+        Args:
+            message: The message/prompt to send to the agent.
+            **kwargs: Additional framework-specific parameters.
+
+        Yields:
+            Response chunks with incremental content and metadata.
+        """
+        from ziran.domain.entities.streaming import AgentResponseChunk
+
+        response = await self.invoke(message, **kwargs)
+        yield AgentResponseChunk(
+            content_delta=response.content,
+            tool_call_delta=None,
+            is_final=True,
+            metadata={
+                "tool_calls": response.tool_calls,
+                "prompt_tokens": response.prompt_tokens,
+                "completion_tokens": response.completion_tokens,
+                "total_tokens": response.total_tokens,
+                **response.metadata,
+            },
+        )
 
     @abstractmethod
     def observe_tool_call(

@@ -8,11 +8,13 @@ agents over different wire protocols.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import httpx
 
+    from ziran.domain.entities.streaming import AgentResponseChunk
     from ziran.domain.entities.target import TargetConfig
 
 
@@ -84,3 +86,34 @@ class BaseProtocolHandler(ABC):
         Called when the adapter is torn down. Override if the handler
         holds additional state beyond the shared ``httpx.AsyncClient``.
         """
+
+    async def stream_send(
+        self,
+        message: str,
+        **kwargs: Any,
+    ) -> AsyncIterator[AgentResponseChunk]:
+        """Stream a prompt to the remote agent and yield response chunks.
+
+        Default implementation falls back to ``send()`` and yields a
+        single final chunk — override in streaming-capable handlers
+        (SSE, WebSocket, OpenAI streaming).
+
+        Args:
+            message: The text prompt to send.
+            **kwargs: Protocol-specific options.
+
+        Yields:
+            ``AgentResponseChunk`` instances as they arrive.
+
+        Raises:
+            ProtocolError: On transport or protocol-level failures.
+        """
+        from ziran.domain.entities.streaming import AgentResponseChunk
+
+        result = await self.send(message, **kwargs)
+        yield AgentResponseChunk(
+            content_delta=result.get("content", ""),
+            tool_call_delta=None,
+            is_final=True,
+            metadata=result.get("metadata", {}),
+        )

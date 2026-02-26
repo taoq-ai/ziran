@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import AsyncIterator
 from typing import Any
 
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMError, LLMResponse
@@ -151,3 +152,70 @@ class LiteLLMClient(BaseLLMClient):
             return True
         except (LLMError, Exception):
             return False
+
+    async def stream_complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[LLMResponseChunk]:  # type: ignore[override]
+        """Stream a chat completion via LiteLLM.
+
+        Uses ``litellm.acompletion(stream=True)`` to yield chunks as
+        they arrive from the provider, enabling real-time processing.
+
+        Args:
+            messages: Chat messages.
+            temperature: Override temperature.
+            max_tokens: Override max_tokens.
+            **kwargs: Additional params forwarded to litellm.acompletion().
+
+        Yields:
+            Streaming response chunks.
+
+        Raises:
+            LLMError: On provider failures.
+        """
+        from ziran.domain.entities.streaming import LLMResponseChunk
+
+        call_kwargs: dict[str, Any] = {
+            "model": self.config.model,
+            "messages": messages,
+            "temperature": temperature if temperature is not None else self.config.temperature,
+            "max_tokens": max_tokens if max_tokens is not None else self.config.max_tokens,
+            "stream": True,
+        }
+
+        if self._api_key:
+            call_kwargs["api_key"] = self._api_key
+        if self.config.base_url:
+            call_kwargs["api_base"] = self.config.base_url
+
+        call_kwargs.update(kwargs)
+
+        try:
+            response = await self._litellm.acompletion(**call_kwargs)
+
+            async for chunk in response:
+                choices = getattr(chunk, "choices", [])
+                if not choices:
+                    continue
+
+                delta = choices[0].delta
+                content = getattr(delta, "content", "") or ""
+                finish_reason = getattr(choices[0], "finish_reason", None)
+
+                yield LLMResponseChunk(
+                    content_delta=content,
+                    is_final=finish_reason is not None,
+                    model=getattr(chunk, "model", self.config.model) or self.config.model,
+                    metadata={
+                        "provider": "litellm",
+                        "finish_reason": finish_reason,
+                    },
+                )
+        except Exception as exc:
+            msg = f"LiteLLM streaming call failed for model '{self.config.model}': {exc}"
+            raise LLMError(msg, provider="litellm", cause=exc) from exc
