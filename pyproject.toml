@@ -163,13 +163,6 @@ addopts = "--strict-markers -v"
 
 [tool.coverage.run]
 source = ["ziran"]
-omit = [
-    "ziran/infrastructure/adapters/bedrock_adapter.py",
-    "ziran/infrastructure/adapters/http_adapter.py",
-    "ziran/interfaces/cli/main.py",
-    "ziran/infrastructure/adapters/agentcore_adapter.py",
-    "ziran/infrastructure/llm/litellm_client.py",
-]
 
 [tool.coverage.report]
 fail_under = 80

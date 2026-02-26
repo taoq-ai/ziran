@@ -575,3 +575,172 @@ class TestOpenAIHandlerConfig:
         body = mock_client.post.call_args[1]["json"]
         assert "temperature" not in body
         assert "max_tokens" not in body
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Additional HttpAgentAdapter coverage (build_client, auto-detect, retry, probe)
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestBuildClientExtended:
+    """Extra tests for _build_client auth / TLS / proxy paths."""
+
+    def test_bearer_auth_header(self) -> None:
+        from ziran.domain.entities.target import AuthConfig, AuthType
+
+        cfg = TargetConfig(
+            url="https://x.com",
+            auth=AuthConfig(type=AuthType.BEARER, token="tok123"),
+        )
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(cfg)
+        client = adapter._build_client()
+        assert client.headers.get("authorization") == "Bearer tok123"
+
+    def test_api_key_header(self) -> None:
+        from ziran.domain.entities.target import AuthConfig, AuthType
+
+        cfg = TargetConfig(
+            url="https://x.com",
+            auth=AuthConfig(type=AuthType.API_KEY, token="key99", header_name="X-Key"),
+        )
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(cfg)
+        client = adapter._build_client()
+        assert client.headers.get("x-key") == "key99"
+
+    def test_basic_auth(self) -> None:
+        from ziran.domain.entities.target import AuthConfig, AuthType
+
+        cfg = TargetConfig(
+            url="https://x.com",
+            auth=AuthConfig(type=AuthType.BASIC, username="u", password="p"),
+        )
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(cfg)
+        client = adapter._build_client()
+        assert client.auth is not None
+
+
+class TestAutoDetectProtocol:
+    """Tests for _auto_detect_protocol with mock HTTP."""
+
+    async def test_detect_a2a(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        async def _handler(request: httpx.Request) -> httpx.Response:
+            if "agent-card" in str(request.url):
+                return httpx.Response(200, json={"name": "Agent", "skills": []})
+            return httpx.Response(404)
+
+        cfg = TargetConfig(url="https://x.com", protocol="auto")
+        adapter = HttpAgentAdapter(cfg)
+        adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+        proto = await adapter._auto_detect_protocol()
+        assert proto == ProtocolType.A2A
+
+    async def test_detect_openai(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        async def _handler(request: httpx.Request) -> httpx.Response:
+            if "/v1/models" in str(request.url):
+                return httpx.Response(200, json={"data": [{"id": "gpt-4"}]})
+            return httpx.Response(404)
+
+        cfg = TargetConfig(url="https://x.com", protocol="auto")
+        adapter = HttpAgentAdapter(cfg)
+        adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+        proto = await adapter._auto_detect_protocol()
+        assert proto == ProtocolType.OPENAI
+
+    async def test_detect_mcp(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        async def _handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                return httpx.Response(200, json={"result": {"protocolVersion": "2024-11-05"}})
+            return httpx.Response(404)
+
+        cfg = TargetConfig(url="https://x.com", protocol="auto")
+        adapter = HttpAgentAdapter(cfg)
+        adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+        proto = await adapter._auto_detect_protocol()
+        assert proto == ProtocolType.MCP
+
+    async def test_fallback_rest(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        async def _handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404)
+
+        cfg = TargetConfig(url="https://x.com", protocol="auto")
+        adapter = HttpAgentAdapter(cfg)
+        adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(_handler))
+        proto = await adapter._auto_detect_protocol()
+        assert proto == ProtocolType.REST
+
+
+class TestSendWithRetryExtended:
+    """Tests for _send_with_retry retry / no-retry / exhaust paths."""
+
+    async def test_success(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com"))
+        handler = AsyncMock()
+        handler.send.return_value = {"content": "ok"}
+        adapter._handler = handler
+        result = await adapter._send_with_retry("hi")
+        assert result["content"] == "ok"
+
+    async def test_retry_then_success(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com"))
+        handler = AsyncMock()
+        handler.send.side_effect = [
+            ProtocolError("boom", status_code=429),
+            {"content": "recovered"},
+        ]
+        adapter._handler = handler
+        result = await adapter._send_with_retry("hi")
+        assert result["content"] == "recovered"
+
+    async def test_no_retry_on_4xx(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com"))
+        handler = AsyncMock()
+        handler.send.side_effect = ProtocolError("bad request", status_code=400)
+        adapter._handler = handler
+        with pytest.raises(ProtocolError, match="bad request"):
+            await adapter._send_with_retry("hi")
+
+
+class TestProbeDiscoverExtended:
+    """Tests for _probe_discover capability extraction."""
+
+    async def test_extracts_capabilities(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com"))
+        handler = AsyncMock()
+        handler.send.return_value = {
+            "content": "- search_files: searches files\n- read_database: reads tables\n",
+        }
+        adapter._handler = handler
+        caps = await adapter._probe_discover()
+        assert len(caps) >= 1
+
+    async def test_handles_protocol_errors(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com"))
+        handler = AsyncMock()
+        handler.send.side_effect = ProtocolError("fail")
+        adapter._handler = handler
+        caps = await adapter._probe_discover()
+        assert caps == []

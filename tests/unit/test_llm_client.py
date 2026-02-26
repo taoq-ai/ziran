@@ -315,3 +315,51 @@ class TestLiteLLMImportGuard:
 
             with pytest.raises(ImportError, match="litellm is required"):
                 _import_litellm()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# LiteLLMClient health_check & empty api_key
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestLiteLLMClientExtras:
+    def test_empty_api_key_env_warning(self) -> None:
+        """When api_key_env is set but env var is empty, _api_key should be None."""
+        cfg = LLMConfig(model="gpt-4", api_key_env="EMPTY_KEY_FOR_TEST")
+
+        with patch.dict("os.environ", {"EMPTY_KEY_FOR_TEST": ""}), patch(
+            "ziran.infrastructure.llm.litellm_client._import_litellm"
+        ) as m:
+            m.return_value = MagicMock()
+
+            from ziran.infrastructure.llm.litellm_client import LiteLLMClient
+
+            client = LiteLLMClient(cfg)
+            assert client._api_key is None
+
+    async def test_health_check_success(self) -> None:
+        cfg = LLMConfig(model="gpt-4")
+
+        with patch("ziran.infrastructure.llm.litellm_client._import_litellm") as m:
+            m.return_value = MagicMock()
+
+            from ziran.infrastructure.llm.litellm_client import LiteLLMClient
+
+            client = LiteLLMClient(cfg)
+            client.complete = AsyncMock(return_value=MagicMock(content="pong"))
+            result = await client.health_check()
+            assert result is True
+
+    async def test_health_check_failure(self) -> None:
+        cfg = LLMConfig(model="gpt-4")
+
+        with patch("ziran.infrastructure.llm.litellm_client._import_litellm") as m:
+            m.return_value = MagicMock()
+
+            from ziran.infrastructure.llm.litellm_client import LiteLLMClient
+
+            client = LiteLLMClient(cfg)
+            client.complete = AsyncMock(side_effect=LLMError("fail", provider="test"))
+            result = await client.health_check()
+            assert result is False
