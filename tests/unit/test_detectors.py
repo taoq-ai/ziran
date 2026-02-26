@@ -276,3 +276,38 @@ class TestDetectorPipelineWithLLMJudge:
         verdict = await pipeline.evaluate("test", response, prompt)
         assert verdict.successful is False
         assert "No strong signal" in verdict.reasoning
+
+
+# ──────────────────────────────────────────────────────────────────────
+# BaseDetector ABC
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestBaseDetector:
+    def test_cannot_instantiate_abc(self) -> None:
+        from ziran.domain.interfaces.detector import BaseDetector
+
+        with pytest.raises(TypeError):
+            BaseDetector()  # type: ignore[abstract]
+
+    def test_concrete_subclass(self) -> None:
+        from ziran.domain.interfaces.detector import BaseDetector
+
+        class StubDetector(BaseDetector):
+            @property
+            def name(self) -> str:
+                return "stub"
+
+            def detect(self, prompt, response, prompt_spec, vector=None):
+                from ziran.domain.entities.detection import DetectorResult
+
+                return DetectorResult(
+                    detector_name="stub",
+                    score=0.0,
+                    confidence=1.0,
+                    method="stub",
+                    reasoning="no attack",
+                )
+
+        d = StubDetector()
+        assert d.name == "stub"

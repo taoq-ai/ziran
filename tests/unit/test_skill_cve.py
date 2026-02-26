@@ -296,3 +296,16 @@ class TestSkillCVEModel:
         )
         assert cve_critical.is_critical is True
         assert cve_low.is_critical is False
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Re-export module (database.py)
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestDatabaseReExport:
+    def test_imports(self) -> None:
+        from ziran.application.skill_cve.database import SkillCVE, SkillCVEDatabase
+
+        assert SkillCVE is not None
+        assert SkillCVEDatabase is not None
