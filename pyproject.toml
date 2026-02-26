@@ -149,6 +149,7 @@ module = [
     "botocore.*",
     "litellm.*",
     "bedrock_agentcore.*",
+    "websockets.*",
 ]
 ignore_missing_imports = true
 
