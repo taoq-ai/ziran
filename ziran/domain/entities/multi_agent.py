@@ -213,14 +213,9 @@ class MultiAgentTopology(BaseModel):
         return [
             e
             for e in self.edges
-            if e.trust_boundary
-            not in (TrustBoundaryType.SAME_PROCESS, TrustBoundaryType.SAME_HOST)
+            if e.trust_boundary not in (TrustBoundaryType.SAME_PROCESS, TrustBoundaryType.SAME_HOST)
         ]
 
     def get_full_context_edges(self) -> list[AgentEdge]:
         """Return edges where full context is shared (high-risk for injection)."""
-        return [
-            e
-            for e in self.edges
-            if e.delegation == DelegationPattern.FULL_CONTEXT
-        ]
+        return [e for e in self.edges if e.delegation == DelegationPattern.FULL_CONTEXT]

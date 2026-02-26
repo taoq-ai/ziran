@@ -36,7 +36,9 @@ _TOPOLOGY_PROBES = [
 
 # Patterns for detecting agent references in responses
 _AGENT_PATTERNS = [
-    re.compile(r"(?:agent|assistant|worker|specialist|expert)\s*[:\-]?\s*['\"]?(\w[\w\s]+\w)['\"]?", re.I),
+    re.compile(
+        r"(?:agent|assistant|worker|specialist|expert)\s*[:\-]?\s*['\"]?(\w[\w\s]+\w)['\"]?", re.I
+    ),
     re.compile(r"(?:delegate|forward|route|send)\s+(?:to|it to)\s+['\"]?(\w[\w\s]+\w)['\"]?", re.I),
     re.compile(r"['\"](\w+(?:_agent|_worker|Agent|Worker|Assistant))['\"]", re.I),
 ]
@@ -174,16 +176,20 @@ class TopologyDiscoverer:
         for probe in _TOPOLOGY_PROBES:
             try:
                 response = await adapter.invoke(probe)
-                results.append({
-                    "probe": probe,
-                    "response": response.content,
-                })
+                results.append(
+                    {
+                        "probe": probe,
+                        "response": response.content,
+                    }
+                )
             except Exception as exc:
                 logger.debug("Probe failed: %s - %s", probe[:50], exc)
-                results.append({
-                    "probe": probe,
-                    "response": "",
-                })
+                results.append(
+                    {
+                        "probe": probe,
+                        "response": "",
+                    }
+                )
         return results
 
     # ── Node Construction ────────────────────────────────────────
@@ -227,9 +233,7 @@ class TopologyDiscoverer:
 
     # ── Response Parsing ─────────────────────────────────────────
 
-    def _extract_agent_mentions(
-        self, probe_results: list[dict[str, str]]
-    ) -> list[AgentNode]:
+    def _extract_agent_mentions(self, probe_results: list[dict[str, str]]) -> list[AgentNode]:
         """Extract mentioned agents from probe responses."""
         seen: set[str] = set()
         agents: list[AgentNode] = []
@@ -289,9 +293,7 @@ class TopologyDiscoverer:
 
         return edges
 
-    def _extract_capabilities(
-        self, probe_results: list[dict[str, str]]
-    ) -> list[str]:
+    def _extract_capabilities(self, probe_results: list[dict[str, str]]) -> list[str]:
         """Extract capability/tool names from probe responses."""
         capabilities: set[str] = set()
         tool_pattern = re.compile(r"`(\w+)`|'(\w+)'|\"(\w+)\"")

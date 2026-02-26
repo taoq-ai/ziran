@@ -102,9 +102,7 @@ class MultiAgentScanner:
             Discovered topology.
         """
         entry_adapter = self._adapters[self._entry_point]
-        additional = {
-            k: v for k, v in self._adapters.items() if k != self._entry_point
-        }
+        additional = {k: v for k, v in self._adapters.items() if k != self._entry_point}
 
         discoverer = TopologyDiscoverer(
             entry_adapter,
@@ -132,7 +130,6 @@ class MultiAgentScanner:
         on_progress: Callable[[ProgressEvent], None] | None = None,
         coverage: CoverageLevel = CoverageLevel.STANDARD,
         max_concurrent_attacks: int = 5,
-        streaming: bool = False,
         scan_individual: bool = True,
         scan_cross_agent: bool = True,
     ) -> MultiAgentCampaignResult:
@@ -150,13 +147,13 @@ class MultiAgentScanner:
             on_progress: Progress callback.
             coverage: Attack coverage level.
             max_concurrent_attacks: Max parallel attacks.
-            streaming: Use streaming invocation.
             scan_individual: Run individual agent scans.
             scan_cross_agent: Run cross-agent attacks.
 
         Returns:
             Combined campaign result.
         """
+
         def _emit(event: ProgressEvent) -> None:
             if on_progress is not None:
                 on_progress(event)
@@ -197,7 +194,6 @@ class MultiAgentScanner:
                     on_progress=on_progress,
                     coverage=coverage,
                     max_concurrent_attacks=max_concurrent_attacks,
-                    streaming=streaming,
                 )
 
                 self._agent_results[agent_id] = result
@@ -221,7 +217,6 @@ class MultiAgentScanner:
                 on_progress=on_progress,
                 coverage=coverage,
                 max_concurrent_attacks=max_concurrent_attacks,
-                streaming=streaming,
             )
 
         # Build combined result
@@ -237,7 +232,6 @@ class MultiAgentScanner:
         on_progress: Callable[[ProgressEvent], None] | None = None,
         coverage: CoverageLevel = CoverageLevel.STANDARD,
         max_concurrent_attacks: int = 5,
-        streaming: bool = False,
     ) -> CampaignResult:
         """Run attacks targeting cross-agent boundaries.
 
@@ -266,7 +260,6 @@ class MultiAgentScanner:
             on_progress=on_progress,
             coverage=coverage,
             max_concurrent_attacks=max_concurrent_attacks,
-            streaming=streaming,
         )
 
     def _merge_agent_graph(self, agent_id: str, agent_state: dict[str, Any]) -> None:
@@ -307,9 +300,7 @@ class MultiAgentCampaignResult:
     @property
     def total_vulnerabilities(self) -> int:
         """Total vulnerabilities across all scans."""
-        total = sum(
-            r.total_vulnerabilities for r in self.individual_results.values()
-        )
+        total = sum(r.total_vulnerabilities for r in self.individual_results.values())
         if self.cross_agent_result:
             total += self.cross_agent_result.total_vulnerabilities
         return total
@@ -336,7 +327,7 @@ class MultiAgentCampaignResult:
             "individual_results": {
                 agent_id: {
                     "vulnerabilities": result.total_vulnerabilities,
-                    "attacks_run": result.total_attacks,
+                    "attacks_run": len(result.attack_results),
                 }
                 for agent_id, result in self.individual_results.items()
             },

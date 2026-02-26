@@ -499,8 +499,7 @@ class AttackKnowledgeGraph:
             List of node ID sequences representing attack paths.
         """
         agent_nodes = [
-            n for n, d in self.graph.nodes(data=True)
-            if d.get("node_type") == NodeType.AGENT
+            n for n, d in self.graph.nodes(data=True) if d.get("node_type") == NodeType.AGENT
         ]
 
         paths: list[list[str]] = []
@@ -514,10 +513,15 @@ class AttackKnowledgeGraph:
                         has_delegation = any(
                             any(
                                 d.get("edge_type") == EdgeType.DELEGATES_TO
-                                for d in self.graph.get_edge_data(path[i], path[i + 1], default={}).values()
+                                for d in self.graph.get_edge_data(
+                                    path[i], path[i + 1], default={}
+                                ).values()
                             )
                             if isinstance(self.graph.get_edge_data(path[i], path[i + 1]), dict)
-                            else self.graph.get_edge_data(path[i], path[i + 1], default={}).get("edge_type") == EdgeType.DELEGATES_TO
+                            else self.graph.get_edge_data(path[i], path[i + 1], default={}).get(
+                                "edge_type"
+                            )
+                            == EdgeType.DELEGATES_TO
                             for i in range(len(path) - 1)
                         )
                         if has_delegation:
@@ -526,4 +530,3 @@ class AttackKnowledgeGraph:
                     continue
 
         return paths
-

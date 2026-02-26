@@ -1493,11 +1493,6 @@ def _save_results(
     help="Maximum concurrent attacks per phase.",
 )
 @click.option(
-    "--streaming / --no-streaming",
-    default=False,
-    help="Use streaming invocation for attacks.",
-)
-@click.option(
     "--skip-individual / --no-skip-individual",
     default=False,
     help="Skip individual agent scans (only run cross-agent tests).",
@@ -1508,7 +1503,6 @@ def multi_agent_scan(
     output: str,
     coverage: str,
     concurrency: int,
-    streaming: bool,
     skip_individual: bool,
 ) -> None:
     """Run a multi-agent security scan campaign.
@@ -1531,7 +1525,10 @@ def multi_agent_scan(
     adapters: dict[str, Any] = {}
     for target_path in targets:
         try:
-            config = TargetConfig.from_yaml(Path(target_path))
+            import yaml
+
+            raw = yaml.safe_load(Path(target_path).read_text())
+            config = TargetConfig.model_validate(raw)
             agent_id = Path(target_path).stem
 
             from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
@@ -1550,11 +1547,9 @@ def multi_agent_scan(
     config_table.add_column("Key", style="cyan")
     config_table.add_column("Value", style="white")
     config_table.add_row("Agents", ", ".join(adapters.keys()))
-    config_table.add_row("Entry Point", entry_point or list(adapters.keys())[0])
+    config_table.add_row("Entry Point", entry_point or next(iter(adapters.keys())))
     config_table.add_row("Coverage", coverage)
     config_table.add_row("Concurrency", str(concurrency))
-    if streaming:
-        config_table.add_row("Streaming", "enabled")
     config_table.add_row("Individual Scans", "skipped" if skip_individual else "enabled")
     console.print(config_table)
     console.print()
@@ -1573,7 +1568,6 @@ def multi_agent_scan(
             scanner.run_multi_agent_campaign(
                 coverage=coverage_level,
                 max_concurrent_attacks=concurrency,
-                streaming=streaming,
                 scan_individual=not skip_individual,
                 scan_cross_agent=True,
             )
@@ -1582,14 +1576,16 @@ def multi_agent_scan(
     # Display summary
     summary = result.summary()
     console.print()
-    console.print(Panel(
-        f"[bold]Topology:[/bold] {summary['topology_type']}\n"
-        f"[bold]Agents Scanned:[/bold] {summary['agents_scanned']}\n"
-        f"[bold]Total Vulnerabilities:[/bold] {summary['total_vulnerabilities']}\n"
-        f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}",
-        title="Multi-Agent Campaign Results",
-        style="bold green" if summary["total_vulnerabilities"] == 0 else "bold red",
-    ))
+    console.print(
+        Panel(
+            f"[bold]Topology:[/bold] {summary['topology_type']}\n"
+            f"[bold]Agents Scanned:[/bold] {summary['agents_scanned']}\n"
+            f"[bold]Total Vulnerabilities:[/bold] {summary['total_vulnerabilities']}\n"
+            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}",
+            title="Multi-Agent Campaign Results",
+            style="bold green" if summary["total_vulnerabilities"] == 0 else "bold red",
+        )
+    )
 
     output_dir = Path(output)
     output_dir.mkdir(parents=True, exist_ok=True)
