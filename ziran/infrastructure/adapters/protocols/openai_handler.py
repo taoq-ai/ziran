@@ -7,14 +7,18 @@ Ollama, LiteLLM proxies, and similar.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from ziran.domain.entities.streaming import AgentResponseChunk
 from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from ziran.domain.entities.target import TargetConfig
 
 logger = logging.getLogger(__name__)
@@ -148,3 +152,135 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
     def reset_conversation(self) -> None:
         """Clear the conversation history."""
         self._conversation.clear()
+
+    async def stream_send(
+        self,
+        message: str,
+        **kwargs: Any,
+    ) -> AsyncIterator[AgentResponseChunk]:
+        """Stream a message via OpenAI-compatible chat completions with SSE.
+
+        Sends a request with ``stream=true`` and parses the SSE response,
+        yielding ``AgentResponseChunk`` instances as deltas arrive.
+
+        Yields:
+            ``AgentResponseChunk`` instances.
+
+        Raises:
+            ProtocolError: On HTTP or parsing errors.
+        """
+        self._conversation.append({"role": "user", "content": message})
+
+        url = f"{self._config.normalized_url}/v1/chat/completions"
+        body: dict[str, Any] = {
+            "model": self._model,
+            "messages": list(self._conversation),
+            "stream": True,
+        }
+        if self._temperature is not None:
+            body["temperature"] = self._temperature
+        if self._max_tokens is not None:
+            body["max_tokens"] = self._max_tokens
+
+        headers = {"Accept": "text/event-stream"}
+        accumulated_content: list[str] = []
+        accumulated_tool_calls: dict[int, dict[str, Any]] = {}
+
+        try:
+            async with self._client.stream("POST", url, json=body, headers=headers) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    msg = f"OpenAI streaming request failed with status {response.status_code}"
+                    raise ProtocolError(msg, status_code=response.status_code)
+
+                buffer = ""
+                async for raw_bytes in response.aiter_bytes():
+                    text = raw_bytes.decode("utf-8", errors="replace")
+                    buffer += text
+
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+
+                        if not line or line.startswith(":"):
+                            continue
+                        if not line.startswith("data:"):
+                            continue
+
+                        data_str = line[5:].strip()
+                        if data_str == "[DONE]":
+                            # Track assistant response
+                            full_content = "".join(accumulated_content)
+                            self._conversation.append(
+                                {"role": "assistant", "content": full_content}
+                            )
+                            yield AgentResponseChunk(
+                                content_delta="",
+                                is_final=True,
+                                metadata={
+                                    "protocol": "openai",
+                                    "tool_calls": list(accumulated_tool_calls.values()),
+                                },
+                            )
+                            return
+
+                        try:
+                            data = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            continue
+
+                        choices = data.get("choices", [])
+                        if not choices:
+                            continue
+
+                        delta = choices[0].get("delta", {})
+                        content_delta = delta.get("content", "") or ""
+                        if content_delta:
+                            accumulated_content.append(content_delta)
+
+                        # Track tool calls
+                        tool_call_delta = None
+                        for tc in delta.get("tool_calls", []):
+                            idx = tc.get("index", 0)
+                            if idx not in accumulated_tool_calls:
+                                accumulated_tool_calls[idx] = {
+                                    "id": tc.get("id", ""),
+                                    "name": tc.get("function", {}).get("name", ""),
+                                    "arguments": "",
+                                }
+                            else:
+                                accumulated_tool_calls[idx]["arguments"] += tc.get(
+                                    "function", {}
+                                ).get("arguments", "")
+                            tool_call_delta = accumulated_tool_calls[idx]
+
+                        finish_reason = choices[0].get("finish_reason")
+
+                        if content_delta or tool_call_delta:
+                            yield AgentResponseChunk(
+                                content_delta=content_delta,
+                                tool_call_delta=tool_call_delta,
+                                is_final=False,
+                                metadata={
+                                    "finish_reason": finish_reason,
+                                    "protocol": "openai",
+                                }
+                                if finish_reason
+                                else {"protocol": "openai"},
+                            )
+
+        except httpx.HTTPError as exc:
+            msg = f"OpenAI streaming request failed: {exc}"
+            raise ProtocolError(msg) from exc
+
+        # Stream ended without [DONE]
+        full_content = "".join(accumulated_content)
+        self._conversation.append({"role": "assistant", "content": full_content})
+        yield AgentResponseChunk(
+            content_delta="",
+            is_final=True,
+            metadata={
+                "protocol": "openai",
+                "tool_calls": list(accumulated_tool_calls.values()),
+            },
+        )
