@@ -256,15 +256,9 @@ class AgentScanner:
             context = CampaignContext(
                 completed_phases=list(phase_results),
                 available_phases=list(remaining_phases),
-                total_vulnerabilities=sum(
-                    len(p.vulnerabilities_found) for p in phase_results
-                ),
-                critical_found=any(
-                    self._has_critical_finding(p) for p in phase_results
-                ),
-                attack_results_summary={
-                    r.vector_id: r.successful for r in self._attack_results
-                },
+                total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
+                critical_found=any(self._has_critical_finding(p) for p in phase_results),
+                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
                 discovered_capabilities=[c.id for c in capabilities],
                 graph_state=self.graph.export_state(),
             )
@@ -325,15 +319,9 @@ class AgentScanner:
             updated_context = CampaignContext(
                 completed_phases=list(phase_results),
                 available_phases=list(remaining_phases),
-                total_vulnerabilities=sum(
-                    len(p.vulnerabilities_found) for p in phase_results
-                ),
-                critical_found=any(
-                    self._has_critical_finding(p) for p in phase_results
-                ),
-                attack_results_summary={
-                    r.vector_id: r.successful for r in self._attack_results
-                },
+                total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
+                critical_found=any(self._has_critical_finding(p) for p in phase_results),
+                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
                 discovered_capabilities=[c.id for c in capabilities],
                 graph_state=self.graph.export_state(),
             )
@@ -499,9 +487,7 @@ class AgentScanner:
             # Build a lightweight context for the strategy
             strategy_context = CampaignContext(
                 graph_state=self.graph.export_state(),
-                attack_results_summary={
-                    r.vector_id: r.successful for r in self._attack_results
-                },
+                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
             )
             attacks = strategy.prioritize_attacks(attacks, strategy_context)
 

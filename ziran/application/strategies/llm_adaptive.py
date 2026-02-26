@@ -224,7 +224,8 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
             phase=phase,
             capabilities=", ".join(context.discovered_capabilities[:20]) or "none",
             successful_categories=", ".join(self._successful_categories) or "none",
-            failed_categories=", ".join(self._failed_categories - self._successful_categories) or "none",
+            failed_categories=", ".join(self._failed_categories - self._successful_categories)
+            or "none",
             attack_list=attack_list,
         )
 

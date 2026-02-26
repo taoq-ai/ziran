@@ -123,9 +123,7 @@ class AdaptiveStrategy:
 
         # Skip if score is too low
         if best_score < 0.1 and self._consecutive_failures >= 2:
-            logger.info(
-                "Adaptive strategy: skipping remaining phases (low scores)"
-            )
+            logger.info("Adaptive strategy: skipping remaining phases (low scores)")
             return None
 
         logger.info(
@@ -188,6 +186,7 @@ class AdaptiveStrategy:
         context: CampaignContext,
     ) -> list[AttackVector]:
         """Reorder attacks by estimated success probability."""
+
         def _attack_score(attack: AttackVector) -> float:
             score = 0.5  # Base score
 
@@ -218,9 +217,7 @@ class AdaptiveStrategy:
 
     # ── Internal Scoring ─────────────────────────────────────────
 
-    def _score_phase(
-        self, phase: ScanPhase, context: CampaignContext
-    ) -> tuple[float, str]:
+    def _score_phase(self, phase: ScanPhase, context: CampaignContext) -> tuple[float, str]:
         """Score a phase based on the current campaign context.
 
         Returns:
