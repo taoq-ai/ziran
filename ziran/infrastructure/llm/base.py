@@ -8,7 +8,12 @@ response handling.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from ziran.domain.entities.streaming import LLMResponseChunk
 
 from pydantic import BaseModel, Field
 
@@ -93,6 +98,46 @@ class BaseLLMClient(ABC):
         Raises:
             LLMError: On provider-level failures.
         """
+
+    async def stream_complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[LLMResponseChunk]:
+        """Stream a chat completion response chunk by chunk.
+
+        Default implementation falls back to ``complete()`` and yields
+        a single final chunk. Override in clients that support native
+        streaming.
+
+        Args:
+            messages: List of message dicts with ``role`` and ``content``.
+            temperature: Override default temperature for this call.
+            max_tokens: Override default max_tokens for this call.
+            **kwargs: Provider-specific parameters.
+
+        Yields:
+            Response chunks with incremental content.
+        """
+        from ziran.domain.entities.streaming import LLMResponseChunk
+
+        response = await self.complete(
+            messages, temperature=temperature, max_tokens=max_tokens, **kwargs
+        )
+        yield LLMResponseChunk(
+            content_delta=response.content,
+            is_final=True,
+            model=response.model,
+            metadata={
+                "prompt_tokens": response.prompt_tokens,
+                "completion_tokens": response.completion_tokens,
+                "total_tokens": response.total_tokens,
+                **response.metadata,
+            },
+        )
 
     @abstractmethod
     async def health_check(self) -> bool:
