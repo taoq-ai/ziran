@@ -159,6 +159,18 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     help="LLM model name for AI-powered features (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'). "
     "Env: ZIRAN_LLM_MODEL.",
 )
+@click.option(
+    "--attack-timeout",
+    type=float,
+    default=60.0,
+    help="Per-attack timeout in seconds (default: 60).",
+)
+@click.option(
+    "--phase-timeout",
+    type=float,
+    default=300.0,
+    help="Per-phase timeout in seconds (default: 300).",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -172,6 +184,8 @@ def scan(
     concurrency: int,
     llm_provider: str | None,
     llm_model: str | None,
+    attack_timeout: float,
+    phase_timeout: float,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -268,7 +282,10 @@ def scan(
         phase_list = [ScanPhase(p) for p in phases]
 
     # Run campaign
-    scanner_config: dict[str, Any] = {}
+    scanner_config: dict[str, Any] = {
+        "attack_timeout": attack_timeout,
+        "phase_timeout": phase_timeout,
+    }
 
     # Initialize LLM client if provider/model specified
     llm_client = None
@@ -541,8 +558,11 @@ def report(result_file: str, fmt: str) -> None:
         with filepath.open() as f:
             data = json.load(f)
         result = CampaignResult.model_validate(data)
-    except Exception as e:
+    except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]Unexpected error loading result:[/bold red] {e}")
         sys.exit(1)
 
     if fmt == "terminal":
@@ -600,8 +620,11 @@ def poc(result_file: str, output: str | None, fmt: str) -> None:
         with filepath.open() as f:
             data = json.load(f)
         result = CampaignResult.model_validate(data)
-    except Exception as e:
+    except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]Unexpected error loading result:[/bold red] {e}")
         sys.exit(1)
 
     from ziran.domain.entities.attack import AttackResult as _AttackResult
@@ -671,8 +694,11 @@ def policy(result_file: str, policy_path: str | None) -> None:
         with filepath.open() as f:
             data = json.load(f)
         result = CampaignResult.model_validate(data)
-    except Exception as e:
+    except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]Unexpected error loading result:[/bold red] {e}")
         sys.exit(1)
 
     try:
@@ -680,8 +706,11 @@ def policy(result_file: str, policy_path: str | None) -> None:
             engine = PolicyEngine.from_yaml(Path(policy_path))
         else:
             engine = PolicyEngine.default()
-    except Exception as e:
+    except (FileNotFoundError, ValueError) as e:
         console.print(f"[bold red]Error loading policy:[/bold red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]Unexpected error loading policy:[/bold red] {e}")
         sys.exit(1)
 
     verdict = engine.evaluate(result)
@@ -949,15 +978,21 @@ def ci(
         with filepath.open() as f:
             data = json.load(f)
         result = CampaignResult.model_validate(data)
-    except Exception as e:
+    except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]Unexpected error loading result:[/bold red] {e}")
         sys.exit(1)
 
     # 2. Build quality gate
     try:
         gate = QualityGate.from_yaml(Path(gate_config_path)) if gate_config_path else QualityGate()
-    except Exception as e:
+    except (FileNotFoundError, ValueError) as e:
         console.print(f"[bold red]Error loading gate config:[/bold red] {e}")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[bold red]Unexpected error loading gate config:[/bold red] {e}")
         sys.exit(1)
 
     # 3. Evaluate
@@ -1167,8 +1202,12 @@ def _load_remote_adapter(target_path: str, protocol_override: str | None = None)
 
     try:
         config = load_target_config(Path(target_path))
-    except Exception as e:
+    except (FileNotFoundError, ValueError) as e:
         raise click.ClickException(f"Failed to load target config from {target_path}: {e}") from e
+    except Exception as e:
+        raise click.ClickException(
+            f"Unexpected error loading target config from {target_path}: {e}"
+        ) from e
 
     if protocol_override:
         config.protocol = ProtocolType(protocol_override)
