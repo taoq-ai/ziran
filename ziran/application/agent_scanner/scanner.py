@@ -28,6 +28,12 @@ from ziran.application.knowledge_graph.graph import (
     EdgeType,
     NodeType,
 )
+from ziran.application.strategies.fixed import FixedStrategy
+from ziran.application.strategies.protocol import (
+    CampaignContext,
+    CampaignStrategy,
+    PhaseDecision,
+)
 from ziran.domain.entities.attack import AttackPrompt, AttackResult, AttackVector, TokenUsage
 from ziran.domain.entities.phase import (
     CORE_PHASES,
@@ -173,6 +179,7 @@ class AgentScanner:
         on_progress: Callable[[ProgressEvent], None] | None = None,
         coverage: CoverageLevel = CoverageLevel.STANDARD,
         max_concurrent_attacks: int = 5,
+        strategy: CampaignStrategy | None = None,
         streaming: bool = False,
     ) -> CampaignResult:
         """Execute a full scan campaign.
@@ -190,6 +197,10 @@ class AgentScanner:
                 for progress bars and real-time monitoring.
             coverage: Controls how many vectors run per phase.
             max_concurrent_attacks: Maximum parallel attacks within a phase.
+            strategy: Campaign execution strategy controlling phase ordering,
+                attack prioritization, and early-termination logic. Defaults
+                to :class:`FixedStrategy` which reproduces the original
+                sequential phase behaviour.
             streaming: If True, use streaming invocation for attacks when
                 the adapter supports it. Emits ``ATTACK_STREAMING`` progress
                 events with chunk data for real-time monitoring.
@@ -200,6 +211,10 @@ class AgentScanner:
         if phases is None:
             phases = CORE_PHASES
 
+        # Default to FixedStrategy for backwards compatibility
+        if strategy is None:
+            strategy = FixedStrategy(stop_on_critical=stop_on_critical)
+
         campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
         campaign_start = datetime.now(tz=UTC)
 
@@ -207,6 +222,7 @@ class AgentScanner:
         self._on_progress = on_progress
         self._coverage = coverage
         self._max_concurrent = max_concurrent_attacks
+        self._strategy = strategy
         self._streaming = streaming
 
         def _emit(event: ProgressEvent) -> None:
@@ -214,11 +230,12 @@ class AgentScanner:
                 on_progress(event)
 
         logger.info(
-            "Starting scan campaign %s with %d phases (coverage=%s, concurrency=%d, streaming=%s)",
+            "Starting scan campaign %s with %d phases (coverage=%s, concurrency=%d, strategy=%s, streaming=%s)",
             campaign_id,
             len(phases),
             coverage.value,
             max_concurrent_attacks,
+            type(strategy).__name__,
             streaming,
         )
 
@@ -236,25 +253,64 @@ class AgentScanner:
         phase_results: list[PhaseResult] = []
         campaign_tokens = TokenUsage()
 
-        for phase_idx, phase in enumerate(phases):
+        # Track which phases remain available for the strategy
+        remaining_phases = list(phases)
+        phase_idx = 0
+        total_phases = len(phases)
+
+        while True:
+            # Build context for strategy decision-making
+            context = CampaignContext(
+                completed_phases=list(phase_results),
+                available_phases=list(remaining_phases),
+                total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
+                critical_found=any(self._has_critical_finding(p) for p in phase_results),
+                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
+                discovered_capabilities=[c.id for c in capabilities],
+                graph_state=self.graph.export_state(),
+            )
+
+            # Check strategy termination
+            if strategy.should_stop(context):
+                logger.info("Strategy %s requested campaign stop", type(strategy).__name__)
+                break
+
+            # Ask strategy for the next phase
+            decision = strategy.select_next_phase(context)
+            if decision is None:
+                logger.info("Strategy returned no next phase — campaign complete")
+                break
+
+            phase = decision.phase
             self._current_phase = phase
-            logger.info("Executing phase: %s", phase.value)
+            self._current_decision = decision
+
+            logger.info(
+                "Executing phase: %s (reason: %s)",
+                phase.value,
+                decision.reasoning or "none",
+            )
 
             _emit(
                 ProgressEvent(
                     event=ProgressEventType.PHASE_START,
                     phase=phase.value,
                     phase_index=phase_idx,
-                    total_phases=len(phases),
+                    total_phases=total_phases,
                     message=f"Starting phase: {phase.value}",
+                    extra={"strategy_reasoning": decision.reasoning},
                 )
             )
 
             if reset_between_phases:
                 self.adapter.reset_state()
 
-            result = await self._execute_phase(phase, phase_idx, len(phases))
+            result = await self._execute_phase(phase, phase_idx, total_phases)
             phase_results.append(result)
+
+            # Remove executed phase from remaining
+            if phase in remaining_phases:
+                remaining_phases.remove(phase)
 
             # Aggregate tokens
             campaign_tokens = campaign_tokens + TokenUsage(
@@ -266,12 +322,24 @@ class AgentScanner:
             # Update knowledge graph with phase results
             self._update_graph_from_phase(result)
 
+            # Notify strategy of phase completion
+            updated_context = CampaignContext(
+                completed_phases=list(phase_results),
+                available_phases=list(remaining_phases),
+                total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
+                critical_found=any(self._has_critical_finding(p) for p in phase_results),
+                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
+                discovered_capabilities=[c.id for c in capabilities],
+                graph_state=self.graph.export_state(),
+            )
+            strategy.on_phase_complete(result, updated_context)
+
             _emit(
                 ProgressEvent(
                     event=ProgressEventType.PHASE_COMPLETE,
                     phase=phase.value,
                     phase_index=phase_idx,
-                    total_phases=len(phases),
+                    total_phases=total_phases,
                     message=f"Phase {phase.value}: {len(result.vulnerabilities_found)} vulns",
                     extra={"vulnerabilities": len(result.vulnerabilities_found)},
                 )
@@ -284,13 +352,7 @@ class AgentScanner:
                 result.trust_score,
             )
 
-            # Stop early if critical vulnerability and flag is set
-            if stop_on_critical and self._has_critical_finding(result):
-                logger.warning(
-                    "Critical vulnerability found in %s — stopping campaign early",
-                    phase.value,
-                )
-                break
+            phase_idx += 1
 
         # Analyze graph for attack paths
         critical_paths = self.graph.find_all_attack_paths()
@@ -423,6 +485,27 @@ class AgentScanner:
 
         # Get phase-specific attacks filtered by coverage level
         attacks = self.attack_library.get_attacks_for_phase(phase, coverage=coverage)
+
+        # Apply strategy-based attack prioritization and filtering
+        strategy: CampaignStrategy | None = getattr(self, "_strategy", None)
+        decision: PhaseDecision | None = getattr(self, "_current_decision", None)
+
+        if strategy is not None:
+            # Build a lightweight context for the strategy
+            strategy_context = CampaignContext(
+                graph_state=self.graph.export_state(),
+                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
+            )
+            attacks = strategy.prioritize_attacks(attacks, strategy_context)
+
+        if decision is not None:
+            # Apply decision-level filters (attack_filter, max_attacks)
+            if decision.attack_filter is not None:
+                allowed = set(decision.attack_filter)
+                attacks = [a for a in attacks if a.id in allowed]
+            if decision.max_attacks is not None:
+                attacks = attacks[: decision.max_attacks]
+
         logger.info(
             "Phase %s has %d attack vectors (coverage=%s)",
             phase.value,
