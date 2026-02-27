@@ -61,6 +61,9 @@ nav:
     - Detection Pipeline: concepts/detection-pipeline.md
     - OWASP Mapping: concepts/owasp-mapping.md
     - Architecture: concepts/architecture.md
+    - Multi-Agent Coordination: concepts/multi-agent.md
+    - Adaptive Campaigns: concepts/adaptive-campaigns.md
+    - Streaming: concepts/streaming.md
   - Guides:
     - Scanning Agents: guides/scanning-agents.md
     - Remote Agents: guides/remote-agents.md

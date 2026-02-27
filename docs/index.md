@@ -23,6 +23,9 @@ ZIRAN is the first open-source framework designed specifically for **agent secur
 
     - :link: **Tool Chain Analysis** — Automatically detects dangerous tool combinations across 30+ known patterns
     - :shield: **Multi-Phase Trust Exploitation** — Progressive campaigns that build trust before testing boundaries
+    - :people_holding_hands: **Multi-Agent Coordination** — Discover topologies and test cross-agent trust boundaries in supervisor, router, and peer-to-peer systems
+    - :brain: **Adaptive Campaigns** — Three execution strategies (fixed, rule-based adaptive, LLM-driven) that adjust attack plans based on findings
+    - :zap: **Streaming Support** — Real-time attack monitoring via SSE and WebSocket protocols
     - :globe_with_meridians: **Remote Agent Scanning** — Test any published agent over HTTPS (REST, OpenAI, MCP, A2A)
     - :world_map: **Knowledge Graph** — Every capability, relationship, and attack path tracked in a live graph
     - :bar_chart: **CI/CD Quality Gate** — Block deployments that fail security thresholds, with SARIF output
@@ -46,6 +49,9 @@ uv run python examples/10-vulnerable-agent/main.py
 | Agent-aware (tools + memory) | **Yes** | — | Partial | — | — |
 | Tool chain analysis | **Yes** | — | — | — | — |
 | Multi-phase campaigns | **Yes** | — | — | Partial | Yes |
+| Multi-agent coordination | **Yes** | — | — | — | — |
+| Adaptive campaigns | **Yes** | — | — | — | — |
+| Streaming (SSE/WebSocket) | **Yes** | — | — | — | — |
 | Knowledge graph tracking | **Yes** | — | — | — | — |
 | Remote agent scanning (HTTPS) | **Yes** | REST only | HTTP provider | Partial | — |
 | Multi-protocol (REST/OpenAI/MCP/A2A) | **Yes** | — | — | — | — |
@@ -56,5 +62,8 @@ uv run python examples/10-vulnerable-agent/main.py
 
 - :rocket: [Getting Started](getting-started.md) — Your first scan in 5 minutes
 - :brain: [Concepts](concepts/architecture.md) — Understand how ZIRAN works
+- :people_holding_hands: [Multi-Agent Scanning](concepts/multi-agent.md) — Test coordinated agent systems
+- :zap: [Streaming](concepts/streaming.md) — Real-time attack monitoring
+- :dart: [Adaptive Campaigns](concepts/adaptive-campaigns.md) — Intelligent attack strategies
 - :books: [Scanning Agents](guides/scanning-agents.md) — Scan your own agents
-- :test_tube: [Examples](https://github.com/taoq-ai/ziran/tree/main/examples) — 15 runnable examples from basic to advanced
+- :test_tube: [Examples](https://github.com/taoq-ai/ziran/tree/main/examples) — 18 runnable examples from basic to advanced
