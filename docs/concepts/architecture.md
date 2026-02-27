@@ -22,6 +22,8 @@ graph TB
         PoC[PoC Generator]
         PE[Policy Engine]
         QG[Quality Gate]
+        MA[Multi-Agent Scanner]
+        ST[Campaign Strategies]
     end
 
     subgraph Domain["Domain Layer"]
@@ -35,6 +37,8 @@ graph TB
         BR[Bedrock Adapter]
         HTTP[HTTP Agent Adapter]
         Protocols[Protocol Handlers]
+        SSE[SSE/WS Streaming]
+        LLM[LLM Backbone]
     end
 
     CLI --> Scanner
@@ -63,8 +67,10 @@ ziran/
 │   │   ├── campaign.py         # CampaignResult, PhaseResult, AttackResult
 │   │   ├── ci.py               # QualityGateConfig, GateResult
 │   │   ├── detection.py        # DetectorResult, Verdict
+│   │   ├── multi_agent.py      # MultiAgentTopology, AgentNode, AgentEdge
 │   │   ├── phase.py            # ScanPhase (8 phases)
 │   │   ├── policy.py           # Policy, PolicyRule, PolicyVerdict
+│   │   ├── streaming.py        # AgentResponseChunk, LLMResponseChunk
 │   │   └── target.py           # TargetConfig, ProtocolType, AuthConfig
 │   └── interfaces/             # Port interfaces (ABCs)
 │       ├── adapter.py          # AgentAdapter — the core extension point
@@ -80,6 +86,8 @@ ziran/
 │   ├── dynamic_vectors/        # LLM-powered vector generation
 │   ├── poc_generator/          # Exploit PoC generation
 │   ├── policy/                 # Policy engine
+│   ├── multi_agent/            # Multi-agent topology discovery & scanning
+│   ├── strategies/             # Campaign execution strategies (fixed, adaptive, llm-adaptive)
 │   └── cicd/                   # Quality gate + SARIF
 │
 ├── infrastructure/             # External integrations
@@ -88,7 +96,9 @@ ziran/
 │       ├── crewai_adapter.py
 │       ├── bedrock_adapter.py
 │       ├── http_agent_adapter.py  # Remote agent scanning
-│       └── protocols/             # REST, OpenAI, MCP, A2A handlers
+│       └── protocols/             # REST, OpenAI, MCP, A2A, SSE, WebSocket handlers
+│   ├── llm/                    # LLM backbone (LiteLLM, streaming)
+│   └── logging/                # Structured logging
 │
 └── interfaces/                 # Entry points
     └── cli/                    # Typer CLI application
@@ -135,12 +145,13 @@ The `AttackKnowledgeGraph` is the **shared state** across all scan phases. Each 
 | New attack vectors | YAML files | `--custom-attacks ./my_vectors/` |
 | New report format | `ReportGenerator` | Custom output format |
 | New protocol | `BaseProtocolHandler` | Custom wire protocol |
+| Campaign strategy | `CampaignStrategy` | Custom phase orchestration |
 | Static analysis check | `CheckDefinition` | New SA0xx check |
 | Policy rules | `PolicyRule` | Custom compliance rules |
 
 ## Testing
 
-ZIRAN has 428+ tests organized by architecture layer:
+ZIRAN has 840+ tests organized by architecture layer:
 
 ```bash
 # Run all tests

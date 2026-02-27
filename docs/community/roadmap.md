@@ -36,13 +36,44 @@
 - :white_check_mark: 11 dedicated A2A attack vectors
 - :white_check_mark: 15 runnable examples
 
-## Next: v0.4 — Hardening
+### v0.4 — Multi-Vendor & LLM Backbone
 
-- [ ] **Multi-agent coordination testing** — Test interactions between cooperating agents in supervisor/router architectures
-- [ ] **Streaming support** — SSE/WebSocket streaming for long-running agent responses
-- [ ] **Coverage for OWASP LLM04, LLM05, LLM10** — Model DoS, supply chain, and unbounded consumption vectors
-- [ ] **Remediation engine** — Auto-generate fix suggestions and guardrail configurations
-- [ ] **Adaptive campaigns** — Adjust attack strategy in real-time based on knowledge graph state
+- :white_check_mark: Multi-vendor LLM support via LiteLLM (OpenAI, Anthropic, AWS Bedrock, Google, and more)
+- :white_check_mark: LLM-as-a-Judge detection for nuanced semantic analysis
+- :white_check_mark: Amazon Bedrock Agent and AgentCore adapters
+- :white_check_mark: Dependency capping and compatibility hardening
+
+### v0.5 — Adaptive Intelligence
+
+- :white_check_mark: **Streaming support** — SSE and WebSocket protocol handlers for real-time attack monitoring
+- :white_check_mark: **Multi-agent coordination** — Topology discovery, individual and cross-agent scanning for supervisor, router, peer-to-peer, hierarchical, and pipeline architectures
+- :white_check_mark: **Adaptive campaigns** — Three execution strategies: fixed (sequential), adaptive (rule-based), and LLM-adaptive (LLM-driven phase orchestration)
+- :white_check_mark: **Campaign strategy protocol** — Extensible interface for custom campaign strategies
+- :white_check_mark: **327 multi-agent attack vectors** — Cross-agent prompt injection, delegation chain manipulation, shared memory poisoning
+- :white_check_mark: **18 runnable examples** — Including multi-agent, streaming, and adaptive campaign demos
+
+## Next: v0.6 — Pentesting Agent
+
+The flagship feature — an autonomous AI agent that performs penetration testing:
+
+- [ ] **Autonomous pentesting agent** — An LLM-powered agent that plans, executes, and adapts attack campaigns with minimal human intervention
+- [ ] **Attack chain reasoning** — The agent reasons about discovered vulnerabilities to chain multi-step exploits
+- [ ] **Interactive red-team mode** — Collaborate with the pentesting agent in a conversational interface
+- [ ] **Finding deduplication** — Intelligent merging of related findings across automated and agent-driven scans
+
+## v0.7 — Remediation Engine
+
+- [ ] **Auto-generated fix suggestions** — Concrete code patches and guardrail configurations for discovered vulnerabilities
+- [ ] **Guardrail templates** — Pre-built guardrail configurations for common agent frameworks
+- [ ] **Remediation validation** — Re-scan after applying fixes to verify remediation effectiveness
+- [ ] **Security policy generator** — Generate policy files from scan results
+
+## v0.8 — MCP Server Mode
+
+- [ ] **ZIRAN as an MCP server** — Expose scanning capabilities via the Model Context Protocol, enabling any MCP-compatible client to trigger scans
+- [ ] **Tool-based scanning interface** — Scan agents, browse results, and manage campaigns through MCP tool calls
+- [ ] **Integration with AI IDEs** — Use ZIRAN directly from Cursor, Windsurf, Claude Desktop, and other MCP clients
+- [ ] **Continuous monitoring** — Long-running MCP server mode for periodic security assessments
 
 ## Future
 

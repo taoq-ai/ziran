@@ -127,6 +127,29 @@ ziran scan --framework langchain --agent-path agent.py --no-stop-on-critical
 ziran scan --target target.yaml --concurrency 10
 ```
 
+### Campaign Strategy
+
+Choose how ZIRAN orchestrates scan phases:
+
+```bash
+# Fixed: run phases sequentially (default)
+ziran scan --target target.yaml --strategy fixed
+
+# Adaptive: rule-based phase ordering based on findings
+ziran scan --target target.yaml --strategy adaptive
+
+# LLM-Adaptive: LLM analyzes findings and plans the next phase
+ziran scan --target target.yaml --strategy llm-adaptive
+```
+
+### Streaming
+
+Enable real-time response monitoring via SSE or WebSocket:
+
+```bash
+ziran scan --target target.yaml --streaming
+```
+
 ### Custom Attack Vectors
 
 ```bash

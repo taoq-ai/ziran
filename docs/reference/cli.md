@@ -1,6 +1,6 @@
 # CLI Reference
 
-ZIRAN provides 7 commands for scanning, reporting, and CI/CD integration.
+ZIRAN provides 8 commands for scanning, reporting, and CI/CD integration.
 
 ## Global Options
 
@@ -33,6 +33,12 @@ ziran scan [OPTIONS]
 | `--custom-attacks` | No | — | Directory with custom YAML attack vectors |
 | `--stop-on-critical` | No | `true` | Stop if critical vulnerability found |
 | `--concurrency` | No | `5` | Max concurrent attacks |
+| `--strategy` | No | `fixed` | Campaign strategy: `fixed`, `adaptive`, `llm-adaptive` |
+| `--streaming` | No | `false` | Enable real-time SSE/WebSocket response streaming |
+| `--llm-provider` | No | — | LLM provider for AI-powered features |
+| `--llm-model` | No | — | LLM model name (e.g. `gpt-4o`, `claude-sonnet-4-20250514`) |
+| `--attack-timeout` | No | `60` | Per-attack timeout in seconds |
+| `--phase-timeout` | No | `300` | Per-phase timeout in seconds |
 
 \* Either `--framework` + `--agent-path` (local) or `--target` (remote) is required.
 
@@ -48,6 +54,40 @@ ziran scan --target target.yaml
 # Full audit with custom vectors
 ziran scan --target target.yaml --coverage comprehensive \
   --custom-attacks ./my_attacks/ --concurrency 10
+
+# Adaptive campaign
+ziran scan --target target.yaml --strategy adaptive
+
+# LLM-driven adaptive with streaming
+ziran scan --target target.yaml --strategy llm-adaptive --streaming
+```
+
+---
+
+### `ziran multi-agent-scan`
+
+Scan a multi-agent system — discovers topology and runs cross-agent attacks.
+
+```
+ziran multi-agent-scan [OPTIONS]
+```
+
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `--target` | Yes | — | YAML target config for the entry-point agent |
+| `--coverage` | No | `standard` | Coverage level: `essential`, `standard`, `comprehensive` |
+| `--concurrency` | No | `5` | Max concurrent attacks |
+| `--skip-individual` | No | `false` | Skip individual agent scans |
+| `--output`, `-o` | No | `ziran_results` | Output directory |
+
+**Examples:**
+
+```bash
+# Scan a multi-agent system
+ziran multi-agent-scan --target target.yaml
+
+# Full coverage, skip individual scans
+ziran multi-agent-scan --target target.yaml --coverage comprehensive --skip-individual
 ```
 
 ---

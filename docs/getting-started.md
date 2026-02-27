@@ -38,6 +38,7 @@ Install support for your agent framework:
 pip install ziran[langchain]   # LangChain agents
 pip install ziran[crewai]      # CrewAI agents
 pip install ziran[a2a]         # A2A protocol (Agent-to-Agent)
+pip install ziran[streaming]   # SSE/WebSocket streaming
 pip install ziran[all]         # Everything
 ```
 
@@ -50,6 +51,22 @@ ziran scan --framework langchain --agent-path my_agent.py
 ```
 
 Your agent file should export an `agent_executor` (LangChain) or `crew` (CrewAI) object.
+
+#### With adaptive strategy
+
+```bash
+# Rule-based adaptive campaign
+ziran scan --framework langchain --agent-path my_agent.py --strategy adaptive
+
+# LLM-driven adaptive campaign
+ziran scan --target target.yaml --strategy llm-adaptive
+```
+
+#### With streaming
+
+```bash
+ziran scan --target target.yaml --streaming
+```
 
 ### Option 2: Scan a Remote Agent
 
@@ -89,7 +106,15 @@ print(f"Found {result.total_vulnerabilities} vulnerabilities")
 print(f"Dangerous tool chains: {len(result.dangerous_tool_chains)}")
 ```
 
-### Option 4: Run an Example
+### Option 4: Scan a Multi-Agent System
+
+```bash
+ziran multi-agent-scan --target target.yaml
+```
+
+ZIRAN discovers the agent topology, scans each agent individually, then runs cross-agent attacks targeting trust boundaries and delegation patterns.
+
+### Option 5: Run an Example
 
 ZIRAN ships with 15 examples — from static analysis to multi-agent scanning:
 
@@ -105,6 +130,10 @@ uv run python examples/10-vulnerable-agent/main.py
 ```
 
 See the full [examples catalog](https://github.com/taoq-ai/ziran/tree/main/examples).
+
+!!! tip "18 examples available"
+
+    From static analysis and policy engines to multi-agent scanning, adaptive campaigns, and streaming — all runnable out of the box.
 
 ## Understanding Results
 
@@ -146,6 +175,9 @@ open reports/campaign_*_report.html
 |------|-------|
 | Understand how multi-phase scanning works | [Trust Exploitation Methodology](concepts/romance-scan.md) |
 | Learn about tool chain analysis | [Tool Chain Analysis](concepts/tool-chains.md) |
+| Scan multi-agent systems | [Multi-Agent Coordination](concepts/multi-agent.md) |
+| Use adaptive campaigns | [Adaptive Campaigns](concepts/adaptive-campaigns.md) |
+| Enable real-time streaming | [Streaming Support](concepts/streaming.md) |
 | Scan remote agents over HTTPS | [Remote Agent Scanning](guides/remote-agents.md) |
 | Set up CI/CD quality gates | [CI/CD Integration](guides/cicd-integration.md) |
 | Scan source code without running agents | [Static Analysis](guides/static-analysis.md) |

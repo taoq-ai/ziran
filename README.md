@@ -31,6 +31,9 @@ That's a fundamentally different attack surface.
 | Agent-aware (tools + memory) | **Yes** | — | Partial | — | — |
 | Tool chain analysis | **Yes** | — | — | — | — |
 | Multi-phase campaigns | **Yes** | — | — | Partial | Yes |
+| Multi-agent coordination | **Yes** | — | — | — | — |
+| Adaptive campaigns | **Yes** | — | — | — | — |
+| Streaming (SSE/WebSocket) | **Yes** | — | — | — | — |
 | Knowledge graph tracking | **Yes** | — | — | — | — |
 | Remote agent scanning (HTTPS) | **Yes** | REST only | HTTP provider | Partial | — |
 | Multi-protocol (REST/OpenAI/MCP/A2A) | **Yes** | — | — | — | — |
@@ -43,6 +46,9 @@ That's a fundamentally different attack surface.
 
 - **Tool Chain Analysis** — Detects dangerous tool combinations (`read_file` → `http_request` = data exfiltration). No other tool does this.
 - **Multi-Phase Trust Exploitation** — Progressive campaigns that build trust before testing boundaries, like a real attacker.
+- **Multi-Agent Coordination** — Discover topologies (supervisor, router, peer-to-peer) and test cross-agent trust boundaries and delegation patterns.
+- **Adaptive Campaigns** — Three execution strategies — fixed, rule-based adaptive, and LLM-driven — that adjust attack plans in real-time based on knowledge graph state.
+- **Streaming Support** — Real-time attack monitoring via SSE and WebSocket protocols for long-running agent responses.
 - **Knowledge Graph** — Every discovered capability, relationship, and attack path is tracked in a live graph.
 - **Remote Agent Scanning** — Test any published agent over HTTPS with YAML-driven target configuration. Supports REST, OpenAI-compatible, MCP, and A2A protocols with automatic detection.
 - **A2A Protocol Support** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents, including Agent Card discovery, task lifecycle attacks, and multi-turn manipulation.
@@ -59,6 +65,7 @@ pip install ziran
 pip install ziran[langchain]    # LangChain support
 pip install ziran[crewai]       # CrewAI support
 pip install ziran[a2a]          # A2A protocol support
+pip install ziran[streaming]    # SSE/WebSocket streaming
 pip install ziran[all]          # everything
 ```
 
@@ -74,6 +81,15 @@ ziran scan --framework langchain --agent-path my_agent.py
 
 # scan a remote agent over HTTPS
 ziran scan --target target.yaml
+
+# adaptive campaign with LLM-driven strategy
+ziran scan --target target.yaml --strategy llm-adaptive
+
+# stream responses in real-time
+ziran scan --target target.yaml --streaming
+
+# scan a multi-agent system
+ziran multi-agent-scan --target target.yaml
 
 # discover capabilities of a remote agent
 ziran discover --target target.yaml
@@ -220,6 +236,37 @@ flowchart LR
 | Exfiltration | Extract sensitive data *(opt-in)* |
 
 Each phase builds on the knowledge graph from previous phases.
+
+### Campaign Strategies
+
+| Strategy | Description |
+|----------|-------------|
+| `fixed` | Sequential phases in order (default) |
+| `adaptive` | Rule-based adaptation — skips, repeats, or re-orders phases based on knowledge graph state |
+| `llm-adaptive` | LLM-driven strategy — uses an LLM to analyze findings and plan the next phase dynamically |
+
+```bash
+ziran scan --target target.yaml --strategy adaptive
+ziran scan --target target.yaml --strategy llm-adaptive
+```
+
+### Multi-Agent Scanning
+
+Test coordinated multi-agent systems — supervisors, routers, peer-to-peer networks:
+
+```bash
+ziran multi-agent-scan --target target.yaml
+```
+
+ZIRAN discovers the agent topology, scans each agent individually, then runs cross-agent attacks targeting trust boundaries and delegation patterns.
+
+### Streaming
+
+Monitor attack responses in real-time via SSE or WebSocket:
+
+```bash
+ziran scan --target target.yaml --streaming
+```
 
 ---
 
