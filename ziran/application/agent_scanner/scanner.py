@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.domain.entities.capability import AgentCapability
-    from ziran.domain.interfaces.adapter import BaseAgentAdapter
+    from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ class ProgressEventType(StrEnum):
     PHASE_START = "phase_start"
     PHASE_ATTACKS_LOADED = "phase_attacks_loaded"
     ATTACK_START = "attack_start"
+    ATTACK_STREAMING = "attack_streaming"
     ATTACK_COMPLETE = "attack_complete"
     PHASE_COMPLETE = "phase_complete"
     CAMPAIGN_COMPLETE = "campaign_complete"
@@ -179,6 +180,7 @@ class AgentScanner:
         coverage: CoverageLevel = CoverageLevel.STANDARD,
         max_concurrent_attacks: int = 5,
         strategy: CampaignStrategy | None = None,
+        streaming: bool = False,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -199,6 +201,9 @@ class AgentScanner:
                 attack prioritization, and early-termination logic. Defaults
                 to :class:`FixedStrategy` which reproduces the original
                 sequential phase behaviour.
+            streaming: If True, use streaming invocation for attacks when
+                the adapter supports it. Emits ``ATTACK_STREAMING`` progress
+                events with chunk data for real-time monitoring.
 
         Returns:
             Complete campaign result with all findings and graph analysis.
@@ -218,6 +223,7 @@ class AgentScanner:
         self._coverage = coverage
         self._max_concurrent = max_concurrent_attacks
         self._strategy = strategy
+        self._streaming = streaming
 
         def _emit(event: ProgressEvent) -> None:
             if on_progress is not None:
@@ -230,6 +236,7 @@ class AgentScanner:
             coverage.value,
             max_concurrent_attacks,
             type(strategy).__name__,
+            streaming,
         )
 
         _emit(
@@ -645,6 +652,10 @@ class AgentScanner:
         uses the detector pipeline to determine success/failure.
         Tracks token consumption across all prompts.
 
+        When ``self._streaming`` is True and the adapter supports it,
+        uses streaming invocation and emits ``ATTACK_STREAMING`` progress
+        events with chunk data for real-time monitoring.
+
         Args:
             attack: The attack vector to execute.
 
@@ -669,7 +680,12 @@ class AgentScanner:
             rendered_prompt = self._render_prompt(prompt_spec)
 
             try:
-                response = await self.adapter.invoke(rendered_prompt)
+                use_streaming = getattr(self, "_streaming", False)
+
+                if use_streaming:
+                    response = await self._invoke_streaming(rendered_prompt, attack.name)
+                else:
+                    response = await self.adapter.invoke(rendered_prompt)
 
                 # Accumulate token usage
                 attack_tokens = attack_tokens + TokenUsage(
@@ -732,6 +748,68 @@ class AgentScanner:
             evidence={"note": "All prompts were blocked or failed"},
             owasp_mapping=attack.owasp_mapping,
             token_usage=attack_tokens,
+        )
+
+    async def _invoke_streaming(
+        self,
+        prompt: str,
+        attack_name: str,
+    ) -> AgentResponse:
+        """Invoke the agent with streaming and accumulate into AgentResponse.
+
+        Streams the agent response, emitting ``ATTACK_STREAMING`` progress
+        events for each chunk, then assembles the full ``AgentResponse``
+        for compatibility with the detection pipeline.
+
+        Args:
+            prompt: The rendered attack prompt.
+            attack_name: Name of the attack (for progress events).
+
+        Returns:
+            Assembled ``AgentResponse`` from accumulated chunks.
+        """
+        from ziran.domain.interfaces.adapter import AgentResponse
+
+        on_progress = getattr(self, "_on_progress", None)
+        content_parts: list[str] = []
+        tool_calls: list[dict[str, Any]] = []
+        metadata: dict[str, Any] = {}
+
+        async for chunk in self.adapter.stream(prompt):
+            if chunk.content_delta:
+                content_parts.append(chunk.content_delta)
+
+            if chunk.tool_call_delta:
+                tool_calls.append(chunk.tool_call_delta)
+
+            # Emit streaming progress event
+            if on_progress is not None:
+                on_progress(
+                    ProgressEvent(
+                        event=ProgressEventType.ATTACK_STREAMING,
+                        attack_name=attack_name,
+                        message=chunk.content_delta,
+                        extra={
+                            "is_final": chunk.is_final,
+                            "chunk_metadata": chunk.metadata,
+                        },
+                    )
+                )
+
+            if chunk.is_final:
+                metadata = chunk.metadata
+
+        content = "".join(content_parts)
+        # Deduplicate tool calls (streaming may send accumulated partials)
+        final_tool_calls = metadata.get("tool_calls", tool_calls)
+
+        return AgentResponse(
+            content=content,
+            tool_calls=final_tool_calls,
+            metadata=metadata,
+            prompt_tokens=metadata.get("prompt_tokens", 0),
+            completion_tokens=metadata.get("completion_tokens", 0),
+            total_tokens=metadata.get("total_tokens", 0),
         )
 
     @staticmethod

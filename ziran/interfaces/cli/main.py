@@ -178,6 +178,9 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     help="Campaign execution strategy: 'fixed' (sequential phases), "
     "'adaptive' (rule-based adaptation), or 'llm-adaptive' (LLM-driven). "
     "Default: fixed.",
+    "--streaming / --no-streaming",
+    default=False,
+    help="Use streaming invocation for attacks (real-time response monitoring).",
 )
 def scan(
     framework: str | None,
@@ -195,6 +198,7 @@ def scan(
     attack_timeout: float,
     phase_timeout: float,
     strategy: str,
+    streaming: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -259,6 +263,8 @@ def scan(
     config_table.add_row("Concurrency", str(concurrency))
     if strategy != "fixed":
         config_table.add_row("Strategy", strategy)
+    if streaming:
+        config_table.add_row("Streaming", "enabled")
     if custom_attacks:
         config_table.add_row("Custom Attacks", custom_attacks)
     if llm_provider or llm_model:
@@ -334,6 +340,7 @@ def scan(
                 coverage=coverage_level,
                 max_concurrent_attacks=concurrency,
                 strategy=campaign_strategy,
+                streaming=streaming,
             )
         )
 
@@ -1507,6 +1514,154 @@ def _build_strategy(
 
     # Default: fixed
     return FixedStrategy(stop_on_critical=stop_on_critical)
+# ──────────────────────────────────────────────────────────────────────
+# multi-agent-scan command
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command("multi-agent-scan")
+@click.option(
+    "--targets",
+    "-t",
+    multiple=True,
+    required=True,
+    type=click.Path(exists=True),
+    help="Paths to YAML target configs for each agent (specify multiple).",
+)
+@click.option(
+    "--entry-point",
+    type=str,
+    default=None,
+    help="ID of the entry-point agent (default: first target).",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default="ziran_multi_agent_results",
+    help="Output directory for results.",
+)
+@click.option(
+    "--coverage",
+    type=click.Choice(["essential", "standard", "comprehensive"], case_sensitive=False),
+    default="standard",
+    help="Attack coverage level.",
+)
+@click.option(
+    "--concurrency",
+    type=int,
+    default=5,
+    help="Maximum concurrent attacks per phase.",
+)
+@click.option(
+    "--skip-individual / --no-skip-individual",
+    default=False,
+    help="Skip individual agent scans (only run cross-agent tests).",
+)
+def multi_agent_scan(
+    targets: tuple[str, ...],
+    entry_point: str | None,
+    output: str,
+    coverage: str,
+    concurrency: int,
+    skip_individual: bool,
+) -> None:
+    """Run a multi-agent security scan campaign.
+
+    Discovers the topology of a multi-agent system, tests each agent
+    individually, then runs cross-agent attacks targeting trust
+    boundaries and delegation patterns.
+
+    \b
+    Examples:
+        ziran multi-agent-scan -t supervisor.yaml -t worker.yaml
+        ziran multi-agent-scan -t router.yaml -t agent_a.yaml -t agent_b.yaml --entry-point router
+    """
+    from ziran.domain.entities.target import TargetConfig
+
+    console.print(Panel(BANNER, style="bold green", expand=False))
+    console.print()
+
+    # Load adapters from target configs
+    adapters: dict[str, Any] = {}
+    for target_path in targets:
+        try:
+            import yaml
+
+            raw = yaml.safe_load(Path(target_path).read_text())
+            config = TargetConfig.model_validate(raw)
+            agent_id = Path(target_path).stem
+
+            from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+            adapters[agent_id] = HttpAgentAdapter(config)
+        except Exception as e:
+            console.print(f"[bold red]Error loading target {target_path}:[/bold red] {e}")
+            sys.exit(1)
+
+    if not adapters:
+        console.print("[bold red]Error:[/bold red] No valid target configs provided.")
+        sys.exit(1)
+
+    # Display config
+    config_table = Table(title="Multi-Agent Scan Configuration", show_header=False)
+    config_table.add_column("Key", style="cyan")
+    config_table.add_column("Value", style="white")
+    config_table.add_row("Agents", ", ".join(adapters.keys()))
+    config_table.add_row("Entry Point", entry_point or next(iter(adapters.keys())))
+    config_table.add_row("Coverage", coverage)
+    config_table.add_row("Concurrency", str(concurrency))
+    config_table.add_row("Individual Scans", "skipped" if skip_individual else "enabled")
+    console.print(config_table)
+    console.print()
+
+    from ziran.application.multi_agent.scanner import MultiAgentScanner
+
+    scanner = MultiAgentScanner(
+        adapters=adapters,
+        entry_point=entry_point,
+    )
+
+    coverage_level = CoverageLevel(coverage.lower())
+
+    with console.status("[bold yellow]Running multi-agent security scan...[/bold yellow]"):
+        result = asyncio.run(
+            scanner.run_multi_agent_campaign(
+                coverage=coverage_level,
+                max_concurrent_attacks=concurrency,
+                scan_individual=not skip_individual,
+                scan_cross_agent=True,
+            )
+        )
+
+    # Display summary
+    summary = result.summary()
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]Topology:[/bold] {summary['topology_type']}\n"
+            f"[bold]Agents Scanned:[/bold] {summary['agents_scanned']}\n"
+            f"[bold]Total Vulnerabilities:[/bold] {summary['total_vulnerabilities']}\n"
+            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}",
+            title="Multi-Agent Campaign Results",
+            style="bold green" if summary["total_vulnerabilities"] == 0 else "bold red",
+        )
+    )
+
+    output_dir = Path(output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save topology
+    import json
+
+    topology_path = output_dir / "topology.json"
+    topology_path.write_text(json.dumps(result.topology.model_dump(), indent=2))
+    console.print(f"\n[dim]Topology saved to {topology_path}[/dim]")
+
+    # Save summary
+    summary_path = output_dir / "multi_agent_summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2))
+    console.print(f"[dim]Summary saved to {summary_path}[/dim]")
 
 
 if __name__ == "__main__":
