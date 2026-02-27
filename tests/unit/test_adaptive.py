@@ -310,12 +310,12 @@ class TestScannerStrategyIntegration:
             def should_stop(self, context: CampaignContext) -> bool:
                 return len(context.completed_phases) >= 1
 
-            def on_phase_complete(self, phase_result: PhaseResult, context: CampaignContext) -> None:
+            def on_phase_complete(
+                self, phase_result: PhaseResult, context: CampaignContext
+            ) -> None:
                 pass
 
-            def prioritize_attacks(
-                self, attacks: list[Any], context: CampaignContext
-            ) -> list[Any]:
+            def prioritize_attacks(self, attacks: list[Any], context: CampaignContext) -> list[Any]:
                 return attacks
 
         adapter = MockAgentAdapter(

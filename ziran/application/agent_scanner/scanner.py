@@ -230,7 +230,7 @@ class AgentScanner:
                 on_progress(event)
 
         logger.info(
-            "Starting scan campaign %s with %d phases (coverage=%s, concurrency=%d, strategy=%s)",
+            "Starting scan campaign %s with %d phases (coverage=%s, concurrency=%d, strategy=%s, streaming=%s)",
             campaign_id,
             len(phases),
             coverage.value,

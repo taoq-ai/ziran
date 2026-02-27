@@ -178,6 +178,8 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     help="Campaign execution strategy: 'fixed' (sequential phases), "
     "'adaptive' (rule-based adaptation), or 'llm-adaptive' (LLM-driven). "
     "Default: fixed.",
+)
+@click.option(
     "--streaming / --no-streaming",
     default=False,
     help="Use streaming invocation for attacks (real-time response monitoring).",
@@ -1514,6 +1516,8 @@ def _build_strategy(
 
     # Default: fixed
     return FixedStrategy(stop_on_critical=stop_on_critical)
+
+
 # ──────────────────────────────────────────────────────────────────────
 # multi-agent-scan command
 # ──────────────────────────────────────────────────────────────────────
