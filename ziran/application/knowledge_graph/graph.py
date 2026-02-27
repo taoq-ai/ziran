@@ -27,6 +27,7 @@ class NodeType:
     DATA_SOURCE = "data_source"
     VULNERABILITY = "vulnerability"
     PHASE = "phase"
+    AGENT = "agent"
 
 
 class EdgeType:
@@ -40,6 +41,9 @@ class EdgeType:
     DISCOVERED_IN = "discovered_in"
     EXPLOITS = "exploits"
     LEADS_TO = "leads_to"
+    DELEGATES_TO = "delegates_to"
+    SHARES_CONTEXT = "shares_context"
+    TRUST_BOUNDARY = "trust_boundary"
 
 
 class AttackKnowledgeGraph:
@@ -355,3 +359,174 @@ class AttackKnowledgeGraph:
             node_type = data.get("node_type", "unknown")
             counts[node_type] = counts.get(node_type, 0) + 1
         return counts
+
+    # ── Multi-Agent Topology Methods ─────────────────────────────
+
+    def add_agent_node(
+        self,
+        agent_id: str,
+        role: str = "worker",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Add an agent node to the knowledge graph.
+
+        Args:
+            agent_id: Unique agent identifier.
+            role: Agent role (supervisor, router, worker, specialist).
+            metadata: Additional agent metadata.
+        """
+        self.graph.add_node(
+            agent_id,
+            node_type=NodeType.AGENT,
+            role=role,
+            **(metadata or {}),
+        )
+
+    def add_delegation_edge(
+        self,
+        source_agent: str,
+        target_agent: str,
+        delegation_pattern: str = "unknown",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Add a delegation edge between two agents.
+
+        Args:
+            source_agent: Delegating agent ID.
+            target_agent: Delegated-to agent ID.
+            delegation_pattern: How the delegation works.
+            metadata: Additional edge metadata.
+        """
+        self.graph.add_edge(
+            source_agent,
+            target_agent,
+            edge_type=EdgeType.DELEGATES_TO,
+            delegation_pattern=delegation_pattern,
+            **(metadata or {}),
+        )
+
+    def add_trust_boundary(
+        self,
+        agent_a: str,
+        agent_b: str,
+        boundary_type: str = "same_process",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Add a trust boundary between two agents.
+
+        Args:
+            agent_a: First agent ID.
+            agent_b: Second agent ID.
+            boundary_type: Type of trust boundary.
+            metadata: Additional boundary metadata.
+        """
+        self.graph.add_edge(
+            agent_a,
+            agent_b,
+            edge_type=EdgeType.TRUST_BOUNDARY,
+            boundary_type=boundary_type,
+            **(metadata or {}),
+        )
+
+    def add_context_sharing_edge(
+        self,
+        source_agent: str,
+        target_agent: str,
+        data_shared: list[str] | None = None,
+    ) -> None:
+        """Record that context/data is shared between agents.
+
+        Args:
+            source_agent: Agent sharing data.
+            target_agent: Agent receiving data.
+            data_shared: Types of data shared.
+        """
+        self.graph.add_edge(
+            source_agent,
+            target_agent,
+            edge_type=EdgeType.SHARES_CONTEXT,
+            data_shared=data_shared or [],
+        )
+
+    def import_topology(self, topology: Any) -> None:
+        """Import a MultiAgentTopology into the knowledge graph.
+
+        Adds all agents as AGENT nodes and all edges with their
+        delegation patterns and trust boundaries.
+
+        Args:
+            topology: A ``MultiAgentTopology`` instance.
+        """
+        for agent in topology.agents:
+            self.add_agent_node(
+                agent.id,
+                role=agent.role,
+                metadata={
+                    "name": agent.name,
+                    "framework": agent.framework,
+                    "model": agent.model,
+                    "is_entry_point": agent.is_entry_point,
+                    "capabilities": agent.capabilities,
+                },
+            )
+
+        for edge in topology.edges:
+            self.add_delegation_edge(
+                edge.source_id,
+                edge.target_id,
+                delegation_pattern=edge.delegation.value,
+                metadata={"data_shared": edge.data_shared},
+            )
+            self.add_trust_boundary(
+                edge.source_id,
+                edge.target_id,
+                boundary_type=edge.trust_boundary.value,
+            )
+            if edge.data_shared:
+                self.add_context_sharing_edge(
+                    edge.source_id,
+                    edge.target_id,
+                    data_shared=edge.data_shared,
+                )
+
+    def get_cross_agent_attack_paths(self) -> list[list[str]]:
+        """Find attack paths that cross agent trust boundaries.
+
+        Returns paths through the graph that traverse DELEGATES_TO
+        edges, representing potential cross-agent attack vectors.
+
+        Returns:
+            List of node ID sequences representing attack paths.
+        """
+        agent_nodes = [
+            n for n, d in self.graph.nodes(data=True) if d.get("node_type") == NodeType.AGENT
+        ]
+
+        paths: list[list[str]] = []
+        for source in agent_nodes:
+            for target in agent_nodes:
+                if source == target:
+                    continue
+                try:
+                    for path in nx.all_simple_paths(self.graph, source, target, cutoff=5):
+                        # Only include paths that cross delegation edges
+                        has_delegation = any(
+                            any(
+                                d.get("edge_type") == EdgeType.DELEGATES_TO
+                                for d in self.graph.get_edge_data(
+                                    path[i], path[i + 1], default={}
+                                ).values()
+                            )
+                            if isinstance(self.graph.get_edge_data(path[i], path[i + 1]), dict)
+                            else self.graph.get_edge_data(path[i], path[i + 1], default={}).get(
+                                "edge_type"
+                            )
+                            == EdgeType.DELEGATES_TO
+                            for i in range(len(path) - 1)
+                        )
+                        if has_delegation:
+                            paths.append(path)
+                except nx.NetworkXError:
+                    continue
+
+        return paths

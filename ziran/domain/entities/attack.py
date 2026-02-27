@@ -40,6 +40,7 @@ class AttackCategory(StrEnum):
     INDIRECT_INJECTION = "indirect_injection"
     MEMORY_POISONING = "memory_poisoning"
     CHAIN_OF_THOUGHT_MANIPULATION = "chain_of_thought_manipulation"
+    MULTI_AGENT = "multi_agent"
 
 
 class OwaspLlmCategory(StrEnum):
