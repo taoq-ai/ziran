@@ -22,7 +22,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --group dev --extra all
 
       - name: Run unit tests
         run: uv run pytest -m "not integration" --cov=ziran --cov-report=xml --cov-report=term-missing -v
