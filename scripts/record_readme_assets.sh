@@ -58,7 +58,7 @@ Sleep 1s
 Type "python examples/19-pentesting-agent/main.py"
 Sleep 500ms
 Enter
-Sleep 30s
+Sleep 60s
 TAPE
 
 info "Recording demo GIF (runs the pentesting agent in autonomous mode)…"
