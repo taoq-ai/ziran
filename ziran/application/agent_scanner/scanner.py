@@ -181,6 +181,7 @@ class AgentScanner:
         max_concurrent_attacks: int = 5,
         strategy: CampaignStrategy | None = None,
         streaming: bool = False,
+        exclude_vectors: set[str] | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -224,6 +225,7 @@ class AgentScanner:
         self._max_concurrent = max_concurrent_attacks
         self._strategy = strategy
         self._streaming = streaming
+        self._exclude_vectors = exclude_vectors or set()
 
         def _emit(event: ProgressEvent) -> None:
             if on_progress is not None:
@@ -485,6 +487,20 @@ class AgentScanner:
 
         # Get phase-specific attacks filtered by coverage level
         attacks = self.attack_library.get_attacks_for_phase(phase, coverage=coverage)
+
+        # Exclude already-tested vectors to avoid redundant work
+        exclude: set[str] = getattr(self, "_exclude_vectors", set())
+        if exclude:
+            before = len(attacks)
+            attacks = [a for a in attacks if a.id not in exclude]
+            if before != len(attacks):
+                logger.info(
+                    "Phase %s: excluded %d already-tested vectors (%d → %d)",
+                    phase.value,
+                    before - len(attacks),
+                    before,
+                    len(attacks),
+                )
 
         # Apply strategy-based attack prioritization and filtering
         strategy: CampaignStrategy | None = getattr(self, "_strategy", None)

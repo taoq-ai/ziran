@@ -63,6 +63,7 @@ nav:
     - Architecture: concepts/architecture.md
     - Multi-Agent Coordination: concepts/multi-agent.md
     - Adaptive Campaigns: concepts/adaptive-campaigns.md
+    - Pentesting Agent: concepts/pentesting-agent.md
     - Streaming: concepts/streaming.md
   - Guides:
     - Scanning Agents: guides/scanning-agents.md

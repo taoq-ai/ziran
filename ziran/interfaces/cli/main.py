@@ -1668,5 +1668,365 @@ def multi_agent_scan(
     console.print(f"[dim]Summary saved to {summary_path}[/dim]")
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Pentest command
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.option(
+    "--framework",
+    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
+    default=None,
+    help="Agent framework to test (for in-process scanning).",
+)
+@click.option(
+    "--target",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to YAML target config for remote agent scanning.",
+)
+@click.option(
+    "--goal",
+    "-g",
+    type=str,
+    required=True,
+    help="Pentesting objective (e.g. 'Find prompt injection vulnerabilities').",
+)
+@click.option(
+    "--interactive",
+    "-i",
+    is_flag=True,
+    default=False,
+    help="Enable interactive red-team mode (REPL).",
+)
+@click.option(
+    "--max-iterations",
+    type=int,
+    default=10,
+    help="Maximum agent iterations (default: 10).",
+)
+@click.option(
+    "--llm-provider",
+    type=str,
+    required=True,
+    envvar="ZIRAN_LLM_PROVIDER",
+    help="LLM provider for agent reasoning (e.g. 'openai', 'anthropic'). Required.",
+)
+@click.option(
+    "--llm-model",
+    type=str,
+    required=True,
+    envvar="ZIRAN_LLM_MODEL",
+    help="LLM model name (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'). Required.",
+)
+@click.option(
+    "--embedding-model",
+    type=str,
+    default="text-embedding-3-small",
+    help="Embedding model for finding deduplication.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default="ziran_pentest_results",
+    help="Output directory for results.",
+)
+def pentest(
+    framework: str | None,
+    target: str | None,
+    goal: str,
+    interactive: bool,
+    max_iterations: int,
+    llm_provider: str,
+    llm_model: str,
+    embedding_model: str,
+    output: str,
+) -> None:
+    """Run an autonomous pentesting agent against an AI agent.
+
+    The pentesting agent uses LLM-powered reasoning to plan, execute,
+    and adapt multi-phase penetration testing campaigns. It discovers
+    vulnerabilities, reasons about attack chains, and deduplicates
+    findings using semantic embeddings.
+
+    Requires the 'pentest' extra: pip install ziran[pentest]
+
+    \b
+    Examples:
+        # Autonomous mode (default)
+        ziran pentest --target target.yaml --goal "Find prompt injection" \\
+            --llm-provider openai --llm-model gpt-4o
+
+        # Interactive red-team mode
+        ziran pentest -i --target target.yaml --goal "Red team the agent" \\
+            --llm-provider anthropic --llm-model claude-sonnet-4-20250514
+
+        # With custom iterations and framework
+        ziran pentest --framework langchain --goal "Test tool access controls" \\
+            --llm-provider openai --llm-model gpt-4o --max-iterations 20
+    """
+    try:
+        from ziran.application.pentesting.orchestrator import PentestOrchestrator
+    except ImportError:
+        console.print(
+            "[bold red]Error:[/bold red] The pentesting agent requires the 'pentest' extra.\n"
+            "Install with: [bold]pip install ziran[pentest][/bold]"
+        )
+        sys.exit(1)
+
+    console.print(Panel(BANNER, style="bold green", expand=False))
+    console.print()
+
+    # Load adapter
+    adapter = _load_pentest_adapter(framework, target)
+
+    # Create LLM client
+    from ziran.infrastructure.llm.factory import create_llm_client
+
+    llm_client = create_llm_client(provider=llm_provider, model=llm_model)
+
+    # Display config
+    config_table = Table(title="Pentesting Agent Configuration", show_header=False)
+    config_table.add_column("Key", style="cyan")
+    config_table.add_column("Value", style="white")
+    config_table.add_row("Goal", goal)
+    config_table.add_row("Mode", "Interactive" if interactive else "Autonomous")
+    config_table.add_row("Max Iterations", str(max_iterations))
+    config_table.add_row("LLM", f"{llm_provider}/{llm_model}")
+    config_table.add_row("Embedding Model", embedding_model)
+    config_table.add_row("Target", target or framework or "unknown")
+    console.print(config_table)
+    console.print()
+
+    orchestrator = PentestOrchestrator(
+        adapter=adapter,
+        llm_client=llm_client,
+        max_iterations=max_iterations,
+        embedding_model=embedding_model,
+    )
+
+    if interactive:
+        _run_interactive_mode(orchestrator, goal, output)
+    else:
+        _run_autonomous_mode(orchestrator, goal, output)
+
+
+def _load_pentest_adapter(
+    framework: str | None,
+    target: str | None,
+) -> Any:
+    """Load the agent adapter for pentesting."""
+    if target:
+        import yaml
+
+        from ziran.domain.entities.target import TargetConfig
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        raw = yaml.safe_load(Path(target).read_text())
+        config = TargetConfig.model_validate(raw)
+        return HttpAgentAdapter(config)
+    elif framework:
+        # For framework-based, create a placeholder
+        console.print(
+            f"[yellow]Note:[/yellow] In-process pentesting with '{framework}' "
+            "requires an agent instance. Using remote scanning is recommended."
+        )
+        console.print("[bold red]Error:[/bold red] Specify --target for remote agent pentesting.")
+        sys.exit(1)
+    else:
+        console.print("[bold red]Error:[/bold red] Specify --target (YAML config) or --framework.")
+        sys.exit(1)
+
+
+def _run_autonomous_mode(
+    orchestrator: Any,
+    goal: str,
+    output: str,
+) -> None:
+    """Run in autonomous mode with Rich progress output."""
+    from rich.live import Live
+    from rich.spinner import Spinner
+
+    console.print("[bold yellow]Starting autonomous pentesting agent...[/bold yellow]")
+    console.print()
+
+    with Live(
+        Spinner("dots", text="Agent is thinking..."),
+        console=console,
+        refresh_per_second=4,
+    ):
+        session = asyncio.run(orchestrator.run_autonomous(goal=goal))
+
+    # Display results
+    _display_session_results(session)
+
+    # Export reports
+    report_paths = asyncio.run(orchestrator.export_report(session, output_dir=output))
+    for path in report_paths:
+        console.print(f"[dim]Report saved to {path}[/dim]")
+
+
+def _run_interactive_mode(
+    orchestrator: Any,
+    goal: str,
+    output: str,
+) -> None:
+    """Run interactive red-team REPL mode."""
+    from rich.prompt import Prompt
+
+    console.print("[bold yellow]Starting interactive pentesting session...[/bold yellow]")
+    console.print("[dim]Commands: /status, /findings, /plan, /export, /quit[/dim]")
+    console.print()
+
+    session = asyncio.run(orchestrator.start_interactive(goal=goal))
+    console.print(
+        Panel(
+            f"Session [bold]{session.session_id}[/bold] started\n"
+            f"Status: {session.status.value}\n"
+            f"Steps taken: {len(session.steps)}",
+            title="Session Initialized",
+            style="green",
+        )
+    )
+
+    # Display initial results
+    if session.steps:
+        last_step = session.steps[-1]
+        console.print(f"\n[bold cyan]Agent:[/bold cyan] {last_step.result_summary}")
+
+    while True:
+        try:
+            user_input = Prompt.ask("\n[bold green]You[/bold green]")
+        except (KeyboardInterrupt, EOFError):
+            break
+
+        if not user_input.strip():
+            continue
+
+        cmd = user_input.strip().lower()
+
+        if cmd == "/quit":
+            break
+        elif cmd == "/status":
+            console.print(
+                Panel(
+                    f"Session: {session.session_id}\n"
+                    f"Status: {session.status.value}\n"
+                    f"Iterations: {session.iteration_count}/{session.max_iterations}\n"
+                    f"Vulnerabilities: {session.total_vulnerabilities}\n"
+                    f"Attacks: {session.total_attacks_executed}\n"
+                    f"Steps: {len(session.steps)}",
+                    title="Session Status",
+                )
+            )
+            continue
+        elif cmd == "/findings":
+            if session.findings:
+                for f in session.findings:
+                    console.print(
+                        f"  [{f.severity}] {f.canonical_title} ({', '.join(f.owasp_categories)})"
+                    )
+            else:
+                console.print("[dim]No deduplicated findings yet.[/dim]")
+            continue
+        elif cmd == "/plan":
+            if session.plan:
+                console.print(
+                    Panel(
+                        f"Goal: {session.plan.goal}\n"
+                        f"Strategy: {session.plan.attack_strategy or 'auto'}\n"
+                        f"Phases: {', '.join(session.plan.phases_to_explore) or 'auto'}",
+                        title="Current Plan",
+                    )
+                )
+            else:
+                console.print("[dim]No plan set yet.[/dim]")
+            continue
+        elif cmd == "/export":
+            report_paths = asyncio.run(orchestrator.export_report(session, output_dir=output))
+            for path in report_paths:
+                console.print(f"[dim]Report saved to {path}[/dim]")
+            continue
+
+        # Send directive to agent
+        with console.status("[bold yellow]Agent processing...[/bold yellow]"):
+            session = asyncio.run(orchestrator.send_directive(session.session_id, user_input))
+
+        # Display agent response
+        if session.steps:
+            last_step = session.steps[-1]
+            console.print(f"\n[bold cyan]Agent:[/bold cyan] {last_step.result_summary}")
+
+    # Final export on quit
+    console.print("\n[dim]Session ended. Exporting results...[/dim]")
+    report_paths = asyncio.run(orchestrator.export_report(session, output_dir=output))
+    for path in report_paths:
+        console.print(f"[dim]Report saved to {path}[/dim]")
+
+    _display_session_results(session)
+
+
+def _display_session_results(session: Any) -> None:
+    """Display session results in the console."""
+    from ziran.domain.entities.pentest import PentestSession
+
+    if not isinstance(session, PentestSession):
+        return
+
+    # Summary panel
+    status_style = "green" if session.total_vulnerabilities == 0 else "red"
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]Status:[/bold] {session.status.value}\n"
+            f"[bold]Iterations:[/bold] {session.iteration_count}\n"
+            f"[bold]Vulnerabilities:[/bold] {session.total_vulnerabilities}\n"
+            f"[bold]Attacks Executed:[/bold] {session.total_attacks_executed}\n"
+            f"[bold]Findings:[/bold] {len(session.findings)}\n"
+            f"[bold]Token Usage:[/bold] {session.token_usage}",
+            title="Pentesting Session Results",
+            style=f"bold {status_style}",
+        )
+    )
+
+    # Steps table
+    if session.steps:
+        steps_table = Table(title="Agent Steps")
+        steps_table.add_column("#", style="dim")
+        steps_table.add_column("Type", style="cyan")
+        steps_table.add_column("Tool", style="yellow")
+        steps_table.add_column("Result", style="white")
+        steps_table.add_column("Duration", style="dim")
+
+        for i, step in enumerate(session.steps, 1):
+            steps_table.add_row(
+                str(i),
+                step.step_type.value,
+                step.tool_name or "-",
+                step.result_summary[:60],
+                f"{step.duration_seconds:.1f}s",
+            )
+        console.print(steps_table)
+
+    # Findings table
+    if session.findings:
+        findings_table = Table(title="Deduplicated Findings")
+        findings_table.add_column("Title", style="white")
+        findings_table.add_column("Severity", style="red")
+        findings_table.add_column("OWASP", style="cyan")
+        findings_table.add_column("Vectors", style="dim")
+
+        for finding in session.findings:
+            findings_table.add_row(
+                finding.canonical_title,
+                finding.severity,
+                ", ".join(finding.owasp_categories),
+                str(len(finding.attack_result_ids)),
+            )
+        console.print(findings_table)
+
+
 if __name__ == "__main__":
     cli()

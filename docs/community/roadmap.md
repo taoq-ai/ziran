@@ -56,10 +56,10 @@
 
 The flagship feature — an autonomous AI agent that performs penetration testing:
 
-- [ ] **Autonomous pentesting agent** — An LLM-powered agent that plans, executes, and adapts attack campaigns with minimal human intervention
-- [ ] **Attack chain reasoning** — The agent reasons about discovered vulnerabilities to chain multi-step exploits
-- [ ] **Interactive red-team mode** — Collaborate with the pentesting agent in a conversational interface
-- [ ] **Finding deduplication** — Intelligent merging of related findings across automated and agent-driven scans
+- [x] **Autonomous pentesting agent** — An LLM-powered agent that plans, executes, and adapts attack campaigns with minimal human intervention
+- [x] **Attack chain reasoning** — The agent reasons about discovered vulnerabilities to chain multi-step exploits
+- [x] **Interactive red-team mode** — Collaborate with the pentesting agent in a conversational interface
+- [x] **Finding deduplication** — Intelligent merging of related findings across automated and agent-driven scans
 
 ## v0.7 — Remediation Engine
 

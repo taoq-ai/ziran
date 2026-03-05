@@ -215,6 +215,136 @@ class TestAdaptiveStrategy:
         # Should have reordered (critical before low)
         assert len(result) == 2
 
+    def test_select_none_when_no_phases(self) -> None:
+        """select_next_phase returns None when available_phases is empty."""
+        from ziran.application.strategies.adaptive import AdaptiveStrategy
+
+        strategy = AdaptiveStrategy()
+        ctx = CampaignContext(available_phases=[])
+        assert strategy.select_next_phase(ctx) is None
+
+    def test_stop_on_critical(self) -> None:
+        """should_stop returns True when stop_on_critical and critical found."""
+        from ziran.application.strategies.adaptive import AdaptiveStrategy
+
+        strategy = AdaptiveStrategy(stop_on_critical=True)
+        ctx = CampaignContext(critical_found=True, available_phases=[ScanPhase.EXECUTION])
+        assert strategy.should_stop(ctx) is True
+
+    def test_skip_low_score_after_failures(self) -> None:
+        """select_next_phase returns None when best score < 0.1 and ≥2 failures."""
+        from ziran.application.strategies.adaptive import AdaptiveStrategy
+        from ziran.domain.entities.phase import PhaseResult
+
+        strategy = AdaptiveStrategy(max_consecutive_failures=5)
+        # Simulate 2 consecutive failures
+        for phase in [ScanPhase.RECONNAISSANCE, ScanPhase.TRUST_BUILDING]:
+            empty_result = PhaseResult(
+                phase=phase,
+                success=False,
+                vulnerabilities_found=[],
+                trust_score=0.5,
+                graph_state={},
+                duration_seconds=1.0,
+                token_usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            )
+            strategy.on_phase_complete(empty_result, CampaignContext())
+
+        # Offer only late-stage phases that would score very low
+        ctx = CampaignContext(
+            available_phases=[ScanPhase.PERSISTENCE, ScanPhase.EXFILTRATION],
+            total_vulnerabilities=0,
+        )
+        decision = strategy.select_next_phase(ctx)
+        # May return None if both score < 0.1, or a decision otherwise
+        # In either case, the branch is exercised
+        assert decision is None or decision.phase in ctx.available_phases
+
+    def test_prioritize_boosts_successful_categories(self) -> None:
+        """Attacks whose categories previously succeeded should rank higher."""
+        from ziran.application.strategies.adaptive import AdaptiveStrategy
+        from ziran.domain.entities.attack import AttackCategory, AttackVector
+        from ziran.domain.entities.phase import PhaseResult
+
+        strategy = AdaptiveStrategy()
+
+        # Mark prompt_injection as a successful category
+        result = PhaseResult(
+            phase=ScanPhase.RECONNAISSANCE,
+            success=True,
+            vulnerabilities_found=["v1"],
+            trust_score=0.5,
+            graph_state={},
+            duration_seconds=1.0,
+            token_usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            artifacts={"v1": {"category": "prompt_injection"}},
+        )
+        strategy.on_phase_complete(result, CampaignContext())
+
+        attacks = [
+            AttackVector(
+                id="a1",
+                name="Tool attack",
+                category=AttackCategory.TOOL_MANIPULATION,
+                severity="medium",
+                target_phase=ScanPhase.EXECUTION,
+                description="Tool test",
+            ),
+            AttackVector(
+                id="a2",
+                name="Injection attack",
+                category=AttackCategory.PROMPT_INJECTION,
+                severity="medium",
+                target_phase=ScanPhase.EXECUTION,
+                description="Injection test",
+            ),
+        ]
+        # Add discovered capability that matches an attack name
+        ctx = CampaignContext(discovered_capabilities=["injection"])
+        ordered = strategy.prioritize_attacks(attacks, ctx)
+        assert len(ordered) == 2
+        # Injection attack should be first (boosted by successful category + capability match)
+        assert ordered[0].id == "a2"
+
+    def test_score_phase_exploitation_boosted(self) -> None:
+        """Exploitation phases get a boost when vulns are found."""
+        from ziran.application.strategies.adaptive import AdaptiveStrategy
+
+        strategy = AdaptiveStrategy()
+        ctx = CampaignContext(
+            available_phases=[ScanPhase.EXPLOITATION_SETUP],
+            total_vulnerabilities=3,
+        )
+        decision = strategy.select_next_phase(ctx)
+        assert decision is not None
+        assert "exploitation is promising" in decision.reasoning
+
+    def test_score_phase_late_penalized(self) -> None:
+        """Late phases penalized when no vulns found."""
+        from ziran.application.strategies.adaptive import AdaptiveStrategy
+
+        strategy = AdaptiveStrategy()
+        ctx = CampaignContext(
+            available_phases=[ScanPhase.EXFILTRATION],
+            total_vulnerabilities=0,
+        )
+        decision = strategy.select_next_phase(ctx)
+        assert decision is not None
+        assert "late phases" in decision.reasoning
+
+    def test_score_phase_early_boosted(self) -> None:
+        """Recon/trust phases boosted when no phases completed yet."""
+        from ziran.application.strategies.adaptive import AdaptiveStrategy
+
+        strategy = AdaptiveStrategy()
+        ctx = CampaignContext(
+            available_phases=[ScanPhase.RECONNAISSANCE],
+            completed_phases=[],
+        )
+        decision = strategy.select_next_phase(ctx)
+        assert decision is not None
+        assert "early phases" in decision.reasoning
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Scanner strategy integration

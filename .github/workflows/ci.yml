@@ -74,13 +74,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --group test
+        run: uv sync --group test --extra all
 
       - name: Run unit tests
         run: uv run pytest -m "not integration" --cov=ziran --cov-report=term-missing -v
 
       - name: Check coverage threshold
-        run: uv run pytest -m "not integration" --cov=ziran --cov-fail-under=80 --no-header -q
+        run: uv run pytest -m "not integration" --cov=ziran --cov-fail-under=89 --no-header -q
 
   integration-test:
     runs-on: ubuntu-latest

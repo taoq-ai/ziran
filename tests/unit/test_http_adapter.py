@@ -744,3 +744,406 @@ class TestProbeDiscoverExtended:
         adapter._handler = handler
         caps = await adapter._probe_discover()
         assert caps == []
+
+
+# ──────────────────────────────────────────────────────────────────────
+# OpenAI handler: health_check
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestOpenAIHealthCheck:
+    """Tests for OpenAIProtocolHandler health_check."""
+
+    async def test_health_check_ok(self) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        client.get.return_value = mock_resp
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(client, config)
+        assert await handler.health_check() is True
+
+    async def test_health_check_server_error(self) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        client.get.return_value = mock_resp
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(client, config)
+        assert await handler.health_check() is False
+
+    async def test_health_check_network_error(self) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.get.side_effect = httpx.ConnectError("refused")
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(client, config)
+        assert await handler.health_check() is False
+
+
+# ──────────────────────────────────────────────────────────────────────
+# OpenAI handler: send error paths
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestOpenAISendErrors:
+    """Tests for OpenAIProtocolHandler send error handling."""
+
+    async def test_http_status_error(self) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 429
+        client.post.side_effect = httpx.HTTPStatusError(
+            "Rate limited",
+            request=MagicMock(),
+            response=mock_resp,
+        )
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(client, config)
+        with pytest.raises(ProtocolError) as exc_info:
+            await handler.send("test")
+        assert exc_info.value.status_code == 429
+
+    async def test_http_connection_error(self) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.post.side_effect = httpx.ConnectError("refused")
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(client, config)
+        with pytest.raises(ProtocolError):
+            await handler.send("test")
+
+    async def test_send_with_tool_calls_parsed(self) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "function": {
+                                    "name": "get_weather",
+                                    "arguments": '{"city": "NYC"}',
+                                },
+                            }
+                        ],
+                    }
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+        mock_resp.raise_for_status = MagicMock()
+        client.post.return_value = mock_resp
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(client, config)
+        result = await handler.send("weather?")
+
+        assert len(result["tool_calls"]) == 1
+        assert result["tool_calls"][0]["name"] == "get_weather"
+        assert result["tool_calls"][0]["arguments"] == '{"city": "NYC"}'
+
+    async def test_discover_empty_on_error(self) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.get.side_effect = httpx.ConnectError("refused")
+
+        config = TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+        handler = OpenAIProtocolHandler(client, config)
+        caps = await handler.discover()
+        assert caps == []
+
+
+# ──────────────────────────────────────────────────────────────────────
+# OpenAI handler: stream_send
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestOpenAIStreamSend:
+    """Tests for OpenAIProtocolHandler.stream_send streaming."""
+
+    @pytest.fixture()
+    def config(self) -> TargetConfig:
+        return TargetConfig(url="https://api.openai.com", protocol=ProtocolType.OPENAI)
+
+    async def test_stream_yields_content_chunks(self, config: TargetConfig) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        sse_lines = (
+            b'data: {"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}\n\n'
+            b'data: {"choices":[{"delta":{"content":" world"},"finish_reason":null}]}\n\n'
+            b"data: [DONE]\n\n"
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        async def aiter_bytes():
+            yield sse_lines
+
+        mock_response.aiter_bytes = aiter_bytes
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.stream.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        client.stream.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        handler = OpenAIProtocolHandler(client, config)
+        chunks = []
+        async for chunk in handler.stream_send("Hi"):
+            chunks.append(chunk)
+
+        # Should see content chunks + final DONE chunk
+        assert len(chunks) >= 2
+        content_chunks = [c for c in chunks if c.content_delta]
+        assert "Hello" in content_chunks[0].content_delta
+        assert chunks[-1].is_final is True
+
+    async def test_stream_handles_error_status(self, config: TargetConfig) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.aread = AsyncMock(return_value=b"Rate limited")
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.stream.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        client.stream.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        handler = OpenAIProtocolHandler(client, config)
+        with pytest.raises(ProtocolError):
+            async for _c in handler.stream_send("Hi"):
+                pass
+
+    async def test_stream_without_done_marker(self, config: TargetConfig) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        sse_lines = b'data: {"choices":[{"delta":{"content":"Partial"},"finish_reason":null}]}\n\n'
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        async def aiter_bytes():
+            yield sse_lines
+
+        mock_response.aiter_bytes = aiter_bytes
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.stream.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        client.stream.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        handler = OpenAIProtocolHandler(client, config)
+        chunks = []
+        async for chunk in handler.stream_send("Hi"):
+            chunks.append(chunk)
+
+        # Without [DONE], still yields a final chunk
+        assert chunks[-1].is_final is True
+
+    async def test_stream_with_tool_calls(self, config: TargetConfig) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        sse_lines = (
+            b'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"get_weather","arguments":"{\\"city"}}]},"finish_reason":null}]}\n\n'
+            b'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":":\\"NYC\\"}"}}]},"finish_reason":null}]}\n\n'
+            b"data: [DONE]\n\n"
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        async def aiter_bytes():
+            yield sse_lines
+
+        mock_response.aiter_bytes = aiter_bytes
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.stream.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        client.stream.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        handler = OpenAIProtocolHandler(client, config)
+        chunks = []
+        async for chunk in handler.stream_send("weather?"):
+            chunks.append(chunk)
+
+        # Tool call chunks should be present
+        tool_chunks = [c for c in chunks if c.tool_call_delta]
+        assert len(tool_chunks) >= 1
+        assert tool_chunks[0].tool_call_delta["name"] == "get_weather"
+
+    async def test_stream_skips_comments_and_empty_lines(self, config: TargetConfig) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        sse_lines = (
+            b": this is a comment\n"
+            b"\n"
+            b'data: {"choices":[{"delta":{"content":"OK"},"finish_reason":null}]}\n\n'
+            b"data: [DONE]\n\n"
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        async def aiter_bytes():
+            yield sse_lines
+
+        mock_response.aiter_bytes = aiter_bytes
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.stream.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        client.stream.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        handler = OpenAIProtocolHandler(client, config)
+        chunks = []
+        async for chunk in handler.stream_send("Hi"):
+            chunks.append(chunk)
+
+        content_chunks = [c for c in chunks if c.content_delta]
+        assert len(content_chunks) == 1
+        assert content_chunks[0].content_delta == "OK"
+
+    async def test_stream_network_error(self, config: TargetConfig) -> None:
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        client = AsyncMock(spec=httpx.AsyncClient)
+        client.stream.side_effect = httpx.ConnectError("refused")
+
+        handler = OpenAIProtocolHandler(client, config)
+        with pytest.raises(ProtocolError):
+            async for _c in handler.stream_send("Hi"):
+                pass
+
+
+# ──────────────────────────────────────────────────────────────────────
+# HttpAgentAdapter: stream, discover_capabilities, _raw_to_capability
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestHttpAdapterStreamAndDiscover:
+    """Tests for HttpAgentAdapter.stream and discover_capabilities."""
+
+    async def test_stream_yields_chunks_and_tracks_conversation(self) -> None:
+        from ziran.domain.entities.streaming import AgentResponseChunk
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        config = TargetConfig(url="https://x.com", protocol=ProtocolType.REST)
+        adapter = HttpAgentAdapter(config)
+
+        async def _fake_stream(message, **kw):
+            yield AgentResponseChunk(content_delta="Hello", is_final=False)
+            yield AgentResponseChunk(content_delta=" world", is_final=True)
+
+        handler = AsyncMock()
+        handler.stream_send = _fake_stream
+        adapter._client = MagicMock()
+        adapter._handler = handler
+        adapter._session_id = "s1"
+
+        chunks = []
+        async for chunk in adapter.stream("Hi"):
+            chunks.append(chunk)
+
+        assert len(chunks) == 2
+        # Conversation should be tracked
+        assert adapter._conversation[-1]["content"] == "Hello world"
+
+    async def test_discover_capabilities_structured_and_probe(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        config = TargetConfig(url="https://x.com", protocol=ProtocolType.REST)
+        adapter = HttpAgentAdapter(config)
+
+        handler = AsyncMock()
+        handler.discover.return_value = [
+            {"id": "search", "name": "search", "type": "tool", "description": "Searches"}
+        ]
+        handler.send.return_value = {
+            "content": "- calc: calculates\n- search: searches",
+        }
+        adapter._client = MagicMock()
+        adapter._handler = handler
+        adapter._session_id = "s1"
+
+        caps = await adapter.discover_capabilities()
+        assert len(caps) >= 1
+        assert any(c.id == "search" for c in caps)
+
+    async def test_discover_capabilities_structured_fails(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        config = TargetConfig(url="https://x.com", protocol=ProtocolType.REST)
+        adapter = HttpAgentAdapter(config)
+
+        handler = AsyncMock()
+        handler.discover.side_effect = ProtocolError("no discovery")
+        handler.send.return_value = {
+            "content": "- calc: math functions\n",
+        }
+        adapter._client = MagicMock()
+        adapter._handler = handler
+        adapter._session_id = "s1"
+
+        caps = await adapter.discover_capabilities()
+        # Should still get probe-based results
+        assert len(caps) >= 1
+
+    def test_raw_to_capability_mapping(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        raw = {
+            "id": "execute_code",
+            "name": "execute_code",
+            "type": "tool",
+            "description": "Executes arbitrary code",
+        }
+        cap = HttpAgentAdapter._raw_to_capability(raw)
+        assert cap.id == "execute_code"
+        assert cap.dangerous is True  # execute_code is flagged
+        assert cap.type.value == "tool"
+
+    def test_raw_to_capability_unknown_type(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        raw = {"id": "x", "name": "x", "type": "unknown_type", "description": ""}
+        cap = HttpAgentAdapter._raw_to_capability(raw)
+        assert cap.type.value == "skill"  # Falls back to skill
+
+    async def test_reset_state_openai_handler(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+        from ziran.infrastructure.adapters.protocols.openai_handler import OpenAIProtocolHandler
+
+        config = TargetConfig(url="https://x.com", protocol=ProtocolType.OPENAI)
+        adapter = HttpAgentAdapter(config)
+        adapter._client = MagicMock()
+        handler = OpenAIProtocolHandler(adapter._client, config)
+        handler._conversation.append({"role": "user", "content": "test"})
+        adapter._handler = handler
+        adapter._conversation = [{"role": "user", "content": "hi"}]
+
+        adapter.reset_state()
+        assert adapter._conversation == []
+        assert handler._conversation == []

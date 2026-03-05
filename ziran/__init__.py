@@ -7,3 +7,24 @@ and knowledge graph-based attack tracking.
 from importlib.metadata import version
 
 __version__ = version("ziran")
+
+# Pentesting agent exports (requires 'pentest' extra)
+try:
+    from ziran.application.pentesting.orchestrator import PentestOrchestrator
+    from ziran.domain.entities.pentest import (
+        DeduplicatedFinding,
+        PentestPlan,
+        PentestSession,
+        PentestStatus,
+    )
+
+    __all__ = [
+        "DeduplicatedFinding",
+        "PentestOrchestrator",
+        "PentestPlan",
+        "PentestSession",
+        "PentestStatus",
+        "__version__",
+    ]
+except ImportError:
+    __all__ = ["__version__"]
