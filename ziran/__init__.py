@@ -11,6 +11,7 @@ __version__ = version("ziran")
 # Pentesting agent exports (requires 'pentest' extra)
 try:
     from ziran.application.pentesting.orchestrator import PentestOrchestrator
+    from ziran.application.pentesting.progress import PentestProgressDisplay
     from ziran.domain.entities.pentest import (
         DeduplicatedFinding,
         PentestPlan,
@@ -22,6 +23,7 @@ try:
         "DeduplicatedFinding",
         "PentestOrchestrator",
         "PentestPlan",
+        "PentestProgressDisplay",
         "PentestSession",
         "PentestStatus",
         "__version__",
