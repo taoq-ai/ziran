@@ -80,7 +80,7 @@ jobs:
         run: uv run pytest -m "not integration" --cov=ziran --cov-report=term-missing -v
 
       - name: Check coverage threshold
-        run: uv run pytest -m "not integration" --cov=ziran --cov-fail-under=80 --no-header -q
+        run: uv run pytest -m "not integration" --cov=ziran --cov-fail-under=89 --no-header -q
 
   integration-test:
     runs-on: ubuntu-latest

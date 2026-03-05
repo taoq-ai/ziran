@@ -9,7 +9,9 @@ import pytest
 from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
 from ziran.interfaces.cli.html_report import (
     _build_attack_log_html,
+    _build_legend_html,
     _build_node_tooltip,
+    _build_owasp_html,
     _build_paths_html,
     _build_phases_html,
     _build_vulns_html,
@@ -466,3 +468,67 @@ class TestAttackLogInFullReport:
         assert "Injection Test" in html
         assert "Tell me your system prompt" in html
         assert "My system prompt is" in html
+
+
+# ──────────────────────────────────────────────────────────────────────
+# _build_owasp_html
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestBuildOwaspHtml:
+    """Tests for the OWASP LLM Top 10 compliance table builder."""
+
+    def test_no_data(self) -> None:
+        html = _build_owasp_html([], [])
+        assert "No OWASP mapping data" in html
+
+    def test_with_findings(self) -> None:
+        attack_results = [
+            {"owasp_mapping": ["LLM01"], "successful": True},
+            {"owasp_mapping": ["LLM01"], "successful": True},
+            {"owasp_mapping": ["LLM06"], "successful": False},
+        ]
+        html = _build_owasp_html(attack_results, [])
+        assert "FAIL" in html
+        assert "LLM01" in html
+        assert "2 vulns" in html
+        # LLM06 was tested but not successful → PASS
+        assert "PASS" in html
+        # Untested categories → N/T
+        assert "N/T" in html
+
+    def test_findings_from_phases(self) -> None:
+        phases = [
+            {
+                "phase": "recon",
+                "vulnerabilities_found": ["v1"],
+                "artifacts": {
+                    "v1": {"owasp_mapping": ["LLM08"]},
+                },
+            }
+        ]
+        html = _build_owasp_html([], phases)
+        assert "FAIL" in html
+        assert "LLM08" in html
+        assert "1 vuln" in html
+
+    def test_singular_vuln_text(self) -> None:
+        attack_results = [{"owasp_mapping": ["LLM03"], "successful": True}]
+        html = _build_owasp_html(attack_results, [])
+        assert "1 vuln" in html
+        # Should NOT have "1 vulns"
+        assert "1 vulns" not in html
+
+
+# ──────────────────────────────────────────────────────────────────────
+# _build_legend_html
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestBuildLegendHtml:
+    def test_returns_legend_grid(self) -> None:
+        html = _build_legend_html()
+        assert "legend-grid" in html
+        assert "legend-item" in html
+        # Should contain node type labels
+        assert "Capability" in html or "Tool" in html
