@@ -33,6 +33,7 @@ That's a fundamentally different attack surface.
 | Multi-phase campaigns | **Yes** | — | — | Partial | Yes |
 | Multi-agent coordination | **Yes** | — | — | — | — |
 | Adaptive campaigns | **Yes** | — | — | — | — |
+| Autonomous pentesting agent | **Yes** | — | — | — | — |
 | Streaming (SSE/WebSocket) | **Yes** | — | — | — | — |
 | Knowledge graph tracking | **Yes** | — | — | — | — |
 | Remote agent scanning (HTTPS) | **Yes** | REST only | HTTP provider | Partial | — |
@@ -52,6 +53,7 @@ That's a fundamentally different attack surface.
 - **Knowledge Graph** — Every discovered capability, relationship, and attack path is tracked in a live graph.
 - **Remote Agent Scanning** — Test any published agent over HTTPS with YAML-driven target configuration. Supports REST, OpenAI-compatible, MCP, and A2A protocols with automatic detection.
 - **A2A Protocol Support** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents, including Agent Card discovery, task lifecycle attacks, and multi-turn manipulation.
+- **Autonomous Pentesting Agent** — An LLM-driven agent that plans, executes, and adapts attack campaigns autonomously, with finding deduplication and interactive red-team mode.
 - **Framework Agnostic** — LangChain, CrewAI, MCP, remote HTTPS agents, or [write your own adapter](examples/08-custom-adapter/).
 
 ---
@@ -66,6 +68,7 @@ pip install ziran[langchain]    # LangChain support
 pip install ziran[crewai]       # CrewAI support
 pip install ziran[a2a]          # A2A protocol support
 pip install ziran[streaming]    # SSE/WebSocket streaming
+pip install ziran[pentest]      # autonomous pentesting agent
 pip install ziran[all]          # everything
 ```
 
@@ -94,6 +97,12 @@ ziran multi-agent-scan --target target.yaml
 # discover capabilities of a remote agent
 ziran discover --target target.yaml
 
+# autonomous pentesting agent
+ziran pentest --target target.yaml
+
+# interactive red-team mode
+ziran pentest --target target.yaml --interactive
+
 # view the interactive HTML report
 open reports/campaign_*_report.html
 ```
@@ -114,7 +123,7 @@ print(f"Vulnerabilities found: {result.total_vulnerabilities}")
 print(f"Dangerous tool chains: {len(result.dangerous_tool_chains)}")
 ```
 
-See [examples/](examples/) for 15 runnable demos — from static analysis to remote agent scanning.
+See [examples/](examples/) for 19 runnable demos — from static analysis to autonomous pentesting.
 
 ---
 
@@ -249,6 +258,26 @@ Each phase builds on the knowledge graph from previous phases.
 ziran scan --target target.yaml --strategy adaptive
 ziran scan --target target.yaml --strategy llm-adaptive
 ```
+
+### Autonomous Pentesting Agent
+
+An LLM-powered agent that autonomously plans, executes, and adapts penetration testing campaigns:
+
+```bash
+# fully autonomous mode
+ziran pentest --target target.yaml --max-iterations 5
+
+# interactive red-team mode — collaborate with the agent
+ziran pentest --target target.yaml --interactive
+```
+
+The pentesting agent:
+- **Plans** attack strategies using LLM reasoning and knowledge graph state
+- **Executes** multi-step exploit chains with real-time adaptation
+- **Deduplicates** findings using LLM embeddings to cluster related vulnerabilities
+- **Reports** with detailed HTML reports including OWASP LLM Top 10 mapping
+
+See [examples/19-pentesting-agent/](examples/19-pentesting-agent/) for a complete walkthrough.
 
 ### Multi-Agent Scanning
 
