@@ -67,7 +67,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --group test
+        run: uv sync --group test --extra all
 
       - name: Run tests
         run: uv run pytest --cov=ziran --cov-report=term-missing -v
