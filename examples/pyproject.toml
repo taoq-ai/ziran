@@ -59,3 +59,4 @@ select = ["E", "W", "F", "I"]
 
 [tool.ruff.lint.per-file-ignores]
 "*/main.py" = ["E402"]
+"*/interactive.py" = ["E402"]
