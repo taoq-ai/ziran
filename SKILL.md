@@ -22,7 +22,7 @@ Clean Architecture with Domain-Driven Design:
 
 ```
 ziran/
-├── domain/           # Pure entities (Pydantic models) and interfaces — no external dependencies
+├── domain/           # Pure entities (Pydantic models) and interfaces — no infrastructure/framework dependencies
 │   ├── entities/     # Data models: attack, phase, capability, target, detection, etc.
 │   └── interfaces/   # Abstract base classes: BaseAgentAdapter, detector protocols
 ├── application/      # Business logic — orchestrators, strategies, detectors
@@ -128,6 +128,18 @@ GitHub Actions workflows in `.github/workflows/`:
 
 ## Environment variables
 
-- `OPENAI_API_KEY` — Required for LLM-driven features (adaptive campaigns, pentesting agent)
-- `OPENAI_MODEL` — Optional model override (default: gpt-4o-mini)
-- See `.env.example` for reference
+LLM configuration (for adaptive campaigns, pentesting agent, LLM judge):
+
+- `ZIRAN_LLM_PROVIDER` — LLM provider name (default: `litellm`)
+- `ZIRAN_LLM_MODEL` — Model name (default: `gpt-4o`)
+- `ZIRAN_LLM_API_KEY_ENV` — Name of the env var holding the API key (e.g., `OPENAI_API_KEY`)
+- `ZIRAN_LLM_BASE_URL` — Override base URL for the LLM provider
+- `ZIRAN_LLM_TEMPERATURE` — Sampling temperature (default: `0.0`)
+- `ZIRAN_LLM_MAX_TOKENS` — Max response tokens (default: `4096`)
+
+API keys (set whichever your chosen provider requires):
+
+- `OPENAI_API_KEY` — For OpenAI models
+- `ANTHROPIC_API_KEY` — For Anthropic models
+
+See `.env.example` for reference.
