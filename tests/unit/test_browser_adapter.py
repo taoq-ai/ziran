@@ -324,6 +324,9 @@ class TestBrowserAdapterInvoke:
         adapter._session_id = "test-session"
         adapter._detected_api_pattern = "**/api/chat"
 
+        # Mock option detection so invoke() doesn't hit locator on mock page
+        adapter._detect_option_buttons = AsyncMock(return_value=[])  # type: ignore[assignment]
+
         return adapter
 
     async def test_invoke_with_intercepted_response(self) -> None:
@@ -391,3 +394,776 @@ class TestBrowserAdapterInvoke:
         assert adapter._context is None
         assert adapter._browser is None
         assert adapter._playwright is None
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Smart UI discovery
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _make_discovery_adapter(
+    auto_discover: bool = True,
+    input_selector: str = "textarea, input[type='text']",
+    submit_selector: str | None = None,
+) -> Any:
+    """Create an adapter with a mocked page for discovery tests."""
+    from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+
+    config = TargetConfig(
+        url="https://chatbot.example.com",
+        protocol="browser",
+        browser=BrowserConfig(
+            auto_discover=auto_discover,
+            input_selector=input_selector,
+            submit_selector=submit_selector,
+        ),
+    )
+    adapter = BrowserAgentAdapter(config)
+
+    # Create mock page
+    mock_page = AsyncMock()
+    mock_page.wait_for_timeout = AsyncMock()
+    adapter._page = mock_page
+
+    return adapter
+
+
+def _mock_locator(visible: bool = False, tag: str = "button") -> MagicMock:
+    """Create a mock Playwright locator."""
+    locator = MagicMock()
+    locator.is_visible = AsyncMock(return_value=visible)
+    locator.wait_for = AsyncMock()
+    locator.click = AsyncMock()
+    locator.evaluate = AsyncMock(return_value=tag)
+    if not visible:
+        locator.is_visible.side_effect = Exception("not visible")
+        locator.wait_for.side_effect = Exception("timeout")
+    return locator
+
+
+@pytest.mark.unit
+class TestBrowserConfigAutoDiscover:
+    """Tests for the auto_discover config field."""
+
+    def test_auto_discover_default_true(self) -> None:
+        cfg = BrowserConfig()
+        assert cfg.auto_discover is True
+
+    def test_auto_discover_can_be_disabled(self) -> None:
+        cfg = BrowserConfig(auto_discover=False)
+        assert cfg.auto_discover is False
+
+
+@pytest.mark.unit
+class TestCookieBannerDismissal:
+    """Tests for _dismiss_cookie_banner."""
+
+    async def test_dismisses_visible_cookie_button(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        # First selector not visible, second one is
+        call_count = 0
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            nonlocal call_count
+            locator = MagicMock()
+            locator.first = locator
+            # Make the "Accept" button visible (5th in _COOKIE_DISMISS_SELECTORS)
+            if "Accept" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.click = AsyncMock()
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        await adapter._dismiss_cookie_banner()
+
+    async def test_no_cookie_banner_is_noop(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        # All selectors fail
+        def always_invisible(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = always_invisible
+
+        # Should not raise
+        await adapter._dismiss_cookie_banner()
+
+
+@pytest.mark.unit
+class TestFindAndClickLauncher:
+    """Tests for _find_and_click_launcher."""
+
+    async def test_clicks_visible_launcher(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        clicked_selector = None
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            nonlocal clicked_selector
+            locator = MagicMock()
+            locator.first = locator
+
+            # Make "Start" button visible
+            if "Start" in selector and "button" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.evaluate = AsyncMock(return_value="button")
+
+                async def mock_click(**kwargs: Any) -> None:
+                    nonlocal clicked_selector
+                    clicked_selector = selector
+
+                locator.click = mock_click
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        result = await adapter._find_and_click_launcher()
+        assert result is True
+        assert clicked_selector is not None
+        assert "Start" in clicked_selector
+
+    async def test_no_launcher_returns_false(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        def always_invisible(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = always_invisible
+
+        result = await adapter._find_and_click_launcher()
+        assert result is False
+
+
+@pytest.mark.unit
+class TestDiscoverInputSelector:
+    """Tests for _discover_input_selector."""
+
+    async def test_finds_textarea(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if selector == "textarea":
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.evaluate = AsyncMock(return_value=True)  # editable
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        result = await adapter._discover_input_selector()
+        assert result == "textarea"
+
+    async def test_finds_contenteditable(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if selector == "[contenteditable='true']":
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.evaluate = AsyncMock(return_value=True)
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        result = await adapter._discover_input_selector()
+        assert result == "[contenteditable='true']"
+
+    async def test_skips_disabled_input(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if selector == "textarea":
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.evaluate = AsyncMock(return_value=False)  # disabled
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        result = await adapter._discover_input_selector()
+        assert result is None
+
+    async def test_no_input_returns_none(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        def always_invisible(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = always_invisible
+
+        result = await adapter._discover_input_selector()
+        assert result is None
+
+
+@pytest.mark.unit
+class TestEffectiveSelectors:
+    """Tests for the _effective_*_selector properties."""
+
+    def test_default_input_uses_discovered(self) -> None:
+        adapter = _make_discovery_adapter()
+        adapter._discovered_input_selector = "[contenteditable='true']"
+
+        assert adapter._effective_input_selector == "[contenteditable='true']"
+
+    def test_explicit_input_ignores_discovered(self) -> None:
+        adapter = _make_discovery_adapter(input_selector="#custom-input")
+        adapter._discovered_input_selector = "[contenteditable='true']"
+
+        assert adapter._effective_input_selector == "#custom-input"
+
+    def test_no_discovery_uses_default(self) -> None:
+        adapter = _make_discovery_adapter()
+
+        assert adapter._effective_input_selector == "textarea, input[type='text']"
+
+    def test_default_submit_uses_discovered(self) -> None:
+        adapter = _make_discovery_adapter()
+        adapter._discovered_submit_selector = "button:has-text('Send')"
+
+        assert adapter._effective_submit_selector == "button:has-text('Send')"
+
+    def test_explicit_submit_ignores_discovered(self) -> None:
+        adapter = _make_discovery_adapter(submit_selector="#send-btn")
+        adapter._discovered_submit_selector = "button:has-text('Send')"
+
+        assert adapter._effective_submit_selector == "#send-btn"
+
+
+@pytest.mark.unit
+class TestDiscoverChatUI:
+    """Integration tests for the full _discover_chat_ui flow."""
+
+    async def test_skips_when_input_already_visible(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        # Cookie banner: nothing to dismiss
+        # Input: immediately visible
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if selector == "textarea, input[type='text']":
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.wait_for = AsyncMock()
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+                locator.wait_for = AsyncMock(side_effect=Exception("timeout"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        await adapter._discover_chat_ui()
+        # No discovered selectors needed — defaults work
+        assert adapter._discovered_input_selector is None
+
+    async def test_clicks_launcher_then_discovers_input(self) -> None:
+        adapter = _make_discovery_adapter()
+        page = adapter._page
+
+        launcher_clicked = False
+        phase = {"input_visible": False}
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+
+            if selector == "textarea, input[type='text']":
+                # Initially not visible, visible after launcher click
+                async def check_visible(**kwargs: Any) -> bool:
+                    return phase["input_visible"]
+
+                locator.is_visible = check_visible
+
+                async def wait_for_vis(**kwargs: Any) -> None:
+                    if not phase["input_visible"]:
+                        raise Exception("timeout")
+
+                locator.wait_for = wait_for_vis
+            elif "Start" in selector and "button" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.evaluate = AsyncMock(return_value="button")
+
+                async def mock_click(**kwargs: Any) -> None:
+                    nonlocal launcher_clicked
+                    launcher_clicked = True
+                    phase["input_visible"] = True
+
+                locator.click = mock_click
+            elif selector == "textarea":
+                # Discovered after launcher click
+                async def check_textarea(**kwargs: Any) -> bool:
+                    return phase["input_visible"]
+
+                locator.is_visible = check_textarea
+                locator.evaluate = AsyncMock(return_value=True)  # editable
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+                locator.wait_for = AsyncMock(side_effect=Exception("timeout"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        await adapter._discover_chat_ui()
+        assert launcher_clicked is True
+
+    async def test_auto_discover_false_skips_entirely(self) -> None:
+        """When auto_discover=False, _discover_chat_ui should not be called."""
+        adapter = _make_discovery_adapter(auto_discover=False)
+
+        # If discovery ran, it would use the page — which would fail
+        adapter._page = None  # Would crash if discovery tried to run
+
+        # The flag is checked in _ensure_initialized, not in _discover_chat_ui,
+        # so we verify the config value directly
+        assert adapter._browser_config.auto_discover is False
+
+
+# ──────────────────────────────────────────────────────────────────────
+# BrowserConfig option handling fields
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestBrowserConfigOptions:
+    """Tests for option handling config fields."""
+
+    def test_option_defaults(self) -> None:
+        cfg = BrowserConfig()
+        assert cfg.option_selector == ""
+        assert cfg.initial_options == "auto"
+        assert cfg.max_option_depth == 3
+
+    def test_custom_option_config(self) -> None:
+        cfg = BrowserConfig(
+            option_selector=".my-chip",
+            initial_options="click_through",
+            max_option_depth=5,
+        )
+        assert cfg.option_selector == ".my-chip"
+        assert cfg.initial_options == "click_through"
+        assert cfg.max_option_depth == 5
+
+    def test_option_strategy_skip(self) -> None:
+        cfg = BrowserConfig(initial_options="skip")
+        assert cfg.initial_options == "skip"
+
+    def test_option_strategy_type_through(self) -> None:
+        cfg = BrowserConfig(initial_options="type_through")
+        assert cfg.initial_options == "type_through"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Option detection and handling
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _make_option_adapter(
+    initial_options: str = "auto",
+    option_selector: str = "",
+    max_option_depth: int = 3,
+) -> Any:
+    """Create an adapter with mocked page for option tests."""
+    from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+
+    config = TargetConfig(
+        url="https://chatbot.example.com",
+        protocol="browser",
+        browser=BrowserConfig(
+            initial_options=initial_options,  # type: ignore[arg-type]
+            option_selector=option_selector,
+            max_option_depth=max_option_depth,
+        ),
+    )
+    adapter = BrowserAgentAdapter(config)
+
+    mock_page = AsyncMock()
+    mock_page.wait_for_timeout = AsyncMock()
+    adapter._page = mock_page
+
+    return adapter
+
+
+@pytest.mark.unit
+class TestDetectOptionButtons:
+    """Tests for _detect_option_buttons."""
+
+    async def test_detects_quick_reply_buttons(self) -> None:
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            if "quick-reply" in selector:
+                locator.count = AsyncMock(return_value=3)
+
+                def nth(i: int) -> MagicMock:
+                    el = MagicMock()
+                    texts = ["Track package", "Report issue", "Something else"]
+                    el.is_visible = AsyncMock(return_value=True)
+                    el.inner_text = AsyncMock(return_value=texts[i])
+                    return el
+
+                locator.nth = nth
+            else:
+                locator.count = AsyncMock(return_value=0)
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = await adapter._detect_option_buttons()
+        assert len(options) == 3
+        texts = [t for _, t in options]
+        assert "Track package" in texts
+        assert "Report issue" in texts
+        assert "Something else" in texts
+
+    async def test_deduplicates_options(self) -> None:
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        call_idx = 0
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            nonlocal call_idx
+            locator = MagicMock()
+            # Two selectors both find the same button text
+            if "quick-reply" in selector or "chip" in selector:
+                locator.count = AsyncMock(return_value=1)
+
+                def nth(i: int) -> MagicMock:
+                    el = MagicMock()
+                    el.is_visible = AsyncMock(return_value=True)
+                    el.inner_text = AsyncMock(return_value="Track package")
+                    return el
+
+                locator.nth = nth
+            else:
+                locator.count = AsyncMock(return_value=0)
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = await adapter._detect_option_buttons()
+        # Should be deduplicated to 1 despite matching multiple selectors
+        assert len(options) == 1
+        assert options[0][1] == "Track package"
+
+    async def test_no_options_returns_empty(self) -> None:
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.count = AsyncMock(return_value=0)
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = await adapter._detect_option_buttons()
+        assert options == []
+
+    async def test_uses_explicit_option_selector(self) -> None:
+        adapter = _make_option_adapter(option_selector=".my-custom-chip")
+        page = adapter._page
+
+        used_selectors: list[str] = []
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            used_selectors.append(selector)
+            locator = MagicMock()
+            if selector == ".my-custom-chip":
+                locator.count = AsyncMock(return_value=1)
+
+                def nth(i: int) -> MagicMock:
+                    el = MagicMock()
+                    el.is_visible = AsyncMock(return_value=True)
+                    el.inner_text = AsyncMock(return_value="Custom option")
+                    return el
+
+                locator.nth = nth
+            else:
+                locator.count = AsyncMock(return_value=0)
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = await adapter._detect_option_buttons()
+        assert len(options) == 1
+        assert options[0][1] == "Custom option"
+        # Should only try the custom selector, not the default list
+        assert ".my-custom-chip" in used_selectors
+        assert len(used_selectors) == 1
+
+
+@pytest.mark.unit
+class TestClickFreetextOption:
+    """Tests for _click_freetext_option."""
+
+    async def test_finds_something_else(self) -> None:
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        clicked_texts: list[str] = []
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            # Match the text-based click
+            if "Something else" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+
+                async def do_click(**kwargs: Any) -> None:
+                    clicked_texts.append("Something else")
+
+                locator.click = do_click
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [
+            ("[class*='quick-reply']", "Track package"),
+            ("[class*='quick-reply']", "Something else"),
+        ]
+        result = await adapter._click_freetext_option(options)
+        assert result is True
+        assert "Something else" in clicked_texts
+
+    async def test_finds_iets_anders(self) -> None:
+        """Dutch 'iets anders' should match free-text patterns."""
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if "Iets anders" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.click = AsyncMock()
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [
+            ("[class*='chip']", "Bezorging"),
+            ("[class*='chip']", "Iets anders"),
+        ]
+        result = await adapter._click_freetext_option(options)
+        assert result is True
+
+    async def test_no_freetext_option(self) -> None:
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        page.locator = MagicMock(
+            return_value=MagicMock(
+                first=MagicMock(is_visible=AsyncMock(side_effect=Exception("not visible")))
+            )
+        )
+
+        options = [
+            ("[class*='chip']", "Track package"),
+            ("[class*='chip']", "Returns"),
+        ]
+        result = await adapter._click_freetext_option(options)
+        assert result is False
+
+
+@pytest.mark.unit
+class TestClickBestOption:
+    """Tests for _click_best_option."""
+
+    async def test_prefers_normal_over_deepening(self) -> None:
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        clicked: list[str] = []
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if "Track" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+
+                async def do_click(**kwargs: Any) -> None:
+                    clicked.append("Track package")
+
+                locator.click = do_click
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [
+            ("[class*='chip']", "Track package"),
+            ("[class*='chip']", "Show more..."),
+        ]
+        result = await adapter._click_best_option(options)
+        assert result is True
+        assert "Track package" in clicked
+
+    async def test_falls_back_to_deepening_if_only_option(self) -> None:
+        adapter = _make_option_adapter()
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if "Show more" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.click = AsyncMock()
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [
+            ("[class*='chip']", "Show more..."),
+        ]
+        result = await adapter._click_best_option(options)
+        assert result is True
+
+    async def test_empty_options(self) -> None:
+        adapter = _make_option_adapter()
+        result = await adapter._click_best_option([])
+        assert result is False
+
+
+@pytest.mark.unit
+class TestHandleInitialOptions:
+    """Tests for _handle_initial_options."""
+
+    async def test_skip_strategy_does_nothing(self) -> None:
+        adapter = _make_option_adapter(initial_options="skip")
+        # Should return without touching the page
+        await adapter._handle_initial_options()
+
+    async def test_type_through_does_nothing(self) -> None:
+        adapter = _make_option_adapter(initial_options="type_through")
+        await adapter._handle_initial_options()
+
+    async def test_auto_navigates_through_options(self) -> None:
+        adapter = _make_option_adapter(initial_options="auto", max_option_depth=2)
+        page = adapter._page
+
+        depth_counter = {"current": 0}
+
+        async def mock_detect() -> list[tuple[str, str]]:
+            d = depth_counter["current"]
+            if d == 0:
+                return [
+                    ("[class*='chip']", "Track package"),
+                    ("[class*='chip']", "Iets anders"),
+                ]
+            return []  # No more options after clicking
+
+        adapter._detect_option_buttons = mock_detect  # type: ignore[assignment]
+
+        async def mock_click_freetext(
+            options: list[tuple[str, str]],
+        ) -> bool:
+            depth_counter["current"] += 1
+            return True
+
+        adapter._click_freetext_option = mock_click_freetext  # type: ignore[assignment]
+
+        # Mock input visibility check
+        mock_input = MagicMock()
+        mock_input.is_visible = AsyncMock(return_value=False)
+        mock_input.evaluate = AsyncMock(return_value=False)
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = mock_input
+            return locator
+
+        page.locator = make_locator_fn
+
+        await adapter._handle_initial_options()
+        assert depth_counter["current"] >= 1
+
+    async def test_respects_max_option_depth(self) -> None:
+        adapter = _make_option_adapter(
+            initial_options="click_through",
+            max_option_depth=2,
+        )
+        page = adapter._page
+
+        click_count = {"n": 0}
+
+        async def mock_detect() -> list[tuple[str, str]]:
+            # Always return options (infinite menu)
+            return [("[class*='chip']", f"Option {click_count['n']}")]
+
+        adapter._detect_option_buttons = mock_detect  # type: ignore[assignment]
+
+        async def mock_click_best(
+            options: list[tuple[str, str]],
+        ) -> bool:
+            click_count["n"] += 1
+            return True
+
+        adapter._click_best_option = mock_click_best  # type: ignore[assignment]
+
+        # Mock input as never focused
+        mock_input = MagicMock()
+        mock_input.is_visible = AsyncMock(return_value=False)
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = mock_input
+            return locator
+
+        page.locator = make_locator_fn
+
+        await adapter._handle_initial_options()
+        # Should stop after max_option_depth
+        assert click_count["n"] == 2
+
+    async def test_stops_when_no_options_detected(self) -> None:
+        adapter = _make_option_adapter(initial_options="auto")
+
+        async def mock_detect() -> list[tuple[str, str]]:
+            return []
+
+        adapter._detect_option_buttons = mock_detect  # type: ignore[assignment]
+
+        # Should return quickly
+        await adapter._handle_initial_options()

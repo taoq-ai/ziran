@@ -284,6 +284,36 @@ class BrowserConfig(BaseModel):
         "[{'selector': '...', 'action': 'fill|click', 'value': '...'}]",
     )
 
+    # Auto-discovery
+    auto_discover: bool = Field(
+        default=True,
+        description="Auto-discover chat UI elements (launcher buttons, input fields, "
+        "cookie banners). Disable if selectors are explicitly configured and "
+        "discovery causes issues.",
+    )
+
+    # Option / quick-reply handling
+    option_selector: str = Field(
+        default="",
+        description="CSS selector for quick-reply option buttons/chips. "
+        "Empty string means auto-detect using common patterns.",
+    )
+    initial_options: Literal["auto", "click_through", "type_through", "skip"] = Field(
+        default="auto",
+        description="How to handle initial option menus presented by the chatbot. "
+        "'auto' tries to find a free-text/other option first, then clicks through, "
+        "'click_through' clicks the first available option to navigate past menus, "
+        "'type_through' ignores options and types directly, "
+        "'skip' does nothing.",
+    )
+    max_option_depth: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Maximum number of option menu levels to click through "
+        "before giving up. Prevents infinite loops in menu trees.",
+    )
+
     # Viewport
     viewport_width: int = Field(default=1280, gt=0, description="Browser viewport width in pixels")
     viewport_height: int = Field(default=720, gt=0, description="Browser viewport height in pixels")

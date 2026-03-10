@@ -48,6 +48,46 @@ browser:
 
 If `api_url_pattern` is omitted, ZIRAN auto-detects the API endpoint by sending a probe message and monitoring which POST requests fire with JSON responses.
 
+## Smart UI Auto-Discovery
+
+Many chatbot UIs don't show the chat input immediately on page load — they hide it behind a launcher button ("Start Chat", "Open", a chat bubble icon) or behind a cookie consent banner. ZIRAN automatically handles these patterns:
+
+1. **Cookie/consent banner dismissal:** Detects and dismisses common cookie banners (supports English, Dutch, and other common languages)
+2. **Chat launcher detection:** Finds and clicks "Start Chat" / "Open Chat" buttons using text-based, attribute-based, and structural heuristics
+3. **Input discovery:** Probes for the actual chat input element (`textarea`, `input`, `contenteditable`, `[role='textbox']`) after the chat UI is opened
+4. **Submit button discovery:** Locates the send/submit button adjacent to the chat input
+
+Auto-discovery runs by default. If it causes issues with a specific UI, disable it and provide explicit selectors:
+
+```yaml
+browser:
+  auto_discover: false
+  input_selector: "#my-chat-input"
+  submit_selector: "#my-send-button"
+```
+
+## Option / Quick-Reply Handling
+
+Many chatbots are hybrid — they mix free-text input with clickable option buttons (quick replies, chips, suggestion buttons). These appear at the start of a conversation ("What can I help you with?") or mid-conversation ("Pick a topic:").
+
+ZIRAN detects and navigates through option menus automatically:
+
+1. **Detection:** After the chat UI opens, ZIRAN scans for common option button patterns (`[class*='quick-reply']`, `[class*='chip']`, `[role='option']`, etc.)
+2. **Free-text navigation:** Looks for "Something else" / "Other" / "Iets anders" options that typically lead to free-text mode
+3. **Click-through:** If no free-text option exists, clicks through the first available option to navigate deeper into the conversation tree
+4. **Depth limiting:** Stops after `max_option_depth` levels (default: 3) to prevent infinite loops
+
+The strategy is configurable:
+
+```yaml
+browser:
+  initial_options: auto          # auto | click_through | type_through | skip
+  max_option_depth: 3            # max menu levels to navigate
+  option_selector: ".my-chips"   # custom selector (empty = auto-detect)
+```
+
+Option buttons detected during attack execution are included in the response metadata for analysis.
+
 ## Supported Response Formats
 
 The network interceptor automatically parses:

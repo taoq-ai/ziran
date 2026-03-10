@@ -62,6 +62,158 @@ _TOOL_MENTION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Default input/submit selectors — used to detect whether the user
+# explicitly configured selectors (if value != default, don't override).
+_DEFAULT_INPUT_SELECTOR = "textarea, input[type='text']"
+_DEFAULT_SUBMIT_SELECTOR: str | None = None
+_DEFAULT_RESPONSE_SELECTOR = "[class*='message'], [class*='response'], [class*='assistant']"
+
+# Cookie / consent banner dismiss selectors (tried in priority order).
+# Prefer reject/decline for privacy, then accept as fallback.
+_COOKIE_DISMISS_SELECTORS: list[str] = [
+    "button:has-text('Reject')",
+    "button:has-text('Decline')",
+    "button:has-text('Weigeren')",
+    "button:has-text('Afwijzen')",
+    "button:has-text('Accept')",
+    "button:has-text('Akkoord')",
+    "button:has-text('Accepteren')",
+    "button:has-text('OK')",
+    "button:has-text('Got it')",
+    "button:has-text('I agree')",
+    "[id*='cookie' i] button",
+    "[class*='cookie' i] button",
+    "[class*='consent' i] button",
+    "[id*='consent' i] button",
+]
+
+# Chat launcher selectors — tried when the input isn't visible on page load.
+_LAUNCHER_SELECTORS: list[str] = [
+    # Text-based — common "Start chat" / "Open chat" labels
+    "button:has-text('Start')",
+    "button:has-text('Chat')",
+    "button:has-text('Open')",
+    "a:has-text('Start')",
+    "a:has-text('Chat')",
+    "[role='button']:has-text('Start')",
+    "[role='button']:has-text('Chat')",
+    # Localized
+    "button:has-text('Starten')",
+    "button:has-text('Iniciar')",
+    "button:has-text('Démarrer')",
+    "button:has-text('Commencer')",
+    # Attribute-based
+    "[aria-label*='chat' i]",
+    "[title*='chat' i]",
+    "[data-testid*='chat' i]",
+    "[class*='chat-launcher']",
+    "[class*='chat-open']",
+    "[class*='chat-bubble']",
+    "[class*='chatbot-launcher']",
+    "[id*='chat-start' i]",
+    "[id*='chat-open' i]",
+    "[id*='chat-launcher' i]",
+    # Widget / floating button patterns
+    "[class*='widget'] button",
+    "[class*='launcher'] button",
+    "[class*='launcher']",
+]
+
+# Input element selectors — tried during discovery to find the chat input.
+_INPUT_PROBE_SELECTORS: list[str] = [
+    "textarea",
+    "input[type='text']",
+    "input:not([type='hidden']):not([type='password']):not([type='email'])",
+    "[contenteditable='true']",
+    "[role='textbox']",
+    "[class*='chat-input' i]",
+    "[class*='message-input' i]",
+    "[placeholder*='message' i]",
+    "[placeholder*='type' i]",
+    "[placeholder*='ask' i]",
+    "[placeholder*='vraag' i]",
+]
+
+# Submit button selectors — tried during discovery.
+_SUBMIT_PROBE_SELECTORS: list[str] = [
+    "button[type='submit']",
+    "button:has-text('Send')",
+    "button:has-text('Verstuur')",
+    "button:has-text('Verzend')",
+    "button:has-text('Enviar')",
+    "button:has-text('Envoyer')",
+    "[aria-label*='send' i]",
+    "[class*='send' i]",
+    "[data-testid*='send' i]",
+]
+
+# Quick-reply / option button selectors — tried during option detection.
+# Ordered from specific to generic; the generic "button inside chat" patterns
+# are at the end as a broad fallback for chatbots with custom styling.
+_OPTION_BUTTON_SELECTORS: list[str] = [
+    # Specific class-based patterns
+    "[class*='quick-reply' i]",
+    "[class*='quickreply' i]",
+    "[class*='chip' i]:not(nav *):not(header *)",
+    "[class*='suggestion' i] button",
+    "[class*='suggestion' i] a",
+    "[class*='suggestion' i][role='button']",
+    "[class*='option' i][role='button']",
+    "[class*='choice' i] button",
+    "[class*='choice' i][role='button']",
+    "[class*='reply-button' i]",
+    "[class*='action-button' i]",
+    "[class*='chat-option' i]",
+    "[class*='bot-option' i]",
+    "[class*='message-option' i]",
+    "[data-testid*='option' i]",
+    "[data-testid*='quick-reply' i]",
+    "[data-testid*='suggestion' i]",
+    "[role='option']",
+    "[role='listbox'] [role='option']",
+    # Generic: buttons inside chat/message containers (broad fallback).
+    # These match any button near bot messages — filter by excluding
+    # navigation, header, and form submit buttons.
+    "[class*='message' i] button:not([type='submit'])",
+    "[class*='response' i] button:not([type='submit'])",
+    "[class*='chat' i] button:not([type='submit']):not([aria-label*='send' i]):not([class*='send' i])",
+    "[class*='bot' i] button:not([type='submit'])",
+    "[class*='assistant' i] button:not([type='submit'])",
+]
+
+# Text patterns suggesting a "free text" / "other" / "something else" option.
+# Matched case-insensitively against option button text.
+_FREETEXT_OPTION_PATTERNS: list[str] = [
+    "other",
+    "something else",
+    "type",
+    "free text",
+    "none of the above",
+    "anders",
+    "iets anders",
+    "overig",
+    "vrije tekst",
+    "geen van bovenstaande",
+    "autre",
+    "autre chose",
+    "otro",
+    "otra cosa",
+    "sonstiges",
+    "anderes",
+]
+
+# Text patterns that indicate an option leads to a deeper menu (avoid these
+# when trying to reach free-text mode — prefer them as last resort).
+_MENU_DEEPENING_PATTERNS: list[str] = [
+    "more",
+    "show more",
+    "meer",
+    "see all",
+    "bekijk alles",
+    "plus",
+    "...",
+]
+
 # Words that indicate a dangerous tool.
 _DANGEROUS_KEYWORDS = frozenset(
     {
@@ -246,6 +398,11 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         # Track response count for DOM diffing
         self._last_response_count = 0
 
+        # Discovery state — populated by _discover_chat_ui()
+        self._discovered_input_selector: str | None = None
+        self._discovered_submit_selector: str | None = None
+        self._discovered_response_selector: str | None = None
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -291,6 +448,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         if self._browser_config.login_url:
             await self._page.goto(self._config.url, timeout=nav_timeout)
 
+        # Discover chat UI elements (launcher buttons, input, submit)
+        if self._browser_config.auto_discover:
+            await self._discover_chat_ui()
+
         # Set up network interception
         if self._browser_config.api_url_pattern:
             self._detected_api_pattern = self._browser_config.api_url_pattern
@@ -333,6 +494,381 @@ class BrowserAgentAdapter(BaseAgentAdapter):
 
         # Wait for login to complete (navigation or response)
         await self._page.wait_for_load_state("networkidle", timeout=10_000)
+
+    # ------------------------------------------------------------------
+    # Smart UI discovery
+    # ------------------------------------------------------------------
+
+    async def _discover_chat_ui(self) -> None:
+        """Auto-discover chat UI elements on the page.
+
+        Runs a multi-phase heuristic to find the chat input, handling
+        common patterns like cookie banners, chat launcher buttons,
+        dynamically revealed input fields, and initial option menus.
+
+        Phases:
+            1. Dismiss cookie/consent banners
+            2. Check if the input is already visible
+            3. Find and click chat launcher buttons
+            4. Discover input and submit selectors
+            5. Handle initial option menus (always runs)
+        """
+        assert self._page is not None
+        logger.info("Starting chat UI auto-discovery on %s", self._config.url)
+
+        # Phase 1: Dismiss cookie/consent banners
+        await self._dismiss_cookie_banner()
+
+        # Phase 2: Check if input is already visible with current selector
+        input_sel = self._browser_config.input_selector
+        input_found = await self._is_element_visible(input_sel, timeout_ms=3000)
+
+        if input_found:
+            logger.info("Chat input already visible with selector: %s", input_sel)
+        else:
+            # Phase 3: Find and click chat launcher
+            logger.info("Chat input not visible, searching for launcher button...")
+            launcher_clicked = await self._find_and_click_launcher()
+
+            if launcher_clicked:
+                # Wait for UI to settle after clicking launcher
+                await self._page.wait_for_timeout(2000)
+
+                # Check again with current selector
+                input_found = await self._is_element_visible(input_sel, timeout_ms=5000)
+                if input_found:
+                    logger.info(
+                        "Chat input visible after clicking launcher: %s",
+                        input_sel,
+                    )
+
+            if not input_found:
+                # Phase 4: Discover input selector by probing
+                logger.info("Probing for chat input element...")
+                discovered_input = await self._discover_input_selector()
+                if discovered_input:
+                    self._discovered_input_selector = discovered_input
+                    logger.info("Discovered chat input selector: %s", discovered_input)
+
+                    # Also try to discover submit button
+                    discovered_submit = await self._discover_submit_selector()
+                    if discovered_submit:
+                        self._discovered_submit_selector = discovered_submit
+                        logger.info(
+                            "Discovered submit button selector: %s",
+                            discovered_submit,
+                        )
+                else:
+                    logger.warning(
+                        "Auto-discovery could not find a chat input. "
+                        "Configure input_selector explicitly in the target YAML."
+                    )
+
+        # Phase 5: Handle initial option menus (always runs — even when
+        # the input is visible, a chatbot may require picking an option
+        # before accepting free-text messages).
+        await self._handle_initial_options()
+
+    async def _dismiss_cookie_banner(self) -> None:
+        """Try to dismiss cookie/consent banners."""
+        assert self._page is not None
+
+        for selector in _COOKIE_DISMISS_SELECTORS:
+            try:
+                locator = self._page.locator(selector).first
+                if await locator.is_visible(timeout=500):
+                    await locator.click(timeout=2000)
+                    logger.info("Dismissed cookie banner via: %s", selector)
+                    # Wait briefly for banner to disappear
+                    await self._page.wait_for_timeout(1000)
+                    return
+            except Exception:
+                continue
+
+    async def _find_and_click_launcher(self) -> bool:
+        """Find and click a chat launcher button.
+
+        Returns:
+            True if a launcher was found and clicked, False otherwise.
+        """
+        assert self._page is not None
+
+        for selector in _LAUNCHER_SELECTORS:
+            try:
+                locator = self._page.locator(selector).first
+                if await locator.is_visible(timeout=500):
+                    # Verify it looks like a clickable element (not just text)
+                    tag = await locator.evaluate("el => el.tagName.toLowerCase()")
+                    if tag in ("button", "a", "div", "span", "label"):
+                        await locator.click(timeout=3000)
+                        logger.info("Clicked chat launcher: %s (<%s>)", selector, tag)
+                        return True
+            except Exception:
+                continue
+
+        return False
+
+    async def _discover_input_selector(self) -> str | None:
+        """Probe for a visible chat input element.
+
+        Returns:
+            The CSS selector that matched, or None if nothing found.
+        """
+        assert self._page is not None
+
+        for selector in _INPUT_PROBE_SELECTORS:
+            try:
+                locator = self._page.locator(selector).first
+                if await locator.is_visible(timeout=500):
+                    # Verify it's editable (not disabled/readonly)
+                    is_editable = await locator.evaluate("el => !el.disabled && !el.readOnly")
+                    if is_editable:
+                        return selector
+            except Exception:
+                continue
+
+        return None
+
+    async def _discover_submit_selector(self) -> str | None:
+        """Probe for a visible submit/send button.
+
+        Returns:
+            The CSS selector that matched, or None.
+        """
+        assert self._page is not None
+
+        for selector in _SUBMIT_PROBE_SELECTORS:
+            try:
+                locator = self._page.locator(selector).first
+                if await locator.is_visible(timeout=500):
+                    return selector
+            except Exception:
+                continue
+
+        return None
+
+    async def _is_element_visible(self, selector: str, timeout_ms: int = 3000) -> bool:
+        """Check if an element matching the selector is visible.
+
+        Args:
+            selector: CSS selector to check.
+            timeout_ms: How long to wait for the element.
+
+        Returns:
+            True if a visible element was found.
+        """
+        assert self._page is not None
+        try:
+            locator = self._page.locator(selector).first
+            await locator.wait_for(state="visible", timeout=timeout_ms)
+            return True
+        except Exception:
+            return False
+
+    # ------------------------------------------------------------------
+    # Option / quick-reply handling
+    # ------------------------------------------------------------------
+
+    async def _detect_option_buttons(self) -> list[tuple[str, str]]:
+        """Detect visible quick-reply / option buttons on the page.
+
+        Returns:
+            List of ``(selector, text)`` tuples for each visible option found.
+            The selector identifies which pattern matched; the text is the
+            button's visible label.
+        """
+        assert self._page is not None
+
+        # Use explicit selector if configured
+        selectors = (
+            [self._browser_config.option_selector]
+            if self._browser_config.option_selector
+            else _OPTION_BUTTON_SELECTORS
+        )
+
+        found: list[tuple[str, str]] = []
+
+        for selector in selectors:
+            try:
+                locator = self._page.locator(selector)
+                count = await locator.count()
+                for i in range(min(count, 20)):  # Cap at 20 options
+                    el = locator.nth(i)
+                    try:
+                        if await el.is_visible(timeout=300):
+                            text = (await el.inner_text()).strip()
+                            if text and len(text) < 200:
+                                found.append((selector, text))
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        # Deduplicate by text
+        seen: set[str] = set()
+        deduped: list[tuple[str, str]] = []
+        for sel, text in found:
+            if text.lower() not in seen:
+                seen.add(text.lower())
+                deduped.append((sel, text))
+
+        return deduped
+
+    async def _handle_initial_options(self) -> None:
+        """Navigate through initial option menus to reach free-text mode.
+
+        Many chatbots present quick-reply buttons as the first interaction.
+        This method tries to get past those menus so that subsequent
+        ``invoke()`` calls can reach the LLM reasoning layer.
+
+        The strategy is controlled by ``browser_config.initial_options``:
+
+        - ``auto`` — Try to find a "free text" / "other" option first,
+          then click the first available option, up to ``max_option_depth``
+          levels.
+        - ``click_through`` — Click the first option at each level.
+        - ``type_through`` — Do nothing; trust that typing will work.
+        - ``skip`` — Do nothing.
+        """
+        assert self._page is not None
+
+        strategy = self._browser_config.initial_options
+        if strategy in ("skip", "type_through"):
+            logger.debug("Option handling strategy=%s, skipping", strategy)
+            return
+
+        max_depth = self._browser_config.max_option_depth
+
+        for depth in range(max_depth):
+            # Wait for DOM to settle before detecting options.
+            # First iteration waits longer (chatbot needs time to render
+            # initial options after the launcher click).
+            wait_ms = 3000 if depth == 0 else 2000
+            await self._page.wait_for_timeout(wait_ms)
+
+            options = await self._detect_option_buttons()
+            if not options:
+                logger.debug("No option buttons detected at depth %d", depth)
+                return
+
+            option_texts = [text for _, text in options]
+            logger.info(
+                "Detected %d option buttons at depth %d: %s",
+                len(options),
+                depth,
+                option_texts[:5],
+            )
+
+            # Strategy: try to find a "free text" / "other" option first
+            clicked = False
+            if strategy == "auto":
+                clicked = await self._click_freetext_option(options)
+
+            if not clicked:
+                # Click the best available option
+                clicked = await self._click_best_option(options)
+
+            if not clicked:
+                logger.warning("Could not click any option at depth %d, stopping", depth)
+                return
+
+            # Wait for response after clicking option
+            await self._page.wait_for_timeout(2000)
+
+        logger.info(
+            "Navigated %d option levels (max_option_depth=%d)",
+            max_depth,
+            max_depth,
+        )
+
+    async def _click_freetext_option(self, options: list[tuple[str, str]]) -> bool:
+        """Try to click an option that leads to free-text mode.
+
+        Looks for options matching patterns like "Something else",
+        "Other", "Iets anders", etc.
+
+        Args:
+            options: List of ``(selector, text)`` pairs.
+
+        Returns:
+            True if a free-text option was found and clicked.
+        """
+        assert self._page is not None
+
+        for _sel, text in options:
+            text_lower = text.lower().strip()
+            for pattern in _FREETEXT_OPTION_PATTERNS:
+                if pattern in text_lower:
+                    return await self._click_option_by_text(text)
+
+        return False
+
+    async def _click_best_option(self, options: list[tuple[str, str]]) -> bool:
+        """Click the best available option button.
+
+        Avoids "more" / "show more" style options that just expand the
+        menu. Prefers the first substantive option.
+
+        Args:
+            options: List of ``(selector, text)`` pairs.
+
+        Returns:
+            True if an option was clicked.
+        """
+        assert self._page is not None
+
+        # Partition into normal options and menu-deepening options
+        normal: list[str] = []
+        deepening: list[str] = []
+
+        for _sel, text in options:
+            text_lower = text.lower().strip()
+            is_deepening = any(p in text_lower for p in _MENU_DEEPENING_PATTERNS)
+            if is_deepening:
+                deepening.append(text)
+            else:
+                normal.append(text)
+
+        # Prefer normal options, fall back to deepening
+        candidates = normal or deepening
+        if not candidates:
+            return False
+
+        return await self._click_option_by_text(candidates[0])
+
+    async def _click_option_by_text(self, text: str) -> bool:
+        """Click a visible element that contains the given text.
+
+        Uses Playwright's text matching to find the element.
+
+        Args:
+            text: The visible text of the option to click.
+
+        Returns:
+            True if the element was found and clicked.
+        """
+        assert self._page is not None
+
+        # Try multiple strategies to click the option
+        strategies = [
+            f"button:has-text('{text}')",
+            f"a:has-text('{text}')",
+            f"[role='button']:has-text('{text}')",
+            f"[role='option']:has-text('{text}')",
+            f":has-text('{text}'):not(div:has(div:has-text('{text}')))",
+        ]
+
+        for selector in strategies:
+            try:
+                locator = self._page.locator(selector).first
+                if await locator.is_visible(timeout=500):
+                    await locator.click(timeout=3000)
+                    logger.info("Clicked option: '%s' via %s", text, selector)
+                    return True
+            except Exception:
+                continue
+
+        return False
 
     # ------------------------------------------------------------------
     # Network interception
@@ -432,6 +968,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         Primary: intercept the underlying API call.
         Fallback: extract text from the DOM.
 
+        If the chatbot responds with option buttons instead of a text
+        response, the options are detected and included in the response
+        metadata.
+
         Args:
             message: The message to send to the agent.
 
@@ -445,9 +985,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         self._intercepted_responses.clear()
 
         # Snapshot DOM response count for diffing
-        response_elements = await self._page.query_selector_all(
-            self._browser_config.response_selector
-        )
+        response_elements = await self._page.query_selector_all(self._effective_response_selector)
         self._last_response_count = len(response_elements)
 
         # Type and submit the message
@@ -458,6 +996,17 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             response = await self._extract_from_dom()
         else:
             response = await self._wait_for_network_response()
+
+        # Detect option buttons that appeared with the response
+        options = await self._detect_option_buttons()
+        if options:
+            option_texts = [text for _, text in options]
+            response.metadata["option_buttons"] = option_texts
+            logger.debug(
+                "Response included %d option buttons: %s",
+                len(options),
+                option_texts[:5],
+            )
 
         # Track conversation
         self._conversation.append({"role": "user", "content": message})
@@ -530,6 +1079,9 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 "api_pattern": self._detected_api_pattern,
                 "dom_fallback": self._use_dom_fallback,
                 "tool_observations": list(self._tool_observations),
+                "discovered_input_selector": self._discovered_input_selector,
+                "discovered_submit_selector": self._discovered_submit_selector,
+                "discovered_response_selector": self._discovered_response_selector,
             },
         )
 
@@ -580,16 +1132,24 @@ class BrowserAgentAdapter(BaseAgentAdapter):
     # ------------------------------------------------------------------
 
     async def _type_and_submit(self, message: str) -> None:
-        """Type a message into the chat input and submit it."""
+        """Type a message into the chat input and submit it.
+
+        Uses discovered selectors (from auto-discovery) when available,
+        falling back to the configured selectors.
+        """
         assert self._page is not None
+
+        # Prefer discovered selectors over defaults (but respect explicit config)
+        input_sel = self._effective_input_selector
+        submit_sel = self._effective_submit_selector
 
         # Find and focus the input
         input_el = await self._page.wait_for_selector(
-            self._browser_config.input_selector,
+            input_sel,
             timeout=self._browser_config.navigation_timeout * 1000,
         )
         if input_el is None:
-            msg = f"Chat input not found with selector: {self._browser_config.input_selector}"
+            msg = f"Chat input not found with selector: {input_sel}"
             raise RuntimeError(msg)
 
         await input_el.click()
@@ -598,15 +1158,37 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         await input_el.fill(message)
 
         # Submit
-        if self._browser_config.submit_selector:
+        if submit_sel:
             submit_btn = await self._page.wait_for_selector(
-                self._browser_config.submit_selector,
+                submit_sel,
                 timeout=5000,
             )
             if submit_btn:
                 await submit_btn.click()
         else:
             await input_el.press("Enter")
+
+    @property
+    def _effective_input_selector(self) -> str:
+        """Return the best input selector: explicit config > discovered > default."""
+        if self._browser_config.input_selector != _DEFAULT_INPUT_SELECTOR:
+            # User explicitly configured a selector — respect it
+            return self._browser_config.input_selector
+        return self._discovered_input_selector or self._browser_config.input_selector
+
+    @property
+    def _effective_submit_selector(self) -> str | None:
+        """Return the best submit selector: explicit config > discovered > default."""
+        if self._browser_config.submit_selector != _DEFAULT_SUBMIT_SELECTOR:
+            return self._browser_config.submit_selector
+        return self._discovered_submit_selector or self._browser_config.submit_selector
+
+    @property
+    def _effective_response_selector(self) -> str:
+        """Return the best response selector: explicit config > discovered > default."""
+        if self._browser_config.response_selector != _DEFAULT_RESPONSE_SELECTOR:
+            return self._browser_config.response_selector
+        return self._discovered_response_selector or self._browser_config.response_selector
 
     async def _wait_for_network_response(self) -> AgentResponse:
         """Wait for an intercepted API response and extract content."""
@@ -674,9 +1256,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         assert self._page is not None
 
         # Wait for a new response element to appear
+        resp_sel = self._effective_response_selector
         try:
             await self._page.wait_for_selector(
-                self._browser_config.response_selector,
+                resp_sel,
                 timeout=self._browser_config.response_timeout * 1000,
             )
         except Exception:
@@ -689,7 +1272,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         # Wait for DOM to settle (no more mutations)
         await self._wait_for_settle()
 
-        elements = await self._page.query_selector_all(self._browser_config.response_selector)
+        elements = await self._page.query_selector_all(resp_sel)
 
         if not elements:
             return AgentResponse(

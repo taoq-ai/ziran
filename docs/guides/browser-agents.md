@@ -41,6 +41,48 @@ url: https://chatbot.example.com/chat
 protocol: browser
 ```
 
+### Smart UI Discovery
+
+ZIRAN automatically handles chatbot UIs that require interaction before the chat input appears:
+
+- **Cookie banners:** Automatically dismissed (prefers "Reject" for privacy)
+- **Chat launcher buttons:** Clicks "Start Chat", "Open Chat", and similar buttons
+- **Hidden inputs:** Probes for `textarea`, `input`, `contenteditable`, and `[role='textbox']` elements
+- **Submit buttons:** Discovers send/submit buttons near the input
+
+This means a minimal config often works even for complex chat widgets:
+
+```yaml
+url: https://example.com/chatbot/
+protocol: browser
+```
+
+To disable auto-discovery (e.g., if it interferes with a specific UI):
+
+```yaml
+browser:
+  auto_discover: false
+  input_selector: "#chat-input"
+```
+
+### Option / Quick-Reply Menus
+
+Many chatbots present clickable options ("Track package", "Report issue") instead of accepting free text immediately. ZIRAN handles this automatically:
+
+```yaml
+browser:
+  initial_options: auto          # auto (default), click_through, type_through, skip
+  max_option_depth: 3            # how many menu levels to navigate
+  option_selector: ""            # custom selector for option buttons (empty = auto-detect)
+```
+
+Strategies:
+
+- **`auto`** (default) — Looks for "Something else" / "Other" options first, then clicks the first option
+- **`click_through`** — Clicks the first option at each level
+- **`type_through`** — Ignores options and types directly (works if the bot accepts free text)
+- **`skip`** — Does nothing about options
+
 ## Step 2: Run the Scan
 
 ```bash
@@ -117,6 +159,17 @@ browser:
 - Test selectors manually in the browser DevTools console
 - Ensure environment variables are set for `${VAR}` references
 - Check `login_url` is correct
+
+### Auto-discovery clicks the wrong button
+
+If ZIRAN clicks the wrong element during UI discovery, disable it:
+
+```yaml
+browser:
+  auto_discover: false
+  input_selector: "textarea"
+  submit_selector: "button[type='submit']"
+```
 
 ### Non-headless debugging
 
