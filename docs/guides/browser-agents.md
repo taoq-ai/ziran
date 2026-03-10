@@ -74,6 +74,9 @@ browser:
   initial_options: auto          # auto (default), click_through, type_through, skip
   max_option_depth: 3            # how many menu levels to navigate
   option_selector: ""            # custom selector for option buttons (empty = auto-detect)
+  prefer_options:                # option texts to prefer (tried first, case-insensitive)
+    - "Vraag stellen"
+    - "Ask a question"
 ```
 
 Strategies:
@@ -82,6 +85,8 @@ Strategies:
 - **`click_through`** — Clicks the first option at each level
 - **`type_through`** — Ignores options and types directly (works if the bot accepts free text)
 - **`skip`** — Does nothing about options
+
+The `prefer_options` list is checked before all built-in patterns. Use it when you know which option leads to the LLM-powered free-text mode in a hybrid bot. Matches are case-insensitive substrings.
 
 ## Step 2: Run the Scan
 

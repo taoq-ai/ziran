@@ -759,9 +759,15 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 option_texts[:5],
             )
 
-            # Strategy: try to find a "free text" / "other" option first
+            # Strategy: try user-configured preferred options first,
+            # then built-in free-text patterns
             clicked = False
-            if strategy == "auto":
+
+            # User-specified prefer_options always get first priority
+            if self._browser_config.prefer_options:
+                clicked = await self._click_preferred_option(options)
+
+            if not clicked and strategy == "auto":
                 clicked = await self._click_freetext_option(options)
 
             if not clicked:
@@ -780,6 +786,29 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             max_depth,
             max_depth,
         )
+
+    async def _click_preferred_option(self, options: list[tuple[str, str]]) -> bool:
+        """Try to click an option matching user-configured ``prefer_options``.
+
+        Matches case-insensitively as a substring against option button text.
+        Patterns are tried in the order they appear in ``prefer_options``.
+
+        Args:
+            options: List of ``(selector, text)`` pairs.
+
+        Returns:
+            True if a preferred option was found and clicked.
+        """
+        assert self._page is not None
+
+        for pattern in self._browser_config.prefer_options:
+            pattern_lower = pattern.lower().strip()
+            for _sel, text in options:
+                if pattern_lower in text.lower().strip():
+                    logger.info("Clicking preferred option %r (matched %r)", text, pattern)
+                    return await self._click_option_by_text(text)
+
+        return False
 
     async def _click_freetext_option(self, options: list[tuple[str, str]]) -> bool:
         """Try to click an option that leads to free-text mode.

@@ -72,10 +72,11 @@ Many chatbots are hybrid — they mix free-text input with clickable option butt
 
 ZIRAN detects and navigates through option menus automatically:
 
-1. **Detection:** After the chat UI opens, ZIRAN scans for common option button patterns (`[class*='quick-reply']`, `[class*='chip']`, `[role='option']`, etc.)
-2. **Free-text navigation:** Looks for "Something else" / "Other" / "Iets anders" options that typically lead to free-text mode
-3. **Click-through:** If no free-text option exists, clicks through the first available option to navigate deeper into the conversation tree
-4. **Depth limiting:** Stops after `max_option_depth` levels (default: 3) to prevent infinite loops
+1. **Preferred options:** If `prefer_options` is set, tries those first (case-insensitive substring match)
+2. **Detection:** After the chat UI opens, ZIRAN scans for common option button patterns (`[class*='quick-reply']`, `[class*='chip']`, `[role='option']`, etc.)
+3. **Free-text navigation:** Looks for "Something else" / "Other" / "Iets anders" options that typically lead to free-text mode
+4. **Click-through:** If no free-text option exists, clicks through the first available option to navigate deeper into the conversation tree
+5. **Depth limiting:** Stops after `max_option_depth` levels (default: 3) to prevent infinite loops
 
 The strategy is configurable:
 
@@ -84,7 +85,12 @@ browser:
   initial_options: auto          # auto | click_through | type_through | skip
   max_option_depth: 3            # max menu levels to navigate
   option_selector: ".my-chips"   # custom selector (empty = auto-detect)
+  prefer_options:                # domain-specific options to prefer
+    - "Ask a question"
+    - "Vraag stellen"
 ```
+
+Use `prefer_options` for hybrid bots where you know which option leads to the LLM-powered free-text mode. This is especially useful when the built-in heuristics don't cover the specific option labels of your target chatbot.
 
 Option buttons detected during attack execution are included in the response metadata for analysis.
 

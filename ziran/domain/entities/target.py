@@ -313,6 +313,14 @@ class BrowserConfig(BaseModel):
         description="Maximum number of option menu levels to click through "
         "before giving up. Prevents infinite loops in menu trees.",
     )
+    prefer_options: list[str] = Field(
+        default_factory=list,
+        description="Option button texts to prefer when navigating menus. "
+        "Tried before the built-in free-text patterns (case-insensitive "
+        "substring match). Useful for hybrid bots where you know which "
+        "option leads to the LLM-powered free-text mode. "
+        "Example: ['Vraag stellen', 'Ask a question']",
+    )
 
     # Viewport
     viewport_width: int = Field(default=1280, gt=0, description="Browser viewport width in pixels")

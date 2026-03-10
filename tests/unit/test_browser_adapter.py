@@ -764,16 +764,19 @@ class TestBrowserConfigOptions:
         assert cfg.option_selector == ""
         assert cfg.initial_options == "auto"
         assert cfg.max_option_depth == 3
+        assert cfg.prefer_options == []
 
     def test_custom_option_config(self) -> None:
         cfg = BrowserConfig(
             option_selector=".my-chip",
             initial_options="click_through",
             max_option_depth=5,
+            prefer_options=["Vraag stellen", "Ask a question"],
         )
         assert cfg.option_selector == ".my-chip"
         assert cfg.initial_options == "click_through"
         assert cfg.max_option_depth == 5
+        assert cfg.prefer_options == ["Vraag stellen", "Ask a question"]
 
     def test_option_strategy_skip(self) -> None:
         cfg = BrowserConfig(initial_options="skip")
@@ -793,6 +796,7 @@ def _make_option_adapter(
     initial_options: str = "auto",
     option_selector: str = "",
     max_option_depth: int = 3,
+    prefer_options: list[str] | None = None,
 ) -> Any:
     """Create an adapter with mocked page for option tests."""
     from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
@@ -804,6 +808,7 @@ def _make_option_adapter(
             initial_options=initial_options,  # type: ignore[arg-type]
             option_selector=option_selector,
             max_option_depth=max_option_depth,
+            prefer_options=prefer_options or [],
         ),
     )
     adapter = BrowserAgentAdapter(config)
@@ -925,6 +930,149 @@ class TestDetectOptionButtons:
         # Should only try the custom selector, not the default list
         assert ".my-custom-chip" in used_selectors
         assert len(used_selectors) == 1
+
+
+@pytest.mark.unit
+class TestClickPreferredOption:
+    """Tests for _click_preferred_option."""
+
+    async def test_clicks_matching_preferred_option(self) -> None:
+        adapter = _make_option_adapter(prefer_options=["Vraag stellen"])
+        page = adapter._page
+
+        clicked_texts: list[str] = []
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if "Vraag stellen" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+
+                async def do_click(**kwargs: Any) -> None:
+                    clicked_texts.append("Vraag stellen")
+
+                locator.click = do_click
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [
+            ("[class*='chip']", "Track & Trace"),
+            ("[class*='chip']", "Vraag stellen"),
+            ("[class*='chip']", "Retourneren"),
+        ]
+        result = await adapter._click_preferred_option(options)
+        assert result is True
+        assert "Vraag stellen" in clicked_texts
+
+    async def test_case_insensitive_match(self) -> None:
+        adapter = _make_option_adapter(prefer_options=["ask a question"])
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if "Ask a Question" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.click = AsyncMock()
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [("[class*='chip']", "Ask a Question")]
+        result = await adapter._click_preferred_option(options)
+        assert result is True
+
+    async def test_substring_match(self) -> None:
+        """Prefer options should match as substring."""
+        adapter = _make_option_adapter(prefer_options=["vraag"])
+        page = adapter._page
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if "Stel een vraag" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+                locator.click = AsyncMock()
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [
+            ("[class*='chip']", "Bezorging"),
+            ("[class*='chip']", "Stel een vraag"),
+        ]
+        result = await adapter._click_preferred_option(options)
+        assert result is True
+
+    async def test_respects_pattern_priority(self) -> None:
+        """First matching prefer_options pattern wins."""
+        adapter = _make_option_adapter(prefer_options=["retour", "track"])
+        page = adapter._page
+
+        clicked_texts: list[str] = []
+
+        def make_locator_fn(selector: str) -> MagicMock:
+            locator = MagicMock()
+            locator.first = locator
+            if "Retourneren" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+
+                async def do_click(**kwargs: Any) -> None:
+                    clicked_texts.append("Retourneren")
+
+                locator.click = do_click
+            elif "Track & Trace" in selector:
+                locator.is_visible = AsyncMock(return_value=True)
+
+                async def do_click2(**kwargs: Any) -> None:
+                    clicked_texts.append("Track & Trace")
+
+                locator.click = do_click2
+            else:
+                locator.is_visible = AsyncMock(side_effect=Exception("not visible"))
+            return locator
+
+        page.locator = make_locator_fn
+
+        options = [
+            ("[class*='chip']", "Track & Trace"),
+            ("[class*='chip']", "Retourneren"),
+        ]
+        result = await adapter._click_preferred_option(options)
+        assert result is True
+        # "retour" pattern comes first, so Retourneren should be clicked
+        assert clicked_texts == ["Retourneren"]
+
+    async def test_no_match_returns_false(self) -> None:
+        adapter = _make_option_adapter(prefer_options=["nonexistent option"])
+        page = adapter._page
+
+        page.locator = MagicMock(
+            return_value=MagicMock(
+                first=MagicMock(is_visible=AsyncMock(side_effect=Exception("not visible")))
+            )
+        )
+
+        options = [
+            ("[class*='chip']", "Track & Trace"),
+            ("[class*='chip']", "Bezorging"),
+        ]
+        result = await adapter._click_preferred_option(options)
+        assert result is False
+
+    async def test_empty_prefer_options_returns_false(self) -> None:
+        adapter = _make_option_adapter(prefer_options=[])
+
+        options = [("[class*='chip']", "Track & Trace")]
+        result = await adapter._click_preferred_option(options)
+        assert result is False
 
 
 @pytest.mark.unit
@@ -1167,3 +1315,77 @@ class TestHandleInitialOptions:
 
         # Should return quickly
         await adapter._handle_initial_options()
+
+    async def test_prefer_options_tried_before_freetext(self) -> None:
+        """prefer_options should be tried before built-in freetext patterns."""
+        adapter = _make_option_adapter(
+            initial_options="auto",
+            max_option_depth=1,
+            prefer_options=["Vraag stellen"],
+        )
+
+        call_log: list[str] = []
+
+        async def mock_detect() -> list[tuple[str, str]]:
+            return [
+                ("[class*='chip']", "Iets anders"),  # built-in freetext pattern
+                ("[class*='chip']", "Vraag stellen"),  # user preferred option
+            ]
+
+        adapter._detect_option_buttons = mock_detect  # type: ignore[assignment]
+
+        async def mock_click_preferred(
+            options: list[tuple[str, str]],
+        ) -> bool:
+            call_log.append("preferred")
+            return True  # Preferred found, so freetext should NOT be called
+
+        async def mock_click_freetext(
+            options: list[tuple[str, str]],
+        ) -> bool:
+            call_log.append("freetext")
+            return True
+
+        adapter._click_preferred_option = mock_click_preferred  # type: ignore[assignment]
+        adapter._click_freetext_option = mock_click_freetext  # type: ignore[assignment]
+
+        await adapter._handle_initial_options()
+        # preferred should be called first and freetext should NOT be called
+        assert call_log == ["preferred"]
+
+    async def test_prefer_options_falls_through_to_freetext(self) -> None:
+        """When prefer_options don't match, fall through to freetext patterns."""
+        adapter = _make_option_adapter(
+            initial_options="auto",
+            max_option_depth=1,
+            prefer_options=["nonexistent"],
+        )
+
+        call_log: list[str] = []
+
+        async def mock_detect() -> list[tuple[str, str]]:
+            return [
+                ("[class*='chip']", "Iets anders"),
+                ("[class*='chip']", "Bezorging"),
+            ]
+
+        adapter._detect_option_buttons = mock_detect  # type: ignore[assignment]
+
+        async def mock_click_preferred(
+            options: list[tuple[str, str]],
+        ) -> bool:
+            call_log.append("preferred")
+            return False  # No match
+
+        async def mock_click_freetext(
+            options: list[tuple[str, str]],
+        ) -> bool:
+            call_log.append("freetext")
+            return True
+
+        adapter._click_preferred_option = mock_click_preferred  # type: ignore[assignment]
+        adapter._click_freetext_option = mock_click_freetext  # type: ignore[assignment]
+
+        await adapter._handle_initial_options()
+        # Both should be called since preferred didn't match
+        assert call_log == ["preferred", "freetext"]
