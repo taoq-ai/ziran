@@ -65,9 +65,11 @@ nav:
     - Adaptive Campaigns: concepts/adaptive-campaigns.md
     - Pentesting Agent: concepts/pentesting-agent.md
     - Streaming: concepts/streaming.md
+    - Browser Scanning: concepts/browser-scanning.md
   - Guides:
     - Scanning Agents: guides/scanning-agents.md
     - Remote Agents: guides/remote-agents.md
+    - Browser Agents: guides/browser-agents.md
     - CI/CD Integration: guides/cicd-integration.md
     - Static Analysis: guides/static-analysis.md
     - Interpreting Results: guides/interpreting-results.md

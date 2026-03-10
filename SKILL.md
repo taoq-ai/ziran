@@ -40,7 +40,7 @@ ziran/
 │   ├── skill_cve/     # CVE knowledge base
 │   └── static_analysis/ # Source code analysis
 ├── infrastructure/   # Technical implementations — adapters, LLM clients, storage
-│   ├── adapters/      # Framework adapters: langchain, crewai, bedrock, agentcore, http
+│   ├── adapters/      # Framework adapters: langchain, crewai, bedrock, agentcore, http, browser
 │   │   └── protocols/ # Protocol handlers: rest, openai, mcp, a2a, sse, ws
 │   ├── llm/           # LiteLLM-based multi-provider LLM client
 │   ├── logging/       # Structured logging
@@ -102,6 +102,7 @@ The project has optional extras for framework integrations:
 - `agentcore` — Bedrock AgentCore
 - `llm` — LiteLLM multi-provider routing
 - `pentest` — Autonomous pentesting agent (includes llm + langgraph + numpy)
+- `browser` — Headless browser scanning via Playwright
 - `all` — Everything
 
 Install extras: `pip install ziran[all]` or `uv sync --extra all`
@@ -115,6 +116,7 @@ Install extras: `pip install ziran[all]` or `uv sync --extra all`
 - **Adapter:** Framework-specific integration layer implementing `BaseAgentAdapter`
 - **Strategy:** Campaign execution plan (fixed, adaptive, or llm-adaptive)
 - **Detection pipeline:** Multi-detector system (indicator-based, LLM judge, refusal detector)
+- **Browser scanning:** Headless Playwright adapter that interacts with chat UIs via network interception (primary) or DOM extraction (fallback); configured via `BrowserConfig` in target YAML with `protocol: browser`
 
 ## CI/CD
 
