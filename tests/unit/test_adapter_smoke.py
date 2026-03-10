@@ -173,3 +173,36 @@ class TestLoggerSmoke:
 
         # Should not raise
         setup_logging(level="WARNING")
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Browser adapter
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestBrowserAdapterSmoke:
+    """Import and instantiation smoke tests for BrowserAgentAdapter."""
+
+    def test_import(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+
+        assert BrowserAgentAdapter is not None
+
+    def test_instantiation(self) -> None:
+        from ziran.domain.entities.target import TargetConfig
+        from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+
+        config = TargetConfig(url="https://chat.example.com", protocol="browser")
+        adapter = BrowserAgentAdapter(config)
+        assert adapter._config == config
+        assert adapter._page is None  # Not yet initialized
+
+    def test_get_state_before_init(self) -> None:
+        from ziran.domain.entities.target import TargetConfig
+        from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+
+        config = TargetConfig(url="https://chat.example.com", protocol="browser")
+        adapter = BrowserAgentAdapter(config)
+        state = adapter.get_state()
+        assert state.conversation_history == []
