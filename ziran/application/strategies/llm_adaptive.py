@@ -173,7 +173,7 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         )
 
         messages = [{"role": "user", "content": prompt}]
-        response = asyncio.get_event_loop().run_until_complete(
+        response = asyncio.run(
             self._llm.complete(messages, temperature=0.3, max_tokens=500)
         )
 
@@ -230,7 +230,7 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         )
 
         messages = [{"role": "user", "content": prompt}]
-        response = asyncio.get_event_loop().run_until_complete(
+        response = asyncio.run(
             self._llm.complete(messages, temperature=0.2, max_tokens=500)
         )
 
