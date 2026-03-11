@@ -52,23 +52,38 @@
 - :white_check_mark: **327 multi-agent attack vectors** — Cross-agent prompt injection, delegation chain manipulation, shared memory poisoning
 - :white_check_mark: **18 runnable examples** — Including multi-agent, streaming, and adaptive campaign demos
 
-## Next: v0.6 — Pentesting Agent
+### v0.6 — Pentesting Agent
 
-The flagship feature — an autonomous AI agent that performs penetration testing:
+- :white_check_mark: **Autonomous pentesting agent** — An LLM-powered agent that plans, executes, and adapts attack campaigns with minimal human intervention
+- :white_check_mark: **Attack chain reasoning** — The agent reasons about discovered vulnerabilities to chain multi-step exploits
+- :white_check_mark: **Interactive red-team mode** — Collaborate with the pentesting agent in a conversational interface
+- :white_check_mark: **Finding deduplication** — Intelligent merging of related findings across automated and agent-driven scans
 
-- [x] **Autonomous pentesting agent** — An LLM-powered agent that plans, executes, and adapts attack campaigns with minimal human intervention
-- [x] **Attack chain reasoning** — The agent reasons about discovered vulnerabilities to chain multi-step exploits
-- [x] **Interactive red-team mode** — Collaborate with the pentesting agent in a conversational interface
-- [x] **Finding deduplication** — Intelligent merging of related findings across automated and agent-driven scans
+### v0.7 — Browser Scanning
 
-## v0.7 — Remediation Engine
+- :white_check_mark: **Browser-based agent scanning** — Headless Playwright adapter for testing agents exposed via web chat UIs
+- :white_check_mark: **Network interception** — Primary extraction via intercepted API calls (WebSocket, SSE, HTTP)
+- :white_check_mark: **DOM fallback** — Secondary extraction from rendered page content when network interception is unavailable
+
+## Next: v0.8 — Depth & Ecosystem
+
+Deepen ZIRAN's unique strengths and build bridges to complementary tools:
+
+- [ ] **Expanded tool chain patterns** — Grow from 32 to 100+ dangerous patterns (framework-specific chains, MCP tool combinations, A2A flows)
+- [ ] **Encoding/obfuscation strategies** — Base64, leetspeak, ROT13, homoglyph attack variants (closing the gap vs Promptfoo)
+- [ ] **Multi-turn jailbreak tactics** — Crescendo-style escalation within campaign phases
+- [ ] **BOLA/BFLA authorization testing** — Broken Object/Function Level Authorization testing for agents with user-scoped data
+- [ ] **Promptfoo provider bridge** — `ziran-promptfoo` package: use ZIRAN as an analysis backend for Promptfoo's attack generation
+- [ ] **OpenTelemetry trace integration** — Complement side-effect detection with full observability traces
+
+## v0.9 — Remediation Engine
 
 - [ ] **Auto-generated fix suggestions** — Concrete code patches and guardrail configurations for discovered vulnerabilities
 - [ ] **Guardrail templates** — Pre-built guardrail configurations for common agent frameworks
 - [ ] **Remediation validation** — Re-scan after applying fixes to verify remediation effectiveness
 - [ ] **Security policy generator** — Generate policy files from scan results
 
-## v0.8 — MCP Server Mode
+## v0.10 — MCP Server Mode
 
 - [ ] **ZIRAN as an MCP server** — Expose scanning capabilities via the Model Context Protocol, enabling any MCP-compatible client to trigger scans
 - [ ] **Tool-based scanning interface** — Scan agents, browse results, and manage campaigns through MCP tool calls
@@ -77,9 +92,11 @@ The flagship feature — an autonomous AI agent that performs penetration testin
 
 ## Future
 
-- [ ] **Cloud dashboard** — Centralized vulnerability management across agents
+- [ ] **Custom chain rule language** — User-defined tool chain patterns complementing ZIRAN's auto-discovery
+- [ ] **Community chain patterns** — Crowdsourced dangerous tool chain submissions (like Skill CVEs but for tool compositions)
+- [ ] **AgentSecBench** — Purpose-built benchmark: vulnerable agents with known tool chain vulnerabilities, demonstrating what ZIRAN catches that other tools miss
+- [ ] **Tool chain methodology paper** — Publish the discovery-based approach as research
 - [ ] **Community CVE portal** — Web-based CVE submission and search
-- [ ] **IDE extension** — VS Code extension for inline security feedback
 - [ ] **Agent benchmarking** — Comparative security scoring across agent versions
 - [ ] **Compliance reports** — SOC 2, ISO 27001, and NIST AI RMF report templates
 

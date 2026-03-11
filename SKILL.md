@@ -2,9 +2,25 @@
 
 ## What is this project?
 
-ZIRAN is an open-source security testing framework for AI agents. It tests agents with tools, memory, and multi-step reasoning — not just LLMs. It runs multi-phase trust exploitation campaigns, analyzes dangerous tool chain combinations, and tracks attack paths via knowledge graphs.
+ZIRAN is an open-source security testing framework for AI agents. It discovers dangerous tool chain compositions via knowledge graph analysis, detects execution-level side effects (not just text output), and runs multi-phase trust exploitation campaigns that model real attacker behavior.
 
 Built by [TaoQ AI](https://www.taoq.ai). Licensed under Apache-2.0.
+
+## Positioning — what ZIRAN is and is not
+
+**ZIRAN IS:**
+- An agent security scanner that discovers dangerous tool compositions via graph analysis (e.g., `read_file` + `http_request` = data exfiltration)
+- An execution-level detector that catches when agents refuse in text but execute dangerous tools anyway
+- A multi-phase campaign orchestrator with knowledge graph feedback across phases
+- An autonomous pentesting agent that plans, executes, and adapts attack campaigns
+
+**ZIRAN IS NOT:**
+- An LLM safety/alignment tool (for jailbreak breadth, encoding attacks, and compliance plugins → Promptfoo or Garak)
+- A runtime guardrail (for real-time input/output protection → NeMo Guardrails, Lakera Guard, or LLM Guard)
+- A general-purpose eval framework (for model evaluation and benchmarking → Inspect AI or Deepeval)
+- A pentesting tool for web apps or networks (for AI-driven pentesting of infrastructure → Shannon or PentestGPT)
+
+When contributing, keep features aligned with agent security testing. Don't add LLM alignment checks, compliance plugins, or runtime guardrail features — those belong in complementary tools.
 
 ## Tech stack
 
