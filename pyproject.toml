@@ -62,8 +62,9 @@ pentest = [
 browser = [
     "playwright>=1.40,<2",
 ]
+promptfoo = []
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,llm,pentest,browser]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,llm,pentest,browser,promptfoo]",
 ]
 
 [project.scripts]
