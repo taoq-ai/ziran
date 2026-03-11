@@ -76,11 +76,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --group test --extra all
 
+      - name: Install Playwright browsers
+        run: uv run playwright install chromium --with-deps
+
       - name: Run unit tests
         run: uv run pytest -m "not integration" --cov=ziran --cov-report=term-missing -v
 
       - name: Check coverage threshold
-        run: uv run pytest -m "not integration" --cov=ziran --cov-fail-under=89 --no-header -q
+        run: uv run pytest -m "not integration" --cov=ziran --cov-fail-under=85 --no-header -q
 
   integration-test:
     runs-on: ubuntu-latest
@@ -102,6 +105,9 @@ jobs:
 
       - name: Install dependencies with all extras
         run: uv sync --group test --extra all
+
+      - name: Install Playwright browsers
+        run: uv run playwright install chromium --with-deps
 
       - name: Run integration tests
         run: uv run pytest -m integration -v

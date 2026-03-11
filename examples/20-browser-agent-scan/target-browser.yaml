@@ -1,0 +1,32 @@
+# Ziran Target Config: Browser-based chatbot UI
+# Scans an AI agent through its web chat interface using headless Playwright.
+# Captures API responses via network interception for structured analysis.
+
+url: https://chatbot.example.com/chat
+protocol: browser
+timeout: 60.0
+
+browser:
+  browser_type: chromium
+  headless: true
+
+  # Chat UI selectors (CSS)
+  input_selector: "textarea[placeholder*='message']"
+  submit_selector: "button[aria-label='Send']"
+  response_selector: "div.assistant-message"
+
+  # Network interception (auto-detect if omitted)
+  api_url_pattern: "**/api/chat/completions"
+  response_json_path: "choices.0.message.content"
+
+  # Timing
+  navigation_timeout: 30.0
+  response_timeout: 60.0
+  settle_delay: 1.5
+
+  # Viewport
+  viewport_width: 1280
+  viewport_height: 720
+
+tls:
+  verify: true

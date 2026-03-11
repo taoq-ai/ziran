@@ -1,0 +1,5 @@
+# Ziran Target Config: Minimal browser scan with auto-detection
+# ZIRAN will auto-detect the API endpoint and CSS selectors.
+
+url: https://chatbot.example.com/chat
+protocol: browser

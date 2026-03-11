@@ -1,0 +1,32 @@
+# Ziran Target Config: Browser scan with login flow
+# Navigates to login page first, authenticates, then scans.
+
+url: https://internal-agent.corp.example.com/chat
+protocol: browser
+timeout: 60.0
+
+browser:
+  browser_type: chromium
+  headless: true
+
+  # Login flow
+  login_url: https://internal-agent.corp.example.com/login
+  login_steps:
+    - selector: "#username"
+      action: fill
+      value: "${AGENT_USERNAME}"
+    - selector: "#password"
+      action: fill
+      value: "${AGENT_PASSWORD}"
+    - selector: "button[type='submit']"
+      action: click
+
+  # Chat UI selectors
+  input_selector: "#chat-input"
+  submit_selector: "#send-button"
+  response_selector: ".chat-message.bot"
+
+  # Timing
+  navigation_timeout: 30.0
+  response_timeout: 90.0
+  settle_delay: 2.0

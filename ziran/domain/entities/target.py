@@ -36,6 +36,9 @@ class ProtocolType(StrEnum):
     AUTO = "auto"
     """Auto-detect: try A2A Agent Card → OpenAI /v1/models → generic REST."""
 
+    BROWSER = "browser"
+    """Headless browser — interact with chatbot web UIs via Playwright."""
+
 
 class AuthType(StrEnum):
     """Supported authentication types."""
@@ -205,6 +208,145 @@ class A2AConfig(BaseModel):
     )
 
 
+class BrowserConfig(BaseModel):
+    """Configuration specific to headless browser scanning.
+
+    Controls how Playwright interacts with a chatbot web UI, including
+    CSS selectors for the input/output elements, network interception
+    patterns for capturing underlying API calls, and browser settings.
+    """
+
+    # Browser engine
+    browser_type: Literal["chromium", "firefox", "webkit"] = Field(
+        default="chromium",
+        description="Playwright browser engine to use",
+    )
+    headless: bool = Field(
+        default=True,
+        description="Run browser in headless mode",
+    )
+
+    # Chat UI selectors
+    input_selector: str = Field(
+        default="textarea, input[type='text']",
+        description="CSS selector for the chat input element",
+    )
+    submit_selector: str | None = Field(
+        default=None,
+        description="CSS selector for the submit/send button. "
+        "If None, sends Enter key after typing.",
+    )
+    response_selector: str = Field(
+        default="[class*='message'], [class*='response'], [class*='assistant']",
+        description="CSS selector for assistant response elements (DOM fallback)",
+    )
+
+    # Network interception
+    api_url_pattern: str | None = Field(
+        default=None,
+        description="URL glob pattern to intercept API calls "
+        "(e.g. '**/api/chat/**', '**/v1/chat/completions'). "
+        "If None, auto-detects by monitoring POST requests.",
+    )
+    response_json_path: str = Field(
+        default="",
+        description="Dot-separated JSON path to extract content from intercepted API response. "
+        "Empty string means auto-detect (tries common paths: "
+        "choices.0.message.content, response, output, text).",
+    )
+
+    # WebSocket interception
+    websocket_url_pattern: str | None = Field(
+        default=None,
+        description="URL glob pattern to match WebSocket connections "
+        "(e.g. '**/socket.io/**'). None = monitor all WebSocket connections "
+        "during auto-detection.",
+    )
+    websocket_event_name: str = Field(
+        default="",
+        description="Socket.IO event name to capture (e.g. 'output' for Cognigy.AI). "
+        "Empty string means auto-detect from common event names "
+        "(output, message, response).",
+    )
+    websocket_message_path: str = Field(
+        default="",
+        description="Dot-separated JSON path to extract content from WebSocket event "
+        "payloads (e.g. 'data.text' for Cognigy.AI). "
+        "Empty string means auto-detect from common paths.",
+    )
+
+    # Timing
+    navigation_timeout: float = Field(
+        default=30.0,
+        gt=0,
+        description="Timeout for initial page load in seconds",
+    )
+    response_timeout: float = Field(
+        default=60.0,
+        gt=0,
+        description="Timeout waiting for agent response in seconds",
+    )
+    settle_delay: float = Field(
+        default=1.0,
+        ge=0,
+        description="Delay after last DOM mutation before considering response complete (seconds)",
+    )
+
+    # Pre-auth
+    login_url: str | None = Field(
+        default=None,
+        description="URL to navigate to for login before scanning. "
+        "If None, navigates directly to the target URL.",
+    )
+    login_steps: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Sequence of login actions: "
+        "[{'selector': '...', 'action': 'fill|click', 'value': '...'}]",
+    )
+
+    # Auto-discovery
+    auto_discover: bool = Field(
+        default=True,
+        description="Auto-discover chat UI elements (launcher buttons, input fields, "
+        "cookie banners). Disable if selectors are explicitly configured and "
+        "discovery causes issues.",
+    )
+
+    # Option / quick-reply handling
+    option_selector: str = Field(
+        default="",
+        description="CSS selector for quick-reply option buttons/chips. "
+        "Empty string means auto-detect using common patterns.",
+    )
+    initial_options: Literal["auto", "click_through", "type_through", "skip"] = Field(
+        default="auto",
+        description="How to handle initial option menus presented by the chatbot. "
+        "'auto' tries to find a free-text/other option first, then clicks through, "
+        "'click_through' clicks the first available option to navigate past menus, "
+        "'type_through' ignores options and types directly, "
+        "'skip' does nothing.",
+    )
+    max_option_depth: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Maximum number of option menu levels to click through "
+        "before giving up. Prevents infinite loops in menu trees.",
+    )
+    prefer_options: list[str] = Field(
+        default_factory=list,
+        description="Option button texts to prefer when navigating menus. "
+        "Tried before the built-in free-text patterns (case-insensitive "
+        "substring match). Useful for hybrid bots where you know which "
+        "option leads to the LLM-powered free-text mode. "
+        "Example: ['Vraag stellen', 'Ask a question']",
+    )
+
+    # Viewport
+    viewport_width: int = Field(default=1280, gt=0, description="Browser viewport width in pixels")
+    viewport_height: int = Field(default=720, gt=0, description="Browser viewport height in pixels")
+
+
 class TargetConfig(BaseModel):
     """Top-level configuration for a remote agent scan target.
 
@@ -236,6 +378,9 @@ class TargetConfig(BaseModel):
         default=None, description="OpenAI-compatible protocol configuration"
     )
     a2a: A2AConfig | None = Field(default=None, description="A2A-specific configuration")
+    browser: BrowserConfig | None = Field(
+        default=None, description="Browser-specific configuration"
+    )
 
     # Security
     auth: AuthConfig | None = Field(default=None, description="Authentication configuration")
@@ -258,6 +403,8 @@ class TargetConfig(BaseModel):
             self.rest = RestConfig()
         if self.protocol == ProtocolType.OPENAI and self.openai is None:
             self.openai = OpenAIConfig()
+        if self.protocol == ProtocolType.BROWSER and self.browser is None:
+            self.browser = BrowserConfig()
         return self
 
     @property

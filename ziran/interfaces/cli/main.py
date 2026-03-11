@@ -103,7 +103,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 )
 @click.option(
     "--protocol",
-    type=click.Choice(["rest", "openai", "mcp", "a2a", "auto"], case_sensitive=False),
+    type=click.Choice(["rest", "openai", "mcp", "a2a", "browser", "auto"], case_sensitive=False),
     default=None,
     help="Override protocol type (used with --target).",
 )
@@ -250,7 +250,8 @@ def scan(
     config_table.add_column("Key", style="cyan")
     config_table.add_column("Value", style="white")
     if has_remote:
-        config_table.add_row("Mode", "Remote (HTTPS)")
+        mode_label = "Browser (Headless)" if protocol == "browser" else "Remote (HTTPS)"
+        config_table.add_row("Mode", mode_label)
         config_table.add_row("Target Config", str(target))
         if protocol:
             config_table.add_row("Protocol Override", protocol)
@@ -376,7 +377,7 @@ def scan(
 )
 @click.option(
     "--protocol",
-    type=click.Choice(["rest", "openai", "mcp", "a2a", "auto"], case_sensitive=False),
+    type=click.Choice(["rest", "openai", "mcp", "a2a", "browser", "auto"], case_sensitive=False),
     default=None,
     help="Override protocol type (used with --target).",
 )
@@ -1208,23 +1209,25 @@ def _load_bedrock_config(agent_path: str) -> dict[str, Any]:
 
 
 def _load_remote_adapter(target_path: str, protocol_override: str | None = None) -> Any:
-    """Load an HTTP agent adapter from a YAML target config.
+    """Load an agent adapter from a YAML target config.
+
+    Creates either a :class:`BrowserAgentAdapter` (for ``protocol: browser``)
+    or a :class:`HttpAgentAdapter` (for all other protocols).
 
     Args:
         target_path: Path to the YAML target configuration file.
         protocol_override: Optional protocol to override the config value.
 
     Returns:
-        Configured HttpAgentAdapter instance.
+        Configured adapter instance.
 
     Raises:
         click.ClickException: If the config is invalid or can't be loaded.
     """
     try:
         from ziran.domain.entities.target import ProtocolType, load_target_config
-        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
     except ImportError as e:
-        raise click.ClickException(f"Failed to import HTTP adapter components: {e}") from e
+        raise click.ClickException(f"Failed to import target config components: {e}") from e
 
     try:
         config = load_target_config(Path(target_path))
@@ -1243,6 +1246,19 @@ def _load_remote_adapter(target_path: str, protocol_override: str | None = None)
     if config.auth:
         console.print(f"[dim]Auth: {config.auth.type.value}[/dim]")
     console.print()
+
+    if config.protocol == ProtocolType.BROWSER:
+        try:
+            from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+        except ImportError as e:
+            raise click.ClickException(
+                "Playwright is required for browser scanning. "
+                "Install with: pip install ziran[browser] && playwright install chromium\n"
+                f"{e}"
+            ) from e
+        return BrowserAgentAdapter(config)
+
+    from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 
     return HttpAgentAdapter(config)
 

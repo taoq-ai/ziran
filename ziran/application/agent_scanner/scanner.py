@@ -691,6 +691,10 @@ class AgentScanner:
 
         attack_tokens = TokenUsage()
 
+        # Track last response/prompt for reporting even when all prompts fail
+        last_response_content: str | None = None
+        last_prompt_used: str | None = None
+
         # Try each prompt in the vector
         for prompt_spec in attack.prompts:
             rendered_prompt = self._render_prompt(prompt_spec)
@@ -709,6 +713,11 @@ class AgentScanner:
                     completion_tokens=response.completion_tokens,
                     total_tokens=response.total_tokens,
                 )
+
+                # Always track the last valid response for reporting
+                if response.content and not _is_error_response(response.content):
+                    last_response_content = response.content
+                    last_prompt_used = rendered_prompt
 
                 # ── Error sentinel check ──────────────────────────
                 if _is_error_response(response.content):
@@ -754,7 +763,7 @@ class AgentScanner:
             except Exception as e:
                 logger.warning("Error executing prompt for %s: %s", attack.id, str(e))
 
-        # None of the prompts succeeded
+        # None of the prompts succeeded — include last response for reporting
         return AttackResult(
             vector_id=attack.id,
             vector_name=attack.name,
@@ -762,6 +771,8 @@ class AgentScanner:
             severity=attack.severity,
             successful=False,
             evidence={"note": "All prompts were blocked or failed"},
+            agent_response=last_response_content,
+            prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,
             token_usage=attack_tokens,
         )
