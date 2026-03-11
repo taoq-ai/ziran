@@ -35,7 +35,7 @@ Most security tools test individual prompts or tools in isolation. ZIRAN discove
 | Agent-aware (tools + memory) | **Yes** | Partial | **Yes** | — | — | Partial |
 | A2A protocol support | **Yes** | — | — | — | — | — |
 | MCP protocol support | **Yes** | Partial | **Yes** | — | — | — |
-| Encoding/obfuscation attacks | — | **Yes** (12+) | — | — | — | — |
+| Encoding/obfuscation attacks | **Yes** (8) | **Yes** (12+) | — | — | — | — |
 | Industry compliance plugins | — | **Yes** (46) | — | — | — | — |
 | Streaming (SSE/WebSocket) | **Yes** | — | — | — | — | — |
 | CI/CD quality gate | **Yes** | **Yes** | — | — | — | — |
@@ -57,7 +57,7 @@ Most security tools test individual prompts or tools in isolation. ZIRAN discove
 
 **ZIRAN is not:**
 
-- An LLM safety/alignment tool — for prompt injection breadth, jailbreak templates, encoding attacks, and compliance testing, use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak)
+- An LLM safety/alignment tool — for prompt injection breadth, jailbreak templates, and compliance testing, use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak)
 - A runtime guardrail — for real-time input/output protection, use [NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails), [Lakera Guard](https://www.lakera.ai/), or [LLM Guard](https://github.com/protectai/llm-guard)
 - A general-purpose eval framework — for model evaluation and benchmarking, use [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) or [Deepeval](https://github.com/confident-ai/deepeval)
 
@@ -82,6 +82,7 @@ pip install ziran[crewai]       # CrewAI support
 pip install ziran[a2a]          # A2A protocol support
 pip install ziran[streaming]    # SSE/WebSocket streaming
 pip install ziran[pentest]      # autonomous pentesting agent
+pip install ziran[otel]         # OpenTelemetry tracing
 pip install ziran[all]          # everything
 ```
 
@@ -103,6 +104,12 @@ ziran scan --target target.yaml --strategy llm-adaptive
 
 # stream responses in real-time
 ziran scan --target target.yaml --streaming
+
+# scan with encoding bypass variants (Base64 + ROT13)
+ziran scan --target target.yaml --encoding base64 --encoding rot13
+
+# scan with OpenTelemetry tracing
+ziran scan --target target.yaml --otel
 
 # scan a multi-agent system
 ziran multi-agent-scan --target target.yaml
@@ -136,7 +143,7 @@ print(f"Vulnerabilities found: {result.total_vulnerabilities}")
 print(f"Dangerous tool chains: {len(result.dangerous_tool_chains)}")
 ```
 
-See [examples/](examples/) for 19 runnable demos — from static analysis to autonomous pentesting.
+See [examples/](examples/) for 22 runnable demos — from static analysis to autonomous pentesting.
 
 ---
 

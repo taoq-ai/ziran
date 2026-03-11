@@ -37,6 +37,8 @@ ziran scan [OPTIONS]
 | `--streaming` | No | `false` | Enable real-time SSE/WebSocket response streaming |
 | `--llm-provider` | No | — | LLM provider for AI-powered features |
 | `--llm-model` | No | — | LLM model name (e.g. `gpt-4o`, `claude-sonnet-4-20250514`) |
+| `--encoding` | No | — | Prompt encoding/obfuscation: `base64`, `rot13`, `leetspeak`, `homoglyph`, `hex`, `whitespace`, `mixed_case`, `payload_split`. Repeatable. |
+| `--otel` | No | `false` | Enable OpenTelemetry tracing (requires `ziran[otel]`). Exports spans to console. |
 | `--attack-timeout` | No | `60` | Per-attack timeout in seconds |
 | `--phase-timeout` | No | `300` | Per-phase timeout in seconds |
 
@@ -60,6 +62,12 @@ ziran scan --target target.yaml --strategy adaptive
 
 # LLM-driven adaptive with streaming
 ziran scan --target target.yaml --strategy llm-adaptive --streaming
+
+# Scan with Base64 and ROT13 encoding variants
+ziran scan --target target.yaml --encoding base64 --encoding rot13
+
+# Scan with OpenTelemetry tracing
+ziran scan --target target.yaml --otel
 ```
 
 ---
