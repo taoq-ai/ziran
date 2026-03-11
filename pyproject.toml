@@ -167,6 +167,7 @@ module = [
     "langgraph.*",
     "numpy.*",
     "playwright.*",
+    "opentelemetry.*",
 ]
 ignore_missing_imports = true
 

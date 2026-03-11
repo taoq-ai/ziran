@@ -29,7 +29,7 @@ try:
     _HAS_OTEL = True
 except ImportError:  # pragma: no cover - tested via mock
     _HAS_OTEL = False
-    _otel_trace = None  # type: ignore[assignment]
+    _otel_trace = None  # type: ignore[assignment,unused-ignore]
 
 
 # ── No-op implementation ──────────────────────────────────────────────

@@ -65,16 +65,14 @@
 - :white_check_mark: **Network interception** — Primary extraction via intercepted API calls (WebSocket, SSE, HTTP)
 - :white_check_mark: **DOM fallback** — Secondary extraction from rendered page content when network interception is unavailable
 
-## Next: v0.8 — Depth & Ecosystem
+### v0.8 — Depth & Ecosystem
 
-Deepen ZIRAN's unique strengths and build bridges to complementary tools:
-
-- [ ] **Expanded tool chain patterns** — Grow from 32 to 100+ dangerous patterns (framework-specific chains, MCP tool combinations, A2A flows)
-- [ ] **Encoding/obfuscation strategies** — Base64, leetspeak, ROT13, homoglyph attack variants (closing the gap vs Promptfoo)
-- [ ] **Multi-turn jailbreak tactics** — Crescendo-style escalation within campaign phases
-- [ ] **BOLA/BFLA authorization testing** — Broken Object/Function Level Authorization testing for agents with user-scoped data
-- [ ] **Promptfoo provider bridge** — `ziran-promptfoo` package: use ZIRAN as an analysis backend for Promptfoo's attack generation
-- [ ] **OpenTelemetry trace integration** — Complement side-effect detection with full observability traces
+- :white_check_mark: **Expanded tool chain patterns** — Grew from 32 to 102 dangerous patterns across 15 categories (cloud services, MCP, A2A, CI/CD, browser, crypto, and more) via YAML registry with custom pattern support
+- :white_check_mark: **Encoding/obfuscation engine** — 8 encoding types (Base64, ROT13, leetspeak, homoglyph, hex, whitespace, mixed case, payload split) with composable pipelines via `--encoding` flag
+- :white_check_mark: **Multi-turn jailbreak tactics** — Crescendo, context buildup, persona shift, and distraction tactics for progressive escalation within campaign phases
+- :white_check_mark: **BOLA/BFLA authorization testing** — Authorization bypass detector and 20 attack vectors for Broken Object/Function Level Authorization testing
+- :white_check_mark: **Promptfoo provider bridge** — Use ZIRAN as a custom Python provider for Promptfoo, enabling configuration-driven security testing with YAML test cases
+- :white_check_mark: **OpenTelemetry tracing** — Opt-in distributed tracing for campaigns, phases, attacks, and detection with zero overhead when disabled
 
 ## v0.9 — Remediation Engine
 

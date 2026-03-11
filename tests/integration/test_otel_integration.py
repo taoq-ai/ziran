@@ -2,6 +2,10 @@
 
 Verifies that ZIRAN's tracing instrumentation creates real OTel spans
 with correct attributes when the opentelemetry-sdk is installed.
+
+Uses a dedicated TracerProvider with an in-memory exporter to avoid
+conflicts with the global provider (which may be initialised by other
+tests that import instrumented modules).
 """
 
 from __future__ import annotations
@@ -10,13 +14,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-otel_trace = pytest.importorskip("opentelemetry.trace", reason="opentelemetry-sdk not installed")
-otel_sdk_trace = pytest.importorskip(
-    "opentelemetry.sdk.trace", reason="opentelemetry-sdk not installed"
-)
+pytest.importorskip("opentelemetry.trace", reason="opentelemetry-sdk not installed")
+pytest.importorskip("opentelemetry.sdk.trace", reason="opentelemetry-sdk not installed")
 
-from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor  # noqa: E402
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import ReadableSpan
@@ -46,11 +48,17 @@ class InMemorySpanExporter:
         self.spans.clear()
 
 
-# Module-scoped provider: set once to avoid "Overriding TracerProvider" warning.
+# Dedicated provider that does NOT rely on the global TracerProvider.
+# This avoids "Overriding of current TracerProvider is not allowed"
+# when other tests (e.g. campaign tests) have already initialised one.
 _EXPORTER = InMemorySpanExporter()
 _PROVIDER = TracerProvider()
 _PROVIDER.add_span_processor(SimpleSpanProcessor(_EXPORTER))
-otel_trace.set_tracer_provider(_PROVIDER)
+
+
+def _get_tracer(name: str = "test.integration"):
+    """Return a tracer from our dedicated provider (not the global one)."""
+    return _PROVIDER.get_tracer(name)
 
 
 @pytest.fixture(autouse=True)
@@ -73,10 +81,8 @@ class TestGetTracerWithRealOTel:
         assert not isinstance(tracer, NoOpTracer)
 
     def test_real_spans_created(self) -> None:
-        """Spans created via get_tracer should be collected by exporter."""
-        from ziran.infrastructure.telemetry.tracing import get_tracer
-
-        tracer = get_tracer("test.integration")
+        """Spans created via the SDK TracerProvider should be collected."""
+        tracer = _get_tracer()
         with tracer.start_as_current_span("test.span") as span:
             span.set_attribute("test.key", "test.value")
             span.add_event("test.event", {"detail": "info"})
@@ -88,9 +94,7 @@ class TestGetTracerWithRealOTel:
 
     def test_nested_spans(self) -> None:
         """Nested spans should maintain parent-child relationships."""
-        from ziran.infrastructure.telemetry.tracing import get_tracer
-
-        tracer = get_tracer("test.integration")
+        tracer = _get_tracer()
         with tracer.start_as_current_span("parent") as parent_span:
             parent_span.set_attribute("level", "parent")
             with tracer.start_as_current_span("child") as child_span:
@@ -109,13 +113,11 @@ class TestGetTracerWithRealOTel:
 
 
 class TestScannerSpanAttributes:
-    """Verify scanner creates spans with correct attributes."""
+    """Verify span attributes match the documented schema."""
 
     def test_campaign_span_created(self) -> None:
-        """Scanner.run_campaign should create a campaign span."""
-        from ziran.infrastructure.telemetry.tracing import get_tracer
-
-        tracer = get_tracer("ziran.application.agent_scanner.scanner")
+        """Campaign span should carry campaign-level attributes."""
+        tracer = _get_tracer("ziran.application.agent_scanner.scanner")
         with tracer.start_as_current_span("ziran.campaign") as span:
             span.set_attribute("ziran.campaign.id", "test_campaign_001")
             span.set_attribute("ziran.campaign.phase_count", 3)
@@ -130,9 +132,7 @@ class TestScannerSpanAttributes:
 
     def test_attack_span_with_vulnerability_event(self) -> None:
         """Attack span should emit vulnerability_found events."""
-        from ziran.infrastructure.telemetry.tracing import get_tracer
-
-        tracer = get_tracer("ziran.application.agent_scanner.scanner")
+        tracer = _get_tracer("ziran.application.agent_scanner.scanner")
         span = tracer.start_span(
             "ziran.attack",
             attributes={
@@ -166,9 +166,7 @@ class TestScannerSpanAttributes:
 
     def test_detection_span_attributes(self) -> None:
         """Detection span should record success and score."""
-        from ziran.infrastructure.telemetry.tracing import get_tracer
-
-        tracer = get_tracer("ziran.application.detectors.pipeline")
+        tracer = _get_tracer("ziran.application.detectors.pipeline")
         span = tracer.start_span("ziran.detection")
         span.set_attribute("ziran.detection.successful", True)
         span.set_attribute("ziran.detection.score", 0.95)
@@ -182,9 +180,7 @@ class TestScannerSpanAttributes:
 
     def test_chain_analysis_span(self) -> None:
         """Chain analysis span should record chain counts."""
-        from ziran.infrastructure.telemetry.tracing import get_tracer
-
-        tracer = get_tracer("ziran.application.knowledge_graph.chain_analyzer")
+        tracer = _get_tracer("ziran.application.knowledge_graph.chain_analyzer")
         span = tracer.start_span("ziran.chain_analysis")
         span.set_attribute("ziran.chain_analysis.chain_count", 5)
         span.set_attribute("ziran.chain_analysis.chain_critical", 2)
@@ -201,9 +197,7 @@ class TestFullSpanHierarchy:
 
     def test_campaign_phase_attack_hierarchy(self) -> None:
         """Simulate full campaign -> phase -> attack span nesting."""
-        from ziran.infrastructure.telemetry.tracing import get_tracer
-
-        tracer = get_tracer("ziran.scanner")
+        tracer = _get_tracer("ziran.scanner")
 
         with tracer.start_as_current_span("ziran.campaign") as campaign:
             campaign.set_attribute("ziran.campaign.id", "test_001")

@@ -151,7 +151,7 @@ The campaign response includes:
 
 ## CI/CD Integration
 
-Combine Promptfoo with ZIRAN in your CI pipeline:
+This assumes your repo contains the Promptfoo config files (`promptfooconfig.yaml`, `ziran_provider.py`, `ziran_assertions.py`). Promptfoo reads `promptfooconfig.yaml` which references `file://ziran_provider.py` as the provider — that file imports `ziran.integrations.promptfoo.provider` internally.
 
 ```yaml
 # .github/workflows/security.yml
@@ -166,8 +166,11 @@ jobs:
         with:
           python-version: "3.12"
       - uses: actions/setup-node@v4
+
       - run: pip install ziran
       - run: npm install -g promptfoo
+
+      # promptfoo reads promptfooconfig.yaml -> file://ziran_provider.py -> ziran
       - run: promptfoo eval --no-cache
 ```
 
