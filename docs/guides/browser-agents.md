@@ -146,12 +146,42 @@ browser:
   settle_delay: 2.0          # Wait after last DOM change (seconds)
 ```
 
+## WebSocket-Based Chatbots
+
+Chatbots that use WebSocket (e.g., Cognigy.AI, Socket.IO-based platforms) are supported automatically. ZIRAN detects WebSocket connections during the probe phase and captures incoming frames.
+
+For explicit configuration:
+
+```yaml
+browser:
+  websocket_url_pattern: "**/socket.io/**"   # URL pattern to match (empty = all)
+  websocket_event_name: "output"              # Socket.IO event to capture
+  websocket_message_path: "data.text"         # JSON path to bot response text
+```
+
+### Cognigy.AI Example
+
+```yaml
+url: https://webchat-postnl-service-dev.cognigy.cloud/v3/YOUR_TOKEN
+protocol: browser
+
+browser:
+  headless: false
+  response_timeout: 90.0
+  settle_delay: 3.0
+  websocket_event_name: "output"
+  websocket_message_path: "data.text"
+```
+
+WebSocket capture also logs outgoing messages, fixing the `prompt_used: null` issue in scan reports.
+
 ## Troubleshooting
 
 ### No response detected
 
 - Increase `response_timeout` and `settle_delay`
 - Check `response_selector` matches the actual DOM elements
+- For WebSocket chatbots: check `websocket_event_name` and `websocket_message_path`
 - Run with `--verbose` to see detailed logs
 
 ### Wrong API endpoint detected

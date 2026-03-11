@@ -1389,3 +1389,421 @@ class TestHandleInitialOptions:
         await adapter._handle_initial_options()
         # Both should be called since preferred didn't match
         assert call_log == ["preferred", "freetext"]
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Reset after auto-detect probe (double-message bug fix)
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestResetChatAfterProbe:
+    """Verify that the page is reloaded after the auto-detect probe."""
+
+    @pytest.fixture
+    def adapter(self) -> Any:
+        from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+
+        config = TargetConfig(
+            url="https://chat.example.com",
+            protocol="browser",
+        )
+        return BrowserAgentAdapter(config)
+
+    @pytest.mark.asyncio
+    async def test_reset_reloads_page(self, adapter: Any) -> None:
+        """After probe, page.goto should be called to reload and reset chat."""
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock()
+        mock_page.wait_for_timeout = AsyncMock()
+        adapter._page = mock_page
+
+        # Stub out cookie dismissal and launcher search
+        adapter._dismiss_cookie_banner = AsyncMock()  # type: ignore[assignment]
+        adapter._is_element_visible = AsyncMock(return_value=True)  # type: ignore[assignment]
+        adapter._find_and_click_launcher = AsyncMock(return_value=False)  # type: ignore[assignment]
+
+        await adapter._reset_chat_after_probe()
+
+        # Page should be navigated to the original URL
+        mock_page.goto.assert_called_once()
+        assert "chat.example.com" in str(mock_page.goto.call_args)
+
+        # Cookie banner dismissal should be attempted
+        adapter._dismiss_cookie_banner.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_reset_clicks_launcher_when_input_not_visible(
+        self,
+        adapter: Any,
+    ) -> None:
+        """If input is not visible after reload, try the launcher again."""
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock()
+        mock_page.wait_for_timeout = AsyncMock()
+        adapter._page = mock_page
+
+        adapter._dismiss_cookie_banner = AsyncMock()  # type: ignore[assignment]
+        adapter._is_element_visible = AsyncMock(return_value=False)  # type: ignore[assignment]
+        adapter._find_and_click_launcher = AsyncMock(return_value=True)  # type: ignore[assignment]
+
+        await adapter._reset_chat_after_probe()
+
+        adapter._find_and_click_launcher.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_reset_skips_launcher_when_input_visible(
+        self,
+        adapter: Any,
+    ) -> None:
+        """If input is already visible after reload, skip the launcher."""
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock()
+        mock_page.wait_for_timeout = AsyncMock()
+        adapter._page = mock_page
+
+        adapter._dismiss_cookie_banner = AsyncMock()  # type: ignore[assignment]
+        adapter._is_element_visible = AsyncMock(return_value=True)  # type: ignore[assignment]
+        adapter._find_and_click_launcher = AsyncMock(return_value=False)  # type: ignore[assignment]
+
+        await adapter._reset_chat_after_probe()
+
+        adapter._find_and_click_launcher.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Socket.IO frame parser
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestParseSocketIOFrame:
+    """Tests for the Socket.IO frame parser."""
+
+    def test_parses_output_event(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame(
+            '42["output",{"type":"output","data":{"text":"Hello!"}}]'
+        )
+        assert event == "output"
+        assert payload is not None
+        assert payload["data"]["text"] == "Hello!"
+
+    def test_parses_typing_status(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame('42["typingStatus",{"status":"on"}]')
+        assert event == "typingStatus"
+        assert payload is not None
+        assert payload["status"] == "on"
+
+    def test_parses_process_input(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame(
+            '42["processInput",{"text":"Hello","sessionId":"s1"}]'
+        )
+        assert event == "processInput"
+        assert payload is not None
+        assert payload["text"] == "Hello"
+
+    def test_ignores_ping(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame("2")
+        assert event is None
+        assert payload is None
+
+    def test_ignores_pong(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame("3")
+        assert event is None
+        assert payload is None
+
+    def test_ignores_connect(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame("40")
+        assert event is None
+        assert payload is None
+
+    def test_ignores_open(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame('0{"sid":"abc"}')
+        assert event is None
+        assert payload is None
+
+    def test_handles_empty_string(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame("")
+        assert event is None
+        assert payload is None
+
+    def test_handles_malformed_json(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame("42[invalid json")
+        assert event is None
+        assert payload is None
+
+    def test_handles_non_array_json(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame('42{"not":"array"}')
+        assert event is None
+        assert payload is None
+
+    def test_wraps_non_dict_payload(self) -> None:
+        from ziran.infrastructure.adapters.browser_adapter import parse_socketio_frame
+
+        event, payload = parse_socketio_frame('42["status","ok"]')
+        assert event == "status"
+        assert payload == {"_raw": "ok"}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# WebSocket BrowserConfig fields
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestBrowserConfigWebSocket:
+    """Tests for WebSocket-related BrowserConfig fields."""
+
+    def test_websocket_defaults(self) -> None:
+        cfg = BrowserConfig()
+        assert cfg.websocket_url_pattern is None
+        assert cfg.websocket_event_name == ""
+        assert cfg.websocket_message_path == ""
+
+    def test_websocket_explicit_config(self) -> None:
+        cfg = BrowserConfig(
+            websocket_url_pattern="**/socket.io/**",
+            websocket_event_name="output",
+            websocket_message_path="data.text",
+        )
+        assert cfg.websocket_url_pattern == "**/socket.io/**"
+        assert cfg.websocket_event_name == "output"
+        assert cfg.websocket_message_path == "data.text"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# WebSocket capture
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _make_mock_websocket(url: str = "wss://example.com/socket.io/") -> MagicMock:
+    """Create a mock Playwright WebSocket object."""
+    ws = MagicMock()
+    ws.url = url
+    ws._handlers: dict[str, list[Any]] = {
+        "framereceived": [],
+        "framesent": [],
+        "close": [],
+    }
+
+    def on(event: str, handler: Any) -> None:
+        ws._handlers[event].append(handler)
+
+    ws.on = on
+    return ws
+
+
+def _fire_ws_frame(ws: MagicMock, event: str, data: str) -> None:
+    """Simulate a WebSocket frame event."""
+    payload = MagicMock()
+    payload.payload = data
+    for handler in ws._handlers.get(event, []):
+        handler(payload)
+
+
+def _make_ws_adapter(
+    **browser_kwargs: Any,
+) -> Any:
+    """Create a BrowserAgentAdapter pre-configured for WebSocket tests."""
+    from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
+
+    config = TargetConfig(
+        url="https://chat.example.com",
+        protocol="browser",
+        browser=BrowserConfig(**browser_kwargs),
+    )
+    adapter = BrowserAgentAdapter(config)
+    adapter._page = AsyncMock()
+    adapter._session_id = "test-ws"
+    return adapter
+
+
+@pytest.mark.unit
+class TestWebSocketCapture:
+    """Tests for WebSocket frame capture in the browser adapter."""
+
+    def test_on_websocket_registers_frame_handlers(self) -> None:
+        adapter = _make_ws_adapter()
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+        assert len(ws._handlers["framereceived"]) == 1
+        assert len(ws._handlers["framesent"]) == 1
+        assert len(ws._handlers["close"]) == 1
+        assert adapter._ws_capture_active is True
+
+    def test_on_websocket_filters_by_pattern(self) -> None:
+        adapter = _make_ws_adapter(websocket_url_pattern="**/socket.io/**")
+        ws = _make_mock_websocket(url="wss://example.com/other/path")
+        adapter._on_websocket(ws)
+        assert adapter._ws_capture_active is False
+        assert len(ws._handlers["framereceived"]) == 0
+
+    def test_on_websocket_accepts_matching_pattern(self) -> None:
+        adapter = _make_ws_adapter(websocket_url_pattern="**/socket.io/**")
+        ws = _make_mock_websocket(url="wss://example.com/socket.io/?transport=websocket")
+        adapter._on_websocket(ws)
+        assert adapter._ws_capture_active is True
+        assert len(ws._handlers["framereceived"]) == 1
+
+    def test_captures_cognigy_output_frame(self) -> None:
+        adapter = _make_ws_adapter()
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        frame = '42["output",{"type":"output","data":{"text":"Hi there!"}}]'
+        _fire_ws_frame(ws, "framereceived", frame)
+
+        assert len(adapter._intercepted_responses) == 1
+        assert adapter._intercepted_responses[0]["_ws_content"] == "Hi there!"
+        assert adapter._intercepted_responses[0]["_ws_event"] == "output"
+
+    def test_ignores_typing_status(self) -> None:
+        adapter = _make_ws_adapter()
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        frame = '42["typingStatus",{"status":"on"}]'
+        _fire_ws_frame(ws, "framereceived", frame)
+
+        assert len(adapter._intercepted_responses) == 0
+
+    def test_ignores_ping_frames(self) -> None:
+        adapter = _make_ws_adapter()
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        _fire_ws_frame(ws, "framereceived", "2")
+        _fire_ws_frame(ws, "framereceived", "3")
+
+        assert len(adapter._intercepted_responses) == 0
+
+    def test_captures_outgoing_text(self) -> None:
+        adapter = _make_ws_adapter()
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        frame = '42["processInput",{"text":"Hello bot","sessionId":"s1"}]'
+        _fire_ws_frame(ws, "framesent", frame)
+
+        assert adapter._last_ws_sent_text == "Hello bot"
+
+    def test_explicit_event_filter(self) -> None:
+        adapter = _make_ws_adapter(websocket_event_name="custom_output")
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        # "output" event should be ignored when custom event is configured
+        frame1 = '42["output",{"data":{"text":"Ignored"}}]'
+        _fire_ws_frame(ws, "framereceived", frame1)
+        assert len(adapter._intercepted_responses) == 0
+
+        # "custom_output" should be captured
+        frame2 = '42["custom_output",{"data":{"text":"Captured"}}]'
+        _fire_ws_frame(ws, "framereceived", frame2)
+        assert len(adapter._intercepted_responses) == 1
+        assert adapter._intercepted_responses[0]["_ws_content"] == "Captured"
+
+    def test_explicit_message_path(self) -> None:
+        adapter = _make_ws_adapter(
+            websocket_event_name="output",
+            websocket_message_path="data.text",
+        )
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        frame = '42["output",{"data":{"text":"Extracted via path!"}}]'
+        _fire_ws_frame(ws, "framereceived", frame)
+
+        assert len(adapter._intercepted_responses) == 1
+        assert adapter._intercepted_responses[0]["_ws_content"] == "Extracted via path!"
+
+    def test_plain_json_websocket_fallback(self) -> None:
+        """Non-Socket.IO WebSocket frames are also captured if they contain text."""
+        adapter = _make_ws_adapter()
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        # Plain JSON (no Socket.IO prefix)
+        frame = '{"text": "Plain response"}'
+        _fire_ws_frame(ws, "framereceived", frame)
+
+        assert len(adapter._intercepted_responses) == 1
+        assert adapter._intercepted_responses[0]["_ws_content"] == "Plain response"
+
+    def test_ws_frames_logged(self) -> None:
+        adapter = _make_ws_adapter()
+        ws = _make_mock_websocket()
+        adapter._on_websocket(ws)
+
+        frame = '42["output",{"data":{"text":"Logged"}}]'
+        _fire_ws_frame(ws, "framereceived", frame)
+
+        assert len(adapter._intercepted_ws_frames) == 1
+        assert adapter._intercepted_ws_frames[0]["direction"] == "received"
+        assert adapter._intercepted_ws_frames[0]["event"] == "output"
+
+    def test_extract_from_network_websocket_mode(self) -> None:
+        adapter = _make_ws_adapter()
+        adapter._last_ws_sent_text = "Hello"
+
+        body: dict[str, Any] = {
+            "_ws_event": "output",
+            "_ws_content": "Bot says hi",
+            "_ws_payload": {},
+            "text": "Bot says hi",
+        }
+        response = adapter._extract_from_network(body)
+        assert response.content == "Bot says hi"
+        assert response.metadata["extraction_mode"] == "websocket"
+        assert response.metadata["prompt_used"] == "Hello"
+        assert response.metadata["ws_event"] == "output"
+
+    def test_extract_from_network_http_mode_unchanged(self) -> None:
+        adapter = _make_ws_adapter()
+
+        body: dict[str, Any] = {"response": "HTTP response text"}
+        response = adapter._extract_from_network(body)
+        assert response.content == "HTTP response text"
+        assert response.metadata["extraction_mode"] == "network"
+        assert "ws_event" not in response.metadata
+
+    def test_get_state_includes_ws_info(self) -> None:
+        adapter = _make_ws_adapter()
+        adapter._ws_capture_active = True
+        adapter._detected_ws_event = "output"
+        adapter._intercepted_ws_frames.append({"event": "output"})
+
+        state = adapter.get_state()
+        assert state.memory["ws_capture_active"] is True
+        assert state.memory["ws_event"] == "output"
+        assert state.memory["ws_frame_count"] == 1
+
+    def test_reset_state_clears_ws(self) -> None:
+        adapter = _make_ws_adapter()
+        adapter._intercepted_ws_frames.append({"event": "output"})
+        adapter._last_ws_sent_text = "test"
+
+        adapter.reset_state()
+
+        assert adapter._intercepted_ws_frames == []
+        assert adapter._last_ws_sent_text is None

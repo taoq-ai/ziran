@@ -48,6 +48,86 @@ _COMMON_RESPONSE_PATHS: list[str] = [
     "reply",  # Simple chat
 ]
 
+# WebSocket / Socket.IO constants ----------------------------------------
+
+# Socket.IO event names that typically carry bot responses.
+_WS_OUTPUT_EVENTS: frozenset[str] = frozenset(
+    {
+        "output",  # Cognigy.AI
+        "message",  # Generic
+        "response",  # Generic
+        "bot_message",  # Some frameworks
+        "reply",  # Some frameworks
+    }
+)
+
+# Common JSON paths in WebSocket event payloads (tried in order).
+_COMMON_WS_RESPONSE_PATHS: list[str] = [
+    "data.text",  # Cognigy.AI output event
+    "data.message",  # Cognigy.AI alternative
+    "text",  # Generic
+    "message",  # Generic
+    "data.content",  # Generic nested
+    "content",  # Generic
+    "response",  # Generic
+    "reply",  # Generic
+    "payload.text",  # Some frameworks
+    "payload.message",  # Some frameworks
+]
+
+
+def parse_socketio_frame(raw: str) -> tuple[str | None, dict[str, Any] | None]:
+    """Parse a Socket.IO frame from the Engine.IO wire format.
+
+    Socket.IO wraps messages with Engine.IO numeric codes.
+    The wire format for events is: ``42["eventName", {...}]``
+
+    - ``0``  = OPEN (handshake) — ignored
+    - ``2``  = PING — ignored
+    - ``3``  = PONG — ignored
+    - ``40`` = Socket.IO CONNECT — ignored
+    - ``41`` = Socket.IO DISCONNECT — ignored
+    - ``42[...]`` = Socket.IO EVENT — **parsed**
+    - ``43[...]`` = Socket.IO ACK — ignored
+
+    Args:
+        raw: The raw WebSocket frame string.
+
+    Returns:
+        ``(event_name, payload_dict)`` for Socket.IO EVENT frames,
+        or ``(None, None)`` for all other frame types.
+    """
+    if not raw or not isinstance(raw, str):
+        return None, None
+
+    # Engine.IO message (4) + Socket.IO EVENT (2) = "42"
+    if not raw.startswith("42"):
+        return None, None
+
+    json_part = raw[2:]
+    if not json_part:
+        return None, None
+
+    try:
+        arr = json.loads(json_part)
+    except (json.JSONDecodeError, ValueError):
+        return None, None
+
+    if not isinstance(arr, list) or len(arr) < 2:
+        return None, None
+
+    event_name = arr[0]
+    payload = arr[1]
+
+    if not isinstance(event_name, str):
+        return None, None
+    if not isinstance(payload, dict):
+        # Some events pass a non-dict payload (e.g. a bare string).
+        payload = {"_raw": payload}
+
+    return event_name, payload
+
+
 # Probe messages used to discover agent capabilities.
 _DISCOVERY_PROBES: list[str] = [
     "What tools and capabilities do you have?",
@@ -398,6 +478,13 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         # Track response count for DOM diffing
         self._last_response_count = 0
 
+        # WebSocket interception state
+        self._ws_capture_active = False
+        self._detected_ws_pattern: str | None = None
+        self._detected_ws_event: str | None = None
+        self._intercepted_ws_frames: list[dict[str, Any]] = []
+        self._last_ws_sent_text: str | None = None
+
         # Discovery state — populated by _discover_chat_ui()
         self._discovered_input_selector: str | None = None
         self._discovered_submit_selector: str | None = None
@@ -435,6 +522,18 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         )
         self._page = await self._context.new_page()
 
+        # Set up network interception BEFORE navigation so we capture
+        # WebSocket connections and HTTP responses that fire during page load.
+        # Cognigy.AI (Socket.IO) establishes its WebSocket during the initial
+        # page load — registering after goto() misses it entirely.
+        if self._browser_config.api_url_pattern:
+            self._detected_api_pattern = self._browser_config.api_url_pattern
+        self._page.on("response", self._on_response)
+
+        if self._browser_config.websocket_url_pattern:
+            self._detected_ws_pattern = self._browser_config.websocket_url_pattern
+        self._page.on("websocket", self._on_websocket)
+
         # Navigate to login page first if configured
         nav_url = self._browser_config.login_url or self._config.url
         nav_timeout = self._browser_config.navigation_timeout * 1000
@@ -451,11 +550,6 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         # Discover chat UI elements (launcher buttons, input, submit)
         if self._browser_config.auto_discover:
             await self._discover_chat_ui()
-
-        # Set up network interception
-        if self._browser_config.api_url_pattern:
-            self._detected_api_pattern = self._browser_config.api_url_pattern
-        self._page.on("response", self._on_response)
 
         # Auto-detect API endpoint if not configured
         if not self._detected_api_pattern:
@@ -940,6 +1034,148 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         regex = re.escape(pattern).replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
         return bool(re.search(regex, url))
 
+    # ------------------------------------------------------------------
+    # WebSocket interception
+    # ------------------------------------------------------------------
+
+    def _on_websocket(self, ws: Any) -> None:
+        """Callback when a WebSocket connection is established.
+
+        Registers frame handlers for incoming and outgoing data.
+        Filters by ``websocket_url_pattern`` if configured.
+        """
+        url: str = ws.url
+        logger.debug("WebSocket connection opened: %s", url)
+
+        # Filter by URL pattern if configured
+        pattern = self._detected_ws_pattern or self._browser_config.websocket_url_pattern
+        if pattern and not self._url_matches_pattern(url, pattern):
+            logger.debug("WebSocket URL does not match pattern %s, ignoring", pattern)
+            return
+
+        self._ws_capture_active = True
+        logger.info("Capturing WebSocket frames from: %s", url)
+
+        ws.on("framereceived", lambda payload: self._on_ws_frame_received(payload))
+        ws.on("framesent", lambda payload: self._on_ws_frame_sent(payload))
+        ws.on("close", lambda: self._on_ws_close(url))
+
+    def _on_ws_frame_received(self, payload: Any) -> None:
+        """Handle an incoming WebSocket frame (bot → client).
+
+        Parses Socket.IO frames to extract bot response content and
+        appends to ``_intercepted_responses`` for the existing polling loop.
+        """
+        raw = payload.payload if hasattr(payload, "payload") else str(payload)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8", errors="replace")
+
+        # Try Socket.IO parsing first
+        event_name, event_payload = parse_socketio_frame(raw)
+
+        if event_name is not None and event_payload is not None:
+            logger.debug("WebSocket Socket.IO event: %s", event_name)
+
+            # Filter by event name
+            target_event = (
+                self._detected_ws_event or self._browser_config.websocket_event_name or None
+            )
+            if target_event:
+                if event_name != target_event:
+                    return
+            elif event_name not in _WS_OUTPUT_EVENTS:
+                # Auto-filter: only capture output-like events
+                return
+
+            # Extract content using configured or common paths
+            ws_json_path = self._browser_config.websocket_message_path
+            content = _extract_by_path(event_payload, ws_json_path) if ws_json_path else None
+            if not isinstance(content, str) or not content:
+                content = None
+
+            if content is None:
+                for path in _COMMON_WS_RESPONSE_PATHS:
+                    result = _extract_by_path(event_payload, path)
+                    if isinstance(result, str) and len(result.strip()) > 0:
+                        content = result
+                        break
+
+            if content and isinstance(content, str) and len(content.strip()) > 0:
+                # Build a response dict compatible with _extract_from_network()
+                response_body: dict[str, Any] = {
+                    "_ws_event": event_name,
+                    "_ws_content": content,
+                    "_ws_payload": event_payload,
+                    "text": content,
+                }
+                self._intercepted_responses.append(response_body)
+                logger.debug(
+                    "WebSocket captured bot response: event=%s, content=%s...",
+                    event_name,
+                    content[:80],
+                )
+
+            # Store raw frame for detailed logging
+            self._intercepted_ws_frames.append(
+                {
+                    "direction": "received",
+                    "event": event_name,
+                    "payload": event_payload,
+                }
+            )
+            return
+
+        # Fallback: try plain JSON (non-Socket.IO WebSocket)
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                ws_json_path = self._browser_config.websocket_message_path
+                content = try_extract_content(data, ws_json_path)
+                if content and isinstance(content, str) and len(content.strip()) > 0:
+                    data["_ws_event"] = "raw"
+                    data["_ws_content"] = content
+                    self._intercepted_responses.append(data)
+                    logger.debug("WebSocket captured plain JSON response: %s...", content[:80])
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    def _on_ws_frame_sent(self, payload: Any) -> None:
+        """Handle an outgoing WebSocket frame (client → bot).
+
+        Captures the text of the outgoing message so the scan report
+        can record what was actually sent (``prompt_used``).
+        """
+        raw = payload.payload if hasattr(payload, "payload") else str(payload)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8", errors="replace")
+
+        event_name, event_payload = parse_socketio_frame(raw)
+        if event_name and event_payload:
+            text = (
+                event_payload.get("text")
+                or event_payload.get("message")
+                or (event_payload.get("data", {}) or {}).get("text", "")
+            )
+            if text:
+                self._last_ws_sent_text = str(text)
+                logger.debug("WebSocket captured outgoing message: %s...", str(text)[:80])
+
+            self._intercepted_ws_frames.append(
+                {
+                    "direction": "sent",
+                    "event": event_name,
+                    "payload": event_payload,
+                }
+            )
+
+    def _on_ws_close(self, url: str) -> None:
+        """Handle WebSocket connection close."""
+        logger.debug("WebSocket connection closed: %s", url)
+
+    # ------------------------------------------------------------------
+    # API auto-detection
+    # ------------------------------------------------------------------
+
     async def _auto_detect_api_endpoint(self) -> None:
         """Send a probe and observe which POST requests fire.
 
@@ -975,17 +1211,74 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         finally:
             self._page.remove_listener("response", capture)
 
-        # Score candidates
+        # Score HTTP candidates
         for url, body in candidates:
             content = try_extract_content(body)
             if content and len(content) > 5:
                 parsed = urlparse(url)
                 self._detected_api_pattern = f"**{parsed.path}"
                 logger.info("Auto-detected API endpoint: %s -> %s", url, self._detected_api_pattern)
-                return
+                break
+        else:
+            # No HTTP API detected — check if WebSocket captured anything
+            if self._intercepted_responses and self._ws_capture_active:
+                logger.info(
+                    "No HTTP API detected, but WebSocket captured %d responses. "
+                    "Using WebSocket capture mode.",
+                    len(self._intercepted_responses),
+                )
+                # Auto-detect the event name from captured frames
+                for frame in self._intercepted_ws_frames:
+                    if frame.get("direction") == "received" and frame.get("event"):
+                        self._detected_ws_event = frame["event"]
+                        logger.info("Auto-detected WebSocket event: %s", self._detected_ws_event)
+                        break
+            else:
+                logger.warning("No API endpoint detected, falling back to DOM extraction")
+                self._use_dom_fallback = True
 
-        logger.warning("No API endpoint detected, falling back to DOM extraction")
-        self._use_dom_fallback = True
+        # Reload the page to start with a clean chat state.
+        # The probe "Hello" message pollutes the conversation — without a
+        # reload the chatbot would see *two* messages (the probe + the first
+        # real invoke), which is the "double-message" bug.
+        await self._reset_chat_after_probe()
+
+    async def _reset_chat_after_probe(self) -> None:
+        """Reload the page and re-run essential UI steps after the auto-detect probe.
+
+        The auto-detect probe sends a "Hello" message which pollutes the
+        conversation.  Without a reset the chatbot would see two messages
+        in the first turn (the probe + the actual invoke) — the
+        "double-message" bug.
+
+        After reload we re-run cookie dismissal and launcher clicking (if
+        the discovery phase clicked one) so the chat input is ready.
+        Option handling is **not** re-run because
+        ``_handle_initial_options()`` already populated the discovery
+        state and will be re-triggered by the first ``invoke()`` if
+        needed.
+        """
+        assert self._page is not None
+
+        nav_timeout = self._browser_config.navigation_timeout * 1000
+        await self._page.goto(self._config.url, timeout=nav_timeout)
+        settle_ms = int(self._browser_config.settle_delay * 1000)
+        await self._page.wait_for_timeout(settle_ms)
+
+        # Re-dismiss cookie banners that may reappear on a fresh load
+        await self._dismiss_cookie_banner()
+
+        # Re-click the launcher if discovery found one earlier
+        if not await self._is_element_visible(self._effective_input_selector, timeout_ms=2000):
+            await self._find_and_click_launcher()
+            await self._page.wait_for_timeout(1500)
+
+        # Clear stale probe data so it doesn't leak into the first invoke
+        self._intercepted_responses.clear()
+        self._intercepted_ws_frames.clear()
+        self._last_ws_sent_text = None
+
+        logger.debug("Reset chat state after auto-detect probe")
 
     # ------------------------------------------------------------------
     # BaseAgentAdapter implementation
@@ -1012,6 +1305,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
 
         # Clear previous interceptions
         self._intercepted_responses.clear()
+        self._last_ws_sent_text = None
 
         # Snapshot DOM response count for diffing
         response_elements = await self._page.query_selector_all(self._effective_response_selector)
@@ -1111,6 +1405,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 "discovered_input_selector": self._discovered_input_selector,
                 "discovered_submit_selector": self._discovered_submit_selector,
                 "discovered_response_selector": self._discovered_response_selector,
+                "ws_capture_active": self._ws_capture_active,
+                "ws_pattern": self._detected_ws_pattern,
+                "ws_event": self._detected_ws_event,
+                "ws_frame_count": len(self._intercepted_ws_frames),
             },
         )
 
@@ -1119,6 +1417,8 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         self._conversation.clear()
         self._tool_observations.clear()
         self._intercepted_responses.clear()
+        self._intercepted_ws_frames.clear()
+        self._last_ws_sent_text = None
         self._last_response_count = 0
 
     def observe_tool_call(
@@ -1239,15 +1539,26 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         return await self._extract_from_dom()
 
     def _extract_from_network(self, body: dict[str, Any]) -> AgentResponse:
-        """Extract an AgentResponse from an intercepted JSON body."""
-        content = try_extract_content(body, self._browser_config.response_json_path) or ""
-        tool_calls = extract_tool_calls(body)
+        """Extract an AgentResponse from an intercepted JSON body.
+
+        Handles both HTTP-intercepted responses and WebSocket frames.
+        WebSocket frames are identified by the ``_ws_content`` sentinel key.
+        """
+        is_ws = "_ws_content" in body
+        extraction_mode = "websocket" if is_ws else "network"
+
+        if is_ws:
+            content = body.get("_ws_content", "")
+            tool_calls: list[dict[str, Any]] = []
+        else:
+            content = try_extract_content(body, self._browser_config.response_json_path) or ""
+            tool_calls = extract_tool_calls(body)
 
         # Estimate tokens from content
         word_count = len(content.split())
         est_completion = int(word_count / 0.75)
 
-        # Try to get real token counts from response
+        # Try to get real token counts from response (HTTP only)
         usage = body.get("usage", {})
         prompt_tokens = usage.get("prompt_tokens", 0) if isinstance(usage, dict) else 0
         completion_tokens = (
@@ -1261,13 +1572,19 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             else prompt_tokens + completion_tokens
         )
 
+        metadata: dict[str, Any] = {
+            "protocol": "browser",
+            "extraction_mode": extraction_mode,
+        }
+        if is_ws:
+            metadata["ws_event"] = body.get("_ws_event", "")
+            if self._last_ws_sent_text:
+                metadata["prompt_used"] = self._last_ws_sent_text
+
         return AgentResponse(
             content=content,
             tool_calls=tool_calls,
-            metadata={
-                "protocol": "browser",
-                "extraction_mode": "network",
-            },
+            metadata=metadata,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,

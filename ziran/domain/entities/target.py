@@ -255,6 +255,26 @@ class BrowserConfig(BaseModel):
         "choices.0.message.content, response, output, text).",
     )
 
+    # WebSocket interception
+    websocket_url_pattern: str | None = Field(
+        default=None,
+        description="URL glob pattern to match WebSocket connections "
+        "(e.g. '**/socket.io/**'). None = monitor all WebSocket connections "
+        "during auto-detection.",
+    )
+    websocket_event_name: str = Field(
+        default="",
+        description="Socket.IO event name to capture (e.g. 'output' for Cognigy.AI). "
+        "Empty string means auto-detect from common event names "
+        "(output, message, response).",
+    )
+    websocket_message_path: str = Field(
+        default="",
+        description="Dot-separated JSON path to extract content from WebSocket event "
+        "payloads (e.g. 'data.text' for Cognigy.AI). "
+        "Empty string means auto-detect from common paths.",
+    )
+
     # Timing
     navigation_timeout: float = Field(
         default=30.0,

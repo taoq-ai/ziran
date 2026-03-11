@@ -94,6 +94,51 @@ Use `prefer_options` for hybrid bots where you know which option leads to the LL
 
 Option buttons detected during attack execution are included in the response metadata for analysis.
 
+## WebSocket Capture
+
+Many modern chatbot platforms (e.g., Cognigy.AI, Socket.IO-based agents) communicate via WebSocket rather than HTTP REST APIs. ZIRAN intercepts WebSocket frames in parallel with HTTP responses:
+
+### How It Works
+
+1. Playwright detects WebSocket connections opened by the page
+2. Frame handlers capture incoming (bot → client) and outgoing (client → bot) messages
+3. Socket.IO frames (`42["eventName", {payload}]`) are parsed automatically
+4. Bot response content is extracted and fed into the standard analysis pipeline
+
+### Extraction Priority
+
+The browser adapter uses a three-tier fallback chain:
+
+1. **HTTP interception** — captures REST API responses (POST with JSON)
+2. **WebSocket capture** — captures Socket.IO / plain WebSocket frames
+3. **DOM extraction** — reads text directly from the page DOM
+
+Both HTTP and WebSocket listeners run simultaneously. If a chatbot uses WebSocket (like Cognigy.AI), the WebSocket frames populate the response queue even though no HTTP API calls are observed.
+
+### Auto-Detection
+
+During initialization, ZIRAN sends a probe message and monitors both HTTP and WebSocket traffic. If no HTTP API endpoint is detected but WebSocket frames arrive, ZIRAN automatically switches to WebSocket capture mode — including auto-detecting the Socket.IO event name (e.g., `output` for Cognigy.AI).
+
+### Explicit Configuration
+
+For known platforms, you can configure WebSocket capture explicitly:
+
+```yaml
+browser:
+  # Cognigy.AI example
+  websocket_url_pattern: "**/socket.io/**"
+  websocket_event_name: "output"
+  websocket_message_path: "data.text"
+```
+
+- `websocket_url_pattern` — glob pattern to filter WebSocket connections by URL (empty = monitor all)
+- `websocket_event_name` — Socket.IO event name to capture (empty = auto-detect from common names)
+- `websocket_message_path` — dot-path to extract content from event payloads (empty = auto-detect)
+
+### Prompt Logging
+
+WebSocket capture also intercepts outgoing frames (e.g., Socket.IO `processInput` events) to log the exact text that was sent to the chatbot. This fixes the `prompt_used: null` issue that occurs when only HTTP interception is active but the chatbot uses WebSocket.
+
 ## Supported Response Formats
 
 The network interceptor automatically parses:
@@ -101,6 +146,8 @@ The network interceptor automatically parses:
 - **OpenAI format:** `choices[0].message.content` with `tool_calls`
 - **Anthropic format:** `content[0].text` with `tool_use` blocks
 - **Generic formats:** `response`, `output`, `text`, `answer` fields
+- **Socket.IO events:** `42["output", {"data": {"text": "..."}}]` (Cognigy.AI and similar)
+- **Plain WebSocket JSON:** `{"text": "..."}`, `{"message": "..."}`, etc.
 
 ## Limitations
 
