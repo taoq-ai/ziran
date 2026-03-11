@@ -149,6 +149,10 @@ class AttackVector(BaseModel):
         default_factory=list,
         description="Protocols this vector applies to (empty = all). Values: rest, openai, mcp, a2a.",
     )
+    tactic: str = Field(
+        default="single",
+        description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, distraction.",
+    )
 
     @property
     def is_critical(self) -> bool:

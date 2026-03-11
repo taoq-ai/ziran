@@ -334,4 +334,5 @@ class AttackLibrary:
             references=data.get("references", []),
             owasp_mapping=[OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])],
             protocol_filter=data.get("protocol_filter", []),
+            tactic=data.get("tactic", "single"),
         )
