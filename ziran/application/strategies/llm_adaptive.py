@@ -173,9 +173,7 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         )
 
         messages = [{"role": "user", "content": prompt}]
-        response = asyncio.run(
-            self._llm.complete(messages, temperature=0.3, max_tokens=500)
-        )
+        response = asyncio.run(self._llm.complete(messages, temperature=0.3, max_tokens=500))
 
         # Parse JSON response
         data = self._parse_json_response(response.content)
@@ -230,9 +228,7 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         )
 
         messages = [{"role": "user", "content": prompt}]
-        response = asyncio.run(
-            self._llm.complete(messages, temperature=0.2, max_tokens=500)
-        )
+        response = asyncio.run(self._llm.complete(messages, temperature=0.2, max_tokens=500))
 
         # Parse JSON array of attack IDs
         data = self._parse_json_response(response.content)
