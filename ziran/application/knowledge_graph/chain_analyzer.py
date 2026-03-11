@@ -16,220 +16,29 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
+from ziran.application.knowledge_graph.chain_patterns import (
+    ChainPatternInfo,
+    ChainPatternRegistry,
+)
 from ziran.application.knowledge_graph.graph import NodeType
 from ziran.domain.entities.capability import DangerousChain
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
 # ── Dangerous pattern definitions ──────────────────────────────────────
-
-ChainPatternInfo = dict[str, Any]
-
+# Loaded from chain_patterns.yaml via the ChainPatternRegistry.
 # Keys are tuples of (source_tool, target_tool).
 # Matching is *substring* based so that ``"read_file"`` matches
 # tool IDs like ``"tool_read_file"`` or ``"fs_read_file"``.
 
-DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = {
-    # ── Data Exfiltration ──────────────────────────────────────────
-    ("read_file", "http_request"): {
-        "type": "data_exfiltration",
-        "risk": "critical",
-        "description": "File contents can be sent to an external server",
-        "remediation": "Implement an allowlist for external URLs; validate file access scope",
-    },
-    ("database_query", "http_request"): {
-        "type": "database_exfiltration",
-        "risk": "critical",
-        "description": "Database data can be sent to an attacker-controlled endpoint",
-        "remediation": "Restrict outbound network access; audit database queries",
-    },
-    ("read_file", "send_email"): {
-        "type": "data_exfiltration",
-        "risk": "critical",
-        "description": "File contents can be exfiltrated via email",
-        "remediation": "Restrict email recipients; validate attachment contents",
-    },
-    ("search_database", "send_email"): {
-        "type": "data_exfiltration",
-        "risk": "critical",
-        "description": "Database search results can be emailed to external recipients",
-        "remediation": "Audit email recipients; limit data returned by search",
-    },
-    ("get_user_info", "http_request"): {
-        "type": "pii_leakage",
-        "risk": "critical",
-        "description": "User PII can be sent to external endpoints",
-        "remediation": "Mask PII before external API calls; enforce data classification",
-    },
-    # ── SQL Injection to RCE ──────────────────────────────────────
-    ("sql_query", "execute_code"): {
-        "type": "sql_to_rce",
-        "risk": "critical",
-        "description": "SQL results can be executed as arbitrary code",
-        "remediation": "Sandbox code execution; never pass raw query output to eval",
-    },
-    ("database_query", "execute_code"): {
-        "type": "sql_to_rce",
-        "risk": "critical",
-        "description": "Database output piped into code execution",
-        "remediation": "Sanitise all database output before processing",
-    },
-    # ── PII Leakage ────────────────────────────────────────────────
-    ("get_user_info", "external_api"): {
-        "type": "pii_leakage",
-        "risk": "high",
-        "description": "User PII sent to a third-party API without validation",
-        "remediation": "Redact PII fields before external API calls",
-    },
-    ("search_users", "send_email"): {
-        "type": "pii_leakage",
-        "risk": "high",
-        "description": "User search results emailed without authorisation",
-        "remediation": "Require explicit user consent before sharing PII",
-    },
-    # ── Privilege Escalation ───────────────────────────────────────
-    ("search_database", "update_permissions"): {
-        "type": "privilege_escalation",
-        "risk": "critical",
-        "description": "Database search chained to permission modification",
-        "remediation": "Enforce role-based access control on permission updates",
-    },
-    ("get_user_info", "update_permissions"): {
-        "type": "privilege_escalation",
-        "risk": "critical",
-        "description": "User lookup enables targeted permission escalation",
-        "remediation": "Require multi-party approval for permission changes",
-    },
-    ("read_config", "update_permissions"): {
-        "type": "privilege_escalation",
-        "risk": "high",
-        "description": "Configuration data used to modify access controls",
-        "remediation": "Isolate configuration reads from permission writes",
-    },
-    # ── File System Attacks ────────────────────────────────────────
-    ("list_directory", "read_file"): {
-        "type": "directory_traversal",
-        "risk": "medium",
-        "description": "Directory listing enables targeted file access",
-        "remediation": "Restrict directory listing to safe directories",
-    },
-    ("read_file", "write_file"): {
-        "type": "file_manipulation",
-        "risk": "high",
-        "description": "Files can be read and arbitrarily modified",
-        "remediation": "Use separate read-only and write-only file scopes",
-    },
-    ("list_directory", "write_file"): {
-        "type": "file_manipulation",
-        "risk": "high",
-        "description": "Directory enumeration followed by file modification",
-        "remediation": "Limit write access to specific directories",
-    },
-    ("read_file", "execute_code"): {
-        "type": "file_to_rce",
-        "risk": "critical",
-        "description": "File contents can be executed as code",
-        "remediation": "Never execute file contents; sandbox all code execution",
-    },
-    # ── Command Injection ──────────────────────────────────────────
-    ("shell_execute", "http_request"): {
-        "type": "command_injection_exfil",
-        "risk": "critical",
-        "description": "Shell command output exfiltrated over HTTP",
-        "remediation": "Remove shell_execute tool; use scoped alternatives",
-    },
-    ("shell_execute", "write_file"): {
-        "type": "command_injection_persist",
-        "risk": "critical",
-        "description": "Shell commands can write persistent payloads to disk",
-        "remediation": "Remove shell_execute; use scoped file write APIs",
-    },
-    ("http_request", "execute_code"): {
-        "type": "remote_code_execution",
-        "risk": "critical",
-        "description": "Remote payload downloaded and executed",
-        "remediation": "Block code execution from network-sourced data",
-    },
-    ("http_request", "shell_execute"): {
-        "type": "remote_code_execution",
-        "risk": "critical",
-        "description": "Remote payload downloaded and run via shell",
-        "remediation": "Block shell from processing network-sourced data",
-    },
-    # ── Authentication Bypass ──────────────────────────────────────
-    ("get_user_info", "generate_token"): {
-        "type": "authentication_bypass",
-        "risk": "critical",
-        "description": "User information used to generate auth tokens",
-        "remediation": "Token generation must not accept user-controlled input",
-    },
-    ("read_config", "generate_token"): {
-        "type": "authentication_bypass",
-        "risk": "critical",
-        "description": "Config secrets used to forge authentication tokens",
-        "remediation": "Secrets must not be exposed to agent tools",
-    },
-    ("search_database", "generate_token"): {
-        "type": "authentication_bypass",
-        "risk": "high",
-        "description": "Database data used to craft valid tokens",
-        "remediation": "Isolate token generation from data query tools",
-    },
-    # ── Data Poisoning ─────────────────────────────────────────────
-    ("http_request", "write_file"): {
-        "type": "data_poisoning",
-        "risk": "high",
-        "description": "External data written to local files without validation",
-        "remediation": "Validate and sanitise all external data before writing",
-    },
-    ("http_request", "database_query"): {
-        "type": "data_poisoning",
-        "risk": "high",
-        "description": "External data injected into database",
-        "remediation": "Sanitise all external data; use parameterised queries",
-    },
-    ("http_request", "update_memory"): {
-        "type": "memory_poisoning",
-        "risk": "high",
-        "description": "Attacker-controlled data written to agent memory",
-        "remediation": "Validate memory updates; restrict external sources",
-    },
-    # ── Session Hijacking ─────────────────────────────────────────
-    ("get_session", "send_email"): {
-        "type": "session_hijacking",
-        "risk": "high",
-        "description": "Session tokens can be emailed to external addresses",
-        "remediation": "Never expose session tokens to messaging tools",
-    },
-    ("get_session", "http_request"): {
-        "type": "session_hijacking",
-        "risk": "critical",
-        "description": "Session tokens can be exfiltrated via HTTP",
-        "remediation": "Session data must not be accessible to network tools",
-    },
-    # ── MCP-Specific Chains ────────────────────────────────────────
-    ("mcp_list_servers", "mcp_invoke"): {
-        "type": "mcp_enumeration_to_exploit",
-        "risk": "high",
-        "description": "MCP server discovery enables targeted exploitation",
-        "remediation": "Restrict MCP server enumeration; require explicit approval",
-    },
-    ("mcp_invoke", "http_request"): {
-        "type": "mcp_data_exfiltration",
-        "risk": "critical",
-        "description": "MCP tool output sent to external server",
-        "remediation": "Audit MCP tool outputs; restrict outbound requests",
-    },
-    ("mcp_list_servers", "shell_execute"): {
-        "type": "mcp_to_rce",
-        "risk": "critical",
-        "description": "MCP server list used to craft shell exploitation",
-        "remediation": "Isolate MCP from shell access",
-    },
-}
+DANGEROUS_PATTERNS: dict[tuple[str, str], ChainPatternInfo] = (
+    ChainPatternRegistry.default().to_dangerous_patterns()
+)
 
 # ── Risk weights for score calculation ─────────────────────────────
 
@@ -271,8 +80,19 @@ class ToolChainAnalyzer:
             print(c.vulnerability_type, c.risk_score)
     """
 
-    def __init__(self, graph: AttackKnowledgeGraph) -> None:
+    def __init__(
+        self,
+        graph: AttackKnowledgeGraph,
+        *,
+        custom_patterns_path: Path | None = None,
+    ) -> None:
         self.graph = graph
+        if custom_patterns_path is not None:
+            custom = ChainPatternRegistry.from_yaml(custom_patterns_path)
+            merged = ChainPatternRegistry.default().merge(custom)
+            self._patterns = merged.to_dangerous_patterns()
+        else:
+            self._patterns = DANGEROUS_PATTERNS
 
     # ── Public API ─────────────────────────────────────────────────
 
@@ -494,8 +314,8 @@ class ToolChainAnalyzer:
             if d.get("node_type") in (NodeType.TOOL, NodeType.CAPABILITY)
         ]
 
-    @staticmethod
     def _match_pattern(
+        self,
         source_id: str,
         target_id: str,
     ) -> ChainPatternInfo | None:
@@ -507,7 +327,7 @@ class ToolChainAnalyzer:
         source_lower = source_id.lower()
         target_lower = target_id.lower()
 
-        for (pat_src, pat_tgt), info in DANGEROUS_PATTERNS.items():
+        for (pat_src, pat_tgt), info in self._patterns.items():
             if pat_src in source_lower and pat_tgt in target_lower:
                 return info
 
