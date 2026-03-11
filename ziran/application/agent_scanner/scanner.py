@@ -691,6 +691,13 @@ class AgentScanner:
                 owasp_mapping=attack.owasp_mapping,
             )
 
+        # Delegate to TacticExecutor for multi-turn tactics
+        if attack.tactic != "single":
+            from ziran.application.attacks.tactics import TacticExecutor
+
+            executor = TacticExecutor(self.adapter)
+            return await executor.execute(attack, self._detector_pipeline, self._render_prompt)
+
         attack_tokens = TokenUsage()
 
         # Track last response/prompt for reporting even when all prompts fail
