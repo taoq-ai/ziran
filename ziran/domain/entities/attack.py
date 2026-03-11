@@ -41,6 +41,7 @@ class AttackCategory(StrEnum):
     MEMORY_POISONING = "memory_poisoning"
     CHAIN_OF_THOUGHT_MANIPULATION = "chain_of_thought_manipulation"
     MULTI_AGENT = "multi_agent"
+    AUTHORIZATION_BYPASS = "authorization_bypass"
 
 
 class OwaspLlmCategory(StrEnum):
