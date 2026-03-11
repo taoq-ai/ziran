@@ -63,8 +63,12 @@ browser = [
     "playwright>=1.40,<2",
 ]
 promptfoo = []
+otel = [
+    "opentelemetry-api>=1.20,<2",
+    "opentelemetry-sdk>=1.20,<2",
+]
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,llm,pentest,browser,promptfoo]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,llm,pentest,browser,promptfoo,otel]",
 ]
 
 [project.scripts]
