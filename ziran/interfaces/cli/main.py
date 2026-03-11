@@ -184,6 +184,17 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     default=False,
     help="Use streaming invocation for attacks (real-time response monitoring).",
 )
+@click.option(
+    "--encoding",
+    type=click.Choice(
+        ["base64", "rot13", "leetspeak", "homoglyph", "hex", "whitespace", "mixed_case", "payload_split"],
+        case_sensitive=False,
+    ),
+    multiple=True,
+    default=(),
+    help="Prompt encoding/obfuscation to apply. Can be specified multiple times. "
+    "Each encoding generates additional attack variants alongside the originals.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -201,6 +212,7 @@ def scan(
     phase_timeout: float,
     strategy: str,
     streaming: bool,
+    encoding: tuple[str, ...],
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -344,6 +356,7 @@ def scan(
                 max_concurrent_attacks=concurrency,
                 strategy=campaign_strategy,
                 streaming=streaming,
+                encoding=list(encoding) if encoding else None,
             )
         )
 

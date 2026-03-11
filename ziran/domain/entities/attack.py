@@ -181,6 +181,9 @@ class AttackResult(BaseModel):
         default=None, description="Any data extracted during the attack"
     )
     prompt_used: str | None = Field(default=None, description="The actual prompt that was sent")
+    encoding_applied: str | None = Field(
+        default=None, description="Encoding/obfuscation type applied to the prompt (if any)"
+    )
     error: str | None = Field(
         default=None, description="Error message if the attack failed to execute"
     )
