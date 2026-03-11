@@ -187,7 +187,16 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 @click.option(
     "--encoding",
     type=click.Choice(
-        ["base64", "rot13", "leetspeak", "homoglyph", "hex", "whitespace", "mixed_case", "payload_split"],
+        [
+            "base64",
+            "rot13",
+            "leetspeak",
+            "homoglyph",
+            "hex",
+            "whitespace",
+            "mixed_case",
+            "payload_split",
+        ],
         case_sensitive=False,
     ),
     multiple=True,
