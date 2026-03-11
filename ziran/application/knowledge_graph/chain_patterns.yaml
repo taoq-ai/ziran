@@ -1,0 +1,859 @@
+# Dangerous tool chain patterns for ZIRAN's chain analyzer.
+#
+# Each pattern defines a (source, target) substring pair that, when both
+# are present in an agent's tool set, represents a dangerous composition.
+# Matching is case-insensitive substring: "read_file" matches tool IDs
+# like "tool_read_file" or "fs_read_file".
+#
+# Categories:
+#   data_exfiltration    — reading data + sending it externally
+#   code_execution       — data sources feeding into code/shell execution
+#   privilege_escalation — leveraging data to escalate access
+#   file_system          — combining directory/file read/write/execute
+#   command_injection    — shell/code chained with network or persistence
+#   authentication       — data access leading to token/credential abuse
+#   data_poisoning       — external data injected into internal stores
+#   session_hijacking    — session data exfiltrated externally
+#   mcp_specific         — MCP protocol tool composition risks
+#   cloud_services       — cloud provider tool chains (AWS/GCP/Azure)
+#   framework_tools      — LangChain, LlamaIndex, and similar tool names
+#   a2a_delegation       — Agent-to-Agent / multi-agent delegation chains
+#   memory_state         — memory and context manipulation chains
+#   cicd_pipeline        — CI/CD and deployment tool chains
+#   browser_scraping     — browser automation and scraping chains
+#   crypto_wallet        — cryptocurrency and key material chains
+
+patterns:
+  # ── Data Exfiltration ──────────────────────────────────────────────
+  - source: read_file
+    target: http_request
+    type: data_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: File contents can be sent to an external server
+    remediation: Implement an allowlist for external URLs; validate file access scope
+
+  - source: database_query
+    target: http_request
+    type: database_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: Database data can be sent to an attacker-controlled endpoint
+    remediation: Restrict outbound network access; audit database queries
+
+  - source: read_file
+    target: send_email
+    type: data_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: File contents can be exfiltrated via email
+    remediation: Restrict email recipients; validate attachment contents
+
+  - source: search_database
+    target: send_email
+    type: data_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: Database search results can be emailed to external recipients
+    remediation: Audit email recipients; limit data returned by search
+
+  - source: get_user_info
+    target: http_request
+    type: pii_leakage
+    risk: critical
+    category: data_exfiltration
+    description: User PII can be sent to external endpoints
+    remediation: Mask PII before external API calls; enforce data classification
+
+  - source: read_file
+    target: external_api
+    type: data_exfiltration
+    risk: high
+    category: data_exfiltration
+    description: File contents sent to a third-party API
+    remediation: Restrict external API access; validate outbound payloads
+
+  # ── SQL Injection to RCE ──────────────────────────────────────────
+  - source: sql_query
+    target: execute_code
+    type: sql_to_rce
+    risk: critical
+    category: code_execution
+    description: SQL results can be executed as arbitrary code
+    remediation: Sandbox code execution; never pass raw query output to eval
+
+  - source: database_query
+    target: execute_code
+    type: sql_to_rce
+    risk: critical
+    category: code_execution
+    description: Database output piped into code execution
+    remediation: Sanitise all database output before processing
+
+  # ── PII Leakage ───────────────────────────────────────────────────
+  - source: get_user_info
+    target: external_api
+    type: pii_leakage
+    risk: high
+    category: data_exfiltration
+    description: User PII sent to a third-party API without validation
+    remediation: Redact PII fields before external API calls
+
+  - source: search_users
+    target: send_email
+    type: pii_leakage
+    risk: high
+    category: data_exfiltration
+    description: User search results emailed without authorisation
+    remediation: Require explicit user consent before sharing PII
+
+  # ── Privilege Escalation ──────────────────────────────────────────
+  - source: search_database
+    target: update_permissions
+    type: privilege_escalation
+    risk: critical
+    category: privilege_escalation
+    description: Database search chained to permission modification
+    remediation: Enforce role-based access control on permission updates
+
+  - source: get_user_info
+    target: update_permissions
+    type: privilege_escalation
+    risk: critical
+    category: privilege_escalation
+    description: User lookup enables targeted permission escalation
+    remediation: Require multi-party approval for permission changes
+
+  - source: read_config
+    target: update_permissions
+    type: privilege_escalation
+    risk: high
+    category: privilege_escalation
+    description: Configuration data used to modify access controls
+    remediation: Isolate configuration reads from permission writes
+
+  # ── File System Attacks ───────────────────────────────────────────
+  - source: list_directory
+    target: read_file
+    type: directory_traversal
+    risk: medium
+    category: file_system
+    description: Directory listing enables targeted file access
+    remediation: Restrict directory listing to safe directories
+
+  - source: read_file
+    target: write_file
+    type: file_manipulation
+    risk: high
+    category: file_system
+    description: Files can be read and arbitrarily modified
+    remediation: Use separate read-only and write-only file scopes
+
+  - source: list_directory
+    target: write_file
+    type: file_manipulation
+    risk: high
+    category: file_system
+    description: Directory enumeration followed by file modification
+    remediation: Limit write access to specific directories
+
+  - source: read_file
+    target: execute_code
+    type: file_to_rce
+    risk: critical
+    category: code_execution
+    description: File contents can be executed as code
+    remediation: Never execute file contents; sandbox all code execution
+
+  # ── Command Injection ─────────────────────────────────────────────
+  - source: shell_execute
+    target: http_request
+    type: command_injection_exfil
+    risk: critical
+    category: command_injection
+    description: Shell command output exfiltrated over HTTP
+    remediation: Remove shell_execute tool; use scoped alternatives
+
+  - source: shell_execute
+    target: write_file
+    type: command_injection_persist
+    risk: critical
+    category: command_injection
+    description: Shell commands can write persistent payloads to disk
+    remediation: Remove shell_execute; use scoped file write APIs
+
+  - source: http_request
+    target: execute_code
+    type: remote_code_execution
+    risk: critical
+    category: code_execution
+    description: Remote payload downloaded and executed
+    remediation: Block code execution from network-sourced data
+
+  - source: http_request
+    target: shell_execute
+    type: remote_code_execution
+    risk: critical
+    category: code_execution
+    description: Remote payload downloaded and run via shell
+    remediation: Block shell from processing network-sourced data
+
+  # ── Authentication Bypass ─────────────────────────────────────────
+  - source: get_user_info
+    target: generate_token
+    type: authentication_bypass
+    risk: critical
+    category: authentication
+    description: User information used to generate auth tokens
+    remediation: Token generation must not accept user-controlled input
+
+  - source: read_config
+    target: generate_token
+    type: authentication_bypass
+    risk: critical
+    category: authentication
+    description: Config secrets used to forge authentication tokens
+    remediation: Secrets must not be exposed to agent tools
+
+  - source: search_database
+    target: generate_token
+    type: authentication_bypass
+    risk: high
+    category: authentication
+    description: Database data used to craft valid tokens
+    remediation: Isolate token generation from data query tools
+
+  # ── Data Poisoning ────────────────────────────────────────────────
+  - source: http_request
+    target: write_file
+    type: data_poisoning
+    risk: high
+    category: data_poisoning
+    description: External data written to local files without validation
+    remediation: Validate and sanitise all external data before writing
+
+  - source: http_request
+    target: database_query
+    type: data_poisoning
+    risk: high
+    category: data_poisoning
+    description: External data injected into database
+    remediation: Sanitise all external data; use parameterised queries
+
+  - source: http_request
+    target: update_memory
+    type: memory_poisoning
+    risk: high
+    category: data_poisoning
+    description: Attacker-controlled data written to agent memory
+    remediation: Validate memory updates; restrict external sources
+
+  # ── Session Hijacking ─────────────────────────────────────────────
+  - source: get_session
+    target: send_email
+    type: session_hijacking
+    risk: high
+    category: session_hijacking
+    description: Session tokens can be emailed to external addresses
+    remediation: Never expose session tokens to messaging tools
+
+  - source: get_session
+    target: http_request
+    type: session_hijacking
+    risk: critical
+    category: session_hijacking
+    description: Session tokens can be exfiltrated via HTTP
+    remediation: Session data must not be accessible to network tools
+
+  # ── MCP-Specific Chains ───────────────────────────────────────────
+  - source: mcp_list_servers
+    target: mcp_invoke
+    type: mcp_enumeration_to_exploit
+    risk: high
+    category: mcp_specific
+    description: MCP server discovery enables targeted exploitation
+    remediation: Restrict MCP server enumeration; require explicit approval
+
+  - source: mcp_invoke
+    target: http_request
+    type: mcp_data_exfiltration
+    risk: critical
+    category: mcp_specific
+    description: MCP tool output sent to external server
+    remediation: Audit MCP tool outputs; restrict outbound requests
+
+  - source: mcp_list_servers
+    target: shell_execute
+    type: mcp_to_rce
+    risk: critical
+    category: mcp_specific
+    description: MCP server list used to craft shell exploitation
+    remediation: Isolate MCP from shell access
+
+  # ── Cloud Services (AWS/GCP/Azure) ────────────────────────────────
+  - source: s3_get
+    target: http_request
+    type: cloud_data_exfiltration
+    risk: critical
+    category: cloud_services
+    description: S3 object contents exfiltrated to external endpoint
+    remediation: Restrict outbound network access from S3-reading tools; audit bucket policies
+
+  - source: s3_get
+    target: send_email
+    type: cloud_data_exfiltration
+    risk: critical
+    category: cloud_services
+    description: S3 object contents exfiltrated via email
+    remediation: Restrict email recipients; audit S3 access patterns
+
+  - source: gcs_read
+    target: http_request
+    type: cloud_data_exfiltration
+    risk: critical
+    category: cloud_services
+    description: Google Cloud Storage contents exfiltrated externally
+    remediation: Restrict outbound access; audit GCS read operations
+
+  - source: blob_download
+    target: http_request
+    type: cloud_data_exfiltration
+    risk: critical
+    category: cloud_services
+    description: Azure Blob contents exfiltrated to external endpoint
+    remediation: Restrict outbound access; audit blob download operations
+
+  - source: kms_decrypt
+    target: http_request
+    type: key_material_exfiltration
+    risk: critical
+    category: cloud_services
+    description: KMS-decrypted secrets exfiltrated over HTTP
+    remediation: Never expose decrypted key material to network tools
+
+  - source: kms_decrypt
+    target: send_email
+    type: key_material_exfiltration
+    risk: critical
+    category: cloud_services
+    description: KMS-decrypted secrets sent via email
+    remediation: Decrypted material must stay in secure processing pipeline
+
+  - source: ssm_get_parameter
+    target: shell_execute
+    type: cloud_secret_to_rce
+    risk: critical
+    category: cloud_services
+    description: SSM parameter (often secrets) piped to shell execution
+    remediation: Never pass SSM parameters to shell; use environment injection
+
+  - source: ssm_get_parameter
+    target: http_request
+    type: cloud_secret_exfiltration
+    risk: critical
+    category: cloud_services
+    description: SSM parameter values exfiltrated over HTTP
+    remediation: Restrict outbound access from SSM-reading tools
+
+  - source: secrets_manager
+    target: http_request
+    type: cloud_secret_exfiltration
+    risk: critical
+    category: cloud_services
+    description: Secrets Manager values exfiltrated externally
+    remediation: Secrets must not be accessible to network tools
+
+  - source: secrets_manager
+    target: execute_code
+    type: cloud_secret_to_rce
+    risk: critical
+    category: cloud_services
+    description: Secrets Manager values executed as code
+    remediation: Never pass secrets to code execution tools
+
+  - source: lambda_invoke
+    target: write_file
+    type: cloud_function_persist
+    risk: high
+    category: cloud_services
+    description: Lambda function output persisted to local filesystem
+    remediation: Validate Lambda outputs before writing to disk
+
+  - source: lambda_invoke
+    target: shell_execute
+    type: cloud_function_to_rce
+    risk: critical
+    category: cloud_services
+    description: Lambda function output piped to shell execution
+    remediation: Isolate Lambda invocations from shell access
+
+  # ── LangChain / LlamaIndex Framework Tools ────────────────────────
+  - source: python_repl
+    target: http_request
+    type: repl_exfiltration
+    risk: critical
+    category: framework_tools
+    description: Python REPL can craft and send arbitrary HTTP requests
+    remediation: Sandbox REPL execution; block network access from REPL
+
+  - source: python_repl
+    target: write_file
+    type: repl_persist
+    risk: critical
+    category: framework_tools
+    description: Python REPL can write arbitrary files to disk
+    remediation: Sandbox REPL execution; restrict filesystem access
+
+  - source: shell_tool
+    target: http_request
+    type: shell_exfiltration
+    risk: critical
+    category: framework_tools
+    description: Shell tool output exfiltrated via HTTP
+    remediation: Remove shell tool; use scoped alternatives
+
+  - source: shell_tool
+    target: write_file
+    type: shell_persist
+    risk: critical
+    category: framework_tools
+    description: Shell tool can write persistent payloads
+    remediation: Remove shell tool; use scoped file APIs
+
+  - source: requests_tool
+    target: execute_code
+    type: remote_code_execution
+    risk: critical
+    category: framework_tools
+    description: Downloaded content executed as code via requests tool
+    remediation: Block code execution from network-sourced data
+
+  - source: requests_tool
+    target: shell_execute
+    type: remote_code_execution
+    risk: critical
+    category: framework_tools
+    description: Downloaded content piped to shell via requests tool
+    remediation: Block shell access from network-sourced data
+
+  - source: serpapi
+    target: send_email
+    type: search_data_leak
+    risk: high
+    category: framework_tools
+    description: Search results emailed without review
+    remediation: Audit outbound email content; restrict recipients
+
+  - source: file_management
+    target: http_request
+    type: managed_file_exfil
+    risk: critical
+    category: framework_tools
+    description: Managed file contents exfiltrated via HTTP
+    remediation: Restrict outbound access from file management tools
+
+  - source: sql_database
+    target: http_request
+    type: orm_data_exfiltration
+    risk: critical
+    category: framework_tools
+    description: ORM/SQL database tool output exfiltrated externally
+    remediation: Restrict outbound network from database tools
+
+  - source: sql_database
+    target: send_email
+    type: orm_data_leak
+    risk: high
+    category: framework_tools
+    description: Database query results emailed externally
+    remediation: Audit email content; restrict database result forwarding
+
+  # ── MCP Extended ──────────────────────────────────────────────────
+  - source: mcp_read_resource
+    target: http_request
+    type: mcp_resource_exfiltration
+    risk: critical
+    category: mcp_specific
+    description: MCP resource contents exfiltrated over HTTP
+    remediation: Audit MCP resource reads; restrict outbound requests
+
+  - source: mcp_read_resource
+    target: send_email
+    type: mcp_resource_exfiltration
+    risk: critical
+    category: mcp_specific
+    description: MCP resource contents exfiltrated via email
+    remediation: Restrict email from MCP resource data
+
+  - source: mcp_read_resource
+    target: mcp_invoke
+    type: mcp_cross_tool_escalation
+    risk: high
+    category: mcp_specific
+    description: MCP resource data fed into another MCP tool invocation
+    remediation: Validate data flow between MCP resources and tools
+
+  - source: mcp_get_prompt
+    target: shell_execute
+    type: mcp_prompt_to_rce
+    risk: critical
+    category: mcp_specific
+    description: MCP prompt template content piped to shell execution
+    remediation: Never execute MCP prompt contents as commands
+
+  - source: mcp_get_prompt
+    target: execute_code
+    type: mcp_prompt_to_rce
+    risk: critical
+    category: mcp_specific
+    description: MCP prompt template executed as code
+    remediation: Treat MCP prompts as untrusted; sandbox execution
+
+  - source: mcp_sampling
+    target: http_request
+    type: mcp_sampling_exfiltration
+    risk: high
+    category: mcp_specific
+    description: MCP sampling results sent to external server
+    remediation: Restrict outbound access from MCP sampling
+
+  - source: mcp_sampling
+    target: write_file
+    type: mcp_sampling_persist
+    risk: high
+    category: mcp_specific
+    description: MCP sampling output persisted to filesystem
+    remediation: Validate and restrict MCP sampling output destinations
+
+  - source: mcp_invoke
+    target: write_file
+    type: mcp_tool_persist
+    risk: high
+    category: mcp_specific
+    description: MCP tool output written to local files
+    remediation: Validate MCP tool outputs before filesystem writes
+
+  - source: mcp_invoke
+    target: execute_code
+    type: mcp_tool_to_rce
+    risk: critical
+    category: mcp_specific
+    description: MCP tool output executed as arbitrary code
+    remediation: Never pipe MCP tool results into code execution
+
+  - source: mcp_invoke
+    target: mcp_invoke
+    type: mcp_cross_server_chain
+    risk: high
+    category: mcp_specific
+    description: MCP tool on one server triggers tool on another server
+    remediation: Restrict cross-server MCP tool invocation chains
+
+  # ── A2A / Multi-Agent Delegation ──────────────────────────────────
+  - source: delegate_task
+    target: execute_code
+    type: delegation_to_rce
+    risk: critical
+    category: a2a_delegation
+    description: Delegated task results in code execution on target agent
+    remediation: Validate delegated task scope; sandbox execution
+
+  - source: delegate_task
+    target: shell_execute
+    type: delegation_to_rce
+    risk: critical
+    category: a2a_delegation
+    description: Delegated task triggers shell execution on target agent
+    remediation: Restrict delegation targets; block shell delegation
+
+  - source: agent_call
+    target: http_request
+    type: cross_agent_exfiltration
+    risk: high
+    category: a2a_delegation
+    description: Cross-agent call chains to external HTTP request
+    remediation: Audit cross-agent data flow; restrict outbound access
+
+  - source: agent_call
+    target: write_file
+    type: cross_agent_persist
+    risk: high
+    category: a2a_delegation
+    description: Cross-agent call writes data to filesystem
+    remediation: Validate cross-agent outputs before persistence
+
+  - source: send_task
+    target: read_file
+    type: cross_agent_data_access
+    risk: high
+    category: a2a_delegation
+    description: Task delegation enables file access on target agent
+    remediation: Enforce least-privilege on delegated tasks
+
+  - source: send_task
+    target: database_query
+    type: cross_agent_data_access
+    risk: high
+    category: a2a_delegation
+    description: Task delegation enables database access on target agent
+    remediation: Restrict database access scope for delegated tasks
+
+  - source: get_agent_card
+    target: mcp_invoke
+    type: a2a_to_mcp_escalation
+    risk: medium
+    category: a2a_delegation
+    description: A2A Agent Card discovery leads to MCP tool exploitation
+    remediation: Validate A2A agent capabilities before MCP invocation
+
+  - source: agent_call
+    target: agent_call
+    type: delegation_chain_amplification
+    risk: high
+    category: a2a_delegation
+    description: Recursive agent delegation amplifies attack scope
+    remediation: Limit delegation depth; enforce delegation policies
+
+  # ── Memory / State Manipulation ───────────────────────────────────
+  - source: read_memory
+    target: http_request
+    type: memory_exfiltration
+    risk: critical
+    category: memory_state
+    description: Agent memory contents exfiltrated over HTTP
+    remediation: Restrict memory access from network-capable tools
+
+  - source: read_memory
+    target: send_email
+    type: memory_exfiltration
+    risk: critical
+    category: memory_state
+    description: Agent memory contents exfiltrated via email
+    remediation: Never expose memory to messaging tools
+
+  - source: update_memory
+    target: generate_token
+    type: memory_to_auth_bypass
+    risk: critical
+    category: memory_state
+    description: Poisoned memory data used to generate auth tokens
+    remediation: Validate memory sources before token generation
+
+  - source: update_memory
+    target: execute_code
+    type: memory_to_rce
+    risk: critical
+    category: memory_state
+    description: Poisoned memory data executed as code
+    remediation: Never execute memory contents; validate all memory writes
+
+  - source: vector_store_write
+    target: vector_store_read
+    type: rag_poisoning
+    risk: high
+    category: memory_state
+    description: Attacker writes poisoned embeddings later retrieved by RAG
+    remediation: Validate vector store writes; implement content filtering
+
+  - source: http_request
+    target: vector_store_write
+    type: external_rag_poisoning
+    risk: high
+    category: memory_state
+    description: External data injected into vector store for RAG poisoning
+    remediation: Sanitise external data before vector store ingestion
+
+  - source: http_request
+    target: update_context
+    type: context_injection
+    risk: high
+    category: memory_state
+    description: External data injected into agent context window
+    remediation: Validate and sanitise all external context updates
+
+  - source: read_memory
+    target: write_file
+    type: memory_persist
+    risk: high
+    category: memory_state
+    description: Memory contents written to filesystem for persistence
+    remediation: Restrict memory-to-file write paths
+
+  - source: update_context
+    target: execute_code
+    type: context_to_rce
+    risk: critical
+    category: memory_state
+    description: Injected context data executed as code
+    remediation: Never execute context contents; sandbox all code paths
+
+  - source: store_embedding
+    target: http_request
+    type: embedding_exfiltration
+    risk: high
+    category: memory_state
+    description: Embedding data exfiltrated to external endpoint
+    remediation: Restrict outbound access from embedding storage tools
+
+  # ── CI/CD Pipeline ────────────────────────────────────────────────
+  - source: read_env
+    target: http_request
+    type: env_secret_exfiltration
+    risk: critical
+    category: cicd_pipeline
+    description: Environment variables (often secrets) exfiltrated via HTTP
+    remediation: Never expose environment variables to network tools
+
+  - source: read_env
+    target: send_email
+    type: env_secret_exfiltration
+    risk: critical
+    category: cicd_pipeline
+    description: Environment variable secrets emailed externally
+    remediation: Block email access from env-reading tools
+
+  - source: read_env
+    target: execute_code
+    type: env_to_rce
+    risk: critical
+    category: cicd_pipeline
+    description: Environment variables fed into code execution
+    remediation: Validate env values before code execution; use allowlists
+
+  - source: git_commit
+    target: deploy
+    type: supply_chain_injection
+    risk: critical
+    category: cicd_pipeline
+    description: Malicious commit triggers automated deployment
+    remediation: Require code review; enforce deployment approval gates
+
+  - source: git_commit
+    target: shell_execute
+    type: git_to_rce
+    risk: critical
+    category: cicd_pipeline
+    description: Git hooks or post-commit actions trigger shell execution
+    remediation: Audit git hooks; restrict post-commit automation
+
+  - source: run_pipeline
+    target: shell_execute
+    type: pipeline_to_rce
+    risk: critical
+    category: cicd_pipeline
+    description: CI/CD pipeline execution triggers arbitrary shell commands
+    remediation: Sandbox pipeline execution; audit pipeline definitions
+
+  - source: read_dockerfile
+    target: write_file
+    type: container_manipulation
+    risk: high
+    category: cicd_pipeline
+    description: Dockerfile contents used to craft malicious file writes
+    remediation: Validate Dockerfile processing; restrict write targets
+
+  - source: read_env
+    target: write_file
+    type: env_secret_persist
+    risk: high
+    category: cicd_pipeline
+    description: Environment secrets written to persistent files
+    remediation: Never persist env secrets to filesystem
+
+  # ── Browser / Scraping ────────────────────────────────────────────
+  - source: browse_url
+    target: write_file
+    type: web_content_persist
+    risk: high
+    category: browser_scraping
+    description: Web page content written to local files
+    remediation: Sanitise web content before writing; restrict write paths
+
+  - source: browse_url
+    target: execute_code
+    type: web_content_to_rce
+    risk: critical
+    category: browser_scraping
+    description: Web page content executed as code
+    remediation: Never execute web-sourced content; sandbox processing
+
+  - source: browse_url
+    target: database_query
+    type: web_content_injection
+    risk: high
+    category: browser_scraping
+    description: Web content injected into database queries
+    remediation: Sanitise web content; use parameterised queries
+
+  - source: screenshot
+    target: send_email
+    type: screen_data_exfil
+    risk: high
+    category: browser_scraping
+    description: Screenshots containing sensitive data emailed externally
+    remediation: Restrict screenshot sharing; audit email attachments
+
+  - source: screenshot
+    target: http_request
+    type: screen_data_exfil
+    risk: high
+    category: browser_scraping
+    description: Screenshots uploaded to external endpoint
+    remediation: Restrict outbound upload from screenshot tools
+
+  - source: navigate
+    target: execute_code
+    type: nav_to_rce
+    risk: critical
+    category: browser_scraping
+    description: Navigation to attacker page triggers code execution
+    remediation: Sandbox browser navigation; restrict code execution
+
+  - source: form_fill
+    target: http_request
+    type: form_data_exfil
+    risk: high
+    category: browser_scraping
+    description: Form data exfiltrated to external endpoint
+    remediation: Audit form submission targets; restrict outbound access
+
+  - source: scrape
+    target: send_email
+    type: scraped_data_leak
+    risk: high
+    category: browser_scraping
+    description: Scraped data emailed to external recipients
+    remediation: Audit email content; restrict scraping output sharing
+
+  # ── Crypto / Wallet ───────────────────────────────────────────────
+  - source: get_wallet
+    target: http_request
+    type: crypto_key_exfiltration
+    risk: critical
+    category: crypto_wallet
+    description: Wallet credentials exfiltrated over HTTP
+    remediation: Never expose wallet data to network tools
+
+  - source: get_private_key
+    target: send_email
+    type: key_material_exfiltration
+    risk: critical
+    category: crypto_wallet
+    description: Private key material emailed externally
+    remediation: Private keys must never be accessible to messaging tools
+
+  - source: sign_transaction
+    target: http_request
+    type: transaction_hijack
+    risk: critical
+    category: crypto_wallet
+    description: Signed transactions sent to attacker-controlled endpoint
+    remediation: Validate transaction destinations; require user confirmation
+
+  - source: decrypt
+    target: http_request
+    type: decrypted_data_exfil
+    risk: critical
+    category: crypto_wallet
+    description: Decrypted data exfiltrated over HTTP
+    remediation: Decrypted data must not flow to network tools

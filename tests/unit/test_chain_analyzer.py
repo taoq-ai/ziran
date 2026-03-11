@@ -279,21 +279,25 @@ class TestRiskScoring:
 class TestPatternMatching:
     """Tests for pattern substring matching."""
 
-    def test_exact_match(self) -> None:
-        result = ToolChainAnalyzer._match_pattern("read_file", "http_request")
+    def test_exact_match(self, simple_graph: AttackKnowledgeGraph) -> None:
+        analyzer = ToolChainAnalyzer(simple_graph)
+        result = analyzer._match_pattern("read_file", "http_request")
         assert result is not None
         assert result["type"] == "data_exfiltration"
 
-    def test_prefix_match(self) -> None:
-        result = ToolChainAnalyzer._match_pattern("tool_read_file", "tool_http_request")
+    def test_prefix_match(self, simple_graph: AttackKnowledgeGraph) -> None:
+        analyzer = ToolChainAnalyzer(simple_graph)
+        result = analyzer._match_pattern("tool_read_file", "tool_http_request")
         assert result is not None
 
-    def test_case_insensitive(self) -> None:
-        result = ToolChainAnalyzer._match_pattern("Read_File", "HTTP_REQUEST")
+    def test_case_insensitive(self, simple_graph: AttackKnowledgeGraph) -> None:
+        analyzer = ToolChainAnalyzer(simple_graph)
+        result = analyzer._match_pattern("Read_File", "HTTP_REQUEST")
         assert result is not None
 
-    def test_no_match(self) -> None:
-        result = ToolChainAnalyzer._match_pattern("harmless_a", "harmless_b")
+    def test_no_match(self, simple_graph: AttackKnowledgeGraph) -> None:
+        analyzer = ToolChainAnalyzer(simple_graph)
+        result = analyzer._match_pattern("harmless_a", "harmless_b")
         assert result is None
 
 
@@ -304,8 +308,8 @@ class TestDangerousPatterns:
     """Tests for the pattern database itself."""
 
     def test_minimum_pattern_count(self) -> None:
-        """We should have at least 10 patterns as specified."""
-        assert len(DANGEROUS_PATTERNS) >= 10
+        """We should have at least 100 patterns from YAML registry."""
+        assert len(DANGEROUS_PATTERNS) >= 100
 
     def test_all_patterns_have_required_fields(self) -> None:
         for (src, tgt), info in DANGEROUS_PATTERNS.items():
@@ -326,5 +330,10 @@ class TestDangerousPatterns:
             "privilege_escalation",
             "file_manipulation",
             "directory_traversal",
+            "cloud_data_exfiltration",
+            "delegation_to_rce",
+            "memory_exfiltration",
+            "env_secret_exfiltration",
+            "mcp_resource_exfiltration",
         }
         assert expected.issubset(types), f"Missing types: {expected - types}"
