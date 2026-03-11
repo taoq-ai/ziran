@@ -151,7 +151,7 @@ The campaign response includes:
 
 ## CI/CD Integration
 
-Run ZIRAN security analysis through Promptfoo in CI. Promptfoo acts as the test runner while ZIRAN provides the scanning engine via the provider bridge:
+This assumes your repo contains the Promptfoo config files (`promptfooconfig.yaml`, `ziran_provider.py`, `ziran_assertions.py`). Promptfoo reads `promptfooconfig.yaml` which references `file://ziran_provider.py` as the provider — that file imports `ziran.integrations.promptfoo.provider` internally.
 
 ```yaml
 # .github/workflows/security.yml
@@ -167,11 +167,10 @@ jobs:
           python-version: "3.12"
       - uses: actions/setup-node@v4
 
-      # ZIRAN is the security engine — Promptfoo calls it via ziran_provider.py
       - run: pip install ziran
       - run: npm install -g promptfoo
 
-      # Run ZIRAN-powered security tests through Promptfoo
+      # promptfoo reads promptfooconfig.yaml -> file://ziran_provider.py -> ziran
       - run: promptfoo eval --no-cache
 ```
 
