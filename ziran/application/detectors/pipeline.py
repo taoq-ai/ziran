@@ -28,6 +28,7 @@ from ziran.application.detectors.indicator import IndicatorDetector
 from ziran.application.detectors.refusal import RefusalDetector
 from ziran.application.detectors.side_effect import SideEffectDetector
 from ziran.domain.entities.detection import DetectionVerdict, DetectorResult
+from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from ziran.infrastructure.llm.base import BaseLLMClient
 
 logger = logging.getLogger(__name__)
+_tracer = get_tracer(__name__)
 
 # Threshold above which a detector score is considered a "hit"
 _HIT_THRESHOLD = 0.7
@@ -91,6 +93,7 @@ class DetectorPipeline:
             Aggregated detection verdict.
         """
         results: list[DetectorResult] = []
+        _det_span = _tracer.start_span("ziran.detection")
 
         # ── 1. Refusal detector (highest priority) ───────────────
         refusal_result = self._refusal.detect(prompt, response, prompt_spec, vector)
@@ -129,7 +132,19 @@ class DetectorPipeline:
                 results.append(llm_judge_result)
 
         # ── 6. Resolve conflicts ─────────────────────────────────
-        return self._resolve(results)
+        verdict = self._resolve(results)
+
+        # OTel: record detection result
+        _det_span.set_attribute("ziran.detection.successful", verdict.successful)
+        _det_span.set_attribute("ziran.detection.score", verdict.score)
+        for r in results:
+            _det_span.add_event(
+                f"detector.{r.detector_name}",
+                {"score": r.score, "confidence": r.confidence},
+            )
+        _det_span.end()
+
+        return verdict
 
     @staticmethod
     def _is_authz_vector(vector: AttackVector | None) -> bool:

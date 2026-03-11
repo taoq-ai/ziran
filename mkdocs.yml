@@ -72,6 +72,7 @@ nav:
     - Browser Agents: guides/browser-agents.md
     - CI/CD Integration: guides/cicd-integration.md
     - Promptfoo Integration: guides/promptfoo-integration.md
+    - OpenTelemetry Tracing: guides/otel-tracing.md
     - Static Analysis: guides/static-analysis.md
     - Interpreting Results: guides/interpreting-results.md
     - Custom Attacks: guides/custom-attacks.md

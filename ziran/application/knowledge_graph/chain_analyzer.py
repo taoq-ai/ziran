@@ -22,6 +22,7 @@ from ziran.application.knowledge_graph.chain_patterns import (
 )
 from ziran.application.knowledge_graph.graph import NodeType
 from ziran.domain.entities.capability import DangerousChain
+from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
 logger = logging.getLogger(__name__)
+_tracer = get_tracer(__name__)
 
 # ── Dangerous pattern definitions ──────────────────────────────────────
 # Loaded from chain_patterns.yaml via the ChainPatternRegistry.
@@ -109,6 +111,7 @@ class ToolChainAnalyzer:
             Sorted list of :class:`DangerousChain` objects (highest risk first).
         """
         chains: list[DangerousChain] = []
+        _chain_span = _tracer.start_span("ziran.chain_analysis")
 
         chains.extend(self._find_direct_chains())
         chains.extend(self._find_indirect_chains(max_hops=3))
@@ -136,6 +139,12 @@ class ToolChainAnalyzer:
             sum(1 for c in unique if c.risk_level == "high"),
             sum(1 for c in unique if c.risk_level == "medium"),
         )
+
+        _chain_span.set_attribute("ziran.chain_count", len(unique))
+        _chain_span.set_attribute(
+            "ziran.chain_critical", sum(1 for c in unique if c.risk_level == "critical")
+        )
+        _chain_span.end()
 
         return unique
 

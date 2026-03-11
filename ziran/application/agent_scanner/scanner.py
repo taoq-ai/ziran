@@ -42,6 +42,7 @@ from ziran.domain.entities.phase import (
     PhaseResult,
     ScanPhase,
 )
+from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
     from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
 
 logger = logging.getLogger(__name__)
+_tracer = get_tracer(__name__)
 
 
 class ProgressEventType(StrEnum):
@@ -219,6 +221,17 @@ class AgentScanner:
 
         campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
         campaign_start = datetime.now(tz=UTC)
+
+        # OTel: root span for the entire campaign
+        self._campaign_span = _tracer.start_span(
+            "ziran.campaign",
+            attributes={
+                "ziran.campaign_id": campaign_id,
+                "ziran.phase_count": len(phases),
+                "ziran.coverage": coverage.value,
+                "ziran.strategy": type(strategy).__name__,
+            },
+        )
 
         # Store callback + settings for use in _execute_phase
         self._on_progress = on_progress
@@ -422,6 +435,16 @@ class AgentScanner:
             )
         )
 
+        # OTel: finalize campaign span
+        span = getattr(self, "_campaign_span", None)
+        if span is not None:
+            span.set_attribute("ziran.total_vulnerabilities", campaign_result.total_vulnerabilities)
+            span.set_attribute("ziran.trust_score", campaign_result.final_trust_score)
+            span.set_attribute("ziran.duration_seconds", duration)
+            span.set_attribute("ziran.total_tokens", campaign_tokens.total_tokens)
+            span.set_attribute("ziran.dangerous_chain_count", len(dangerous_chains))
+            span.end()
+
         return campaign_result
 
     async def _discover_and_map_capabilities(self) -> list[AgentCapability]:
@@ -483,6 +506,14 @@ class AgentScanner:
             Phase result with all findings.
         """
         start_time = datetime.now(tz=UTC)
+        _phase_span = _tracer.start_span(
+            "ziran.phase",
+            attributes={
+                "ziran.phase": phase.value,
+                "ziran.phase_index": phase_index,
+                "ziran.total_phases": total_phases,
+            },
+        )
 
         coverage: CoverageLevel = getattr(self, "_coverage", CoverageLevel.COMPREHENSIVE)
         max_concurrent: int = getattr(self, "_max_concurrent", 5)
@@ -647,6 +678,13 @@ class AgentScanner:
 
         duration = (datetime.now(tz=UTC) - start_time).total_seconds()
 
+        # OTel: finalize phase span
+        _phase_span.set_attribute("ziran.phase.vulnerabilities", len(vulnerabilities))
+        _phase_span.set_attribute("ziran.phase.trust_score", trust_score)
+        _phase_span.set_attribute("ziran.phase.duration_seconds", duration)
+        _phase_span.set_attribute("ziran.phase.attacks_executed", len(attacks))
+        _phase_span.end()
+
         return PhaseResult(
             phase=phase,
             success=len(vulnerabilities) > 0,
@@ -680,7 +718,22 @@ class AgentScanner:
         Returns:
             Attack result with success determination, evidence, and token usage.
         """
+        _attack_span = _tracer.start_span(
+            "ziran.attack",
+            attributes={
+                "ziran.attack.id": attack.id,
+                "ziran.attack.name": attack.name,
+                "ziran.attack.category": attack.category.value
+                if hasattr(attack.category, "value")
+                else str(attack.category),
+                "ziran.attack.severity": attack.severity,
+                "ziran.attack.tactic": attack.tactic,
+            },
+        )
+
         if not attack.prompts:
+            _attack_span.set_attribute("ziran.attack.error", "no_prompts")
+            _attack_span.end()
             return AttackResult(
                 vector_id=attack.id,
                 vector_name=attack.name,
@@ -696,7 +749,10 @@ class AgentScanner:
             from ziran.application.attacks.tactics import TacticExecutor
 
             executor = TacticExecutor(self.adapter)
-            return await executor.execute(attack, self._detector_pipeline, self._render_prompt)
+            result = await executor.execute(attack, self._detector_pipeline, self._render_prompt)
+            _attack_span.set_attribute("ziran.attack.successful", result.successful)
+            _attack_span.end()
+            return result
 
         attack_tokens = TokenUsage()
 
@@ -721,8 +777,8 @@ class AgentScanner:
                 rendered = self._render_prompt(prompt_spec)
                 for enc_type in enc_types:
                     encoder = PromptEncoder([enc_type])
-                    result = encoder.encode(rendered)
-                    prompt_attempts.append((result.encoded, enc_type.value, prompt_spec))
+                    enc_result = encoder.encode(rendered)
+                    prompt_attempts.append((enc_result.encoded, enc_type.value, prompt_spec))
 
         # Try each prompt variant
         for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
@@ -762,6 +818,9 @@ class AgentScanner:
                     # Build side-effect summary for evidence
                     side_effects = get_side_effect_summary(response.tool_calls)
                     encoding_used = enc_label
+                    _attack_span.set_attribute("ziran.attack.successful", True)
+                    _attack_span.add_event("vulnerability_found", {"vector_id": attack.id})
+                    _attack_span.end()
                     return AttackResult(
                         vector_id=attack.id,
                         vector_name=attack.name,
@@ -793,6 +852,8 @@ class AgentScanner:
                 logger.warning("Error executing prompt for %s: %s", attack.id, str(e))
 
         # None of the prompts succeeded — include last response for reporting
+        _attack_span.set_attribute("ziran.attack.successful", False)
+        _attack_span.end()
         return AttackResult(
             vector_id=attack.id,
             vector_name=attack.name,

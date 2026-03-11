@@ -204,6 +204,13 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     help="Prompt encoding/obfuscation to apply. Can be specified multiple times. "
     "Each encoding generates additional attack variants alongside the originals.",
 )
+@click.option(
+    "--otel",
+    is_flag=True,
+    default=False,
+    help="Enable OpenTelemetry tracing (requires opentelemetry-sdk). "
+    "Exports spans to the console by default.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -222,6 +229,7 @@ def scan(
     strategy: str,
     streaming: bool,
     encoding: tuple[str, ...],
+    otel: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -238,6 +246,13 @@ def scan(
         ziran scan --target ./target.yaml --protocol a2a
         ziran scan --framework crewai --agent-path ./crew.py --phases reconnaissance trust_building
     """
+    # Enable OpenTelemetry if requested
+    if otel:
+        from ziran.infrastructure.telemetry.tracing import configure_console_exporter
+
+        configure_console_exporter()
+        console.print("[dim]OpenTelemetry tracing enabled (console exporter)[/dim]")
+
     # Validate mutually exclusive options
     has_local = framework is not None or agent_path is not None
     has_remote = target is not None
