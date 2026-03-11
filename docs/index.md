@@ -6,14 +6,13 @@
 
 ## The Problem
 
-Traditional security tools test the **LLM** (prompt injection, jailbreaks) or the **web app** (XSS, SQLi). But modern AI agents have a fundamentally different attack surface:
+Most security tools test individual prompts or tools in isolation. But AI agents have a fundamentally different attack surface — **tool combinations**:
 
-- **Tools** that read files, query databases, and make HTTP requests
-- **Memory** that persists across conversations
-- **Multi-step reasoning** that chains tool calls together
-- **Protocol endpoints** (REST, OpenAI, MCP, A2A) exposed over HTTPS
+- An agent with `read_file` and `http_request` has a **critical data exfiltration vulnerability** — even if neither tool is dangerous alone
+- An agent that says "I can't do that" but **executes the tool anyway** will pass text-based evaluation but fail in production
+- Vulnerabilities that only emerge after **building trust across multiple interactions** are invisible to single-pass testing
 
-An agent with `read_file` and `http_request` has a **critical data exfiltration vulnerability** — even if neither tool is dangerous alone. No existing tool catches this.
+ZIRAN discovers these composition-level risks through knowledge graph analysis, execution-level detection, and multi-phase campaigns.
 
 ## What ZIRAN Does
 
@@ -44,19 +43,22 @@ uv run python examples/10-vulnerable-agent/main.py
 
 ## How It Compares
 
-| Capability | ZIRAN | Garak | Promptfoo | PyRIT | Shannon |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Agent-aware (tools + memory) | **Yes** | — | Partial | — | — |
-| Tool chain analysis | **Yes** | — | — | — | — |
-| Multi-phase campaigns | **Yes** | — | — | Partial | Yes |
-| Multi-agent coordination | **Yes** | — | — | — | — |
-| Adaptive campaigns | **Yes** | — | — | — | — |
-| Streaming (SSE/WebSocket) | **Yes** | — | — | — | — |
-| Knowledge graph tracking | **Yes** | — | — | — | — |
-| Remote agent scanning (HTTPS) | **Yes** | REST only | HTTP provider | Partial | — |
-| Multi-protocol (REST/OpenAI/MCP/A2A) | **Yes** | — | — | — | — |
-| A2A protocol support | **Yes** | — | — | — | — |
-| CI/CD quality gate | **Yes** | — | Yes | — | Pro |
+| Capability | ZIRAN | Promptfoo | Invariant (Snyk) | Garak | PyRIT | Inspect AI |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Tool chain discovery (graph-based) | **Yes** | — | Policy-based | — | — | — |
+| Side-effect detection (execution-level) | **Yes** | — | Trace-based | — | — | Sandbox |
+| Multi-phase campaigns w/ graph feedback | **Yes** | Turn-level | Flow analysis | — | Composable | Multi-turn |
+| Autonomous pentesting agent | **Yes** | — | — | — | — | — |
+| Multi-agent coordination | **Yes** | — | — | — | — | — |
+| Agent-aware (tools + memory) | **Yes** | Partial | **Yes** | — | — | Partial |
+| A2A + MCP protocol support | **Yes** | MCP only | MCP only | — | — | — |
+| Encoding/obfuscation attacks | — | **Yes** (12+) | — | — | — | — |
+| Industry compliance plugins | — | **Yes** (46) | — | — | — | — |
+| CI/CD quality gate | **Yes** | **Yes** | — | — | — | — |
+
+!!! info "What ZIRAN Is Not"
+
+    ZIRAN focuses on agent-level security testing. For **LLM safety/alignment** (jailbreaks, compliance), use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak). For **runtime guardrails**, use [NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails) or [Lakera Guard](https://www.lakera.ai/). For **model evaluation**, use [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) or [Deepeval](https://github.com/confident-ai/deepeval). ZIRAN is complementary to all of these.
 
 ## Next Steps
 

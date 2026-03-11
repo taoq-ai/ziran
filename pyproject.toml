@@ -1,7 +1,7 @@
 [project]
 name = "ziran"
 dynamic = ["version"]
-description = "AI Agent Security Testing Framework — multi-phase scan campaigns with knowledge graph tracking"
+description = "AI Agent Security Testing — discovers dangerous tool chain compositions via knowledge graph analysis"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
