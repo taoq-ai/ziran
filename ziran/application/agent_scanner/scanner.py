@@ -182,6 +182,7 @@ class AgentScanner:
         strategy: CampaignStrategy | None = None,
         streaming: bool = False,
         exclude_vectors: set[str] | None = None,
+        encoding: list[str] | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -226,6 +227,7 @@ class AgentScanner:
         self._strategy = strategy
         self._streaming = streaming
         self._exclude_vectors = exclude_vectors or set()
+        self._encoding = encoding
 
         def _emit(event: ProgressEvent) -> None:
             if on_progress is not None:
@@ -694,11 +696,29 @@ class AgentScanner:
         # Track last response/prompt for reporting even when all prompts fail
         last_response_content: str | None = None
         last_prompt_used: str | None = None
+        encoding_used: str | None = None
 
-        # Try each prompt in the vector
+        # Build list of (prompt_text, encoding_label) pairs to attempt.
+        # Original prompts first, then encoded variants if configured.
+        prompt_attempts: list[tuple[str, str | None, AttackPrompt]] = []
         for prompt_spec in attack.prompts:
-            rendered_prompt = self._render_prompt(prompt_spec)
+            rendered = self._render_prompt(prompt_spec)
+            prompt_attempts.append((rendered, None, prompt_spec))
 
+        encoding_config: list[str] | None = getattr(self, "_encoding", None)
+        if encoding_config:
+            from ziran.application.attacks.encoding import EncodingType, PromptEncoder
+
+            enc_types = [EncodingType(e) for e in encoding_config]
+            for prompt_spec in attack.prompts:
+                rendered = self._render_prompt(prompt_spec)
+                for enc_type in enc_types:
+                    encoder = PromptEncoder([enc_type])
+                    result = encoder.encode(rendered)
+                    prompt_attempts.append((result.encoded, enc_type.value, prompt_spec))
+
+        # Try each prompt variant
+        for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
             try:
                 use_streaming = getattr(self, "_streaming", False)
 
@@ -734,6 +754,7 @@ class AgentScanner:
                 if verdict.successful:
                     # Build side-effect summary for evidence
                     side_effects = get_side_effect_summary(response.tool_calls)
+                    encoding_used = enc_label
                     return AttackResult(
                         vector_id=attack.id,
                         vector_name=attack.name,
@@ -752,6 +773,7 @@ class AgentScanner:
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
+                        encoding_applied=encoding_used,
                         owasp_mapping=attack.owasp_mapping,
                         token_usage=attack_tokens,
                     )
