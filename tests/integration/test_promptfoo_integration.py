@@ -11,7 +11,6 @@ import time
 from typing import TYPE_CHECKING
 
 import pytest
-import uvicorn
 
 from ziran.integrations.promptfoo.assertions import get_assert
 from ziran.integrations.promptfoo.provider import call_api
@@ -29,6 +28,9 @@ _PORT = 18899  # use non-standard port to avoid conflicts
 @pytest.fixture(scope="module")
 def live_server() -> Generator[str, None, None]:
     """Start the vulnerable demo server in a background thread."""
+    pytest.importorskip("fastapi", reason="fastapi required for live server tests")
+    uvicorn = pytest.importorskip("uvicorn", reason="uvicorn required for live server tests")
+
     import sys
     import threading
 
