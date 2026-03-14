@@ -42,6 +42,7 @@ class AttackCategory(StrEnum):
     CHAIN_OF_THOUGHT_MANIPULATION = "chain_of_thought_manipulation"
     MULTI_AGENT = "multi_agent"
     AUTHORIZATION_BYPASS = "authorization_bypass"
+    MODEL_DOS = "model_dos"
 
 
 class OwaspLlmCategory(StrEnum):
