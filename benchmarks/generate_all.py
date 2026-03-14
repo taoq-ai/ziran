@@ -107,12 +107,8 @@ def generate_markdown(
     # -- Benchmark Comparison (with progress bars)
     lines.append("## Benchmark Comparison")
     lines.append("")
-    lines.append(
-        "| Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |"
-    )
-    lines.append(
-        "|-----------|-------|-----------|-------:|------:|----------|--------|-----|"
-    )
+    lines.append("| Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |")
+    lines.append("|-----------|-------|-----------|-------:|------:|----------|--------|-----|")
     for b in benchmarks["benchmarks"]:
         gap_link = f"[{b['gap_id']}]({b['gap_issue']})" if b["gap_id"] else "\u2014"
         icon = _status_icon(b["gap_status"])
@@ -233,9 +229,7 @@ def generate_readme(
     gap_summary = gaps["summary"]
     closed = gap_summary["by_status"].get("closed", 0)
     total = gap_summary["total"]
-    lines.append(
-        f"| Gap closure | **{gap_summary['closure_pct']}%** ({closed}/{total}) |"
-    )
+    lines.append(f"| Gap closure | **{gap_summary['closure_pct']}%** ({closed}/{total}) |")
     lines.append("")
 
     # -- OWASP Coverage
@@ -254,20 +248,14 @@ def generate_readme(
         issue_note = ""
         if "issue" in info:
             issue_note = f" ([{info['issue']}](https://github.com/taoq-ai/ziran/issues/{info['issue'].lstrip('#')}))"
-        lines.append(
-            f"| **{cat_key}** | {info['name']} | {vecs} | {status_label}{issue_note} |"
-        )
+        lines.append(f"| **{cat_key}** | {info['name']} | {vecs} | {status_label}{issue_note} |")
     lines.append("")
 
     # -- Benchmark Comparison with progress bars
     lines.append("## Benchmark Comparison")
     lines.append("")
-    lines.append(
-        "| Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |"
-    )
-    lines.append(
-        "|-----------|-------|-----------|-------:|------:|----------|--------|-----|"
-    )
+    lines.append("| Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |")
+    lines.append("|-----------|-------|-----------|-------:|------:|----------|--------|-----|")
     for b in benchmarks["benchmarks"]:
         gap_link = (
             f"[{b['gap_id']}](https://github.com/taoq-ai/ziran/issues/{b['gap_issue'].lstrip('#')})"
