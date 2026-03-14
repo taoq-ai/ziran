@@ -13,7 +13,7 @@ The [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for
 | **LLM01** | Prompt Injection | 52 | :white_check_mark: Comprehensive |
 | **LLM02** | Insecure Output Handling | 20 | :white_check_mark: Strong |
 | **LLM03** | Training Data Poisoning | 15 | :white_check_mark: Strong |
-| **LLM04** | Model Denial of Service | — | :construction: Planned |
+| **LLM04** | Model Denial of Service | 12 | :white_check_mark: Strong |
 | **LLM05** | Supply Chain Vulnerabilities | — | :construction: Planned |
 | **LLM06** | Sensitive Information Disclosure | 51 | :white_check_mark: Comprehensive |
 | **LLM07** | Insecure Plugin Design | 20 | :white_check_mark: Strong |
@@ -23,7 +23,7 @@ The [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for
 
 !!! info "Coverage contributions welcome"
 
-    LLM04, LLM05, and LLM10 are on the roadmap. PRs adding vectors for these categories are welcome — see [Contributing](../community/contributing.md).
+    LLM05 and LLM10 are on the roadmap. PRs adding vectors for these categories are welcome — see [Contributing](../community/contributing.md).
 
 ## Category Details
 
@@ -44,6 +44,12 @@ When LLM output is consumed by downstream systems without sanitization. ZIRAN te
 Testing whether the agent's responses reveal poisoned training data or can be manipulated through memory poisoning in long-running sessions.
 
 **ZIRAN approach:** Memory poisoning vectors plant instructions that persist across conversation turns.
+
+### LLM04: Model Denial of Service (12 vectors)
+
+Resource-exhausting inputs that degrade model availability or performance. ZIRAN tests resource exhaustion, long-running queries, recursive tool call loops, and context window flooding.
+
+**ZIRAN approach:** Vectors target four attack surfaces — massive input payloads, expensive computation chains, recursive/infinite tool invocations, and context window saturation.
 
 ### LLM06: Sensitive Information Disclosure (51 vectors)
 
