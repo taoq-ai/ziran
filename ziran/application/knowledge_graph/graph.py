@@ -517,11 +517,6 @@ class AttackKnowledgeGraph:
                                     path[i], path[i + 1], default={}
                                 ).values()
                             )
-                            if isinstance(self.graph.get_edge_data(path[i], path[i + 1]), dict)
-                            else self.graph.get_edge_data(path[i], path[i + 1], default={}).get(
-                                "edge_type"
-                            )
-                            == EdgeType.DELEGATES_TO
                             for i in range(len(path) - 1)
                         )
                         if has_delegation:
