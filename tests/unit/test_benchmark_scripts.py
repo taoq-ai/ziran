@@ -92,8 +92,30 @@ class TestBenchmarkComparison:
             assert "venue" in b
             assert "focus" in b
             assert "gap_status" in b
-            assert "coverage" in b
+            assert "metrics" in b
             assert b["gap_status"] in ("closed", "open", "partial", "minimal")
+
+    def test_metrics_have_required_fields(self) -> None:
+        data = collect_benchmark_comparison()
+        for b in data["benchmarks"]:
+            for m in b["metrics"]:
+                assert "dimension" in m
+                assert "target" in m
+                assert "implemented" in m
+                assert "pct" in m
+
+    def test_gap_status_matches_canonical_source(self) -> None:
+        """Benchmark gap_status must match gap_status.py for benchmarks with gap_id."""
+        from benchmarks.gap_status import GAPS
+
+        gap_lookup = {g["id"]: g["status"] for g in GAPS}
+        data = collect_benchmark_comparison()
+        for b in data["benchmarks"]:
+            if b["gap_id"] and b["gap_id"] in gap_lookup:
+                assert b["gap_status"] == gap_lookup[b["gap_id"]], (
+                    f"{b['name']}: gap_status={b['gap_status']} but "
+                    f"{b['gap_id']} is {gap_lookup[b['gap_id']]}"
+                )
 
 
 class TestGapStatus:
@@ -102,9 +124,9 @@ class TestGapStatus:
         assert "gaps" in data
         assert "summary" in data
 
-    def test_has_14_gaps(self) -> None:
+    def test_has_22_gaps(self) -> None:
         data = collect_gap_status()
-        assert data["summary"]["total"] == 14
+        assert data["summary"]["total"] == 22
 
     def test_each_gap_has_required_fields(self) -> None:
         data = collect_gap_status()

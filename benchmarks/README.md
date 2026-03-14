@@ -8,11 +8,11 @@ How ZIRAN's attack vector library compares against published AI agent security b
 |--------|-------|
 | Attack vectors | **240** |
 | Attack categories | **10** |
-| OWASP LLM Top 10 | **70%** (7/10) |
+| OWASP LLM Top 10 | **70.0%** (7/10) |
 | Multi-turn tactics | **10** |
 | Encoding types | **12** |
-| Benchmarks analyzed | **18** |
-| Gap closure | **29%** (4/14) |
+| Benchmarks analyzed | **19** |
+| Gap closure | **18.2%** (4/22) |
 
 ## OWASP LLM Top 10 Coverage
 
@@ -21,7 +21,7 @@ How ZIRAN's attack vector library compares against published AI agent security b
 | **LLM01** | Prompt Injection | 136 | :white_check_mark: Comprehensive |
 | **LLM02** | Insecure Output Handling | 31 | :white_check_mark: Strong |
 | **LLM03** | Training Data Poisoning | 15 | :white_check_mark: Strong |
-| **LLM04** | Model Denial of Service | — | :construction: Planned ([#41](https://github.com/taoq-ai/ziran/issues/41)) |
+| **LLM04** | Model Denial of Service | — | :construction: Planned |
 | **LLM05** | Supply Chain Vulnerabilities | — | :construction: Planned ([#42](https://github.com/taoq-ai/ziran/issues/42)) |
 | **LLM06** | Sensitive Information Disclosure | 72 | :white_check_mark: Comprehensive |
 | **LLM07** | Insecure Plugin Design | 44 | :white_check_mark: Comprehensive |
@@ -31,26 +31,31 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 ## Benchmark Comparison
 
-| Benchmark | Venue | Test Cases | ZIRAN Status | Gap |
-|-----------|-------|------------|-------------|-----|
-| **AgentHarm** | ICLR 2025 | 440 | :white_check_mark: closed | [GAP-06](https://github.com/taoq-ai/ziran/issues/37) |
-| **InjecAgent** | ACL 2024 | 1,054 | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
-| **AgentDojo** | NeurIPS 2024 | 629 | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
-| **HarmBench** | ICML 2024 | 510 | :white_check_mark: closed | [GAP-08](https://github.com/taoq-ai/ziran/issues/39) |
-| **JailbreakBench** | NeurIPS 2024 | 100 | :large_orange_diamond: partial | — |
-| **StrongREJECT** | 2024 | — | :construction: open | [GAP-04](https://github.com/taoq-ai/ziran/issues/35) |
-| **MCPTox** | 2025 | 1,312 | :construction: open | [GAP-03](https://github.com/taoq-ai/ziran/issues/34) |
-| **ASB** | 2024 | 400 | :construction: open | [GAP-01](https://github.com/taoq-ai/ziran/issues/32) |
-| **TensorTrust** | 2024 | 126,000 | :red_circle: minimal | — |
-| **WildJailbreak** | 2024 | 105,000 | :red_circle: minimal | — |
-| **LLMail-Inject** | 2024 | — | :construction: open | [GAP-13](https://github.com/taoq-ai/ziran/issues/44) |
-| **Agent-SafetyBench** | 2024 | 2,000 | :white_check_mark: closed | [GAP-07](https://github.com/taoq-ai/ziran/issues/38) |
-| **BIPIA** | 2024 | — | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
-| **CyberSecEval** | Meta, 2024 | — | :large_orange_diamond: partial | — |
-| **ToolEmu** | 2024 | 144 | :large_orange_diamond: partial | — |
-| **R-Judge** | 2024 | 569 | :large_orange_diamond: partial | — |
-| **AILuminate** | MLCommons, 2025 | — | :construction: open | [GAP-09](https://github.com/taoq-ai/ziran/issues/40) |
-| **ALERT** | 2024 | 45,000 | :large_orange_diamond: partial | — |
+| Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |
+|-----------|-------|-----------|-------:|------:|----------|--------|-----|
+| **AgentHarm** | ICLR 2025 | Harm categories | 11 | 0 | `░░░░░░░░░░░░░░░` 0.0% | :white_check_mark: closed | [GAP-06](https://github.com/taoq-ai/ziran/issues/37) |
+|  |  | Multi-step vectors | 440 | 0 | `░░░░░░░░░░░░░░░` 0.0% |  |  |
+| **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 50 | `█░░░░░░░░░░░░░░` 4.7% | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
+| **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 50 | `█░░░░░░░░░░░░░░` 7.9% | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
+| **HarmBench** | ICML 2024 | Attack tactics | 18 | 10 | `████████░░░░░░░` 55.6% | :white_check_mark: closed | [GAP-08](https://github.com/taoq-ai/ziran/issues/39) |
+|  |  | Jailbreak vectors | 510 | 35 | `█░░░░░░░░░░░░░░` 6.9% |  |  |
+| **JailbreakBench** | NeurIPS 2024 | Prompt injection vectors | 100 | 35 | `█████░░░░░░░░░░` 35.0% | :construction: open | [GAP-15](https://github.com/taoq-ai/ziran/issues/54) |
+| **StrongREJECT** | 2024 | Quality-aware scoring | — | 0 | _Binary detection only — no composite scoring yet_ | :construction: open | [GAP-04](https://github.com/taoq-ai/ziran/issues/35) |
+| **MCPTox** | 2025 | MCP vectors | 1,312 | 10 | `░░░░░░░░░░░░░░░` 0.8% | :construction: open | [GAP-03](https://github.com/taoq-ai/ziran/issues/34) |
+| **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 10 | `███████████████` 100.0% | :construction: open | [GAP-01](https://github.com/taoq-ai/ziran/issues/32) |
+|  |  | Total vectors | 400 | 240 | `█████████░░░░░░` 60.0% |  |  |
+| **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 35 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-16](https://github.com/taoq-ai/ziran/issues/55) |
+| **WildJailbreak** | 2024 | Jailbreak tactics | 105,000 | 11 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-17](https://github.com/taoq-ai/ziran/issues/56) |
+| **LLMail-Inject** | 2024 | RAG injection vectors | — | 0 | _Not yet implemented_ | :construction: open | [GAP-13](https://github.com/taoq-ai/ziran/issues/44) |
+| **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :white_check_mark: closed | [GAP-07](https://github.com/taoq-ai/ziran/issues/38) |
+| **BIPIA** | 2024 | Indirect injection vectors | — | 50 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
+| **CyberSecEval** | Meta, 2024 | Total vectors | — | 240 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](https://github.com/taoq-ai/ziran/issues/57) |
+| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 23 | `██░░░░░░░░░░░░░` 16.0% | :construction: open | [GAP-19](https://github.com/taoq-ai/ziran/issues/58) |
+| **R-Judge** | 2024 | Risk scoring pipeline | — | 5 | _5 detectors — different approach than interaction records_ | :construction: open | [GAP-20](https://github.com/taoq-ai/ziran/issues/59) |
+| **AILuminate** | MLCommons, 2025 | Resilience gap metric | — | 0 | _Not yet implemented_ | :construction: open | [GAP-09](https://github.com/taoq-ai/ziran/issues/40) |
+| **ALERT** | 2024 | Harm categories | — | 0 | _Fine-grained taxonomy — not directly comparable_ | :construction: open | [GAP-21](https://github.com/taoq-ai/ziran/issues/60) |
+| **MITRE ATLAS** | MITRE, 2025 | Attack categories vs tactics | 15 | 10 | `██████████░░░░░` 66.7% | :construction: open | [GAP-22](https://github.com/taoq-ai/ziran/issues/61) |
+|  |  | ATLAS technique mapping | — | 0 | _No atlas_mapping field yet — mapping planned_ |  |  |
 
 ## Gap Status
 
@@ -70,6 +75,14 @@ How ZIRAN's attack vector library compares against published AI agent security b
 | GAP-12 | OWASP LLM10 (Model Theft) | lower | :construction: open ([#43](https://github.com/taoq-ai/ziran/issues/43)) |
 | GAP-13 | RAG-specific poisoning | lower | :construction: open ([#44](https://github.com/taoq-ai/ziran/issues/44)) |
 | GAP-14 | Defense evasion measurement | lower | :construction: open ([#45](https://github.com/taoq-ai/ziran/issues/45)) |
+| GAP-15 | JailbreakBench coverage | lower | :construction: open ([#54](https://github.com/taoq-ai/ziran/issues/54)) |
+| GAP-16 | TensorTrust coverage | lower | :construction: open ([#55](https://github.com/taoq-ai/ziran/issues/55)) |
+| GAP-17 | WildJailbreak coverage | lower | :construction: open ([#56](https://github.com/taoq-ai/ziran/issues/56)) |
+| GAP-18 | CyberSecEval coverage | lower | :construction: open ([#57](https://github.com/taoq-ai/ziran/issues/57)) |
+| GAP-19 | ToolEmu coverage | lower | :construction: open ([#58](https://github.com/taoq-ai/ziran/issues/58)) |
+| GAP-20 | R-Judge coverage | lower | :construction: open ([#59](https://github.com/taoq-ai/ziran/issues/59)) |
+| GAP-21 | ALERT coverage | lower | :construction: open ([#60](https://github.com/taoq-ai/ziran/issues/60)) |
+| GAP-22 | MITRE ATLAS technique mapping | important | :construction: open ([#61](https://github.com/taoq-ai/ziran/issues/61)) |
 
 ## Vector Inventory
 
@@ -138,4 +151,4 @@ After adding new vectors or closing gaps, regenerate:
 uv run python benchmarks/generate_all.py
 ```
 
-This updates `benchmarks/results/*.json` and `docs/reference/benchmarks/coverage-comparison.md`.
+This updates `benchmarks/results/*.json`, `benchmarks/README.md`, and `docs/reference/benchmarks/coverage-comparison.md`.

@@ -11,7 +11,7 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 - **10** multi-turn jailbreak tactics, **12** encoding types
 - **35** multi-turn vectors
 - **0** harm categories (AgentHarm-aligned)
-- Gap closure: **28.6%** (4/14 gaps closed)
+- Gap closure: **18.2%** (4/22 gaps closed)
 
 ## OWASP LLM Top 10 Coverage
 
@@ -32,26 +32,31 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 
 ## Benchmark Comparison
 
-| Benchmark | Venue | Focus | Test Cases | ZIRAN Status | Gap |
-|-----------|-------|-------|------------|-------------|-----|
-| **AgentHarm** | ICLR 2025 | Harmful multi-step task completion | 440 | :white_check_mark: closed | [GAP-06](#37) |
-| **InjecAgent** | ACL 2024 | Indirect prompt injection via tool outputs | 1,054 | :construction: open | [GAP-02](#33) |
-| **AgentDojo** | NeurIPS 2024 | Indirect injection + utility measurement | 629 | :construction: open | [GAP-02](#33) |
-| **HarmBench** | ICML 2024 | Jailbreak attack methods evaluation | 510 | :white_check_mark: closed | [GAP-08](#39) |
-| **JailbreakBench** | NeurIPS 2024 | Standardized jailbreak evaluation | 100 | :large_orange_diamond: partial | — |
-| **StrongREJECT** | 2024 | Quality-aware jailbreak scoring | — | :construction: open | [GAP-04](#35) |
-| **MCPTox** | 2025 | MCP tool poisoning detection | 1,312 | :construction: open | [GAP-03](#34) |
-| **Agent Security Bench (ASB)** | 2024 | Multi-scenario agent security | 400 | :construction: open | [GAP-01](#32) |
-| **TensorTrust** | 2024 | Human-generated prompt injection attacks | 126,000 | :red_circle: minimal | — |
-| **WildJailbreak** | 2024 | Real-world jailbreak tactic diversity | 105,000 | :red_circle: minimal | — |
-| **LLMail-Inject** | 2024 | RAG injection + defense evasion | — | :construction: open | [GAP-13](#44) |
-| **Agent-SafetyBench** | 2024 | Business impact categorization | 2,000 | :white_check_mark: closed | [GAP-07](#38) |
-| **BIPIA** | 2024 | Indirect injection in applications | — | :construction: open | [GAP-02](#33) |
-| **CyberSecEval** | Meta, 2024 | Cybersecurity-focused LLM evaluation | — | :large_orange_diamond: partial | — |
-| **ToolEmu** | 2024 | LM-emulated tool sandbox evaluation | 144 | :large_orange_diamond: partial | — |
-| **R-Judge** | 2024 | Risk identification in agent interactions | 569 | :large_orange_diamond: partial | — |
-| **AILuminate** | MLCommons, 2025 | Resilience gap measurement | — | :construction: open | [GAP-09](#40) |
-| **ALERT** | 2024 | Fine-grained risk taxonomy | 45,000 | :large_orange_diamond: partial | — |
+| Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |
+|-----------|-------|-----------|-------:|------:|----------|--------|-----|
+| **AgentHarm** | ICLR 2025 | Harm categories | 11 | 0 | `░░░░░░░░░░░░░░░` 0.0% | :white_check_mark: closed | [GAP-06](#37) |
+|  |  | Multi-step vectors | 440 | 0 | `░░░░░░░░░░░░░░░` 0.0% |  |  |
+| **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 50 | `█░░░░░░░░░░░░░░` 4.7% | :construction: open | [GAP-02](#33) |
+| **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 50 | `█░░░░░░░░░░░░░░` 7.9% | :construction: open | [GAP-02](#33) |
+| **HarmBench** | ICML 2024 | Attack tactics | 18 | 10 | `████████░░░░░░░` 55.6% | :white_check_mark: closed | [GAP-08](#39) |
+|  |  | Jailbreak vectors | 510 | 35 | `█░░░░░░░░░░░░░░` 6.9% |  |  |
+| **JailbreakBench** | NeurIPS 2024 | Prompt injection vectors | 100 | 35 | `█████░░░░░░░░░░` 35.0% | :construction: open | [GAP-15](#54) |
+| **StrongREJECT** | 2024 | Quality-aware scoring | — | 0 | _Binary detection only — no composite scoring yet_ | :construction: open | [GAP-04](#35) |
+| **MCPTox** | 2025 | MCP vectors | 1,312 | 10 | `░░░░░░░░░░░░░░░` 0.8% | :construction: open | [GAP-03](#34) |
+| **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 10 | `███████████████` 100.0% | :construction: open | [GAP-01](#32) |
+|  |  | Total vectors | 400 | 240 | `█████████░░░░░░` 60.0% |  |  |
+| **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 35 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-16](#55) |
+| **WildJailbreak** | 2024 | Jailbreak tactics | 105,000 | 11 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-17](#56) |
+| **LLMail-Inject** | 2024 | RAG injection vectors | — | 0 | _Not yet implemented_ | :construction: open | [GAP-13](#44) |
+| **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :white_check_mark: closed | [GAP-07](#38) |
+| **BIPIA** | 2024 | Indirect injection vectors | — | 50 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](#33) |
+| **CyberSecEval** | Meta, 2024 | Total vectors | — | 240 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](#57) |
+| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 23 | `██░░░░░░░░░░░░░` 16.0% | :construction: open | [GAP-19](#58) |
+| **R-Judge** | 2024 | Risk scoring pipeline | — | 5 | _5 detectors — different approach than interaction records_ | :construction: open | [GAP-20](#59) |
+| **AILuminate** | MLCommons, 2025 | Resilience gap metric | — | 0 | _Not yet implemented_ | :construction: open | [GAP-09](#40) |
+| **ALERT** | 2024 | Harm categories | — | 0 | _Fine-grained taxonomy — not directly comparable_ | :construction: open | [GAP-21](#60) |
+| **MITRE ATLAS** | MITRE, 2025 | Attack categories vs tactics | 15 | 10 | `██████████░░░░░` 66.7% | :construction: open | [GAP-22](#61) |
+|  |  | ATLAS technique mapping | — | 0 | _No atlas_mapping field yet — mapping planned_ |  |  |
 
 ## Gap Status Dashboard
 
@@ -73,6 +78,14 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | GAP-12 | OWASP LLM10 (Model Theft) | lower | [#43](https://github.com/taoq-ai/ziran/issues/43) | :construction: open |
 | GAP-13 | RAG-specific poisoning | lower | [#44](https://github.com/taoq-ai/ziran/issues/44) | :construction: open |
 | GAP-14 | Defense evasion measurement | lower | [#45](https://github.com/taoq-ai/ziran/issues/45) | :construction: open |
+| GAP-15 | JailbreakBench coverage | lower | [#54](https://github.com/taoq-ai/ziran/issues/54) | :construction: open |
+| GAP-16 | TensorTrust coverage | lower | [#55](https://github.com/taoq-ai/ziran/issues/55) | :construction: open |
+| GAP-17 | WildJailbreak coverage | lower | [#56](https://github.com/taoq-ai/ziran/issues/56) | :construction: open |
+| GAP-18 | CyberSecEval coverage | lower | [#57](https://github.com/taoq-ai/ziran/issues/57) | :construction: open |
+| GAP-19 | ToolEmu coverage | lower | [#58](https://github.com/taoq-ai/ziran/issues/58) | :construction: open |
+| GAP-20 | R-Judge coverage | lower | [#59](https://github.com/taoq-ai/ziran/issues/59) | :construction: open |
+| GAP-21 | ALERT coverage | lower | [#60](https://github.com/taoq-ai/ziran/issues/60) | :construction: open |
+| GAP-22 | MITRE ATLAS technique mapping | important | [#61](https://github.com/taoq-ai/ziran/issues/61) | :construction: open |
 
 ## Vector Inventory
 
