@@ -165,9 +165,14 @@ class TestAttackLibraryOwasp:
             assert OwaspLlmCategory.LLM06 in attack.owasp_mapping
 
     def test_get_attacks_by_owasp_untested_returns_empty(self, library: AttackLibrary) -> None:
-        """LLM04 (DoS) and LLM05 (Supply Chain) aren't mapped to any built-in vector."""
+        """LLM05 (Supply Chain) isn't mapped to any built-in vector."""
+        lmm05 = library.get_attacks_by_owasp(OwaspLlmCategory.LLM05)
+        assert lmm05 == []
+
+    def test_lmm04_dos_vectors_exist(self, library: AttackLibrary) -> None:
+        """LLM04 (Model DoS) vectors should exist."""
         lmm04 = library.get_attacks_by_owasp(OwaspLlmCategory.LLM04)
-        assert lmm04 == []
+        assert len(lmm04) >= 12
 
     def test_owasp_mapping_loaded_from_yaml(self, library: AttackLibrary) -> None:
         """Verify a specific vector's OWASP mapping was loaded from YAML."""
