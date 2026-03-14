@@ -7,6 +7,7 @@ MCP, A2A) with enterprise features (auth, TLS, retries, proxy).
 
 from __future__ import annotations
 
+import logging
 import os
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Literal
@@ -16,6 +17,8 @@ from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class ProtocolType(StrEnum):
@@ -85,6 +88,8 @@ class AuthConfig(BaseModel):
         """Resolve token from environment variable if specified."""
         if self.env_var and not self.token:
             self.token = os.environ.get(self.env_var, "")
+            if not self.token:
+                logger.warning("Auth env var '%s' not set; token will be empty", self.env_var)
         return self
 
     def get_resolved_token(self) -> str:

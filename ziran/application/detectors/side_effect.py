@@ -92,7 +92,6 @@ class SideEffectDetector:
         critical_tools = [c for c in classifications if c["risk"] == "critical"]
         high_tools = [c for c in classifications if c["risk"] == "high"]
         medium_tools = [c for c in classifications if c["risk"] == "medium"]
-        [c for c in classifications if c["risk"] == "low"]
 
         matched_indicators = [f"{c['tool_name']} ({c['description']})" for c in classifications]
 
