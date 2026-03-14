@@ -170,6 +170,10 @@ _BASE_IMPACTS: dict[AttackCategory, list[BusinessImpact]] = {
         BusinessImpact.UNAUTHORIZED_ACTIONS,
         BusinessImpact.PRIVACY_VIOLATION,
     ],
+    AttackCategory.MODEL_DOS: [
+        BusinessImpact.FINANCIAL_LOSS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
 }
 
 #: Extra impacts added when severity is critical (or critical/high for some).
@@ -184,6 +188,7 @@ _CRITICAL_EXTRAS: dict[AttackCategory, list[BusinessImpact]] = {
         BusinessImpact.FINANCIAL_LOSS,
         BusinessImpact.SYSTEM_COMPROMISE,
     ],
+    AttackCategory.MODEL_DOS: [BusinessImpact.SYSTEM_COMPROMISE],
 }
 
 #: Categories where "high" severity also triggers critical extras.
