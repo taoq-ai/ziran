@@ -47,6 +47,7 @@ from ziran.domain.entities.phase import (
     CoverageLevel,
     PhaseResult,
     ScanPhase,
+    compute_resilience,
 )
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
@@ -396,7 +397,9 @@ class AgentScanner:
             critical_paths=critical_paths,
             final_trust_score=phase_results[-1].trust_score if phase_results else 0.0,
             success=len(critical_paths) > 0 or any(p.vulnerabilities_found for p in phase_results),
-            attack_results=[r.model_dump(mode="json") for r in self._attack_results],
+            attack_results=(
+                serialized_results := [r.model_dump(mode="json") for r in self._attack_results]
+            ),
             dangerous_tool_chains=[c.model_dump(mode="json") for c in dangerous_chains],
             critical_chain_count=len([c for c in dangerous_chains if c.risk_level == "critical"]),
             token_usage={
@@ -405,6 +408,7 @@ class AgentScanner:
                 "total_tokens": campaign_tokens.total_tokens,
             },
             coverage_level=coverage.value,
+            resilience=compute_resilience(serialized_results, phase_results),
             metadata={
                 "duration_seconds": duration,
                 "capabilities_discovered": len(capabilities),
