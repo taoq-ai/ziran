@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -98,7 +98,7 @@ class MCPMetadataAnalyzer:
     Stateless and thread-safe. Create once and reuse across scans.
     """
 
-    def analyze_capabilities(self, capabilities: list[dict]) -> list[MCPMetadataFinding]:
+    def analyze_capabilities(self, capabilities: list[dict[str, Any]]) -> list[MCPMetadataFinding]:
         """Scan tool/resource/prompt metadata for injected instructions.
 
         Args:

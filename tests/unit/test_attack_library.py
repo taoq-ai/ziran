@@ -169,9 +169,7 @@ vectors:
     def test_mcp_vectors_loaded(self, library: AttackLibrary) -> None:
         """GAP-03: MCP tool poisoning vectors should be loaded."""
         mcp_attacks = [v for v in library.vectors if "mcp" in v.protocol_filter]
-        assert len(mcp_attacks) >= 10, (
-            f"Expected 10+ MCP vectors, got {len(mcp_attacks)}"
-        )
+        assert len(mcp_attacks) >= 10, f"Expected 10+ MCP vectors, got {len(mcp_attacks)}"
 
     def test_mcp_vectors_have_protocol_filter(self, library: AttackLibrary) -> None:
         """All MCP vectors should have protocol_filter=['mcp']."""

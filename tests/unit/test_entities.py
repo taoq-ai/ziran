@@ -10,12 +10,12 @@ from ziran.domain.entities.attack import (
     AttackResult,
     AttackVector,
 )
-from ziran.domain.entities.detection import QualityScore
 from ziran.domain.entities.capability import (
     AgentCapability,
     CapabilityType,
     ToolChain,
 )
+from ziran.domain.entities.detection import QualityScore
 from ziran.domain.entities.phase import (
     CORE_PHASES,
     PHASE_ORDER,
