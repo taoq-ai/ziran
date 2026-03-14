@@ -11,7 +11,14 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from ziran.domain.entities.attack import OWASP_LLM_DESCRIPTIONS, OwaspLlmCategory
+from ziran.domain.entities.attack import (
+    BUSINESS_IMPACT_DESCRIPTIONS,
+    OWASP_LLM_DESCRIPTIONS,
+    AttackCategory,
+    BusinessImpact,
+    OwaspLlmCategory,
+    get_business_impacts,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -221,6 +228,47 @@ class ReportGenerator:
                     status = "⚪ Not tested"
                     findings = "—"
                 lines.append(f"| {cat.value} | {desc} | {status} | {findings} |")
+            lines.append("")
+
+        # Business Impact Summary (successful findings only)
+        impact_counts: Counter[BusinessImpact] = Counter()
+        for ar in getattr(result, "attack_results", []):
+            successful = (
+                ar.get("successful") if isinstance(ar, dict) else getattr(ar, "successful", False)
+            )
+            if not successful:
+                continue
+            # Prefer stored business_impact; fall back to computing it
+            raw_impacts = (
+                ar.get("business_impact", [])
+                if isinstance(ar, dict)
+                else getattr(ar, "business_impact", [])
+            )
+            if raw_impacts:
+                impacts = [BusinessImpact(v) for v in raw_impacts]
+            else:
+                cat_val = (
+                    ar.get("category") if isinstance(ar, dict) else getattr(ar, "category", None)
+                )
+                sev_val = (
+                    ar.get("severity") if isinstance(ar, dict) else getattr(ar, "severity", None)
+                )
+                if cat_val and sev_val:
+                    impacts = get_business_impacts(AttackCategory(cat_val), sev_val)
+                else:
+                    impacts = []
+            for imp in impacts:
+                impact_counts[imp] += 1
+
+        if impact_counts:
+            lines.append("## Business Impact Summary")
+            lines.append("")
+            lines.append("| Impact Category | Description | Findings |")
+            lines.append("|-----------------|-------------|----------|")
+            for imp in BusinessImpact:
+                if imp in impact_counts:
+                    desc = BUSINESS_IMPACT_DESCRIPTIONS.get(imp, imp.value)
+                    lines.append(f"| {imp.value} | {desc} | {impact_counts[imp]} |")
             lines.append("")
 
         # Phase Results

@@ -97,7 +97,121 @@ OWASP_LLM_DESCRIPTIONS: dict[OwaspLlmCategory, str] = {
 }
 
 
+class BusinessImpact(StrEnum):
+    """Business impact categories aligned with Agent-SafetyBench taxonomy."""
+
+    FINANCIAL_LOSS = "financial_loss"
+    REPUTATION_DAMAGE = "reputation_damage"
+    PROPERTY_LOSS = "property_loss"
+    PRIVACY_VIOLATION = "privacy_violation"
+    UNAUTHORIZED_ACTIONS = "unauthorized_actions"
+    SYSTEM_COMPROMISE = "system_compromise"
+    MISINFORMATION = "misinformation"
+
+
+#: Human-readable descriptions for each business impact category.
+BUSINESS_IMPACT_DESCRIPTIONS: dict[BusinessImpact, str] = {
+    BusinessImpact.FINANCIAL_LOSS: "Financial Loss",
+    BusinessImpact.REPUTATION_DAMAGE: "Reputation Damage",
+    BusinessImpact.PROPERTY_LOSS: "Property Loss",
+    BusinessImpact.PRIVACY_VIOLATION: "Privacy Violation",
+    BusinessImpact.UNAUTHORIZED_ACTIONS: "Unauthorized Actions",
+    BusinessImpact.SYSTEM_COMPROMISE: "System Compromise",
+    BusinessImpact.MISINFORMATION: "Misinformation",
+}
+
+
 Severity = Literal["low", "medium", "high", "critical"]
+
+
+# ── Business impact mapping ──────────────────────────────────────────
+
+#: Base impacts for each attack category (always included).
+_BASE_IMPACTS: dict[AttackCategory, list[BusinessImpact]] = {
+    AttackCategory.PROMPT_INJECTION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.TOOL_MANIPULATION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.SYSTEM_COMPROMISE,
+    ],
+    AttackCategory.PRIVILEGE_ESCALATION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.SYSTEM_COMPROMISE,
+    ],
+    AttackCategory.DATA_EXFILTRATION: [
+        BusinessImpact.PRIVACY_VIOLATION,
+        BusinessImpact.FINANCIAL_LOSS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.SYSTEM_PROMPT_EXTRACTION: [
+        BusinessImpact.PROPERTY_LOSS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.INDIRECT_INJECTION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.MEMORY_POISONING: [
+        BusinessImpact.MISINFORMATION,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.CHAIN_OF_THOUGHT_MANIPULATION: [
+        BusinessImpact.MISINFORMATION,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.MULTI_AGENT: [
+        BusinessImpact.SYSTEM_COMPROMISE,
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+    ],
+    AttackCategory.AUTHORIZATION_BYPASS: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.PRIVACY_VIOLATION,
+    ],
+}
+
+#: Extra impacts added when severity is critical (or critical/high for some).
+_CRITICAL_EXTRAS: dict[AttackCategory, list[BusinessImpact]] = {
+    AttackCategory.PROMPT_INJECTION: [BusinessImpact.SYSTEM_COMPROMISE],
+    AttackCategory.TOOL_MANIPULATION: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.PRIVILEGE_ESCALATION: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.INDIRECT_INJECTION: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.MEMORY_POISONING: [BusinessImpact.UNAUTHORIZED_ACTIONS],
+    AttackCategory.MULTI_AGENT: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.AUTHORIZATION_BYPASS: [
+        BusinessImpact.FINANCIAL_LOSS,
+        BusinessImpact.SYSTEM_COMPROMISE,
+    ],
+}
+
+#: Categories where "high" severity also triggers critical extras.
+_HIGH_ALSO_ESCALATES: frozenset[AttackCategory] = frozenset(
+    {
+        AttackCategory.PRIVILEGE_ESCALATION,
+        AttackCategory.AUTHORIZATION_BYPASS,
+    }
+)
+
+
+def get_business_impacts(
+    category: AttackCategory,
+    severity: Severity,
+) -> list[BusinessImpact]:
+    """Derive business impact categories from an attack category and severity.
+
+    Returns a deterministic list of :class:`BusinessImpact` values.  Higher
+    severity may add additional impacts on top of the base set.
+    """
+    impacts = list(_BASE_IMPACTS.get(category, []))
+
+    escalate = severity == "critical" or (severity == "high" and category in _HIGH_ALSO_ESCALATES)
+    if escalate:
+        for extra in _CRITICAL_EXTRAS.get(category, []):
+            if extra not in impacts:
+                impacts.append(extra)
+
+    return impacts
 
 
 class AttackPrompt(BaseModel):
@@ -195,6 +309,10 @@ class AttackResult(BaseModel):
     owasp_mapping: list[OwaspLlmCategory] = Field(
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories for this finding",
+    )
+    business_impact: list[BusinessImpact] = Field(
+        default_factory=list,
+        description="Business impact categories derived from attack category and severity",
     )
     quality_score: float | None = Field(
         default=None,
