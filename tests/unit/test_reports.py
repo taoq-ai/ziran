@@ -77,9 +77,31 @@ def _campaign_data(*, vulnerable: bool = False) -> dict[str, Any]:
                 "detection_confidence": 0.95,
                 "detection_method": "indicator",
                 "owasp_mapping": ["LLM01"],
+                "business_impact": [
+                    "unauthorized_actions",
+                    "reputation_damage",
+                    "system_compromise",
+                ],
             }
         ]
         base["token_usage"] = {"prompt_tokens": 100, "completion_tokens": 200, "total_tokens": 300}
+        base["resilience"] = {
+            "total_attacks": 1,
+            "successful_attacks": 1,
+            "attack_resilience_rate": 0.0,
+            "trust_degradation": 0.6,
+            "resilience_score": 0.12,
+        }
+        base["metadata"] = {
+            "utility": {
+                "baseline_score": 1.0,
+                "post_attack_score": 0.5,
+                "utility_delta": 0.5,
+                "tasks_run": 2,
+                "baseline_results": [],
+                "post_attack_results": [],
+            }
+        }
     return base
 
 
@@ -164,6 +186,53 @@ class TestReportGenerator:
         out = gen.save_markdown(result)
         content = out.read_text()
         assert "Something went wrong" in content
+
+    def test_markdown_business_impact_section(self, tmp_path: Path) -> None:
+        gen = ReportGenerator(output_dir=tmp_path)
+        result = _make_result(vulnerable=True)
+        out = gen.save_markdown(result)
+        content = out.read_text()
+        assert "Business Impact Summary" in content
+        assert "unauthorized_actions" in content
+
+    def test_markdown_no_business_impact_when_clean(self, tmp_path: Path) -> None:
+        gen = ReportGenerator(output_dir=tmp_path)
+        result = _make_result(vulnerable=False)
+        out = gen.save_markdown(result)
+        content = out.read_text()
+        assert "Business Impact Summary" not in content
+
+    def test_markdown_resilience_score(self, tmp_path: Path) -> None:
+        gen = ReportGenerator(output_dir=tmp_path)
+        result = _make_result(vulnerable=True)
+        out = gen.save_markdown(result)
+        content = out.read_text()
+        assert "Resilience Score" in content
+        assert "Attack Resilience Rate" in content
+
+    def test_markdown_no_resilience_when_clean(self, tmp_path: Path) -> None:
+        gen = ReportGenerator(output_dir=tmp_path)
+        result = _make_result(vulnerable=False)
+        out = gen.save_markdown(result)
+        content = out.read_text()
+        assert "Resilience Score" not in content
+
+    def test_markdown_utility_section(self, tmp_path: Path) -> None:
+        gen = ReportGenerator(output_dir=tmp_path)
+        result = _make_result(vulnerable=True)
+        out = gen.save_markdown(result)
+        content = out.read_text()
+        assert "Utility-Under-Attack" in content
+        assert "Baseline Utility" in content
+        assert "Post-Attack Utility" in content
+        assert "Utility Delta" in content
+
+    def test_markdown_no_utility_when_clean(self, tmp_path: Path) -> None:
+        gen = ReportGenerator(output_dir=tmp_path)
+        result = _make_result(vulnerable=False)
+        out = gen.save_markdown(result)
+        content = out.read_text()
+        assert "Utility-Under-Attack" not in content
 
     def test_markdown_many_critical_paths(self, tmp_path: Path) -> None:
         gen = ReportGenerator(output_dir=tmp_path)

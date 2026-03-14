@@ -196,6 +196,10 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
             "whitespace",
             "mixed_case",
             "payload_split",
+            "pig_latin",
+            "reverse",
+            "word_shuffle",
+            "token_boundary",
         ],
         case_sensitive=False,
     ),
@@ -203,6 +207,20 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     default=(),
     help="Prompt encoding/obfuscation to apply. Can be specified multiple times. "
     "Each encoding generates additional attack variants alongside the originals.",
+)
+@click.option(
+    "--quality-scoring",
+    is_flag=True,
+    default=False,
+    help="Enable StrongREJECT-style quality-aware jailbreak scoring. "
+    "Measures response specificity and convincingness (requires --llm-provider).",
+)
+@click.option(
+    "--utility-tasks",
+    type=click.Path(exists=True),
+    default=None,
+    help="YAML file with legitimate tasks for utility-under-attack measurement. "
+    "Runs tasks before and after the campaign to measure utility degradation.",
 )
 @click.option(
     "--otel",
@@ -229,6 +247,8 @@ def scan(
     strategy: str,
     streaming: bool,
     encoding: tuple[str, ...],
+    quality_scoring: bool,
+    utility_tasks: str | None,
     otel: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
@@ -309,6 +329,8 @@ def scan(
     if llm_provider or llm_model:
         config_table.add_row("LLM Provider", llm_provider or "litellm")
         config_table.add_row("LLM Model", llm_model or "gpt-4o")
+    if quality_scoring:
+        config_table.add_row("Quality Scoring", "enabled (StrongREJECT-style)")
     console.print(config_table)
     console.print()
 
@@ -341,6 +363,7 @@ def scan(
     scanner_config: dict[str, Any] = {
         "attack_timeout": attack_timeout,
         "phase_timeout": phase_timeout,
+        "quality_scoring": quality_scoring,
     }
 
     # Initialize LLM client if provider/model specified
@@ -371,6 +394,14 @@ def scan(
     if strategy != "fixed":
         console.print(f"[dim]Campaign strategy: {strategy}[/dim]")
 
+    # Load utility tasks if specified
+    loaded_utility_tasks = None
+    if utility_tasks:
+        from ziran.application.utility.measurer import load_utility_tasks
+
+        loaded_utility_tasks = load_utility_tasks(Path(utility_tasks))
+        console.print(f"[dim]Utility tasks: {len(loaded_utility_tasks)} tasks loaded[/dim]")
+
     with console.status("[bold yellow]Running security scan campaign...[/bold yellow]"):
         result = asyncio.run(
             scanner.run_campaign(
@@ -381,6 +412,7 @@ def scan(
                 strategy=campaign_strategy,
                 streaming=streaming,
                 encoding=list(encoding) if encoding else None,
+                utility_tasks=loaded_utility_tasks,
             )
         )
 

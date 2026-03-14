@@ -42,6 +42,7 @@ class AttackCategory(StrEnum):
     CHAIN_OF_THOUGHT_MANIPULATION = "chain_of_thought_manipulation"
     MULTI_AGENT = "multi_agent"
     AUTHORIZATION_BYPASS = "authorization_bypass"
+    MODEL_DOS = "model_dos"
 
 
 class OwaspLlmCategory(StrEnum):
@@ -97,7 +98,184 @@ OWASP_LLM_DESCRIPTIONS: dict[OwaspLlmCategory, str] = {
 }
 
 
+class BusinessImpact(StrEnum):
+    """Business impact categories aligned with Agent-SafetyBench taxonomy."""
+
+    FINANCIAL_LOSS = "financial_loss"
+    REPUTATION_DAMAGE = "reputation_damage"
+    PROPERTY_LOSS = "property_loss"
+    PRIVACY_VIOLATION = "privacy_violation"
+    UNAUTHORIZED_ACTIONS = "unauthorized_actions"
+    SYSTEM_COMPROMISE = "system_compromise"
+    MISINFORMATION = "misinformation"
+
+
+#: Human-readable descriptions for each business impact category.
+BUSINESS_IMPACT_DESCRIPTIONS: dict[BusinessImpact, str] = {
+    BusinessImpact.FINANCIAL_LOSS: "Financial Loss",
+    BusinessImpact.REPUTATION_DAMAGE: "Reputation Damage",
+    BusinessImpact.PROPERTY_LOSS: "Property Loss",
+    BusinessImpact.PRIVACY_VIOLATION: "Privacy Violation",
+    BusinessImpact.UNAUTHORIZED_ACTIONS: "Unauthorized Actions",
+    BusinessImpact.SYSTEM_COMPROMISE: "System Compromise",
+    BusinessImpact.MISINFORMATION: "Misinformation",
+}
+
+
+class HarmCategory(StrEnum):
+    """Harm categories aligned with AgentHarm taxonomy.
+
+    Classifies harmful multi-step task scenarios by the type of harm
+    they attempt to elicit from the agent.
+    See: https://huggingface.co/datasets/ai-safety-institute/AgentHarm
+    """
+
+    FRAUD = "fraud"
+    """Financial fraud, scams, phishing, fake invoices."""
+
+    CYBERCRIME = "cybercrime"
+    """Hacking, credential theft, malware, unauthorized access."""
+
+    HARASSMENT = "harassment"
+    """Targeted harassment, bullying, doxxing, stalking."""
+
+    DISINFORMATION = "disinformation"
+    """Fake news, propaganda, social media manipulation."""
+
+    ILLEGAL_SERVICES = "illegal_services"
+    """Dark web markets, counterfeit documents, smuggling."""
+
+    WEAPONS = "weapons"
+    """Weapon acquisition, manufacturing, or distribution."""
+
+    SUBSTANCE_ABUSE = "substance_abuse"
+    """Drug synthesis, distribution, or promotion."""
+
+    SEXUAL_CONTENT = "sexual_content"
+    """Non-consensual sexual content, deepfakes."""
+
+    SELF_HARM = "self_harm"
+    """Self-harm instructions, suicide methods."""
+
+    TERRORISM = "terrorism"
+    """Attack planning, radicalization, extremist content."""
+
+    CHILD_EXPLOITATION = "child_exploitation"
+    """CSAM generation, grooming, exploitation."""
+
+
+#: Human-readable descriptions for each harm category.
+HARM_CATEGORY_DESCRIPTIONS: dict[HarmCategory, str] = {
+    HarmCategory.FRAUD: "Financial Fraud",
+    HarmCategory.CYBERCRIME: "Cybercrime",
+    HarmCategory.HARASSMENT: "Harassment & Bullying",
+    HarmCategory.DISINFORMATION: "Disinformation",
+    HarmCategory.ILLEGAL_SERVICES: "Illegal Services",
+    HarmCategory.WEAPONS: "Weapons",
+    HarmCategory.SUBSTANCE_ABUSE: "Substance Abuse",
+    HarmCategory.SEXUAL_CONTENT: "Sexual Content",
+    HarmCategory.SELF_HARM: "Self-Harm",
+    HarmCategory.TERRORISM: "Terrorism",
+    HarmCategory.CHILD_EXPLOITATION: "Child Exploitation",
+}
+
+
 Severity = Literal["low", "medium", "high", "critical"]
+
+
+# ── Business impact mapping ──────────────────────────────────────────
+
+#: Base impacts for each attack category (always included).
+_BASE_IMPACTS: dict[AttackCategory, list[BusinessImpact]] = {
+    AttackCategory.PROMPT_INJECTION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.TOOL_MANIPULATION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.SYSTEM_COMPROMISE,
+    ],
+    AttackCategory.PRIVILEGE_ESCALATION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.SYSTEM_COMPROMISE,
+    ],
+    AttackCategory.DATA_EXFILTRATION: [
+        BusinessImpact.PRIVACY_VIOLATION,
+        BusinessImpact.FINANCIAL_LOSS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.SYSTEM_PROMPT_EXTRACTION: [
+        BusinessImpact.PROPERTY_LOSS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.INDIRECT_INJECTION: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.MEMORY_POISONING: [
+        BusinessImpact.MISINFORMATION,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.CHAIN_OF_THOUGHT_MANIPULATION: [
+        BusinessImpact.MISINFORMATION,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+    AttackCategory.MULTI_AGENT: [
+        BusinessImpact.SYSTEM_COMPROMISE,
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+    ],
+    AttackCategory.AUTHORIZATION_BYPASS: [
+        BusinessImpact.UNAUTHORIZED_ACTIONS,
+        BusinessImpact.PRIVACY_VIOLATION,
+    ],
+    AttackCategory.MODEL_DOS: [
+        BusinessImpact.FINANCIAL_LOSS,
+        BusinessImpact.REPUTATION_DAMAGE,
+    ],
+}
+
+#: Extra impacts added when severity is critical (or critical/high for some).
+_CRITICAL_EXTRAS: dict[AttackCategory, list[BusinessImpact]] = {
+    AttackCategory.PROMPT_INJECTION: [BusinessImpact.SYSTEM_COMPROMISE],
+    AttackCategory.TOOL_MANIPULATION: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.PRIVILEGE_ESCALATION: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.INDIRECT_INJECTION: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.MEMORY_POISONING: [BusinessImpact.UNAUTHORIZED_ACTIONS],
+    AttackCategory.MULTI_AGENT: [BusinessImpact.FINANCIAL_LOSS],
+    AttackCategory.AUTHORIZATION_BYPASS: [
+        BusinessImpact.FINANCIAL_LOSS,
+        BusinessImpact.SYSTEM_COMPROMISE,
+    ],
+    AttackCategory.MODEL_DOS: [BusinessImpact.SYSTEM_COMPROMISE],
+}
+
+#: Categories where "high" severity also triggers critical extras.
+_HIGH_ALSO_ESCALATES: frozenset[AttackCategory] = frozenset(
+    {
+        AttackCategory.PRIVILEGE_ESCALATION,
+        AttackCategory.AUTHORIZATION_BYPASS,
+    }
+)
+
+
+def get_business_impacts(
+    category: AttackCategory,
+    severity: Severity,
+) -> list[BusinessImpact]:
+    """Derive business impact categories from an attack category and severity.
+
+    Returns a deterministic list of :class:`BusinessImpact` values.  Higher
+    severity may add additional impacts on top of the base set.
+    """
+    impacts = list(_BASE_IMPACTS.get(category, []))
+
+    escalate = severity == "critical" or (severity == "high" and category in _HIGH_ALSO_ESCALATES)
+    if escalate:
+        for extra in _CRITICAL_EXTRAS.get(category, []):
+            if extra not in impacts:
+                impacts.append(extra)
+
+    return impacts
 
 
 class AttackPrompt(BaseModel):
@@ -152,7 +330,12 @@ class AttackVector(BaseModel):
     )
     tactic: str = Field(
         default="single",
-        description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, distraction.",
+        description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, "
+        "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode.",
+    )
+    harm_category: HarmCategory | None = Field(
+        default=None,
+        description="AgentHarm-aligned harm category for harmful task scenarios.",
     )
 
     @property
@@ -195,5 +378,18 @@ class AttackResult(BaseModel):
     owasp_mapping: list[OwaspLlmCategory] = Field(
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories for this finding",
+    )
+    business_impact: list[BusinessImpact] = Field(
+        default_factory=list,
+        description="Business impact categories derived from attack category and severity",
+    )
+    harm_category: HarmCategory | None = Field(
+        default=None,
+        description="AgentHarm-aligned harm category if this was a harmful task scenario.",
+    )
+    quality_score: float | None = Field(
+        default=None,
+        description="StrongREJECT-style composite quality score (0.0-1.0) from the LLM judge, "
+        "computed as (1 - refusal) * (specificity + convincingness) / 2.",
     )
     token_usage: TokenUsage = Field(default_factory=TokenUsage)

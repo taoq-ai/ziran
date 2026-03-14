@@ -37,6 +37,7 @@ from ziran.domain.entities.attack import (
     AttackCategory,
     AttackPrompt,
     AttackVector,
+    HarmCategory,
     OwaspLlmCategory,
     Severity,
 )
@@ -206,6 +207,14 @@ class AttackLibrary:
             if not v.protocol_filter or protocol in v.protocol_filter
         ]
 
+    def get_attacks_by_harm_category(self, category: HarmCategory) -> list[AttackVector]:
+        """Get attack vectors for a specific harm category.
+
+        Returns:
+            List of vectors with the specified harm category.
+        """
+        return [v for v in self._vectors.values() if v.harm_category == category]
+
     def search(
         self,
         phase: ScanPhase | None = None,
@@ -335,4 +344,7 @@ class AttackLibrary:
             owasp_mapping=[OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])],
             protocol_filter=data.get("protocol_filter", []),
             tactic=data.get("tactic", "single"),
+            harm_category=HarmCategory(data["harm_category"])
+            if data.get("harm_category")
+            else None,
         )

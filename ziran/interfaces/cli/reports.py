@@ -11,7 +11,16 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from ziran.domain.entities.attack import OWASP_LLM_DESCRIPTIONS, OwaspLlmCategory
+from ziran.domain.entities.attack import (
+    BUSINESS_IMPACT_DESCRIPTIONS,
+    HARM_CATEGORY_DESCRIPTIONS,
+    OWASP_LLM_DESCRIPTIONS,
+    AttackCategory,
+    BusinessImpact,
+    HarmCategory,
+    OwaspLlmCategory,
+    get_business_impacts,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -150,6 +159,26 @@ class ReportGenerator:
         lines.append(f"| Overall Result | {'⚠️ VULNERABLE' if result.success else '✅ PASSED'} |")
         if result.coverage_level:
             lines.append(f"| Coverage Level | {result.coverage_level} |")
+
+        # Quality-weighted ASR (StrongREJECT-style) if quality scores are present
+        quality_scores = self._extract_quality_scores(result)
+        if quality_scores:
+            binary_asr = sum(1 for ar in result.attack_results if ar.get("successful")) / max(
+                len(result.attack_results), 1
+            )
+            avg_quality = sum(quality_scores) / len(quality_scores)
+            quality_weighted_asr = binary_asr * avg_quality
+            lines.append(f"| Binary ASR | {binary_asr:.1%} |")
+            lines.append(f"| Avg Quality Score | {avg_quality:.2f} |")
+            lines.append(f"| Quality-Weighted ASR | {quality_weighted_asr:.1%} |")
+
+        # Resilience metrics (AILuminate-style)
+        if result.resilience:
+            r = result.resilience
+            lines.append(f"| Attack Resilience Rate | {r.attack_resilience_rate:.1%} |")
+            lines.append(f"| Trust Degradation | {r.trust_degradation:.2f} |")
+            lines.append(f"| **Resilience Score** | **{r.resilience_score:.1%}** |")
+
         lines.append("")
 
         # Token Usage
@@ -208,6 +237,47 @@ class ReportGenerator:
                     status = "⚪ Not tested"
                     findings = "—"
                 lines.append(f"| {cat.value} | {desc} | {status} | {findings} |")
+            lines.append("")
+
+        # Business Impact Summary (successful findings only)
+        impact_counts: Counter[BusinessImpact] = Counter()
+        for ar in getattr(result, "attack_results", []):
+            successful = (
+                ar.get("successful") if isinstance(ar, dict) else getattr(ar, "successful", False)
+            )
+            if not successful:
+                continue
+            # Prefer stored business_impact; fall back to computing it
+            raw_impacts = (
+                ar.get("business_impact", [])
+                if isinstance(ar, dict)
+                else getattr(ar, "business_impact", [])
+            )
+            if raw_impacts:
+                impacts = [BusinessImpact(v) for v in raw_impacts]
+            else:
+                cat_val = (
+                    ar.get("category") if isinstance(ar, dict) else getattr(ar, "category", None)
+                )
+                sev_val = (
+                    ar.get("severity") if isinstance(ar, dict) else getattr(ar, "severity", None)
+                )
+                if cat_val and sev_val:
+                    impacts = get_business_impacts(AttackCategory(cat_val), sev_val)
+                else:
+                    impacts = []
+            for imp in impacts:
+                impact_counts[imp] += 1
+
+        if impact_counts:
+            lines.append("## Business Impact Summary")
+            lines.append("")
+            lines.append("| Impact Category | Description | Findings |")
+            lines.append("|-----------------|-------------|----------|")
+            for imp in BusinessImpact:
+                if imp in impact_counts:
+                    desc = BUSINESS_IMPACT_DESCRIPTIONS.get(imp, imp.value)
+                    lines.append(f"| {imp.value} | {desc} | {impact_counts[imp]} |")
             lines.append("")
 
         # Phase Results
@@ -287,6 +357,37 @@ class ReportGenerator:
                     lines.append(f"- **{tools}**: {chain['remediation']}")
                 lines.append("")
 
+        # Harm Category Breakdown (harmful task scenarios only)
+        harm_counts: Counter[str] = Counter()
+        for ar in result.attack_results:
+            if ar.get("successful") and ar.get("harm_category") is not None:
+                cat_val = ar["harm_category"]
+                desc = HARM_CATEGORY_DESCRIPTIONS.get(HarmCategory(cat_val), cat_val)
+                harm_counts[desc] += 1
+        if harm_counts:
+            lines.append("## Harmful Task Scenarios")
+            lines.append("")
+            lines.append("| Harm Category | Successful Attacks |")
+            lines.append("|--------------|-------------------|")
+            for cat_desc, count in harm_counts.most_common():
+                lines.append(f"| {cat_desc} | {count} |")
+            lines.append("")
+
+        # Utility-Under-Attack metrics
+        utility = result.metadata.get("utility")
+        if utility:
+            lines.append("## Utility-Under-Attack")
+            lines.append("")
+            lines.append("| Metric | Value |")
+            lines.append("|--------|-------|")
+            lines.append(f"| Baseline Utility | {utility['baseline_score']:.1%} |")
+            lines.append(f"| Post-Attack Utility | {utility['post_attack_score']:.1%} |")
+            delta = utility["utility_delta"]
+            delta_icon = "🔴" if delta > 0.1 else "🟡" if delta > 0 else "🟢"
+            lines.append(f"| {delta_icon} Utility Delta | {delta:.1%} |")
+            lines.append(f"| Tasks Evaluated | {utility['tasks_run']} |")
+            lines.append("")
+
         # Footer
         lines.append("---")
         lines.append(
@@ -296,3 +397,20 @@ class ReportGenerator:
         lines.append("")
 
         return "\n".join(lines)
+
+    @staticmethod
+    def _extract_quality_scores(result: CampaignResult) -> list[float]:
+        """Extract quality scores from successful attack results.
+
+        Returns a list of composite quality scores for attacks that have them.
+        """
+        scores: list[float] = []
+        for ar in getattr(result, "attack_results", []):
+            qs = (
+                ar.get("quality_score")
+                if isinstance(ar, dict)
+                else getattr(ar, "quality_score", None)
+            )
+            if qs is not None and isinstance(qs, (int, float)):
+                scores.append(float(qs))
+        return scores

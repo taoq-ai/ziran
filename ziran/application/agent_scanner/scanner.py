@@ -34,13 +34,20 @@ from ziran.application.strategies.protocol import (
     CampaignStrategy,
     PhaseDecision,
 )
-from ziran.domain.entities.attack import AttackPrompt, AttackResult, AttackVector, TokenUsage
+from ziran.domain.entities.attack import (
+    AttackPrompt,
+    AttackResult,
+    AttackVector,
+    TokenUsage,
+    get_business_impacts,
+)
 from ziran.domain.entities.phase import (
     CORE_PHASES,
     CampaignResult,
     CoverageLevel,
     PhaseResult,
     ScanPhase,
+    compute_resilience,
 )
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
@@ -49,10 +56,26 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.domain.entities.capability import AgentCapability
+    from ziran.domain.entities.utility import UtilityTask
     from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
 
 logger = logging.getLogger(__name__)
 _tracer = get_tracer(__name__)
+
+
+def _compute_utility(
+    baseline_score: float,
+    baseline_results: list[Any],
+    post_score: float,
+    post_results: list[Any],
+    tasks_run: int,
+) -> dict[str, Any]:
+    """Build utility metrics dict for CampaignResult.metadata."""
+    from ziran.application.utility.measurer import compute_utility_metrics
+
+    return compute_utility_metrics(
+        baseline_score, baseline_results, post_score, post_results, tasks_run
+    )
 
 
 class ProgressEventType(StrEnum):
@@ -171,6 +194,7 @@ class AgentScanner:
         self._attack_results: list[AttackResult] = []
         self._detector_pipeline = DetectorPipeline(
             llm_client=self.config.get("llm_client"),
+            quality_scoring=bool(self.config.get("quality_scoring")),
         )
 
     async def run_campaign(
@@ -185,6 +209,7 @@ class AgentScanner:
         streaming: bool = False,
         exclude_vectors: set[str] | None = None,
         encoding: list[str] | None = None,
+        utility_tasks: list[UtilityTask] | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -266,6 +291,23 @@ class AgentScanner:
 
         # Initial reconnaissance: discover capabilities
         capabilities = await self._discover_and_map_capabilities()
+
+        # ── Baseline utility measurement (pre-attack) ─────────────
+        _baseline_score: float | None = None
+        _baseline_results: list[Any] = []
+        if utility_tasks:
+            from ziran.application.utility.measurer import UtilityMeasurer
+
+            logger.info("Measuring baseline utility (%d tasks)", len(utility_tasks))
+            _emit(
+                ProgressEvent(
+                    event=ProgressEventType.CAMPAIGN_START,
+                    message="Measuring baseline utility...",
+                )
+            )
+            measurer = UtilityMeasurer(self.adapter, utility_tasks)
+            _baseline_score, _baseline_results = await measurer.measure()
+            logger.info("Baseline utility score: %.1f%%", _baseline_score * 100)
 
         phase_results: list[PhaseResult] = []
         campaign_tokens = TokenUsage()
@@ -371,6 +413,17 @@ class AgentScanner:
 
             phase_idx += 1
 
+        # ── Post-attack utility measurement ───────────────────────
+        _post_score: float | None = None
+        _post_results: list[Any] = []
+        if utility_tasks and _baseline_score is not None:
+            from ziran.application.utility.measurer import UtilityMeasurer
+
+            logger.info("Measuring post-attack utility (%d tasks)", len(utility_tasks))
+            measurer = UtilityMeasurer(self.adapter, utility_tasks)
+            _post_score, _post_results = await measurer.measure()
+            logger.info("Post-attack utility score: %.1f%%", _post_score * 100)
+
         # Analyze graph for attack paths
         critical_paths = self.graph.find_all_attack_paths()
 
@@ -389,7 +442,9 @@ class AgentScanner:
             critical_paths=critical_paths,
             final_trust_score=phase_results[-1].trust_score if phase_results else 0.0,
             success=len(critical_paths) > 0 or any(p.vulnerabilities_found for p in phase_results),
-            attack_results=[r.model_dump(mode="json") for r in self._attack_results],
+            attack_results=(
+                serialized_results := [r.model_dump(mode="json") for r in self._attack_results]
+            ),
             dangerous_tool_chains=[c.model_dump(mode="json") for c in dangerous_chains],
             critical_chain_count=len([c for c in dangerous_chains if c.risk_level == "critical"]),
             token_usage={
@@ -398,6 +453,7 @@ class AgentScanner:
                 "total_tokens": campaign_tokens.total_tokens,
             },
             coverage_level=coverage.value,
+            resilience=compute_resilience(serialized_results, phase_results),
             metadata={
                 "duration_seconds": duration,
                 "capabilities_discovered": len(capabilities),
@@ -406,6 +462,19 @@ class AgentScanner:
                 "dangerous_chain_count": len(dangerous_chains),
                 "coverage_level": coverage.value,
                 "max_concurrent_attacks": max_concurrent_attacks,
+                **(
+                    {
+                        "utility": _compute_utility(
+                            _baseline_score,
+                            _baseline_results,
+                            _post_score,
+                            _post_results,
+                            len(utility_tasks or []),
+                        )
+                    }
+                    if _baseline_score is not None and _post_score is not None
+                    else {}
+                ),
             },
         )
 
@@ -483,6 +552,32 @@ class AgentScanner:
             len(capabilities),
             sum(1 for c in capabilities if c.dangerous),
         )
+
+        # Run MCP metadata poisoning analysis on discovered capabilities
+        if capabilities:
+            from ziran.application.static_analysis.mcp_metadata_analyzer import (
+                MCPMetadataAnalyzer,
+            )
+
+            analyzer = MCPMetadataAnalyzer()
+            cap_dicts = [c.model_dump(mode="json") for c in capabilities]
+            mcp_findings = analyzer.analyze_capabilities(cap_dicts)
+            if mcp_findings:
+                logger.warning(
+                    "MCP metadata analysis found %d suspicious patterns in tool metadata",
+                    len(mcp_findings),
+                )
+                for finding in mcp_findings:
+                    logger.warning(
+                        "  [%s] %s.%s: %s — %s",
+                        finding.severity,
+                        finding.tool_id,
+                        finding.field,
+                        finding.pattern_matched,
+                        finding.snippet[:80],
+                    )
+            self._mcp_metadata_findings = mcp_findings
+
         return capabilities
 
     async def _execute_phase(
@@ -742,6 +837,8 @@ class AgentScanner:
                 successful=False,
                 error="No prompts defined for this attack vector",
                 owasp_mapping=attack.owasp_mapping,
+                business_impact=get_business_impacts(attack.category, attack.severity),
+                harm_category=attack.harm_category,
             )
 
         # Delegate to TacticExecutor for multi-turn tactics
@@ -821,6 +918,14 @@ class AgentScanner:
                     _attack_span.set_attribute("ziran.attack.successful", True)
                     _attack_span.add_event("vulnerability_found", {"vector_id": attack.id})
                     _attack_span.end()
+
+                    # Extract composite quality score if available
+                    quality = (
+                        verdict.quality_score.composite_score
+                        if verdict.quality_score is not None
+                        else None
+                    )
+
                     return AttackResult(
                         vector_id=attack.id,
                         vector_name=attack.name,
@@ -841,6 +946,9 @@ class AgentScanner:
                         prompt_used=rendered_prompt,
                         encoding_applied=encoding_used,
                         owasp_mapping=attack.owasp_mapping,
+                        business_impact=get_business_impacts(attack.category, attack.severity),
+                        harm_category=attack.harm_category,
+                        quality_score=quality,
                         token_usage=attack_tokens,
                     )
 
@@ -864,6 +972,8 @@ class AgentScanner:
             agent_response=last_response_content,
             prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,
+            business_impact=get_business_impacts(attack.category, attack.severity),
+            harm_category=attack.harm_category,
             token_usage=attack_tokens,
         )
 
