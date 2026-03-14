@@ -44,6 +44,12 @@ class TacticType(StrEnum):
     CONTEXT_BUILDUP = "context_buildup"
     PERSONA_SHIFT = "persona_shift"
     DISTRACTION = "distraction"
+    FEW_SHOT = "few_shot"
+    REFUSAL_SUPPRESSION = "refusal_suppression"
+    HYPOTHETICAL = "hypothetical"
+    ROLE_PLAY = "role_play"
+    LANGUAGE_SWITCH = "language_switch"
+    CODE_MODE = "code_mode"
 
 
 class TacticExecutor:

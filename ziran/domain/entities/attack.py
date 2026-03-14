@@ -266,7 +266,8 @@ class AttackVector(BaseModel):
     )
     tactic: str = Field(
         default="single",
-        description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, distraction.",
+        description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, "
+        "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode.",
     )
 
     @property
