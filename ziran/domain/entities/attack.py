@@ -122,6 +122,64 @@ BUSINESS_IMPACT_DESCRIPTIONS: dict[BusinessImpact, str] = {
 }
 
 
+class HarmCategory(StrEnum):
+    """Harm categories aligned with AgentHarm taxonomy.
+
+    Classifies harmful multi-step task scenarios by the type of harm
+    they attempt to elicit from the agent.
+    See: https://huggingface.co/datasets/ai-safety-institute/AgentHarm
+    """
+
+    FRAUD = "fraud"
+    """Financial fraud, scams, phishing, fake invoices."""
+
+    CYBERCRIME = "cybercrime"
+    """Hacking, credential theft, malware, unauthorized access."""
+
+    HARASSMENT = "harassment"
+    """Targeted harassment, bullying, doxxing, stalking."""
+
+    DISINFORMATION = "disinformation"
+    """Fake news, propaganda, social media manipulation."""
+
+    ILLEGAL_SERVICES = "illegal_services"
+    """Dark web markets, counterfeit documents, smuggling."""
+
+    WEAPONS = "weapons"
+    """Weapon acquisition, manufacturing, or distribution."""
+
+    SUBSTANCE_ABUSE = "substance_abuse"
+    """Drug synthesis, distribution, or promotion."""
+
+    SEXUAL_CONTENT = "sexual_content"
+    """Non-consensual sexual content, deepfakes."""
+
+    SELF_HARM = "self_harm"
+    """Self-harm instructions, suicide methods."""
+
+    TERRORISM = "terrorism"
+    """Attack planning, radicalization, extremist content."""
+
+    CHILD_EXPLOITATION = "child_exploitation"
+    """CSAM generation, grooming, exploitation."""
+
+
+#: Human-readable descriptions for each harm category.
+HARM_CATEGORY_DESCRIPTIONS: dict[HarmCategory, str] = {
+    HarmCategory.FRAUD: "Financial Fraud",
+    HarmCategory.CYBERCRIME: "Cybercrime",
+    HarmCategory.HARASSMENT: "Harassment & Bullying",
+    HarmCategory.DISINFORMATION: "Disinformation",
+    HarmCategory.ILLEGAL_SERVICES: "Illegal Services",
+    HarmCategory.WEAPONS: "Weapons",
+    HarmCategory.SUBSTANCE_ABUSE: "Substance Abuse",
+    HarmCategory.SEXUAL_CONTENT: "Sexual Content",
+    HarmCategory.SELF_HARM: "Self-Harm",
+    HarmCategory.TERRORISM: "Terrorism",
+    HarmCategory.CHILD_EXPLOITATION: "Child Exploitation",
+}
+
+
 Severity = Literal["low", "medium", "high", "critical"]
 
 
@@ -275,6 +333,10 @@ class AttackVector(BaseModel):
         description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, "
         "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode.",
     )
+    harm_category: HarmCategory | None = Field(
+        default=None,
+        description="AgentHarm-aligned harm category for harmful task scenarios.",
+    )
 
     @property
     def is_critical(self) -> bool:
@@ -320,6 +382,10 @@ class AttackResult(BaseModel):
     business_impact: list[BusinessImpact] = Field(
         default_factory=list,
         description="Business impact categories derived from attack category and severity",
+    )
+    harm_category: HarmCategory | None = Field(
+        default=None,
+        description="AgentHarm-aligned harm category if this was a harmful task scenario.",
     )
     quality_score: float | None = Field(
         default=None,

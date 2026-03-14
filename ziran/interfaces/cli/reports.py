@@ -13,9 +13,11 @@ from typing import TYPE_CHECKING, Any
 
 from ziran.domain.entities.attack import (
     BUSINESS_IMPACT_DESCRIPTIONS,
+    HARM_CATEGORY_DESCRIPTIONS,
     OWASP_LLM_DESCRIPTIONS,
     AttackCategory,
     BusinessImpact,
+    HarmCategory,
     OwaspLlmCategory,
     get_business_impacts,
 )
@@ -354,6 +356,22 @@ class ReportGenerator:
                     tools = " → ".join(chain.get("tools", []))
                     lines.append(f"- **{tools}**: {chain['remediation']}")
                 lines.append("")
+
+        # Harm Category Breakdown (harmful task scenarios only)
+        harm_counts: Counter[str] = Counter()
+        for ar in result.attack_results:
+            if ar.get("successful") and ar.get("harm_category") is not None:
+                cat_val = ar["harm_category"]
+                desc = HARM_CATEGORY_DESCRIPTIONS.get(HarmCategory(cat_val), cat_val)
+                harm_counts[desc] += 1
+        if harm_counts:
+            lines.append("## Harmful Task Scenarios")
+            lines.append("")
+            lines.append("| Harm Category | Successful Attacks |")
+            lines.append("|--------------|-------------------|")
+            for cat_desc, count in harm_counts.most_common():
+                lines.append(f"| {cat_desc} | {count} |")
+            lines.append("")
 
         # Utility-Under-Attack metrics
         utility = result.metadata.get("utility")
