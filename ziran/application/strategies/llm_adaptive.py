@@ -267,4 +267,8 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
                 lines = lines[:-1]
             content = "\n".join(lines)
 
-        return json.loads(content)
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse LLM response as JSON: %s", content)
+            return {}
