@@ -96,7 +96,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
             Standardized response.
         """
         await self._ensure_initialized()
-        assert self._handler is not None
+        if self._handler is None:
+            raise RuntimeError("Handler not initialized — call initialize() first")
 
         self._conversation.append({"role": "user", "content": message})
 
@@ -136,7 +137,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
             ``AgentResponseChunk`` instances as they arrive.
         """
         await self._ensure_initialized()
-        assert self._handler is not None
+        if self._handler is None:
+            raise RuntimeError("Handler not initialized — call initialize() first")
 
         self._conversation.append({"role": "user", "content": message})
 
@@ -161,7 +163,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
             Deduplicated list of discovered capabilities.
         """
         await self._ensure_initialized()
-        assert self._handler is not None
+        if self._handler is None:
+            raise RuntimeError("Handler not initialized — call initialize() first")
 
         capabilities: dict[str, AgentCapability] = {}
 
@@ -283,7 +286,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     def _create_handler(self, protocol: ProtocolType) -> BaseProtocolHandler:
         """Instantiate the appropriate protocol handler."""
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("HTTP client not initialized — call initialize() first")
 
         if protocol == ProtocolType.REST:
             from ziran.infrastructure.adapters.protocols.rest_handler import (
@@ -330,7 +334,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
         Order: A2A Agent Card → OpenAI /v1/models → MCP initialize → REST fallback.
         """
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("HTTP client not initialized — call initialize() first")
 
         # Try A2A Agent Card
         card_url = f"{self._config.normalized_url}/.well-known/agent-card.json"
@@ -386,7 +391,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     async def _send_with_retry(self, message: str, **kwargs: Any) -> dict[str, Any]:
         """Send with configurable retry on transient failures."""
-        assert self._handler is not None
+        if self._handler is None:
+            raise RuntimeError("Handler not initialized — call initialize() first")
 
         retry = self._config.retry
         last_error: Exception | None = None
@@ -409,14 +415,16 @@ class HttpAgentAdapter(BaseAgentAdapter):
                     )
                     await asyncio.sleep(wait)
 
-        assert last_error is not None
+        if last_error is None:
+            raise RuntimeError("Retry loop exited without capturing an error")
         raise last_error
 
     # ── Probe-Based Discovery ────────────────────────────────────
 
     async def _probe_discover(self) -> list[AgentCapability]:
         """Send probe prompts and parse capabilities from responses."""
-        assert self._handler is not None
+        if self._handler is None:
+            raise RuntimeError("Handler not initialized — call initialize() first")
 
         discovered: list[AgentCapability] = []
         seen_names: set[str] = set()
