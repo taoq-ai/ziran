@@ -170,6 +170,13 @@ class ReportGenerator:
             lines.append(f"| Avg Quality Score | {avg_quality:.2f} |")
             lines.append(f"| Quality-Weighted ASR | {quality_weighted_asr:.1%} |")
 
+        # Resilience metrics (AILuminate-style)
+        if result.resilience:
+            r = result.resilience
+            lines.append(f"| Attack Resilience Rate | {r.attack_resilience_rate:.1%} |")
+            lines.append(f"| Trust Degradation | {r.trust_degradation:.2f} |")
+            lines.append(f"| **Resilience Score** | **{r.resilience_score:.1%}** |")
+
         lines.append("")
 
         # Token Usage
