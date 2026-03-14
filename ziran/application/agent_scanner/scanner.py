@@ -56,10 +56,26 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.domain.entities.capability import AgentCapability
+    from ziran.domain.entities.utility import UtilityTask
     from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
 
 logger = logging.getLogger(__name__)
 _tracer = get_tracer(__name__)
+
+
+def _compute_utility(
+    baseline_score: float,
+    baseline_results: list[Any],
+    post_score: float,
+    post_results: list[Any],
+    tasks_run: int,
+) -> dict[str, Any]:
+    """Build utility metrics dict for CampaignResult.metadata."""
+    from ziran.application.utility.measurer import compute_utility_metrics
+
+    return compute_utility_metrics(
+        baseline_score, baseline_results, post_score, post_results, tasks_run
+    )
 
 
 class ProgressEventType(StrEnum):
@@ -193,6 +209,7 @@ class AgentScanner:
         streaming: bool = False,
         exclude_vectors: set[str] | None = None,
         encoding: list[str] | None = None,
+        utility_tasks: list[UtilityTask] | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -274,6 +291,23 @@ class AgentScanner:
 
         # Initial reconnaissance: discover capabilities
         capabilities = await self._discover_and_map_capabilities()
+
+        # ── Baseline utility measurement (pre-attack) ─────────────
+        _baseline_score: float | None = None
+        _baseline_results: list[Any] = []
+        if utility_tasks:
+            from ziran.application.utility.measurer import UtilityMeasurer
+
+            logger.info("Measuring baseline utility (%d tasks)", len(utility_tasks))
+            _emit(
+                ProgressEvent(
+                    event=ProgressEventType.CAMPAIGN_START,
+                    message="Measuring baseline utility...",
+                )
+            )
+            measurer = UtilityMeasurer(self.adapter, utility_tasks)
+            _baseline_score, _baseline_results = await measurer.measure()
+            logger.info("Baseline utility score: %.1f%%", _baseline_score * 100)
 
         phase_results: list[PhaseResult] = []
         campaign_tokens = TokenUsage()
@@ -379,6 +413,17 @@ class AgentScanner:
 
             phase_idx += 1
 
+        # ── Post-attack utility measurement ───────────────────────
+        _post_score: float | None = None
+        _post_results: list[Any] = []
+        if utility_tasks and _baseline_score is not None:
+            from ziran.application.utility.measurer import UtilityMeasurer
+
+            logger.info("Measuring post-attack utility (%d tasks)", len(utility_tasks))
+            measurer = UtilityMeasurer(self.adapter, utility_tasks)
+            _post_score, _post_results = await measurer.measure()
+            logger.info("Post-attack utility score: %.1f%%", _post_score * 100)
+
         # Analyze graph for attack paths
         critical_paths = self.graph.find_all_attack_paths()
 
@@ -417,6 +462,19 @@ class AgentScanner:
                 "dangerous_chain_count": len(dangerous_chains),
                 "coverage_level": coverage.value,
                 "max_concurrent_attacks": max_concurrent_attacks,
+                **(
+                    {
+                        "utility": _compute_utility(
+                            _baseline_score,
+                            _baseline_results,
+                            _post_score,
+                            _post_results,
+                            len(utility_tasks or []),
+                        )
+                    }
+                    if _baseline_score is not None and _post_score is not None
+                    else {}
+                ),
             },
         )
 

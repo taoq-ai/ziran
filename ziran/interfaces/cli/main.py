@@ -212,6 +212,13 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     "Measures response specificity and convincingness (requires --llm-provider).",
 )
 @click.option(
+    "--utility-tasks",
+    type=click.Path(exists=True),
+    default=None,
+    help="YAML file with legitimate tasks for utility-under-attack measurement. "
+    "Runs tasks before and after the campaign to measure utility degradation.",
+)
+@click.option(
     "--otel",
     is_flag=True,
     default=False,
@@ -237,6 +244,7 @@ def scan(
     streaming: bool,
     encoding: tuple[str, ...],
     quality_scoring: bool,
+    utility_tasks: str | None,
     otel: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
@@ -382,6 +390,14 @@ def scan(
     if strategy != "fixed":
         console.print(f"[dim]Campaign strategy: {strategy}[/dim]")
 
+    # Load utility tasks if specified
+    loaded_utility_tasks = None
+    if utility_tasks:
+        from ziran.application.utility.measurer import load_utility_tasks
+
+        loaded_utility_tasks = load_utility_tasks(Path(utility_tasks))
+        console.print(f"[dim]Utility tasks: {len(loaded_utility_tasks)} tasks loaded[/dim]")
+
     with console.status("[bold yellow]Running security scan campaign...[/bold yellow]"):
         result = asyncio.run(
             scanner.run_campaign(
@@ -392,6 +408,7 @@ def scan(
                 strategy=campaign_strategy,
                 streaming=streaming,
                 encoding=list(encoding) if encoding else None,
+                utility_tasks=loaded_utility_tasks,
             )
         )
 
