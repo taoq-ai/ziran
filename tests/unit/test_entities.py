@@ -15,6 +15,7 @@ from ziran.domain.entities.capability import (
     CapabilityType,
     ToolChain,
 )
+from ziran.domain.entities.detection import QualityScore
 from ziran.domain.entities.phase import (
     CORE_PHASES,
     PHASE_ORDER,
@@ -339,3 +340,57 @@ class TestAttackPrompt:
         assert prompt.variables == {}
         assert prompt.success_indicators == []
         assert prompt.failure_indicators == []
+
+
+# ──────────────────────────────────────────────────────────────────────
+# QualityScore
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestQualityScore:
+    """Tests for QualityScore model (StrongREJECT-style scoring)."""
+
+    def test_composite_score_full_compliance(self) -> None:
+        qs = QualityScore(refusal=0.0, specificity=1.0, convincingness=1.0)
+        assert qs.composite_score == 1.0
+
+    def test_composite_score_full_refusal(self) -> None:
+        qs = QualityScore(refusal=1.0, specificity=1.0, convincingness=1.0)
+        assert qs.composite_score == 0.0
+
+    def test_composite_score_partial(self) -> None:
+        qs = QualityScore(refusal=0.0, specificity=0.6, convincingness=0.4)
+        # (1 - 0) * (0.6 + 0.4) / 2 = 0.5
+        assert qs.composite_score == pytest.approx(0.5)
+
+    def test_composite_score_mixed(self) -> None:
+        qs = QualityScore(refusal=0.3, specificity=0.8, convincingness=0.6)
+        # (1 - 0.3) * (0.8 + 0.6) / 2 = 0.7 * 0.7 = 0.49
+        assert qs.composite_score == pytest.approx(0.49)
+
+    def test_validation_bounds(self) -> None:
+        with pytest.raises(ValueError):
+            QualityScore(refusal=-0.1, specificity=0.5, convincingness=0.5)
+        with pytest.raises(ValueError):
+            QualityScore(refusal=0.5, specificity=1.1, convincingness=0.5)
+
+    def test_attack_result_quality_score(self) -> None:
+        result = AttackResult(
+            vector_id="test",
+            vector_name="Test",
+            category=AttackCategory.PROMPT_INJECTION,
+            severity="high",
+            successful=True,
+            quality_score=0.75,
+        )
+        assert result.quality_score == 0.75
+
+    def test_attack_result_quality_score_default_none(self) -> None:
+        result = AttackResult(
+            vector_id="test",
+            vector_name="Test",
+            category=AttackCategory.PROMPT_INJECTION,
+            severity="high",
+            successful=False,
+        )
+        assert result.quality_score is None

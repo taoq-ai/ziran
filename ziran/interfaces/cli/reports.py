@@ -150,6 +150,19 @@ class ReportGenerator:
         lines.append(f"| Overall Result | {'⚠️ VULNERABLE' if result.success else '✅ PASSED'} |")
         if result.coverage_level:
             lines.append(f"| Coverage Level | {result.coverage_level} |")
+
+        # Quality-weighted ASR (StrongREJECT-style) if quality scores are present
+        quality_scores = self._extract_quality_scores(result)
+        if quality_scores:
+            binary_asr = sum(1 for ar in result.attack_results if ar.get("successful")) / max(
+                len(result.attack_results), 1
+            )
+            avg_quality = sum(quality_scores) / len(quality_scores)
+            quality_weighted_asr = binary_asr * avg_quality
+            lines.append(f"| Binary ASR | {binary_asr:.1%} |")
+            lines.append(f"| Avg Quality Score | {avg_quality:.2f} |")
+            lines.append(f"| Quality-Weighted ASR | {quality_weighted_asr:.1%} |")
+
         lines.append("")
 
         # Token Usage
@@ -296,3 +309,20 @@ class ReportGenerator:
         lines.append("")
 
         return "\n".join(lines)
+
+    @staticmethod
+    def _extract_quality_scores(result: CampaignResult) -> list[float]:
+        """Extract quality scores from successful attack results.
+
+        Returns a list of composite quality scores for attacks that have them.
+        """
+        scores: list[float] = []
+        for ar in getattr(result, "attack_results", []):
+            qs = (
+                ar.get("quality_score")
+                if isinstance(ar, dict)
+                else getattr(ar, "quality_score", None)
+            )
+            if qs is not None and isinstance(qs, (int, float)):
+                scores.append(float(qs))
+        return scores

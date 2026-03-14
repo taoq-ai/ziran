@@ -171,6 +171,7 @@ class AgentScanner:
         self._attack_results: list[AttackResult] = []
         self._detector_pipeline = DetectorPipeline(
             llm_client=self.config.get("llm_client"),
+            quality_scoring=bool(self.config.get("quality_scoring")),
         )
 
     async def run_campaign(
@@ -483,6 +484,32 @@ class AgentScanner:
             len(capabilities),
             sum(1 for c in capabilities if c.dangerous),
         )
+
+        # Run MCP metadata poisoning analysis on discovered capabilities
+        if capabilities:
+            from ziran.application.static_analysis.mcp_metadata_analyzer import (
+                MCPMetadataAnalyzer,
+            )
+
+            analyzer = MCPMetadataAnalyzer()
+            cap_dicts = [c.model_dump(mode="json") for c in capabilities]
+            mcp_findings = analyzer.analyze_capabilities(cap_dicts)
+            if mcp_findings:
+                logger.warning(
+                    "MCP metadata analysis found %d suspicious patterns in tool metadata",
+                    len(mcp_findings),
+                )
+                for finding in mcp_findings:
+                    logger.warning(
+                        "  [%s] %s.%s: %s — %s",
+                        finding.severity,
+                        finding.tool_id,
+                        finding.field,
+                        finding.pattern_matched,
+                        finding.snippet[:80],
+                    )
+            self._mcp_metadata_findings = mcp_findings
+
         return capabilities
 
     async def _execute_phase(
@@ -821,6 +848,14 @@ class AgentScanner:
                     _attack_span.set_attribute("ziran.attack.successful", True)
                     _attack_span.add_event("vulnerability_found", {"vector_id": attack.id})
                     _attack_span.end()
+
+                    # Extract composite quality score if available
+                    quality = (
+                        verdict.quality_score.composite_score
+                        if verdict.quality_score is not None
+                        else None
+                    )
+
                     return AttackResult(
                         vector_id=attack.id,
                         vector_name=attack.name,
@@ -841,6 +876,7 @@ class AgentScanner:
                         prompt_used=rendered_prompt,
                         encoding_applied=encoding_used,
                         owasp_mapping=attack.owasp_mapping,
+                        quality_score=quality,
                         token_usage=attack_tokens,
                     )
 

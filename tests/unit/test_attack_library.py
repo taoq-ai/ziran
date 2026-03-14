@@ -148,3 +148,34 @@ vectors:
             load_builtin=False,
         )
         assert lib.vector_count == 0
+
+    def test_indirect_injection_has_50_plus_vectors(self, library: AttackLibrary) -> None:
+        """GAP-02: indirect_injection category should have 50+ vectors."""
+        ii_attacks = library.get_attacks_by_category(AttackCategory.INDIRECT_INJECTION)
+        assert len(ii_attacks) >= 50, (
+            f"Expected 50+ indirect injection vectors, got {len(ii_attacks)}"
+        )
+
+    def test_no_duplicate_ids_across_files(self, library: AttackLibrary) -> None:
+        """All vector IDs must be unique across all YAML files."""
+        seen: dict[str, str] = {}
+        for vector in library.vectors:
+            assert vector.id not in seen, (
+                f"Duplicate vector ID '{vector.id}' (first in category "
+                f"'{seen[vector.id]}', duplicate in '{vector.category}')"
+            )
+            seen[vector.id] = str(vector.category)
+
+    def test_mcp_vectors_loaded(self, library: AttackLibrary) -> None:
+        """GAP-03: MCP tool poisoning vectors should be loaded."""
+        mcp_attacks = [v for v in library.vectors if "mcp" in v.protocol_filter]
+        assert len(mcp_attacks) >= 10, f"Expected 10+ MCP vectors, got {len(mcp_attacks)}"
+
+    def test_mcp_vectors_have_protocol_filter(self, library: AttackLibrary) -> None:
+        """All MCP vectors should have protocol_filter=['mcp']."""
+        mcp_attacks = [v for v in library.vectors if v.id.startswith("mcp_")]
+        assert len(mcp_attacks) > 0
+        for v in mcp_attacks:
+            assert "mcp" in v.protocol_filter, (
+                f"MCP vector '{v.id}' missing protocol_filter=['mcp']"
+            )

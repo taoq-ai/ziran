@@ -205,6 +205,13 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     "Each encoding generates additional attack variants alongside the originals.",
 )
 @click.option(
+    "--quality-scoring",
+    is_flag=True,
+    default=False,
+    help="Enable StrongREJECT-style quality-aware jailbreak scoring. "
+    "Measures response specificity and convincingness (requires --llm-provider).",
+)
+@click.option(
     "--otel",
     is_flag=True,
     default=False,
@@ -229,6 +236,7 @@ def scan(
     strategy: str,
     streaming: bool,
     encoding: tuple[str, ...],
+    quality_scoring: bool,
     otel: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
@@ -309,6 +317,8 @@ def scan(
     if llm_provider or llm_model:
         config_table.add_row("LLM Provider", llm_provider or "litellm")
         config_table.add_row("LLM Model", llm_model or "gpt-4o")
+    if quality_scoring:
+        config_table.add_row("Quality Scoring", "enabled (StrongREJECT-style)")
     console.print(config_table)
     console.print()
 
@@ -341,6 +351,7 @@ def scan(
     scanner_config: dict[str, Any] = {
         "attack_timeout": attack_timeout,
         "phase_timeout": phase_timeout,
+        "quality_scoring": quality_scoring,
     }
 
     # Initialize LLM client if provider/model specified
