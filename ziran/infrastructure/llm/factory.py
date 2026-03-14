@@ -86,10 +86,10 @@ def _parse_env_float(env_var: str, default: str) -> float:
     raw = os.environ.get(env_var, default)
     try:
         return float(raw)
-    except ValueError:
+    except ValueError as err:
         raise ValueError(
             f"Invalid value for {env_var}: '{raw}' (expected a number)"
-        )
+        ) from err
 
 
 def _parse_env_int(env_var: str, default: str) -> int:
@@ -97,10 +97,10 @@ def _parse_env_int(env_var: str, default: str) -> int:
     raw = os.environ.get(env_var, default)
     try:
         return int(raw)
-    except ValueError:
+    except ValueError as err:
         raise ValueError(
             f"Invalid value for {env_var}: '{raw}' (expected an integer)"
-        )
+        ) from err
 
 
 def create_llm_client_from_env() -> BaseLLMClient | None:
