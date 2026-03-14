@@ -81,6 +81,24 @@ def create_llm_client(
     raise ValueError(msg)
 
 
+def _parse_env_float(env_var: str, default: str) -> float:
+    """Parse an environment variable as float with validation."""
+    raw = os.environ.get(env_var, default)
+    try:
+        return float(raw)
+    except ValueError as err:
+        raise ValueError(f"Invalid value for {env_var}: '{raw}' (expected a number)") from err
+
+
+def _parse_env_int(env_var: str, default: str) -> int:
+    """Parse an environment variable as int with validation."""
+    raw = os.environ.get(env_var, default)
+    try:
+        return int(raw)
+    except ValueError as err:
+        raise ValueError(f"Invalid value for {env_var}: '{raw}' (expected an integer)") from err
+
+
 def create_llm_client_from_env() -> BaseLLMClient | None:
     """Create an LLM client from environment variables.
 
@@ -109,8 +127,8 @@ def create_llm_client_from_env() -> BaseLLMClient | None:
         model=model or "gpt-4o",
         api_key_env=os.environ.get("ZIRAN_LLM_API_KEY_ENV"),
         base_url=os.environ.get("ZIRAN_LLM_BASE_URL"),
-        temperature=float(os.environ.get("ZIRAN_LLM_TEMPERATURE", "0.0")),
-        max_tokens=int(os.environ.get("ZIRAN_LLM_MAX_TOKENS", "4096")),
+        temperature=_parse_env_float("ZIRAN_LLM_TEMPERATURE", "0.0"),
+        max_tokens=_parse_env_int("ZIRAN_LLM_MAX_TOKENS", "4096"),
     )
 
     return create_llm_client(config=config)

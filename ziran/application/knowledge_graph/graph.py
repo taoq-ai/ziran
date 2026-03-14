@@ -343,11 +343,18 @@ class AttackKnowledgeGraph:
         if "campaign_start" in state:
             self.campaign_start = datetime.fromisoformat(state["campaign_start"])
 
-        for node_data in state.get("nodes", []):
+        for i, node_data in enumerate(state.get("nodes", [])):
+            if "id" not in node_data:
+                raise ValueError(f"Node at index {i} is missing required key 'id'")
             node_id = node_data.pop("id")
             self.graph.add_node(node_id, **node_data)
 
-        for edge_data in state.get("edges", []):
+        for i, edge_data in enumerate(state.get("edges", [])):
+            missing = [k for k in ("source", "target") if k not in edge_data]
+            if missing:
+                raise ValueError(
+                    f"Edge at index {i} is missing required key(s): {', '.join(missing)}"
+                )
             source = edge_data.pop("source")
             target = edge_data.pop("target")
             self.graph.add_edge(source, target, **edge_data)

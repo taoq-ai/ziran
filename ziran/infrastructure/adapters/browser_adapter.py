@@ -573,11 +573,16 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             value = step.get("value", "")
 
             # Resolve environment variable references (${VAR_NAME})
-            value = re.sub(
-                r"\$\{(\w+)\}",
-                lambda m: os.environ.get(m.group(1), m.group(0)),
-                value,
-            )
+            def _resolve_env(match: re.Match[str]) -> str:
+                var_name = match.group(1)
+                env_value = os.environ.get(var_name)
+                if env_value is None:
+                    raise ValueError(
+                        f"Login step references undefined environment variable: {var_name}"
+                    )
+                return env_value
+
+            value = re.sub(r"\$\{(\w+)\}", _resolve_env, value)
 
             if action == "fill":
                 await self._page.fill(selector, value)
