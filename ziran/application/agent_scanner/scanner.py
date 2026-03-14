@@ -469,7 +469,7 @@ class AgentScanner:
                             _baseline_results,
                             _post_score,
                             _post_results,
-                            len(utility_tasks),
+                            len(utility_tasks or []),
                         )
                     }
                     if _baseline_score is not None and _post_score is not None
