@@ -799,10 +799,17 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                             if text and len(text) < 200:
                                 found.append((selector, text))
                     except Exception:
-                        logger.debug("Failed to read option button at index %d for selector: %s", i, selector, exc_info=True)
+                        logger.debug(
+                            "Failed to read option button at index %d for selector: %s",
+                            i,
+                            selector,
+                            exc_info=True,
+                        )
                         continue
             except Exception:
-                logger.debug("Failed to detect option buttons for selector: %s", selector, exc_info=True)
+                logger.debug(
+                    "Failed to detect option buttons for selector: %s", selector, exc_info=True
+                )
                 continue
 
         # Deduplicate by text
@@ -1204,7 +1211,9 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 body = await response.json()
                 candidates.append((response.url, body))
             except Exception:
-                logger.debug("Failed to parse JSON from captured response: %s", response.url, exc_info=True)
+                logger.debug(
+                    "Failed to parse JSON from captured response: %s", response.url, exc_info=True
+                )
 
         self._page.on("response", capture)
 

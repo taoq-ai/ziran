@@ -377,7 +377,9 @@ class HttpAgentAdapter(BaseAgentAdapter):
                     logger.info("Detected MCP protocol")
                     return ProtocolType.MCP
         except Exception:
-            logger.debug("MCP protocol detection failed for %s", self._config.normalized_url, exc_info=True)
+            logger.debug(
+                "MCP protocol detection failed for %s", self._config.normalized_url, exc_info=True
+            )
 
         logger.info("Falling back to generic REST protocol")
         return ProtocolType.REST
