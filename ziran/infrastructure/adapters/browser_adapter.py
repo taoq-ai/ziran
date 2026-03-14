@@ -677,6 +677,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                     await self._page.wait_for_timeout(1000)
                     return
             except Exception:
+                logger.debug("Failed to dismiss cookie banner via: %s", selector, exc_info=True)
                 continue
 
     async def _find_and_click_launcher(self) -> bool:
@@ -698,6 +699,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                         logger.info("Clicked chat launcher: %s (<%s>)", selector, tag)
                         return True
             except Exception:
+                logger.debug("Failed to probe chat launcher: %s", selector, exc_info=True)
                 continue
 
         return False
@@ -719,6 +721,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                     if is_editable:
                         return selector
             except Exception:
+                logger.debug("Failed to probe input selector: %s", selector, exc_info=True)
                 continue
 
         return None
@@ -737,6 +740,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 if await locator.is_visible(timeout=500):
                     return selector
             except Exception:
+                logger.debug("Failed to probe submit selector: %s", selector, exc_info=True)
                 continue
 
         return None
@@ -757,6 +761,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             await locator.wait_for(state="visible", timeout=timeout_ms)
             return True
         except Exception:
+            logger.debug("Element not visible for selector: %s", selector, exc_info=True)
             return False
 
     # ------------------------------------------------------------------
@@ -794,8 +799,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                             if text and len(text) < 200:
                                 found.append((selector, text))
                     except Exception:
+                        logger.debug("Failed to read option button at index %d for selector: %s", i, selector, exc_info=True)
                         continue
             except Exception:
+                logger.debug("Failed to detect option buttons for selector: %s", selector, exc_info=True)
                 continue
 
         # Deduplicate by text
@@ -989,6 +996,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                     logger.info("Clicked option: '%s' via %s", text, selector)
                     return True
             except Exception:
+                logger.debug("Failed to click option '%s' via %s", text, selector, exc_info=True)
                 continue
 
         return False
@@ -1196,7 +1204,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 body = await response.json()
                 candidates.append((response.url, body))
             except Exception:
-                pass
+                logger.debug("Failed to parse JSON from captured response: %s", response.url, exc_info=True)
 
         self._page.on("response", capture)
 

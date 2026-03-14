@@ -341,8 +341,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
                 if "name" in data and "skills" in data:
                     logger.info("Detected A2A protocol via Agent Card")
                     return ProtocolType.A2A
-        except (httpx.HTTPError, Exception):
-            pass
+        except Exception:
+            logger.debug("A2A Agent Card detection failed for %s", card_url, exc_info=True)
 
         # Try OpenAI
         models_url = f"{self._config.normalized_url}/v1/models"
@@ -353,8 +353,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
                 if "data" in data:
                     logger.info("Detected OpenAI-compatible protocol")
                     return ProtocolType.OPENAI
-        except (httpx.HTTPError, Exception):
-            pass
+        except Exception:
+            logger.debug("OpenAI protocol detection failed for %s", models_url, exc_info=True)
 
         # Try MCP initialize
         try:
@@ -376,8 +376,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
                 if "result" in data:
                     logger.info("Detected MCP protocol")
                     return ProtocolType.MCP
-        except (httpx.HTTPError, Exception):
-            pass
+        except Exception:
+            logger.debug("MCP protocol detection failed for %s", self._config.normalized_url, exc_info=True)
 
         logger.info("Falling back to generic REST protocol")
         return ProtocolType.REST
