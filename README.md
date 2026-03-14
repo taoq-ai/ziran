@@ -392,6 +392,23 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Ways to help:
 
 ---
 
+## Citation
+
+If you use ZIRAN in academic work, please cite:
+
+```bibtex
+@software{ziran2026,
+  title     = {ZIRAN: AI Agent Security Testing},
+  author    = {{TaoQ AI} and Lage Perdigao, Leone},
+  year      = {2026},
+  url       = {https://github.com/taoq-ai/ziran},
+  license   = {Apache-2.0},
+  version   = {0.9.0}
+}
+```
+
+---
+
 ## License
 
 [Apache License 2.0](LICENSE) — See [NOTICE](NOTICE) for third-party attributions.
