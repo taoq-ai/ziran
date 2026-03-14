@@ -97,6 +97,7 @@ class TacticExecutor:
                 successful=False,
                 error="No prompts defined for this attack vector",
                 owasp_mapping=attack.owasp_mapping,
+                harm_category=attack.harm_category,
             )
 
         total_tokens = TokenUsage()
@@ -165,6 +166,7 @@ class TacticExecutor:
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
                         owasp_mapping=attack.owasp_mapping,
+                        harm_category=attack.harm_category,
                         token_usage=total_tokens,
                     )
 
@@ -194,5 +196,6 @@ class TacticExecutor:
             agent_response=last_response_content,
             prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,
+            harm_category=attack.harm_category,
             token_usage=total_tokens,
         )

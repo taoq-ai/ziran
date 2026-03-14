@@ -838,6 +838,7 @@ class AgentScanner:
                 error="No prompts defined for this attack vector",
                 owasp_mapping=attack.owasp_mapping,
                 business_impact=get_business_impacts(attack.category, attack.severity),
+                harm_category=attack.harm_category,
             )
 
         # Delegate to TacticExecutor for multi-turn tactics
@@ -946,6 +947,7 @@ class AgentScanner:
                         encoding_applied=encoding_used,
                         owasp_mapping=attack.owasp_mapping,
                         business_impact=get_business_impacts(attack.category, attack.severity),
+                        harm_category=attack.harm_category,
                         quality_score=quality,
                         token_usage=attack_tokens,
                     )
@@ -971,6 +973,7 @@ class AgentScanner:
             prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,
             business_impact=get_business_impacts(attack.category, attack.severity),
+            harm_category=attack.harm_category,
             token_usage=attack_tokens,
         )
 

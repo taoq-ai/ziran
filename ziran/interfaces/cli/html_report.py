@@ -480,9 +480,11 @@ def _build_attack_log_html(attack_results: list[dict[str, Any]]) -> str:
                 f'<div class="attack-body">'
             )
 
+            harm_cat = ar.get("harm_category")
+            harm_label = f" | Harm: {html.escape(harm_cat)}" if harm_cat else ""
             parts.append(
                 f'  <div class="attack-meta">'
-                f"    <span>Category: {html.escape(category)}</span>"
+                f"    <span>Category: {html.escape(category)}{harm_label}</span>"
                 f"  </div>"
             )
 
