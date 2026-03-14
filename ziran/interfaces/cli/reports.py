@@ -355,6 +355,21 @@ class ReportGenerator:
                     lines.append(f"- **{tools}**: {chain['remediation']}")
                 lines.append("")
 
+        # Utility-Under-Attack metrics
+        utility = result.metadata.get("utility")
+        if utility:
+            lines.append("## Utility-Under-Attack")
+            lines.append("")
+            lines.append("| Metric | Value |")
+            lines.append("|--------|-------|")
+            lines.append(f"| Baseline Utility | {utility['baseline_score']:.1%} |")
+            lines.append(f"| Post-Attack Utility | {utility['post_attack_score']:.1%} |")
+            delta = utility["utility_delta"]
+            delta_icon = "🔴" if delta > 0.1 else "🟡" if delta > 0 else "🟢"
+            lines.append(f"| {delta_icon} Utility Delta | {delta:.1%} |")
+            lines.append(f"| Tasks Evaluated | {utility['tasks_run']} |")
+            lines.append("")
+
         # Footer
         lines.append("---")
         lines.append(
