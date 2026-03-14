@@ -9,6 +9,7 @@ from ziran.domain.entities.attack import (
     AttackPrompt,
     AttackResult,
     AttackVector,
+    BusinessImpact,
 )
 from ziran.domain.entities.capability import (
     AgentCapability,
@@ -394,3 +395,25 @@ class TestQualityScore:
             successful=False,
         )
         assert result.quality_score is None
+
+    def test_attack_result_default_empty_business_impact(self) -> None:
+        result = AttackResult(
+            vector_id="test",
+            vector_name="Test",
+            category=AttackCategory.PROMPT_INJECTION,
+            severity="high",
+            successful=False,
+        )
+        assert result.business_impact == []
+
+    def test_attack_result_with_business_impact(self) -> None:
+        result = AttackResult(
+            vector_id="test",
+            vector_name="Test",
+            category=AttackCategory.PROMPT_INJECTION,
+            severity="high",
+            successful=True,
+            business_impact=[BusinessImpact.UNAUTHORIZED_ACTIONS, BusinessImpact.REPUTATION_DAMAGE],
+        )
+        assert BusinessImpact.UNAUTHORIZED_ACTIONS in result.business_impact
+        assert len(result.business_impact) == 2

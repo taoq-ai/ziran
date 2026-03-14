@@ -34,7 +34,13 @@ from ziran.application.strategies.protocol import (
     CampaignStrategy,
     PhaseDecision,
 )
-from ziran.domain.entities.attack import AttackPrompt, AttackResult, AttackVector, TokenUsage
+from ziran.domain.entities.attack import (
+    AttackPrompt,
+    AttackResult,
+    AttackVector,
+    TokenUsage,
+    get_business_impacts,
+)
 from ziran.domain.entities.phase import (
     CORE_PHASES,
     CampaignResult,
@@ -769,6 +775,7 @@ class AgentScanner:
                 successful=False,
                 error="No prompts defined for this attack vector",
                 owasp_mapping=attack.owasp_mapping,
+                business_impact=get_business_impacts(attack.category, attack.severity),
             )
 
         # Delegate to TacticExecutor for multi-turn tactics
@@ -876,6 +883,7 @@ class AgentScanner:
                         prompt_used=rendered_prompt,
                         encoding_applied=encoding_used,
                         owasp_mapping=attack.owasp_mapping,
+                        business_impact=get_business_impacts(attack.category, attack.severity),
                         quality_score=quality,
                         token_usage=attack_tokens,
                     )
@@ -900,6 +908,7 @@ class AgentScanner:
             agent_response=last_response_content,
             prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,
+            business_impact=get_business_impacts(attack.category, attack.severity),
             token_usage=attack_tokens,
         )
 
