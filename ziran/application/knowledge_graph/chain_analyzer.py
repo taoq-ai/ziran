@@ -11,6 +11,7 @@ attacker to exfiltrate local file contents to an external server.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -117,6 +118,12 @@ class ToolChainAnalyzer:
         chains.extend(self._find_indirect_chains(max_hops=3))
         chains.extend(self._find_chain_cycles())
 
+        # Pre-compute betweenness centrality once for all chains
+        bc: dict[str, float] | None = None
+        if self.graph.graph.number_of_nodes() > 1:
+            with contextlib.suppress(nx.NetworkXError):
+                bc = nx.betweenness_centrality(self.graph.graph)
+
         # Deduplicate by (tools tuple, vulnerability_type)
         seen: set[tuple[tuple[str, ...], str]] = set()
         unique: list[DangerousChain] = []
@@ -124,7 +131,7 @@ class ToolChainAnalyzer:
             key = (tuple(chain.tools), chain.vulnerability_type)
             if key not in seen:
                 seen.add(key)
-                chain.risk_score = self._calculate_risk_score(chain)
+                chain.risk_score = self._calculate_risk_score(chain, bc)
                 unique.append(chain)
 
         # Sort by risk score descending, then by risk_level severity
@@ -288,27 +295,33 @@ class ToolChainAnalyzer:
 
     # ── Scoring ────────────────────────────────────────────────────
 
-    def _calculate_risk_score(self, chain: DangerousChain) -> float:
+    def _calculate_risk_score(
+        self,
+        chain: DangerousChain,
+        bc: dict[str, float] | None = None,
+    ) -> float:
         """Calculate a 0.0-1.0 risk score for a chain.
 
         Factors:
         - Base weight from risk level (critical=1.0 … low=0.25).
         - Multiplier from chain type (direct > cycle > indirect).
         - Bonus for chains involving nodes with high graph centrality.
+
+        Args:
+            chain: The dangerous chain to score.
+            bc: Pre-computed betweenness centrality dict. When *None* the
+                centrality bonus is skipped (caller should pre-compute once
+                via ``nx.betweenness_centrality`` and pass it in).
         """
         base = _RISK_WEIGHTS.get(chain.risk_level, 0.5)
         multiplier = _CHAIN_TYPE_MULTIPLIERS.get(chain.chain_type, 1.0)
 
         # Centrality bonus: if any tool in the chain is a high-centrality node
         centrality_bonus = 0.0
-        if self.graph.graph.number_of_nodes() > 1:
-            try:
-                bc: dict[str, float] = nx.betweenness_centrality(self.graph.graph)
-                for tool in chain.tools:
-                    if tool in bc:
-                        centrality_bonus = max(centrality_bonus, bc[tool] * 0.15)
-            except nx.NetworkXError:
-                pass
+        if bc is not None:
+            for tool in chain.tools:
+                if tool in bc:
+                    centrality_bonus = max(centrality_bonus, bc[tool] * 0.15)
 
         score = base * multiplier + centrality_bonus
         return min(1.0, round(score, 3))
