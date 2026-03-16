@@ -6,7 +6,7 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 | Metric | Value |
 |--------|-------|
-| Attack vectors | **339** |
+| Attack vectors | **376** |
 | Attack categories | **11** |
 | OWASP LLM Top 10 | **80.0%** (8/10) |
 | Multi-turn tactics | **10** |
@@ -18,15 +18,15 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 | Code | Category | Vectors | Status |
 |------|----------|---------|--------|
-| **LLM01** | Prompt Injection | 223 | :white_check_mark: Comprehensive |
-| **LLM02** | Insecure Output Handling | 53 | :white_check_mark: Comprehensive |
+| **LLM01** | Prompt Injection | 224 | :white_check_mark: Comprehensive |
+| **LLM02** | Insecure Output Handling | 60 | :white_check_mark: Comprehensive |
 | **LLM03** | Training Data Poisoning | 15 | :white_check_mark: Strong |
-| **LLM04** | Model Denial of Service | 12 | :white_check_mark: Strong |
+| **LLM04** | Model Denial of Service | 13 | :white_check_mark: Strong |
 | **LLM05** | Supply Chain Vulnerabilities | — | :construction: Planned ([#42](https://github.com/taoq-ai/ziran/issues/42)) |
-| **LLM06** | Sensitive Information Disclosure | 74 | :white_check_mark: Comprehensive |
-| **LLM07** | Insecure Plugin Design | 47 | :white_check_mark: Comprehensive |
-| **LLM08** | Excessive Agency | 79 | :white_check_mark: Comprehensive |
-| **LLM09** | Overreliance | 15 | :white_check_mark: Strong |
+| **LLM06** | Sensitive Information Disclosure | 82 | :white_check_mark: Comprehensive |
+| **LLM07** | Insecure Plugin Design | 61 | :white_check_mark: Comprehensive |
+| **LLM08** | Excessive Agency | 101 | :white_check_mark: Comprehensive |
+| **LLM09** | Overreliance | 19 | :white_check_mark: Strong |
 | **LLM10** | Unbounded Consumption | — | :construction: Planned ([#43](https://github.com/taoq-ai/ziran/issues/43)) |
 
 ## Benchmark Comparison
@@ -43,15 +43,16 @@ How ZIRAN's attack vector library compares against published AI agent security b
 | **StrongREJECT** | 2024 | Quality-aware scoring | — | 0 | _Binary detection only — no composite scoring yet_ | :construction: open | [GAP-04](https://github.com/taoq-ai/ziran/issues/35) |
 | **MCPTox** | 2025 | MCP vectors | 1,312 | 10 | `░░░░░░░░░░░░░░░` 0.8% | :construction: open | [GAP-03](https://github.com/taoq-ai/ziran/issues/34) |
 | **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 11 | `███████████████` 100% | :construction: open | [GAP-01](https://github.com/taoq-ai/ziran/issues/32) |
-|  |  | Total vectors | 400 | 339 | `█████████████░░` 84.8% |  |  |
+|  |  | Total vectors | 400 | 376 | `██████████████░` 94.0% |  |  |
 | **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 110 | `░░░░░░░░░░░░░░░` 0.1% | :construction: open | [GAP-16](https://github.com/taoq-ai/ziran/issues/55) |
 | **WildJailbreak** | 2024 | Jailbreak tactics | 105,000 | 11 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-17](https://github.com/taoq-ai/ziran/issues/56) |
 | **LLMail-Inject** | 2024 | RAG injection vectors | — | 0 | _Not yet implemented_ | :construction: open | [GAP-13](https://github.com/taoq-ai/ziran/issues/44) |
 | **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :white_check_mark: closed | [GAP-07](https://github.com/taoq-ai/ziran/issues/38) |
 | **BIPIA** | 2024 | Indirect injection vectors | — | 50 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
-| **CyberSecEval** | Meta, 2024 | Total vectors | — | 339 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](https://github.com/taoq-ai/ziran/issues/57) |
-| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 33 | `███░░░░░░░░░░░░` 22.9% | :construction: open | [GAP-19](https://github.com/taoq-ai/ziran/issues/58) |
-| **R-Judge** | 2024 | Risk scoring pipeline | — | 5 | _5 detectors — different approach than interaction records_ | :construction: open | [GAP-20](https://github.com/taoq-ai/ziran/issues/59) |
+| **CyberSecEval** | Meta, 2024 | Total vectors | — | 376 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](https://github.com/taoq-ai/ziran/issues/57) |
+| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 54 | `██████░░░░░░░░░` 37.5% | :construction: open | [GAP-19](https://github.com/taoq-ai/ziran/issues/58) |
+| **R-Judge** | 2024 | Risk scenario vectors | 569 | 37 | `█░░░░░░░░░░░░░░` 6.5% | :construction: open | [GAP-20](https://github.com/taoq-ai/ziran/issues/59) |
+|  |  | Risk scoring pipeline | — | 5 | _5 detectors (refusal, indicator, side-effect, authorization, LLM judge)_ |  |  |
 | **AILuminate** | MLCommons, 2025 | Resilience gap metric | — | 0 | _Not yet implemented_ | :construction: open | [GAP-09](https://github.com/taoq-ai/ziran/issues/40) |
 | **ALERT** | 2024 | Harm categories | — | 11 | _Fine-grained taxonomy — not directly comparable_ | :construction: open | [GAP-21](https://github.com/taoq-ai/ziran/issues/60) |
 | **MITRE ATLAS** | MITRE, 2025 | Attack categories vs tactics | 15 | 11 | `███████████░░░░` 73.3% | :construction: open | [GAP-22](https://github.com/taoq-ai/ziran/issues/61) |
@@ -91,22 +92,22 @@ How ZIRAN's attack vector library compares against published AI agent security b
 | Category | Vectors |
 |----------|---------|
 | prompt_injection | 110 |
+| tool_manipulation | 54 |
 | indirect_injection | 50 |
-| tool_manipulation | 33 |
-| privilege_escalation | 25 |
+| data_exfiltration | 31 |
+| privilege_escalation | 28 |
 | system_prompt_extraction | 25 |
-| data_exfiltration | 24 |
-| authorization_bypass | 17 |
-| memory_poisoning | 17 |
+| authorization_bypass | 21 |
+| memory_poisoning | 18 |
 | chain_of_thought_manipulation | 15 |
-| model_dos | 12 |
+| model_dos | 13 |
 | multi_agent | 11 |
 
 ### By Tactic
 
 | Tactic | Vectors |
 |--------|---------|
-| single | 279 |
+| single | 316 |
 | context_buildup | 18 |
 | crescendo | 17 |
 | persona_shift | 4 |
@@ -122,10 +123,10 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 | Severity | Vectors |
 |----------|---------|
-| critical | 121 |
-| high | 150 |
+| critical | 140 |
+| high | 167 |
 | low | 1 |
-| medium | 67 |
+| medium | 68 |
 
 ## Scripts
 

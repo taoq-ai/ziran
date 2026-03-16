@@ -325,15 +325,20 @@ BENCHMARKS = [
         "url": "https://arxiv.org/abs/2407.01689",
         "focus": "Risk identification in agent interactions",
         "test_cases": 569,
-        "key_dimensions": ["569 interaction records", "risk scoring"],
+        "key_dimensions": ["569 interaction records", "8 app scenarios", "risk scoring"],
         "gap_id": "GAP-20",
         "gap_issue": "#59",
-        "coverage_fn": lambda _lib: [
+        "coverage_fn": lambda lib: [
+            {
+                "dimension": "Risk scenario vectors",
+                "target": 569,
+                "implemented": _count_vectors_by_tag(lib, "rjudge"),
+            },
             {
                 "dimension": "Risk scoring pipeline",
                 "target": None,
                 "implemented": 5,
-                "note": "5 detectors — different approach than interaction records",
+                "note": "5 detectors (refusal, indicator, side-effect, authorization, LLM judge)",
             },
         ],
     },
