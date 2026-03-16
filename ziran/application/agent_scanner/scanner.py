@@ -192,6 +192,8 @@ class AgentScanner:
         self.graph = AttackKnowledgeGraph()
         self._current_phase: ScanPhase | None = None
         self._attack_results: list[AttackResult] = []
+        self._tested_vector_ids: set[str] = set()
+        self._max_results: int = int(self.config.get("max_attack_results", 10_000))
         self._detector_pipeline = DetectorPipeline(
             llm_client=self.config.get("llm_client"),
             quality_scoring=bool(self.config.get("quality_scoring")),
@@ -617,13 +619,13 @@ class AgentScanner:
         attacks = self.attack_library.get_attacks_for_phase(phase, coverage=coverage)
 
         # Exclude already-tested vectors to avoid redundant work
-        exclude: set[str] = getattr(self, "_exclude_vectors", set())
+        exclude: set[str] = getattr(self, "_exclude_vectors", set()) | self._tested_vector_ids
         if exclude:
             before = len(attacks)
             attacks = [a for a in attacks if a.id not in exclude]
             if before != len(attacks):
                 logger.info(
-                    "Phase %s: excluded %d already-tested vectors (%d → %d)",
+                    "Phase %s: excluded %d already-tested vectors (%d -> %d)",
                     phase.value,
                     before - len(attacks),
                     before,
@@ -707,7 +709,9 @@ class AgentScanner:
                 result.evidence.setdefault("phase", phase.value)
 
                 async with lock:
-                    self._attack_results.append(result)
+                    if len(self._attack_results) < self._max_results:
+                        self._attack_results.append(result)
+                    self._tested_vector_ids.add(result.vector_id)
                     phase_tokens = phase_tokens + result.token_usage
 
                     if result.successful:
