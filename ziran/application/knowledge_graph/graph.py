@@ -67,6 +67,11 @@ class AttackKnowledgeGraph:
     def __init__(self) -> None:
         self.graph: nx.MultiDiGraph = nx.MultiDiGraph()
         self.campaign_start: datetime = datetime.now(tz=UTC)
+        self._cached_state: dict[str, Any] | None = None
+
+    def _invalidate_cache(self) -> None:
+        """Mark the cached export state as stale."""
+        self._cached_state = None
 
     @property
     def node_count(self) -> int:
@@ -85,6 +90,7 @@ class AttackKnowledgeGraph:
             state_id: Unique identifier for this state snapshot.
             attributes: Arbitrary key-value attributes describing the state.
         """
+        self._invalidate_cache()
         self.graph.add_node(
             state_id,
             node_type=NodeType.AGENT_STATE,
@@ -99,6 +105,7 @@ class AttackKnowledgeGraph:
             cap_id: Unique node ID for this capability.
             capability: The capability model with full metadata.
         """
+        self._invalidate_cache()
         self.graph.add_node(
             cap_id,
             node_type=NodeType.CAPABILITY,
@@ -114,6 +121,7 @@ class AttackKnowledgeGraph:
             tool_id: Unique identifier for the tool.
             attributes: Optional metadata about the tool.
         """
+        self._invalidate_cache()
         self.graph.add_node(
             tool_id,
             node_type=NodeType.TOOL,
@@ -134,6 +142,7 @@ class AttackKnowledgeGraph:
             severity: Severity level (low, medium, high, critical).
             attributes: Additional metadata about the vulnerability.
         """
+        self._invalidate_cache()
         self.graph.add_node(
             vuln_id,
             node_type=NodeType.VULNERABILITY,
@@ -149,6 +158,7 @@ class AttackKnowledgeGraph:
             source_id: Unique identifier for the data source.
             attributes: Metadata about the data source.
         """
+        self._invalidate_cache()
         self.graph.add_node(
             source_id,
             node_type=NodeType.DATA_SOURCE,
@@ -174,6 +184,7 @@ class AttackKnowledgeGraph:
             edge_type: Type of relationship (see EdgeType constants).
             attributes: Additional edge metadata.
         """
+        self._invalidate_cache()
         self.graph.add_edge(
             source,
             target,
@@ -192,6 +203,7 @@ class AttackKnowledgeGraph:
             tool_ids: Ordered list of tool node IDs forming the chain.
             risk_score: Aggregate risk score for this chain (0.0-1.0).
         """
+        self._invalidate_cache()
         for i in range(len(tool_ids) - 1):
             self.graph.add_edge(
                 tool_ids[i],
@@ -311,13 +323,24 @@ class AttackKnowledgeGraph:
     def export_state(self) -> dict[str, Any]:
         """Export the full graph state for persistence or visualization.
 
+        Returns a cached copy when the graph has not been modified since
+        the last export, avoiding redundant O(V+E) serialization.
+
         Returns:
             Dictionary containing all nodes, edges, and campaign statistics.
         """
+        if self._cached_state is not None:
+            # Update only the dynamic duration field
+            now = datetime.now(tz=UTC)
+            self._cached_state["campaign_duration_seconds"] = (
+                now - self.campaign_start
+            ).total_seconds()
+            return self._cached_state
+
         now = datetime.now(tz=UTC)
         duration = (now - self.campaign_start).total_seconds()
 
-        return {
+        state: dict[str, Any] = {
             "nodes": [{"id": n, **d} for n, d in self.graph.nodes(data=True)],
             "edges": [{"source": u, "target": v, **d} for u, v, d in self.graph.edges(data=True)],
             "campaign_start": self.campaign_start.isoformat(),
@@ -329,6 +352,8 @@ class AttackKnowledgeGraph:
                 "node_types": self._count_node_types(),
             },
         }
+        self._cached_state = state
+        return state
 
     def import_state(self, state: dict[str, Any]) -> None:
         """Import a previously exported graph state.
@@ -338,6 +363,7 @@ class AttackKnowledgeGraph:
         Args:
             state: Graph state dictionary from export_state().
         """
+        self._invalidate_cache()
         self.graph.clear()
 
         if "campaign_start" in state:
@@ -382,6 +408,7 @@ class AttackKnowledgeGraph:
             role: Agent role (supervisor, router, worker, specialist).
             metadata: Additional agent metadata.
         """
+        self._invalidate_cache()
         self.graph.add_node(
             agent_id,
             node_type=NodeType.AGENT,
@@ -404,6 +431,7 @@ class AttackKnowledgeGraph:
             delegation_pattern: How the delegation works.
             metadata: Additional edge metadata.
         """
+        self._invalidate_cache()
         self.graph.add_edge(
             source_agent,
             target_agent,
@@ -427,6 +455,7 @@ class AttackKnowledgeGraph:
             boundary_type: Type of trust boundary.
             metadata: Additional boundary metadata.
         """
+        self._invalidate_cache()
         self.graph.add_edge(
             agent_a,
             agent_b,
@@ -448,6 +477,7 @@ class AttackKnowledgeGraph:
             target_agent: Agent receiving data.
             data_shared: Types of data shared.
         """
+        self._invalidate_cache()
         self.graph.add_edge(
             source_agent,
             target_agent,
