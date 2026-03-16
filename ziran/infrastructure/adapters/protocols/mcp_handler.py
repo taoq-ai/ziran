@@ -12,7 +12,11 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+from ziran.infrastructure.adapters.protocols import (
+    BaseProtocolHandler,
+    ProtocolError,
+    ProtocolResponse,
+)
 
 if TYPE_CHECKING:
     from ziran.domain.entities.target import TargetConfig
@@ -33,7 +37,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
         super().__init__(client, config)
         self._request_id = 0
 
-    async def send(self, message: str, **kwargs: Any) -> dict[str, Any]:
+    async def send(self, message: str, **kwargs: Any) -> ProtocolResponse:
         """Send a message by invoking the MCP server's chat/prompt method.
 
         Since MCP servers are primarily tool providers, this wraps the
@@ -147,7 +151,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
         except ProtocolError:
             return False
 
-    async def _call_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def _call_tool(self, tool_name: str, arguments: dict[str, Any]) -> ProtocolResponse:
         """Invoke a specific MCP tool.
 
         Args:

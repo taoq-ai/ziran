@@ -25,7 +25,11 @@ from ziran.domain.entities.a2a import (
     A2ATask,
 )
 from ziran.domain.entities.target import A2AConfig, TargetConfig
-from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+from ziran.infrastructure.adapters.protocols import (
+    BaseProtocolHandler,
+    ProtocolError,
+    ProtocolResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +55,7 @@ class A2AProtocolHandler(BaseProtocolHandler):
 
     # ── Public API ───────────────────────────────────────────────
 
-    async def send(self, message: str, **kwargs: Any) -> dict[str, Any]:
+    async def send(self, message: str, **kwargs: Any) -> ProtocolResponse:
         """Send a message to the A2A agent.
 
         Builds a ``SendMessageRequest``, dispatches it via the
