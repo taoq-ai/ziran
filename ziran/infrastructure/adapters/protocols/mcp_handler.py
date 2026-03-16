@@ -197,7 +197,9 @@ class MCPProtocolHandler(BaseProtocolHandler):
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             msg = f"MCP JSON-RPC call '{method}' failed with HTTP {exc.response.status_code}"
-            raise ProtocolError(msg, status_code=exc.response.status_code) from exc
+            raise ProtocolError(
+                msg, status_code=exc.response.status_code, headers=dict(exc.response.headers)
+            ) from exc
         except httpx.HTTPError as exc:
             msg = f"MCP JSON-RPC call '{method}' failed: {exc}"
             raise ProtocolError(msg) from exc

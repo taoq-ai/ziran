@@ -168,7 +168,9 @@ class SSEProtocolHandler(BaseProtocolHandler):
                 if response.status_code >= 400:
                     await response.aread()
                     msg = f"SSE request failed with status {response.status_code}"
-                    raise ProtocolError(msg, status_code=response.status_code)
+                    raise ProtocolError(
+                        msg, status_code=response.status_code, headers=dict(response.headers)
+                    )
 
                 accumulated_tool_calls: dict[int, dict[str, Any]] = {}
                 async for chunk in self._parse_sse_stream(response, accumulated_tool_calls):

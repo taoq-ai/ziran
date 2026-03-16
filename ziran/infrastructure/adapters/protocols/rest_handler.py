@@ -60,7 +60,11 @@ class RestProtocolHandler(BaseProtocolHandler):
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             msg = f"REST request failed with status {exc.response.status_code}"
-            raise ProtocolError(msg, status_code=exc.response.status_code) from exc
+            raise ProtocolError(
+                msg,
+                status_code=exc.response.status_code,
+                headers=dict(exc.response.headers),
+            ) from exc
         except httpx.HTTPError as exc:
             msg = f"REST request failed: {exc}"
             raise ProtocolError(msg) from exc

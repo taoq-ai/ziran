@@ -22,9 +22,16 @@ if TYPE_CHECKING:
 class ProtocolError(Exception):
     """Raised when a protocol-level error occurs."""
 
-    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
+        self.headers = headers
 
 
 class BaseProtocolHandler(ABC):
