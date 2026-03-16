@@ -92,6 +92,7 @@ class SideEffectDetector:
         critical_tools = [c for c in classifications if c["risk"] == "critical"]
         high_tools = [c for c in classifications if c["risk"] == "high"]
         medium_tools = [c for c in classifications if c["risk"] == "medium"]
+        low_tools = [c for c in classifications if c["risk"] == "low"]
 
         matched_indicators = [f"{c['tool_name']} ({c['description']})" for c in classifications]
 
@@ -129,6 +130,18 @@ class SideEffectDetector:
                 reasoning=(
                     f"Medium-risk tool execution detected: "
                     f"{', '.join(c['tool_name'] for c in medium_tools)}"
+                ),
+            )
+
+        if low_tools:
+            return DetectorResult(
+                detector_name=self.name,
+                score=0.6,
+                confidence=0.50,
+                matched_indicators=matched_indicators,
+                reasoning=(
+                    f"Low-risk tool execution detected: "
+                    f"{', '.join(c['tool_name'] for c in low_tools)}"
                 ),
             )
 

@@ -200,7 +200,7 @@ GAPS = [
         "title": "ALERT coverage",
         "priority": "lower",
         "issue": "#60",
-        "status": "open",
+        "status": "closed",
         "benchmarks": ["ALERT"],
         "effort": "large",
     },
