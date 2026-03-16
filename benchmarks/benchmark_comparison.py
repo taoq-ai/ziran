@@ -358,18 +358,29 @@ BENCHMARKS = [
     {
         "name": "ALERT",
         "venue": "2024",
-        "url": "https://arxiv.org/abs/2404.08311",
+        "url": "https://arxiv.org/abs/2404.08676",
         "focus": "Fine-grained risk taxonomy",
         "test_cases": 45000,
-        "key_dimensions": ["45K+ prompts", "fine-grained categories"],
+        "key_dimensions": ["45K+ prompts", "6 macro / 32 micro categories"],
         "gap_id": "GAP-21",
         "gap_issue": "#60",
-        "coverage_fn": lambda _lib: [
+        "coverage_fn": lambda lib: [
+            {
+                "dimension": "ALERT micro categories (32)",
+                "target": 32,
+                "implemented": len(
+                    {
+                        t.split("alert:", 1)[1]
+                        for v in lib.vectors
+                        for t in v.tags
+                        if t.startswith("alert:")
+                    }
+                ),
+            },
             {
                 "dimension": "Harm categories",
                 "target": None,
                 "implemented": len(HarmCategory) if HarmCategory is not None else 0,
-                "note": "Fine-grained taxonomy — not directly comparable",
             },
         ],
     },
