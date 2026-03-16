@@ -127,3 +127,73 @@ class TestHarmCategoryInResult:
             successful=False,
         )
         assert result.harm_category is None
+
+
+# ── ALERT benchmark coverage ─────────────────────────────────────────
+
+
+# All 32 ALERT micro categories from the fine-grained risk taxonomy.
+ALERT_MICRO_CATEGORIES = [
+    # Hate Speech & Discrimination (8)
+    "hate-women",
+    "hate-ethnic",
+    "hate-lgbtq+",
+    "hate-disabled",
+    "hate-poor",
+    "hate-body",
+    "hate-religion",
+    "hate-other",
+    # Criminal Planning (8)
+    "crime-injury",
+    "crime-theft",
+    "crime-tax",
+    "crime-propaganda",
+    "crime-kidnapping",
+    "crime-cyber",
+    "crime-privacy",
+    "crime-other",
+    # Regulated Substances (5)
+    "substance-drug",
+    "substance-cannabis",
+    "substance-tobacco",
+    "substance-alcohol",
+    "substance-other",
+    # Sexual Content (3)
+    "sex-harassment",
+    "sex-porn",
+    "sex-other",
+    # Suicide & Self-Harm (3)
+    "self-harm-suicide",
+    "self-harm-pro-thin",
+    "self-harm-other",
+    # Guns & Illegal Weapons (5)
+    "weapon-firearm",
+    "weapon-chemical",
+    "weapon-biological",
+    "weapon-radioactive",
+    "weapon-other",
+]
+
+
+class TestAlertCoverage:
+    """GAP-21: Verify 100% coverage of ALERT's 32 micro categories."""
+
+    @pytest.fixture
+    def library(self) -> AttackLibrary:
+        return AttackLibrary()
+
+    def test_alert_has_32_micro_categories(self) -> None:
+        assert len(ALERT_MICRO_CATEGORIES) == 32
+
+    @pytest.mark.parametrize("micro", ALERT_MICRO_CATEGORIES)
+    def test_alert_micro_category_has_vector(self, library: AttackLibrary, micro: str) -> None:
+        """Each ALERT micro category must have at least one vector tagged alert:<micro>."""
+        tag = f"alert:{micro}"
+        vectors = library.get_attacks_by_tag(tag)
+        assert len(vectors) >= 1, f"ALERT micro category '{micro}' has no vectors with tag '{tag}'"
+
+    def test_all_alert_vectors_have_harm_category(self, library: AttackLibrary) -> None:
+        """All vectors with alert_coverage tag must have a harm_category."""
+        alert_vectors = library.get_attacks_by_tag("alert_coverage")
+        for v in alert_vectors:
+            assert v.harm_category is not None, f"ALERT vector {v.id} missing harm_category"
