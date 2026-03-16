@@ -74,7 +74,7 @@ GAPS = [
         "title": "Business impact categorization",
         "priority": "important",
         "issue": "#38",
-        "status": "closed",
+        "status": "open",
         "benchmarks": ["Agent-SafetyBench"],
         "effort": "small",
     },
@@ -191,7 +191,7 @@ GAPS = [
         "title": "R-Judge coverage",
         "priority": "lower",
         "issue": "#59",
-        "status": "open",
+        "status": "closed",
         "benchmarks": ["R-Judge"],
         "effort": "medium",
     },
@@ -212,6 +212,15 @@ GAPS = [
         "status": "open",
         "benchmarks": ["MITRE ATLAS"],
         "effort": "medium",
+    },
+    {
+        "id": "GAP-23",
+        "title": "AgentHarm multi-step vector scale",
+        "priority": "important",
+        "issue": "#131",
+        "status": "open",
+        "benchmarks": ["AgentHarm"],
+        "effort": "large",
     },
 ]
 
