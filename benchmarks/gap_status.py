@@ -146,7 +146,7 @@ GAPS = [
         "title": "JailbreakBench coverage",
         "priority": "lower",
         "issue": "#54",
-        "status": "open",
+        "status": "closed",
         "benchmarks": ["JailbreakBench"],
         "effort": "medium",
     },
