@@ -236,33 +236,54 @@ class AttackKnowledgeGraph:
         except nx.NetworkXNoPath:
             return []
 
-    def find_all_attack_paths(self, max_path_length: int = 5) -> list[list[str]]:
+    def find_all_attack_paths(
+        self,
+        max_path_length: int = 5,
+        max_paths: int = 10_000,
+    ) -> list[list[str]]:
         """Find all attack paths from capabilities to vulnerabilities/data sources.
 
-        Searches for paths from every capability/tool node to every
-        vulnerability/data_source node.
+        Uses single-source path enumeration per source node so that each
+        source's reachable targets are discovered in one traversal instead
+        of the previous O(S*T) nested loop.
 
         Args:
             max_path_length: Maximum number of hops in a path.
+            max_paths: Cap on total paths returned to bound memory usage.
 
         Returns:
-            All discovered attack paths.
+            All discovered attack paths (up to *max_paths*).
         """
         sources = [
             n
             for n, d in self.graph.nodes(data=True)
             if d.get("node_type") in (NodeType.CAPABILITY, NodeType.TOOL)
         ]
-        targets = [
+        target_set = frozenset(
             n
             for n, d in self.graph.nodes(data=True)
             if d.get("node_type") in (NodeType.VULNERABILITY, NodeType.DATA_SOURCE)
-        ]
+        )
+
+        if not sources or not target_set:
+            return []
 
         all_paths: list[list[str]] = []
         for source in sources:
-            for target in targets:
-                all_paths.extend(self.find_attack_paths(source, target, max_path_length))
+            if source not in self.graph:
+                continue
+            try:
+                for path in nx.all_simple_paths(
+                    self.graph,
+                    source,
+                    target_set,
+                    cutoff=max_path_length,
+                ):
+                    all_paths.append(path)
+                    if len(all_paths) >= max_paths:
+                        return all_paths
+            except (nx.NetworkXError, nx.NodeNotFound):
+                continue
 
         return all_paths
 
