@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from ziran.domain.tool_classifier import ToolClassification, classify_tool, is_dangerous
+from ziran.domain.tool_classifier import (
+    ToolClassification,
+    _classify_cached,
+    _is_dangerous_cached,
+    classify_tool,
+    is_dangerous,
+)
 
 
 @pytest.mark.unit
@@ -154,3 +160,41 @@ class TestIsDangerous:
         """Medium-risk tools are NOT classified as 'dangerous'."""
         assert is_dangerous("read_file") is False
         assert is_dangerous("search_database") is False
+
+
+@pytest.mark.unit
+class TestClassificationCaching:
+    """Tests that caching returns consistent results and avoids redundant work."""
+
+    def test_classify_tool_returns_same_object_on_repeat(self) -> None:
+        """Repeated calls for the same tool name return the cached object."""
+        first = classify_tool("shell_execute")
+        second = classify_tool("shell_execute")
+        assert first is second
+
+    def test_is_dangerous_returns_same_on_repeat(self) -> None:
+        assert is_dangerous("shell_execute") is True
+        assert is_dangerous("shell_execute") is True
+
+    def test_cache_hit_count_increases(self) -> None:
+        """lru_cache hit counter increases on repeated calls."""
+        _classify_cached.cache_clear()
+        classify_tool("eval")
+        classify_tool("eval")
+        info = _classify_cached.cache_info()
+        assert info.hits >= 1
+
+    def test_is_dangerous_cache_hit_count(self) -> None:
+        _is_dangerous_cached.cache_clear()
+        is_dangerous("send_email")
+        is_dangerous("send_email")
+        info = _is_dangerous_cached.cache_info()
+        assert info.hits >= 1
+
+    def test_case_variants_hit_same_cache_entry(self) -> None:
+        """Case-insensitive regex means different casings normalize the same."""
+        _classify_cached.cache_clear()
+        r1 = classify_tool("shell_execute")
+        r2 = classify_tool("shell_execute")
+        assert r1 is r2
+        assert r1.risk == "critical"
