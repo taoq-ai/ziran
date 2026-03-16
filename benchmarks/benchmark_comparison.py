@@ -134,6 +134,18 @@ BENCHMARKS = [
         "gap_issue": "#54",
         "coverage_fn": lambda lib: [
             {
+                "dimension": "JBB categories (10)",
+                "target": 10,
+                "implemented": len(
+                    {
+                        t.split("jbb:", 1)[1]
+                        for v in lib.vectors
+                        for t in v.tags
+                        if t.startswith("jbb:")
+                    }
+                ),
+            },
+            {
                 "dimension": "Prompt injection vectors",
                 "target": 100,
                 "implemented": _count_vectors_by_category(lib, "prompt_injection"),
@@ -328,9 +340,21 @@ BENCHMARKS = [
         "key_dimensions": ["569 interaction records", "risk scoring"],
         "gap_id": "GAP-20",
         "gap_issue": "#59",
-        "coverage_fn": lambda _lib: [
+        "coverage_fn": lambda lib: [
             {
-                "dimension": "Risk scoring pipeline",
+                "dimension": "R-Judge risk types (10)",
+                "target": 10,
+                "implemented": len(
+                    {
+                        t.split("rjudge:", 1)[1]
+                        for v in lib.vectors
+                        for t in v.tags
+                        if t.startswith("rjudge:")
+                    }
+                ),
+            },
+            {
+                "dimension": "Risk scoring detectors",
                 "target": None,
                 "implemented": 5,
                 "note": "5 detectors — different approach than interaction records",

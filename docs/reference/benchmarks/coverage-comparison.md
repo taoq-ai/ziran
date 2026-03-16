@@ -6,24 +6,24 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 
 ## Executive Summary
 
-- **339** attack vectors across **11** attack categories
+- **354** attack vectors across **11** attack categories
 - **80.0%** OWASP LLM Top 10 coverage (8/10 categories)
 - **10** multi-turn jailbreak tactics, **12** encoding types
-- **60** multi-turn vectors
+- **99** multi-turn vectors
 - **11** harm categories (AgentHarm-aligned)
-- Gap closure: **22.7%** (5/22 gaps closed)
+- Gap closure: **31.8%** (7/22 gaps closed)
 
 ## OWASP LLM Top 10 Coverage
 
 | Code | Category | Vectors | Status |
 |------|----------|---------|--------|
-| **LLM01** | Prompt Injection | 223 | :white_check_mark: Comprehensive |
-| **LLM02** | Insecure Output Handling | 53 | :white_check_mark: Comprehensive |
+| **LLM01** | Prompt Injection | 238 | :white_check_mark: Comprehensive |
+| **LLM02** | Insecure Output Handling | 72 | :white_check_mark: Comprehensive |
 | **LLM03** | Training Data Poisoning | 15 | :white_check_mark: Strong |
 | **LLM04** | Model Denial of Service | 12 | :white_check_mark: Strong |
 | **LLM05** | Supply Chain Vulnerabilities | — | :construction: Planned |
-| **LLM06** | Sensitive Information Disclosure | 74 | :white_check_mark: Comprehensive |
-| **LLM07** | Insecure Plugin Design | 47 | :white_check_mark: Comprehensive |
+| **LLM06** | Sensitive Information Disclosure | 86 | :white_check_mark: Comprehensive |
+| **LLM07** | Insecure Plugin Design | 55 | :white_check_mark: Comprehensive |
 | **LLM08** | Excessive Agency | 79 | :white_check_mark: Comprehensive |
 | **LLM09** | Overreliance | 15 | :white_check_mark: Strong |
 | **LLM10** | Unbounded Consumption | — | :construction: Planned |
@@ -35,26 +35,29 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 | Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |
 |-----------|-------|-----------|-------:|------:|----------|--------|-----|
 | **AgentHarm** | ICLR 2025 | Harm categories | 11 | 11 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-06](#37) |
-|  |  | Multi-step vectors | 440 | 22 | `█░░░░░░░░░░░░░░` 5.0% |  |  |
+|  |  | Multi-step vectors | 440 | 41 | `█░░░░░░░░░░░░░░` 9.3% |  |  |
 | **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 50 | `█░░░░░░░░░░░░░░` 4.7% | :construction: open | [GAP-02](#33) |
 | **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 50 | `█░░░░░░░░░░░░░░` 7.9% | :construction: open | [GAP-02](#33) |
 | **HarmBench** | ICML 2024 | Attack tactics | 18 | 10 | `████████░░░░░░░` 55.6% | :white_check_mark: closed | [GAP-08](#39) |
-|  |  | Jailbreak vectors | 510 | 110 | `███░░░░░░░░░░░░` 21.6% |  |  |
-| **JailbreakBench** | NeurIPS 2024 | Prompt injection vectors | 100 | 110 | `███████████████` 100% | :white_check_mark: closed | [GAP-15](#54) |
+|  |  | Jailbreak vectors | 510 | 105 | `███░░░░░░░░░░░░` 20.6% |  |  |
+| **JailbreakBench** | NeurIPS 2024 | JBB categories (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-15](#54) |
+|  |  | Prompt injection vectors | 100 | 105 | `███████████████` 100% |  |  |
 | **StrongREJECT** | 2024 | Quality-aware scoring | — | 0 | _Binary detection only — no composite scoring yet_ | :construction: open | [GAP-04](#35) |
 | **MCPTox** | 2025 | MCP vectors | 1,312 | 10 | `░░░░░░░░░░░░░░░` 0.8% | :construction: open | [GAP-03](#34) |
 | **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 11 | `███████████████` 100% | :construction: open | [GAP-01](#32) |
-|  |  | Total vectors | 400 | 339 | `█████████████░░` 84.8% |  |  |
-| **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 110 | `░░░░░░░░░░░░░░░` 0.1% | :construction: open | [GAP-16](#55) |
+|  |  | Total vectors | 400 | 354 | `█████████████░░` 88.5% |  |  |
+| **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 105 | `░░░░░░░░░░░░░░░` 0.1% | :construction: open | [GAP-16](#55) |
 | **WildJailbreak** | 2024 | Jailbreak tactics | 105,000 | 11 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-17](#56) |
 | **LLMail-Inject** | 2024 | RAG injection vectors | — | 0 | _Not yet implemented_ | :construction: open | [GAP-13](#44) |
 | **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :white_check_mark: closed | [GAP-07](#38) |
 | **BIPIA** | 2024 | Indirect injection vectors | — | 50 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](#33) |
-| **CyberSecEval** | Meta, 2024 | Total vectors | — | 339 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](#57) |
-| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 33 | `███░░░░░░░░░░░░` 22.9% | :construction: open | [GAP-19](#58) |
-| **R-Judge** | 2024 | Risk scoring pipeline | — | 5 | _5 detectors — different approach than interaction records_ | :construction: open | [GAP-20](#59) |
+| **CyberSecEval** | Meta, 2024 | Total vectors | — | 354 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](#57) |
+| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 53 | `██████░░░░░░░░░` 36.8% | :construction: open | [GAP-19](#58) |
+| **R-Judge** | 2024 | R-Judge risk types (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-20](#59) |
+|  |  | Risk scoring detectors | — | 5 | _5 detectors — different approach than interaction records_ |  |  |
 | **AILuminate** | MLCommons, 2025 | Resilience gap metric | — | 0 | _Not yet implemented_ | :construction: open | [GAP-09](#40) |
-| **ALERT** | 2024 | Harm categories | — | 11 | _Fine-grained taxonomy — not directly comparable_ | :construction: open | [GAP-21](#60) |
+| **ALERT** | 2024 | ALERT micro categories (32) | 32 | 32 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-21](#60) |
+|  |  | Harm categories | — | 11 | _N/A_ |  |  |
 | **MITRE ATLAS** | MITRE, 2025 | Attack categories vs tactics | 15 | 11 | `███████████░░░░` 73.3% | :construction: open | [GAP-22](#61) |
 |  |  | ATLAS technique mapping | — | 0 | _No atlas_mapping field yet — mapping planned_ |  |  |
 
@@ -83,8 +86,8 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | GAP-17 | WildJailbreak coverage | lower | [#56](https://github.com/taoq-ai/ziran/issues/56) | :construction: open |
 | GAP-18 | CyberSecEval coverage | lower | [#57](https://github.com/taoq-ai/ziran/issues/57) | :construction: open |
 | GAP-19 | ToolEmu coverage | lower | [#58](https://github.com/taoq-ai/ziran/issues/58) | :construction: open |
-| GAP-20 | R-Judge coverage | lower | [#59](https://github.com/taoq-ai/ziran/issues/59) | :construction: open |
-| GAP-21 | ALERT coverage | lower | [#60](https://github.com/taoq-ai/ziran/issues/60) | :construction: open |
+| GAP-20 | R-Judge coverage | lower | [#59](https://github.com/taoq-ai/ziran/issues/59) | :white_check_mark: closed |
+| GAP-21 | ALERT coverage | lower | [#60](https://github.com/taoq-ai/ziran/issues/60) | :white_check_mark: closed |
 | GAP-22 | MITRE ATLAS technique mapping | important | [#61](https://github.com/taoq-ai/ziran/issues/61) | :construction: open |
 
 ## Vector Inventory
@@ -93,9 +96,9 @@ See [Gap Analysis](gap-analysis.md) for full details.
 
 | Category | Vectors |
 |----------|---------|
-| prompt_injection | 110 |
+| prompt_injection | 105 |
+| tool_manipulation | 53 |
 | indirect_injection | 50 |
-| tool_manipulation | 33 |
 | privilege_escalation | 25 |
 | system_prompt_extraction | 25 |
 | data_exfiltration | 24 |
@@ -109,9 +112,9 @@ See [Gap Analysis](gap-analysis.md) for full details.
 
 | Tactic | Vectors |
 |--------|---------|
-| single | 279 |
-| context_buildup | 18 |
-| crescendo | 17 |
+| single | 255 |
+| context_buildup | 49 |
+| crescendo | 25 |
 | persona_shift | 4 |
 | code_mode | 3 |
 | distraction | 3 |
@@ -125,10 +128,9 @@ See [Gap Analysis](gap-analysis.md) for full details.
 
 | Severity | Vectors |
 |----------|---------|
-| critical | 121 |
-| high | 150 |
-| low | 1 |
-| medium | 67 |
+| critical | 190 |
+| high | 124 |
+| medium | 40 |
 
 ### By Harm Category
 
@@ -137,14 +139,14 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | child_exploitation | 2 |
 | cybercrime | 2 |
 | disinformation | 2 |
-| fraud | 2 |
-| harassment | 2 |
+| fraud | 3 |
+| harassment | 10 |
 | illegal_services | 2 |
-| self_harm | 2 |
-| sexual_content | 2 |
-| substance_abuse | 2 |
-| terrorism | 2 |
-| weapons | 2 |
+| self_harm | 3 |
+| sexual_content | 3 |
+| substance_abuse | 6 |
+| terrorism | 3 |
+| weapons | 5 |
 
 ---
 

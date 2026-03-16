@@ -191,7 +191,7 @@ GAPS = [
         "title": "R-Judge coverage",
         "priority": "lower",
         "issue": "#59",
-        "status": "open",
+        "status": "closed",
         "benchmarks": ["R-Judge"],
         "effort": "medium",
     },
