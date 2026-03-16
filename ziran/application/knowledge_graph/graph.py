@@ -346,8 +346,8 @@ class AttackKnowledgeGraph:
         for i, node_data in enumerate(state.get("nodes", [])):
             if "id" not in node_data:
                 raise ValueError(f"Node at index {i} is missing required key 'id'")
-            node_id = node_data.pop("id")
-            self.graph.add_node(node_id, **node_data)
+            node_attrs = {k: v for k, v in node_data.items() if k != "id"}
+            self.graph.add_node(node_data["id"], **node_attrs)
 
         for i, edge_data in enumerate(state.get("edges", [])):
             missing = [k for k in ("source", "target") if k not in edge_data]
@@ -355,9 +355,8 @@ class AttackKnowledgeGraph:
                 raise ValueError(
                     f"Edge at index {i} is missing required key(s): {', '.join(missing)}"
                 )
-            source = edge_data.pop("source")
-            target = edge_data.pop("target")
-            self.graph.add_edge(source, target, **edge_data)
+            edge_attrs = {k: v for k, v in edge_data.items() if k not in ("source", "target")}
+            self.graph.add_edge(edge_data["source"], edge_data["target"], **edge_attrs)
 
     def _count_node_types(self) -> dict[str, int]:
         """Count nodes grouped by type."""
