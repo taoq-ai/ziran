@@ -859,10 +859,12 @@ class AgentScanner:
         encoding_used: str | None = None
 
         # Build list of (prompt_text, encoding_label) pairs to attempt.
-        # Original prompts first, then encoded variants if configured.
+        # Render each prompt once and reuse for encoded variants.
         prompt_attempts: list[tuple[str, str | None, AttackPrompt]] = []
+        rendered_cache: dict[int, str] = {}
         for prompt_spec in attack.prompts:
             rendered = self._render_prompt(prompt_spec)
+            rendered_cache[id(prompt_spec)] = rendered
             prompt_attempts.append((rendered, None, prompt_spec))
 
         encoding_config: list[str] | None = getattr(self, "_encoding", None)
@@ -871,7 +873,7 @@ class AgentScanner:
 
             enc_types = [EncodingType(e) for e in encoding_config]
             for prompt_spec in attack.prompts:
-                rendered = self._render_prompt(prompt_spec)
+                rendered = rendered_cache[id(prompt_spec)]
                 for enc_type in enc_types:
                     encoder = PromptEncoder([enc_type])
                     enc_result = encoder.encode(rendered)
