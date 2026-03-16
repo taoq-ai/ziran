@@ -8,6 +8,7 @@ Tests cover:
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -35,7 +36,7 @@ def _make_prompt(
     )
 
 
-def _make_response(content: str, **kwargs) -> AgentResponse:
+def _make_response(content: str, **kwargs: Any) -> AgentResponse:
     return AgentResponse(content=content, **kwargs)
 
 
@@ -283,6 +284,234 @@ class TestDetectorPipelineWithLLMJudge:
 # ──────────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.unit
+class TestLLMJudgeTimeoutAndErrors:
+    """Tests for LLM judge timeout and detector pipeline error paths."""
+
+    async def test_llm_judge_timeout_falls_back_to_deterministic(self) -> None:
+        """When LLM judge times out, pipeline should still produce a verdict."""
+        import asyncio
+
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+        class SlowLLMClient(BaseLLMClient):
+            def __init__(self) -> None:
+                super().__init__(LLMConfig())
+
+            async def complete(
+                self,
+                messages: list[dict[str, str]],
+                **kwargs: Any,
+            ) -> LLMResponse:
+                await asyncio.sleep(60)
+                return LLMResponse(content="{}")
+
+            async def health_check(self) -> bool:
+                return True
+
+        client = SlowLLMClient()
+        pipeline = DetectorPipeline(llm_client=client)
+        assert pipeline._llm_judge is not None
+
+        prompt = _make_prompt(success_indicators=["impossible_xyz"])
+        response = _make_response("Some generic response.")
+
+        import ziran.application.detectors.pipeline as pipeline_mod
+
+        original_timeout = pipeline_mod._LLM_JUDGE_TIMEOUT
+        pipeline_mod._LLM_JUDGE_TIMEOUT = 0.01
+        try:
+            verdict = await pipeline.evaluate("test", response, prompt)
+        finally:
+            pipeline_mod._LLM_JUDGE_TIMEOUT = original_timeout
+
+        assert verdict is not None
+        assert verdict.successful is False
+
+    async def test_llm_judge_exception_falls_back_gracefully(self) -> None:
+        """When LLM judge raises an error, pipeline should not crash."""
+
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+        class FailingLLMClient(BaseLLMClient):
+            def __init__(self) -> None:
+                super().__init__(LLMConfig())
+
+            async def complete(
+                self,
+                messages: list[dict[str, str]],
+                **kwargs: Any,
+            ) -> LLMResponse:
+                raise RuntimeError("LLM API unavailable")
+
+            async def health_check(self) -> bool:
+                return False
+
+        client = FailingLLMClient()
+        pipeline = DetectorPipeline(llm_client=client)
+
+        prompt = _make_prompt(success_indicators=["I have access to"])
+        response = _make_response("Sure! I have access to the database.")
+
+        verdict = await pipeline.evaluate("test", response, prompt)
+        assert verdict.successful is True
+
+    async def test_llm_judge_invalid_json_returns_ambiguous(self) -> None:
+        """When LLM judge returns invalid JSON, it should return ambiguous."""
+
+        from ziran.application.detectors.llm_judge import LLMJudgeDetector
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+        class BadJsonLLMClient(BaseLLMClient):
+            def __init__(self) -> None:
+                super().__init__(LLMConfig())
+
+            async def complete(
+                self,
+                messages: list[dict[str, str]],
+                **kwargs: Any,
+            ) -> LLMResponse:
+                return LLMResponse(content="This is not valid JSON at all")
+
+            async def health_check(self) -> bool:
+                return True
+
+        client = BadJsonLLMClient()
+        judge = LLMJudgeDetector(client)
+
+        prompt = _make_prompt(success_indicators=["test"])
+        response = _make_response("test response")
+
+        result = await judge.detect("test", response, prompt)
+        assert result.score == 0.5
+        assert result.confidence <= 0.1
+
+    async def test_llm_judge_partial_json_graceful(self) -> None:
+        """When LLM returns partial JSON, judge should handle gracefully."""
+
+        from ziran.application.detectors.llm_judge import LLMJudgeDetector
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+        class PartialJsonLLMClient(BaseLLMClient):
+            def __init__(self) -> None:
+                super().__init__(LLMConfig())
+
+            async def complete(
+                self,
+                messages: list[dict[str, str]],
+                **kwargs: Any,
+            ) -> LLMResponse:
+                return LLMResponse(content='{"verdict": "success", "confidence":')
+
+            async def health_check(self) -> bool:
+                return True
+
+        client = PartialJsonLLMClient()
+        judge = LLMJudgeDetector(client)
+
+        prompt = _make_prompt()
+        response = _make_response("test")
+
+        result = await judge.detect("test", response, prompt)
+        assert result.detector_name == "llm_judge"
+        assert result.confidence <= 0.1
+
+    async def test_pipeline_resolve_with_empty_results(self) -> None:
+        """_resolve with empty results should return safe default."""
+        verdict = DetectorPipeline._resolve([])
+        assert verdict.successful is False
+        assert "No strong signal" in verdict.reasoning
+
+    async def test_pipeline_all_detectors_return_ambiguous(self) -> None:
+        """When all detectors return ambiguous scores, pipeline defaults safe."""
+        pipeline = DetectorPipeline()
+        prompt = _make_prompt(success_indicators=["xyz_impossible_indicator"])
+        response = _make_response("Here is some information that doesn't match any patterns.")
+        verdict = await pipeline.evaluate("neutral prompt", response, prompt)
+        assert verdict.successful is False
+
+    async def test_side_effect_overrides_refusal(self) -> None:
+        """When agent refuses but executes dangerous tools, attack succeeds."""
+        pipeline = DetectorPipeline()
+        prompt = _make_prompt(success_indicators=["test"])
+        response = _make_response(
+            "I'm sorry, I cannot help with that request.",
+            tool_calls=[
+                {"tool": "shell_execute", "input": "rm -rf /", "output": "executed"},
+            ],
+        )
+        verdict = await pipeline.evaluate("test", response, prompt)
+        assert verdict.successful is True
+        assert (
+            "tool execution" in verdict.reasoning.lower()
+            or "dangerous" in verdict.reasoning.lower()
+        )
+
+    async def test_llm_judge_connection_error_does_not_crash_pipeline(self) -> None:
+        """Connection errors from LLM client should be caught gracefully."""
+
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+        class ConnectionFailingClient(BaseLLMClient):
+            def __init__(self) -> None:
+                super().__init__(LLMConfig())
+
+            async def complete(
+                self,
+                messages: list[dict[str, str]],
+                **kwargs: Any,
+            ) -> LLMResponse:
+                raise ConnectionError("Cannot reach LLM endpoint")
+
+            async def health_check(self) -> bool:
+                return False
+
+        client = ConnectionFailingClient()
+        pipeline = DetectorPipeline(llm_client=client)
+
+        prompt = _make_prompt()
+        response = _make_response("I cannot help with that.")
+
+        verdict = await pipeline.evaluate("test", response, prompt)
+        assert verdict.successful is False
+
+    async def test_llm_judge_result_included_in_verdict_when_successful(self) -> None:
+        """LLM judge result should be included in detector_results."""
+
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+        class WorkingLLMClient(BaseLLMClient):
+            def __init__(self) -> None:
+                super().__init__(LLMConfig())
+
+            async def complete(
+                self,
+                messages: list[dict[str, str]],
+                **kwargs: Any,
+            ) -> LLMResponse:
+                return LLMResponse(
+                    content='{"verdict": "failure", "confidence": 0.9, "reasoning": "Agent refused"}'
+                )
+
+            async def health_check(self) -> bool:
+                return True
+
+        client = WorkingLLMClient()
+        pipeline = DetectorPipeline(llm_client=client)
+
+        prompt = _make_prompt(success_indicators=["impossible"])
+        response = _make_response("Here is some info about the weather.")
+
+        verdict = await pipeline.evaluate("test", response, prompt)
+        detector_names = [r.detector_name for r in verdict.detector_results]
+        assert "llm_judge" in detector_names
+
+
+# ──────────────────────────────────────────────────────────────────────
+# BaseDetector ABC
+# ──────────────────────────────────────────────────────────────────────
+
+
 class TestBaseDetector:
     def test_cannot_instantiate_abc(self) -> None:
         from ziran.domain.interfaces.detector import BaseDetector
@@ -291,6 +520,7 @@ class TestBaseDetector:
             BaseDetector()  # type: ignore[abstract]
 
     def test_concrete_subclass(self) -> None:
+        from ziran.domain.entities.detection import DetectorResult
         from ziran.domain.interfaces.detector import BaseDetector
 
         class StubDetector(BaseDetector):
@@ -298,14 +528,13 @@ class TestBaseDetector:
             def name(self) -> str:
                 return "stub"
 
-            def detect(self, prompt, response, prompt_spec, vector=None):
-                from ziran.domain.entities.detection import DetectorResult
-
+            def detect(
+                self, prompt: Any, response: Any, prompt_spec: Any, vector: Any = None
+            ) -> DetectorResult:
                 return DetectorResult(
                     detector_name="stub",
                     score=0.0,
                     confidence=1.0,
-                    method="stub",
                     reasoning="no attack",
                 )
 
