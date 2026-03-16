@@ -148,7 +148,8 @@ class TestDirectChains:
 
     def test_direct_chain_found(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
-        chains = analyzer._find_direct_chains()
+        tool_nodes = analyzer._get_tool_nodes()
+        chains = analyzer._find_direct_chains(tool_nodes, {})
 
         assert len(chains) >= 1
         assert chains[0].chain_type == "direct"
@@ -162,7 +163,8 @@ class TestDirectChains:
         g.add_edge("harmless_tool_a", "harmless_tool_b", edge_type=EdgeType.CAN_CHAIN_TO)
 
         analyzer = ToolChainAnalyzer(g)
-        chains = analyzer._find_direct_chains()
+        tool_nodes = analyzer._get_tool_nodes()
+        chains = analyzer._find_direct_chains(tool_nodes, {})
         assert chains == []
 
     def test_substring_matching(self) -> None:
@@ -173,7 +175,8 @@ class TestDirectChains:
         g.add_edge("tool_read_file", "tool_http_request", edge_type=EdgeType.CAN_CHAIN_TO)
 
         analyzer = ToolChainAnalyzer(g)
-        chains = analyzer._find_direct_chains()
+        tool_nodes = analyzer._get_tool_nodes()
+        chains = analyzer._find_direct_chains(tool_nodes, {})
         assert len(chains) >= 1
         assert chains[0].vulnerability_type == "data_exfiltration"
 
@@ -186,7 +189,8 @@ class TestIndirectChains:
 
     def test_indirect_chain_found(self, indirect_chain_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(indirect_chain_graph)
-        chains = analyzer._find_indirect_chains(max_hops=3)
+        tool_nodes = analyzer._get_tool_nodes()
+        chains = analyzer._find_indirect_chains(tool_nodes, {}, max_hops=3)
 
         assert len(chains) >= 1
         assert chains[0].chain_type == "indirect"
@@ -195,7 +199,8 @@ class TestIndirectChains:
     def test_no_indirect_if_direct_exists(self, simple_graph: AttackKnowledgeGraph) -> None:
         """If there's a direct edge, indirect detection should skip it."""
         analyzer = ToolChainAnalyzer(simple_graph)
-        chains = analyzer._find_indirect_chains(max_hops=3)
+        tool_nodes = analyzer._get_tool_nodes()
+        chains = analyzer._find_indirect_chains(tool_nodes, {}, max_hops=3)
         # Direct edge exists, so indirect should not duplicate
         assert chains == []
 
@@ -208,7 +213,8 @@ class TestChainCycles:
 
     def test_cycle_detected(self, cycle_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(cycle_graph)
-        chains = analyzer._find_chain_cycles()
+        tool_nodes = analyzer._get_tool_nodes()
+        chains = analyzer._find_chain_cycles(tool_nodes, {})
 
         assert len(chains) >= 1
         cycle_chains = [c for c in chains if c.chain_type == "cycle"]
@@ -216,7 +222,8 @@ class TestChainCycles:
 
     def test_no_cycles_in_acyclic_graph(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
-        chains = analyzer._find_chain_cycles()
+        tool_nodes = analyzer._get_tool_nodes()
+        chains = analyzer._find_chain_cycles(tool_nodes, {})
         assert chains == []
 
 
@@ -235,7 +242,10 @@ class TestRiskScoring:
             exploit_description="test",
             chain_type="direct",
         )
-        score = analyzer._calculate_risk_score(chain)
+        import networkx as nx
+
+        centrality = nx.betweenness_centrality(simple_graph.graph)
+        score = analyzer._calculate_risk_score(chain, centrality)
         assert score >= 0.9
 
     def test_low_chain_scores_low(self, simple_graph: AttackKnowledgeGraph) -> None:
@@ -247,7 +257,7 @@ class TestRiskScoring:
             exploit_description="test",
             chain_type="indirect",
         )
-        score = analyzer._calculate_risk_score(chain)
+        score = analyzer._calculate_risk_score(chain, {})
         assert score <= 0.5
 
     def test_score_between_zero_and_one(self, complex_graph: AttackKnowledgeGraph) -> None:
@@ -272,7 +282,9 @@ class TestRiskScoring:
             exploit_description="test",
             chain_type="indirect",
         )
-        assert analyzer._calculate_risk_score(direct) >= analyzer._calculate_risk_score(indirect)
+        assert analyzer._calculate_risk_score(direct, {}) >= analyzer._calculate_risk_score(
+            indirect, {}
+        )
 
     def test_centrality_computed_once_during_analyze(
         self, complex_graph: AttackKnowledgeGraph
@@ -296,23 +308,23 @@ class TestPatternMatching:
 
     def test_exact_match(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
-        result = analyzer._match_pattern("read_file", "http_request")
+        result = analyzer._match_pattern("read_file", "http_request", {})
         assert result is not None
         assert result["type"] == "data_exfiltration"
 
     def test_prefix_match(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
-        result = analyzer._match_pattern("tool_read_file", "tool_http_request")
+        result = analyzer._match_pattern("tool_read_file", "tool_http_request", {})
         assert result is not None
 
     def test_case_insensitive(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
-        result = analyzer._match_pattern("Read_File", "HTTP_REQUEST")
+        result = analyzer._match_pattern("Read_File", "HTTP_REQUEST", {})
         assert result is not None
 
     def test_no_match(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
-        result = analyzer._match_pattern("harmless_a", "harmless_b")
+        result = analyzer._match_pattern("harmless_a", "harmless_b", {})
         assert result is None
 
 
