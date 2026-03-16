@@ -352,6 +352,11 @@ def scan(
         f"[dim]Loaded {attack_library.vector_count} attack vectors "
         f"across {len(attack_library.categories)} categories[/dim]"
     )
+    if attack_library.load_error_count > 0:
+        console.print(
+            f"[yellow]\u26a0 {attack_library.load_error_count} vectors failed to "
+            f"parse \u2014 use --verbose to see errors[/yellow]"
+        )
     console.print()
 
     # Parse phases

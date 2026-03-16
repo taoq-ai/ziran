@@ -179,3 +179,49 @@ vectors:
             assert "mcp" in v.protocol_filter, (
                 f"MCP vector '{v.id}' missing protocol_filter=['mcp']"
             )
+
+
+class TestLoadErrorTracking:
+    """Tests for load error tracking (#126)."""
+
+    def test_load_errors_empty_for_valid_files(self) -> None:
+        """Built-in library should have zero load errors."""
+        lib = AttackLibrary()
+        assert lib.load_error_count == 0
+        assert lib.load_errors == []
+
+    def test_load_errors_tracked_for_invalid_vector(self, tmp_path: Path) -> None:
+        """One valid + one invalid vector → error count 1, vector count 1."""
+        yaml_content = """
+vectors:
+  - id: good_vector
+    name: Good Vector
+    category: prompt_injection
+    target_phase: reconnaissance
+    severity: low
+    description: Valid vector
+    prompts:
+      - template: "Test"
+        success_indicators: ["ok"]
+  - id: bad_vector
+    name: Bad Vector
+    category: INVALID_CATEGORY
+    target_phase: reconnaissance
+    severity: low
+    description: Invalid category
+    prompts:
+      - template: "Test"
+        success_indicators: ["ok"]
+"""
+        (tmp_path / "mixed.yaml").write_text(yaml_content)
+        lib = AttackLibrary(custom_dirs=[tmp_path], load_builtin=False)
+        assert lib.vector_count == 1
+        assert lib.load_error_count == 1
+        assert lib.load_errors[0][0] == "bad_vector"
+
+    def test_load_errors_for_bad_yaml_file(self, tmp_path: Path) -> None:
+        """Malformed YAML should be tracked as a load error."""
+        (tmp_path / "broken.yaml").write_text("{{invalid yaml: [")
+        lib = AttackLibrary(custom_dirs=[tmp_path], load_builtin=False)
+        assert lib.vector_count == 0
+        assert lib.load_error_count == 1
