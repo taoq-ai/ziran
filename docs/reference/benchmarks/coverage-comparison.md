@@ -11,7 +11,7 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 - **10** multi-turn jailbreak tactics, **12** encoding types
 - **99** multi-turn vectors
 - **11** harm categories (AgentHarm-aligned)
-- Gap closure: **31.8%** (7/22 gaps closed)
+- Gap closure: **26.1%** (6/23 gaps closed)
 
 ## OWASP LLM Top 10 Coverage
 
@@ -35,7 +35,7 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 | Benchmark | Venue | Dimension | Target | ZIRAN | Progress | Status | Gap |
 |-----------|-------|-----------|-------:|------:|----------|--------|-----|
 | **AgentHarm** | ICLR 2025 | Harm categories | 11 | 11 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-06](#37) |
-|  |  | Multi-step vectors | 440 | 41 | `█░░░░░░░░░░░░░░` 9.3% |  |  |
+| **AgentHarm** | ICLR 2025 | Multi-step vectors | 440 | 41 | `█░░░░░░░░░░░░░░` 9.3% | :construction: open | [GAP-23](#131) |
 | **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 50 | `█░░░░░░░░░░░░░░` 4.7% | :construction: open | [GAP-02](#33) |
 | **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 50 | `█░░░░░░░░░░░░░░` 7.9% | :construction: open | [GAP-02](#33) |
 | **HarmBench** | ICML 2024 | Attack tactics | 18 | 10 | `████████░░░░░░░` 55.6% | :white_check_mark: closed | [GAP-08](#39) |
@@ -49,7 +49,7 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 | **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 105 | `░░░░░░░░░░░░░░░` 0.1% | :construction: open | [GAP-16](#55) |
 | **WildJailbreak** | 2024 | Jailbreak tactics | 105,000 | 11 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-17](#56) |
 | **LLMail-Inject** | 2024 | RAG injection vectors | — | 0 | _Not yet implemented_ | :construction: open | [GAP-13](#44) |
-| **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :white_check_mark: closed | [GAP-07](#38) |
+| **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :construction: open | [GAP-07](#38) |
 | **BIPIA** | 2024 | Indirect injection vectors | — | 50 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](#33) |
 | **CyberSecEval** | Meta, 2024 | Total vectors | — | 354 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](#57) |
 | **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 53 | `██████░░░░░░░░░` 36.8% | :construction: open | [GAP-19](#58) |
@@ -73,7 +73,7 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | GAP-04 | Quality-aware jailbreak scoring | critical | [#35](https://github.com/taoq-ai/ziran/issues/35) | :construction: open |
 | GAP-05 | Utility-under-attack measurement | important | [#36](https://github.com/taoq-ai/ziran/issues/36) | :construction: open |
 | GAP-06 | Harmful multi-step task testing | important | [#37](https://github.com/taoq-ai/ziran/issues/37) | :white_check_mark: closed |
-| GAP-07 | Business impact categorization | important | [#38](https://github.com/taoq-ai/ziran/issues/38) | :white_check_mark: closed |
+| GAP-07 | Business impact categorization | important | [#38](https://github.com/taoq-ai/ziran/issues/38) | :construction: open |
 | GAP-08 | Jailbreak tactic breadth | important | [#39](https://github.com/taoq-ai/ziran/issues/39) | :white_check_mark: closed |
 | GAP-09 | Resilience gap metric | important | [#40](https://github.com/taoq-ai/ziran/issues/40) | :construction: open |
 | GAP-10 | OWASP LLM04 (Model DoS) | lower | [#41](https://github.com/taoq-ai/ziran/issues/41) | :white_check_mark: closed |
@@ -89,6 +89,7 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | GAP-20 | R-Judge coverage | lower | [#59](https://github.com/taoq-ai/ziran/issues/59) | :white_check_mark: closed |
 | GAP-21 | ALERT coverage | lower | [#60](https://github.com/taoq-ai/ziran/issues/60) | :white_check_mark: closed |
 | GAP-22 | MITRE ATLAS technique mapping | important | [#61](https://github.com/taoq-ai/ziran/issues/61) | :construction: open |
+| GAP-23 | AgentHarm multi-step vector scale | important | [#131](https://github.com/taoq-ai/ziran/issues/131) | :construction: open |
 
 ## Vector Inventory
 

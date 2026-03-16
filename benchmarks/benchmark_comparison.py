@@ -58,6 +58,18 @@ BENCHMARKS = [
                 "target": 11,
                 "implemented": len(HarmCategory) if HarmCategory is not None else 0,
             },
+        ],
+    },
+    {
+        "name": "AgentHarm",
+        "venue": "ICLR 2025",
+        "url": "https://arxiv.org/abs/2410.09024",
+        "focus": "Multi-step harmful task scale",
+        "test_cases": 440,
+        "key_dimensions": ["440 multi-step scenarios"],
+        "gap_id": "GAP-23",
+        "gap_issue": "#131",
+        "coverage_fn": lambda lib: [
             {
                 "dimension": "Multi-step vectors",
                 "target": 440,
