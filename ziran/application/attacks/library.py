@@ -27,6 +27,7 @@ YAML Schema:
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -89,11 +90,18 @@ class AttackLibrary:
         self._vectors: dict[str, AttackVector] = {}
         self._load_errors: list[tuple[str, Exception]] = []
 
+        # Filtering indices — rebuilt after loading
+        self._by_phase: dict[ScanPhase, list[AttackVector]] = defaultdict(list)
+        self._by_category: dict[AttackCategory, list[AttackVector]] = defaultdict(list)
+        self._by_severity: dict[Severity, list[AttackVector]] = defaultdict(list)
+
         if load_builtin:
             self._load_directory(_BUILTIN_VECTORS_DIR)
 
         for custom_dir in custom_dirs or []:
             self._load_directory(custom_dir)
+
+        self._rebuild_indices()
 
         if self._load_errors:
             logger.info(
@@ -109,6 +117,16 @@ class AttackLibrary:
                 len(self._vectors),
                 len(self.categories),
             )
+
+    def _rebuild_indices(self) -> None:
+        """Rebuild filtering indices from the vector registry."""
+        self._by_phase = defaultdict(list)
+        self._by_category = defaultdict(list)
+        self._by_severity = defaultdict(list)
+        for v in self._vectors.values():
+            self._by_phase[v.target_phase].append(v)
+            self._by_category[v.category].append(v)
+            self._by_severity[v.severity].append(v)
 
     @property
     def vectors(self) -> list[AttackVector]:
@@ -165,9 +183,7 @@ class AttackLibrary:
             List of vectors targeting this phase within the coverage tier.
         """
         allowed = _COVERAGE_SEVERITIES[coverage]
-        return [
-            v for v in self._vectors.values() if v.target_phase == phase and v.severity in allowed
-        ]
+        return [v for v in self._by_phase.get(phase, []) if v.severity in allowed]
 
     def get_attacks_by_category(self, category: AttackCategory) -> list[AttackVector]:
         """Get all attack vectors in a specific category.
@@ -178,7 +194,7 @@ class AttackLibrary:
         Returns:
             List of vectors in this category.
         """
-        return [v for v in self._vectors.values() if v.category == category]
+        return list(self._by_category.get(category, []))
 
     def get_attacks_by_severity(self, severity: Severity) -> list[AttackVector]:
         """Get all attack vectors with a specific severity.
@@ -189,7 +205,7 @@ class AttackLibrary:
         Returns:
             List of vectors with this severity.
         """
-        return [v for v in self._vectors.values() if v.severity == severity]
+        return list(self._by_severity.get(severity, []))
 
     def get_attacks_by_tag(self, tag: str) -> list[AttackVector]:
         """Get all attack vectors with a specific tag.
