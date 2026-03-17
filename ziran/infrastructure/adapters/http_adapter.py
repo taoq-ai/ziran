@@ -332,59 +332,75 @@ class HttpAgentAdapter(BaseAgentAdapter):
     async def _auto_detect_protocol(self) -> ProtocolType:
         """Try to auto-detect the remote agent's protocol.
 
-        Order: A2A Agent Card → OpenAI /v1/models → MCP initialize → REST fallback.
+        Fires all probes concurrently and picks the highest-priority match.
+        Priority: A2A > OpenAI > MCP > REST fallback.
         """
         if self._client is None:
             raise RuntimeError("HTTP client not initialized — call initialize() first")
 
-        # Try A2A Agent Card
-        card_url = f"{self._config.normalized_url}/.well-known/agent-card.json"
-        try:
-            resp = await self._client.get(card_url)
-            if resp.status_code == 200:
-                data = resp.json()
-                if "name" in data and "skills" in data:
-                    logger.info("Detected A2A protocol via Agent Card")
-                    return ProtocolType.A2A
-        except Exception:
-            logger.debug("A2A Agent Card detection failed for %s", card_url, exc_info=True)
+        client = self._client
 
-        # Try OpenAI
-        models_url = f"{self._config.normalized_url}/v1/models"
-        try:
-            resp = await self._client.get(models_url)
-            if resp.status_code == 200:
-                data = resp.json()
-                if "data" in data:
-                    logger.info("Detected OpenAI-compatible protocol")
-                    return ProtocolType.OPENAI
-        except Exception:
-            logger.debug("OpenAI protocol detection failed for %s", models_url, exc_info=True)
+        async def _probe_a2a() -> ProtocolType | None:
+            card_url = f"{self._config.normalized_url}/.well-known/agent-card.json"
+            try:
+                resp = await client.get(card_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if "name" in data and "skills" in data:
+                        logger.info("Detected A2A protocol via Agent Card")
+                        return ProtocolType.A2A
+            except Exception:
+                logger.debug("A2A Agent Card detection failed for %s", card_url, exc_info=True)
+            return None
 
-        # Try MCP initialize
-        try:
-            resp = await self._client.post(
-                self._config.normalized_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "initialize",
-                    "params": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {},
-                        "clientInfo": {"name": "ziran-scanner", "version": "0.1.0"},
+        async def _probe_openai() -> ProtocolType | None:
+            models_url = f"{self._config.normalized_url}/v1/models"
+            try:
+                resp = await client.get(models_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if "data" in data:
+                        logger.info("Detected OpenAI-compatible protocol")
+                        return ProtocolType.OPENAI
+            except Exception:
+                logger.debug("OpenAI protocol detection failed for %s", models_url, exc_info=True)
+            return None
+
+        async def _probe_mcp() -> ProtocolType | None:
+            try:
+                resp = await client.post(
+                    self._config.normalized_url,
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "initialize",
+                        "params": {
+                            "protocolVersion": "2024-11-05",
+                            "capabilities": {},
+                            "clientInfo": {"name": "ziran-scanner", "version": "0.1.0"},
+                        },
                     },
-                },
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                if "result" in data:
-                    logger.info("Detected MCP protocol")
-                    return ProtocolType.MCP
-        except Exception:
-            logger.debug(
-                "MCP protocol detection failed for %s", self._config.normalized_url, exc_info=True
-            )
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if "result" in data:
+                        logger.info("Detected MCP protocol")
+                        return ProtocolType.MCP
+            except Exception:
+                logger.debug(
+                    "MCP protocol detection failed for %s",
+                    self._config.normalized_url,
+                    exc_info=True,
+                )
+            return None
+
+        # Fire all probes concurrently
+        results = await asyncio.gather(_probe_a2a(), _probe_openai(), _probe_mcp())
+
+        # Return the highest-priority match (order matches gather order)
+        for result in results:
+            if result is not None:
+                return result
 
         logger.info("Falling back to generic REST protocol")
         return ProtocolType.REST
