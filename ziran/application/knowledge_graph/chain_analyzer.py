@@ -114,15 +114,19 @@ class ToolChainAnalyzer:
         chains: list[DangerousChain] = []
         _chain_span = _tracer.start_span("ziran.chain_analysis")
 
-        chains.extend(self._find_direct_chains())
-        chains.extend(self._find_indirect_chains(max_hops=3))
-        chains.extend(self._find_chain_cycles())
+        # Cache tool nodes and pattern matches for the duration of this call
+        tool_nodes = self._get_tool_nodes()
+        pattern_cache: dict[tuple[str, str], ChainPatternInfo | None] = {}
 
-        # Pre-compute betweenness centrality once for all chains
-        bc: dict[str, float] | None = None
+        # Compute centrality once for all chains
+        centrality: dict[str, float] = {}
         if self.graph.graph.number_of_nodes() > 1:
             with contextlib.suppress(nx.NetworkXError):
-                bc = nx.betweenness_centrality(self.graph.graph)
+                centrality = nx.betweenness_centrality(self.graph.graph)
+
+        chains.extend(self._find_direct_chains(tool_nodes, pattern_cache))
+        chains.extend(self._find_indirect_chains(tool_nodes, pattern_cache, max_hops=3))
+        chains.extend(self._find_chain_cycles(tool_nodes, pattern_cache))
 
         # Deduplicate by (tools tuple, vulnerability_type)
         seen: set[tuple[tuple[str, ...], str]] = set()
@@ -131,7 +135,7 @@ class ToolChainAnalyzer:
             key = (tuple(chain.tools), chain.vulnerability_type)
             if key not in seen:
                 seen.add(key)
-                chain.risk_score = self._calculate_risk_score(chain, bc)
+                chain.risk_score = self._calculate_risk_score(chain, centrality)
                 unique.append(chain)
 
         # Sort by risk score descending, then by risk_level severity
@@ -157,10 +161,13 @@ class ToolChainAnalyzer:
 
     # ── Direct chains ──────────────────────────────────────────────
 
-    def _find_direct_chains(self) -> list[DangerousChain]:
+    def _find_direct_chains(
+        self,
+        tool_nodes: list[tuple[str, dict[str, Any]]],
+        pattern_cache: dict[tuple[str, str], ChainPatternInfo | None],
+    ) -> list[DangerousChain]:
         """Find dangerous 2-tool chains where A → B exists in the graph."""
         chains: list[DangerousChain] = []
-        tool_nodes = self._get_tool_nodes()
 
         for source_id, _source_data in tool_nodes:
             for target_id, _target_data in tool_nodes:
@@ -169,7 +176,7 @@ class ToolChainAnalyzer:
                 if not self.graph.graph.has_edge(source_id, target_id):
                     continue
 
-                pattern_info = self._match_pattern(source_id, target_id)
+                pattern_info = self._match_pattern(source_id, target_id, pattern_cache)
                 if pattern_info is not None:
                     chains.append(
                         DangerousChain(
@@ -188,10 +195,14 @@ class ToolChainAnalyzer:
 
     # ── Indirect chains ────────────────────────────────────────────
 
-    def _find_indirect_chains(self, max_hops: int = 3) -> list[DangerousChain]:
+    def _find_indirect_chains(
+        self,
+        tool_nodes: list[tuple[str, dict[str, Any]]],
+        pattern_cache: dict[tuple[str, str], ChainPatternInfo | None],
+        max_hops: int = 3,
+    ) -> list[DangerousChain]:
         """Find dangerous chains A → X → … → B via intermediate nodes."""
         chains: list[DangerousChain] = []
-        tool_nodes = self._get_tool_nodes()
 
         for source_id, _ in tool_nodes:
             for target_id, _ in tool_nodes:
@@ -202,7 +213,7 @@ class ToolChainAnalyzer:
                 if self.graph.graph.has_edge(source_id, target_id):
                     continue
 
-                pattern_info = self._match_pattern(source_id, target_id)
+                pattern_info = self._match_pattern(source_id, target_id, pattern_cache)
                 if pattern_info is None:
                     continue
 
@@ -247,10 +258,14 @@ class ToolChainAnalyzer:
 
     # ── Cycle detection ────────────────────────────────────────────
 
-    def _find_chain_cycles(self) -> list[DangerousChain]:
+    def _find_chain_cycles(
+        self,
+        tool_nodes: list[tuple[str, dict[str, Any]]],
+        pattern_cache: dict[tuple[str, str], ChainPatternInfo | None],
+    ) -> list[DangerousChain]:
         """Find cycles in the graph that involve dangerous tool pairs."""
         chains: list[DangerousChain] = []
-        tool_ids = {nid for nid, _ in self._get_tool_nodes()}
+        tool_ids = {nid for nid, _ in tool_nodes}
 
         try:
             cycles: list[list[str]] = list(nx.simple_cycles(self.graph.graph))
@@ -270,7 +285,7 @@ class ToolChainAnalyzer:
                 if src not in tool_ids or tgt not in tool_ids:
                     continue
 
-                pattern_info = self._match_pattern(src, tgt)
+                pattern_info = self._match_pattern(src, tgt, pattern_cache)
                 if pattern_info is not None:
                     chains.append(
                         DangerousChain(
@@ -298,7 +313,7 @@ class ToolChainAnalyzer:
     def _calculate_risk_score(
         self,
         chain: DangerousChain,
-        bc: dict[str, float] | None = None,
+        centrality: dict[str, float],
     ) -> float:
         """Calculate a 0.0-1.0 risk score for a chain.
 
@@ -308,20 +323,17 @@ class ToolChainAnalyzer:
         - Bonus for chains involving nodes with high graph centrality.
 
         Args:
-            chain: The dangerous chain to score.
-            bc: Pre-computed betweenness centrality dict. When *None* the
-                centrality bonus is skipped (caller should pre-compute once
-                via ``nx.betweenness_centrality`` and pass it in).
+            chain: The chain to score.
+            centrality: Pre-computed betweenness centrality dict.
         """
         base = _RISK_WEIGHTS.get(chain.risk_level, 0.5)
         multiplier = _CHAIN_TYPE_MULTIPLIERS.get(chain.chain_type, 1.0)
 
         # Centrality bonus: if any tool in the chain is a high-centrality node
         centrality_bonus = 0.0
-        if bc is not None:
-            for tool in chain.tools:
-                if tool in bc:
-                    centrality_bonus = max(centrality_bonus, bc[tool] * 0.15)
+        for tool in chain.tools:
+            if tool in centrality:
+                centrality_bonus = max(centrality_bonus, centrality[tool] * 0.15)
 
         score = base * multiplier + centrality_bonus
         return min(1.0, round(score, 3))
@@ -340,17 +352,26 @@ class ToolChainAnalyzer:
         self,
         source_id: str,
         target_id: str,
+        cache: dict[tuple[str, str], ChainPatternInfo | None],
     ) -> ChainPatternInfo | None:
         """Check whether a (source, target) pair matches any dangerous pattern.
 
         Uses *substring* matching so that ``"tool_read_file"`` matches
         the pattern key ``"read_file"``.
+
+        Results are memoized in *cache* so the same pair is only checked once.
         """
+        key = (source_id, target_id)
+        if key in cache:
+            return cache[key]
+
         source_lower = source_id.lower()
         target_lower = target_id.lower()
 
         for (pat_src, pat_tgt), info in self._patterns.items():
             if pat_src in source_lower and pat_tgt in target_lower:
+                cache[key] = info
                 return info
 
+        cache[key] = None
         return None
