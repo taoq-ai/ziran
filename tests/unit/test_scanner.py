@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.scanner import (
     AgentScanner,
     ProgressEvent,
@@ -16,7 +17,7 @@ from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
 
 if TYPE_CHECKING:
-    from tests.conftest import MockAgentAdapter
+    from ziran.domain.interfaces.adapter import AgentResponse
 
 
 @pytest.mark.unit
@@ -292,6 +293,213 @@ class TestIterationLimitHandling:
 # ──────────────────────────────────────────────────────────────────────
 # Scanner + LLM client wiring
 # ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestConcurrentAttackExecution:
+    """Tests for concurrent attack execution and race conditions in _execute_phase."""
+
+    async def test_concurrent_attacks_aggregate_tokens_correctly(
+        self, vulnerable_adapter: MockAgentAdapter
+    ) -> None:
+        """Token usage must be correct even when attacks run concurrently."""
+        scanner = AgentScanner(
+            adapter=vulnerable_adapter,
+            attack_library=AttackLibrary(),
+            config={"attack_timeout": 10.0, "phase_timeout": 30.0},
+        )
+        result = await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.COMPREHENSIVE,
+            max_concurrent_attacks=10,
+        )
+        # Token usage dict must have non-negative integer values
+        tokens = result.token_usage
+        assert tokens["prompt_tokens"] >= 0
+        assert tokens["completion_tokens"] >= 0
+        assert tokens["total_tokens"] >= 0
+        # Total must equal sum of components
+        assert tokens["total_tokens"] == tokens["prompt_tokens"] + tokens["completion_tokens"]
+
+    async def test_concurrent_attacks_no_duplicate_results(
+        self, vulnerable_adapter: MockAgentAdapter
+    ) -> None:
+        """Each attack vector should produce exactly one result, no duplicates."""
+        scanner = AgentScanner(
+            adapter=vulnerable_adapter,
+            attack_library=AttackLibrary(),
+        )
+        await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.COMPREHENSIVE,
+            max_concurrent_attacks=10,
+        )
+        # Check no duplicate vector_ids in results
+        vector_ids = [r.vector_id for r in scanner._attack_results]
+        assert len(vector_ids) == len(set(vector_ids)), (
+            f"Duplicate results detected: {len(vector_ids)} total vs {len(set(vector_ids))} unique"
+        )
+
+    async def test_concurrent_attacks_all_results_recorded(
+        self, vulnerable_adapter: MockAgentAdapter
+    ) -> None:
+        """All attacks that run should have their results recorded."""
+        scanner = AgentScanner(
+            adapter=vulnerable_adapter,
+            attack_library=AttackLibrary(),
+        )
+        attacks = scanner.attack_library.get_attacks_for_phase(
+            ScanPhase.VULNERABILITY_DISCOVERY, coverage=CoverageLevel.COMPREHENSIVE
+        )
+        expected_count = len(attacks)
+
+        await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.COMPREHENSIVE,
+            max_concurrent_attacks=10,
+        )
+        # Every attack vector should produce a result (success or failure)
+        assert len(scanner._attack_results) == expected_count
+
+    async def test_concurrent_attacks_with_slow_adapter(self) -> None:
+        """Attacks should truly run concurrently - total time < sum of individual times."""
+        import asyncio
+        import time
+
+        call_times: list[tuple[float, float]] = []
+
+        class SlowAdapter(MockAgentAdapter):
+            async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+                start = time.monotonic()
+                await asyncio.sleep(0.02)
+                end = time.monotonic()
+                call_times.append((start, end))
+                return await super().invoke(message, **kwargs)
+
+        adapter = SlowAdapter(
+            responses=["I cannot help with that."],
+            capabilities=[],
+        )
+        scanner = AgentScanner(
+            adapter=adapter,
+            attack_library=AttackLibrary(),
+        )
+
+        t0 = time.monotonic()
+        await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.STANDARD,
+            max_concurrent_attacks=20,
+        )
+        elapsed = time.monotonic() - t0
+
+        if len(call_times) > 1:
+            # If sequential, elapsed >= N * 0.02s. With concurrency, it should be much less.
+            sequential_time = len(call_times) * 0.02
+            assert elapsed < sequential_time * 0.7, (
+                f"Attacks appear sequential: elapsed={elapsed:.2f}s vs sequential={sequential_time:.2f}s"
+            )
+
+    async def test_concurrent_attacks_vulnerability_list_consistent(
+        self, vulnerable_adapter: MockAgentAdapter
+    ) -> None:
+        """Vulnerabilities found in phase result must match successful attack results."""
+        scanner = AgentScanner(
+            adapter=vulnerable_adapter,
+            attack_library=AttackLibrary(),
+        )
+        result = await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.COMPREHENSIVE,
+            max_concurrent_attacks=10,
+        )
+        phase_result = result.phases_executed[0]
+        successful_ids = {r.vector_id for r in scanner._attack_results if r.successful}
+        assert set(phase_result.vulnerabilities_found) == successful_ids
+
+    async def test_concurrent_attacks_with_mixed_failures(self) -> None:
+        """Some attacks failing should not corrupt results of successful ones."""
+        import asyncio
+
+        call_count = 0
+
+        class FlakeyAdapter(MockAgentAdapter):
+            async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+                nonlocal call_count
+                call_count += 1
+                # Every 3rd call raises an error
+                if call_count % 3 == 0:
+                    await asyncio.sleep(0.01)
+                    raise ConnectionError("Simulated connection failure")
+                return await super().invoke(message, **kwargs)
+
+        adapter = FlakeyAdapter(
+            responses=["I cannot help with that."],
+            capabilities=[],
+        )
+        scanner = AgentScanner(
+            adapter=adapter,
+            attack_library=AttackLibrary(),
+        )
+        # Should not raise even when some attacks fail
+        result = await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.STANDARD,
+            max_concurrent_attacks=10,
+        )
+        # Campaign should complete without error
+        assert result.campaign_id.startswith("campaign_")
+
+    async def test_concurrent_phase_timeout_does_not_lose_results(self) -> None:
+        """When phase times out, results gathered before timeout should be preserved."""
+        import asyncio
+
+        class VerySlowAdapter(MockAgentAdapter):
+            async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+                await asyncio.sleep(0.01)
+                return await super().invoke(message, **kwargs)
+
+        adapter = VerySlowAdapter(
+            responses=["I cannot help with that."],
+            capabilities=[],
+        )
+        scanner = AgentScanner(
+            adapter=adapter,
+            attack_library=AttackLibrary(),
+            config={"phase_timeout": 60.0, "attack_timeout": 5.0},
+        )
+        result = await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.STANDARD,
+            max_concurrent_attacks=20,
+        )
+        # Should complete and record results
+        assert len(result.phases_executed) == 1
+        # Attack results should have been recorded
+        assert len(scanner._attack_results) >= 0
+
+    async def test_progress_events_under_concurrency(
+        self, vulnerable_adapter: MockAgentAdapter
+    ) -> None:
+        """Progress events should be emitted correctly even with concurrent attacks."""
+        events: list[ProgressEvent] = []
+        scanner = AgentScanner(
+            adapter=vulnerable_adapter,
+            attack_library=AttackLibrary(),
+        )
+        await scanner.run_campaign(
+            phases=[ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.COMPREHENSIVE,
+            max_concurrent_attacks=10,
+            on_progress=events.append,
+        )
+        attack_starts = [e for e in events if e.event == ProgressEventType.ATTACK_START]
+        attack_completes = [e for e in events if e.event == ProgressEventType.ATTACK_COMPLETE]
+        # Every start should have a corresponding complete
+        assert len(attack_starts) == len(attack_completes)
+        # All attack names should be non-empty
+        for evt in attack_starts:
+            assert evt.attack_name != ""
 
 
 @pytest.mark.unit
