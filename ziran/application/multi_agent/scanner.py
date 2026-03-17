@@ -8,6 +8,7 @@ delegation patterns.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -171,9 +172,12 @@ class MultiAgentScanner:
 
         assert self._topology is not None
 
-        # Stage 2: Individual Agent Scans
+        # Stage 2: Individual Agent Scans (parallelized)
         if scan_individual:
-            for agent_id, adapter in self._adapters.items():
+
+            async def _scan_agent(
+                agent_id: str, adapter: BaseAgentAdapter
+            ) -> tuple[str, CampaignResult, dict[str, Any]]:
                 _emit(
                     ProgressEvent(
                         event=ProgressEventType.PHASE_START,
@@ -196,10 +200,15 @@ class MultiAgentScanner:
                     max_concurrent_attacks=max_concurrent_attacks,
                 )
 
-                self._agent_results[agent_id] = result
-
-                # Merge per-agent graph into the shared graph
                 agent_state = scanner.graph.export_state()
+                return agent_id, result, agent_state
+
+            scan_results = await asyncio.gather(
+                *[_scan_agent(agent_id, adapter) for agent_id, adapter in self._adapters.items()]
+            )
+
+            for agent_id, result, agent_state in scan_results:
+                self._agent_results[agent_id] = result
                 self._merge_agent_graph(agent_id, agent_state)
 
         # Stage 3: Cross-Agent Campaign
