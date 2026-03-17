@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from ziran.application.knowledge_graph.chain_analyzer import (
@@ -271,6 +273,19 @@ class TestRiskScoring:
             chain_type="indirect",
         )
         assert analyzer._calculate_risk_score(direct) >= analyzer._calculate_risk_score(indirect)
+
+    def test_centrality_computed_once_during_analyze(
+        self, complex_graph: AttackKnowledgeGraph
+    ) -> None:
+        """Betweenness centrality should be computed once, not per chain."""
+        analyzer = ToolChainAnalyzer(complex_graph)
+        with patch(
+            "ziran.application.knowledge_graph.chain_analyzer.nx.betweenness_centrality",
+            wraps=__import__("networkx").betweenness_centrality,
+        ) as mock_bc:
+            chains = analyzer.analyze()
+            assert len(chains) >= 1
+            assert mock_bc.call_count == 1
 
 
 # ── Tests: _match_pattern() ──────────────────────────────────────────

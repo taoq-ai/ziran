@@ -114,6 +114,17 @@ class TestSideEffectDetector:
         assert result.score == 0.6
         assert result.confidence >= 0.4
 
+    def test_low_risk_tool_reasoning_includes_tool_name(
+        self, detector: SideEffectDetector, prompt_spec: AttackPrompt
+    ) -> None:
+        response = AgentResponse(
+            content="Done.",
+            tool_calls=[{"tool": "custom_benign_tool", "input": {}}],
+        )
+        result = detector.detect("test", response, prompt_spec)
+        assert "custom_benign_tool" in result.reasoning
+        assert "low-risk" in result.reasoning.lower()
+
     def test_multiple_tool_calls_highest_risk_wins(
         self, detector: SideEffectDetector, prompt_spec: AttackPrompt
     ) -> None:

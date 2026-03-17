@@ -124,9 +124,9 @@ class TestGapStatus:
         assert "gaps" in data
         assert "summary" in data
 
-    def test_has_22_gaps(self) -> None:
+    def test_has_23_gaps(self) -> None:
         data = collect_gap_status()
-        assert data["summary"]["total"] == 22
+        assert data["summary"]["total"] == 23
 
     def test_each_gap_has_required_fields(self) -> None:
         data = collect_gap_status()
