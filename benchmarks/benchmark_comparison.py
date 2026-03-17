@@ -58,6 +58,18 @@ BENCHMARKS = [
                 "target": 11,
                 "implemented": len(HarmCategory) if HarmCategory is not None else 0,
             },
+        ],
+    },
+    {
+        "name": "AgentHarm",
+        "venue": "ICLR 2025",
+        "url": "https://arxiv.org/abs/2410.09024",
+        "focus": "Multi-step harmful task scale",
+        "test_cases": 440,
+        "key_dimensions": ["440 multi-step scenarios"],
+        "gap_id": "GAP-23",
+        "gap_issue": "#131",
+        "coverage_fn": lambda lib: [
             {
                 "dimension": "Multi-step vectors",
                 "target": 440,
@@ -133,6 +145,18 @@ BENCHMARKS = [
         "gap_id": "GAP-15",
         "gap_issue": "#54",
         "coverage_fn": lambda lib: [
+            {
+                "dimension": "JBB categories (10)",
+                "target": 10,
+                "implemented": len(
+                    {
+                        t.split("jbb:", 1)[1]
+                        for v in lib.vectors
+                        for t in v.tags
+                        if t.startswith("jbb:")
+                    }
+                ),
+            },
             {
                 "dimension": "Prompt injection vectors",
                 "target": 100,
@@ -328,9 +352,21 @@ BENCHMARKS = [
         "key_dimensions": ["569 interaction records", "risk scoring"],
         "gap_id": "GAP-20",
         "gap_issue": "#59",
-        "coverage_fn": lambda _lib: [
+        "coverage_fn": lambda lib: [
             {
-                "dimension": "Risk scoring pipeline",
+                "dimension": "R-Judge risk types (10)",
+                "target": 10,
+                "implemented": len(
+                    {
+                        t.split("rjudge:", 1)[1]
+                        for v in lib.vectors
+                        for t in v.tags
+                        if t.startswith("rjudge:")
+                    }
+                ),
+            },
+            {
+                "dimension": "Risk scoring detectors",
                 "target": None,
                 "implemented": 5,
                 "note": "5 detectors — different approach than interaction records",
@@ -358,18 +394,29 @@ BENCHMARKS = [
     {
         "name": "ALERT",
         "venue": "2024",
-        "url": "https://arxiv.org/abs/2404.08311",
+        "url": "https://arxiv.org/abs/2404.08676",
         "focus": "Fine-grained risk taxonomy",
         "test_cases": 45000,
-        "key_dimensions": ["45K+ prompts", "fine-grained categories"],
+        "key_dimensions": ["45K+ prompts", "6 macro / 32 micro categories"],
         "gap_id": "GAP-21",
         "gap_issue": "#60",
-        "coverage_fn": lambda _lib: [
+        "coverage_fn": lambda lib: [
+            {
+                "dimension": "ALERT micro categories (32)",
+                "target": 32,
+                "implemented": len(
+                    {
+                        t.split("alert:", 1)[1]
+                        for v in lib.vectors
+                        for t in v.tags
+                        if t.startswith("alert:")
+                    }
+                ),
+            },
             {
                 "dimension": "Harm categories",
                 "target": None,
                 "implemented": len(HarmCategory) if HarmCategory is not None else 0,
-                "note": "Fine-grained taxonomy — not directly comparable",
             },
         ],
     },

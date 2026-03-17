@@ -87,6 +87,7 @@ class AttackLibrary:
             load_builtin: Whether to load the built-in vector library.
         """
         self._vectors: dict[str, AttackVector] = {}
+        self._load_errors: list[tuple[str, Exception]] = []
 
         if load_builtin:
             self._load_directory(_BUILTIN_VECTORS_DIR)
@@ -94,11 +95,20 @@ class AttackLibrary:
         for custom_dir in custom_dirs or []:
             self._load_directory(custom_dir)
 
-        logger.info(
-            "Attack library initialized with %d vectors from %d categories",
-            len(self._vectors),
-            len(self.categories),
-        )
+        if self._load_errors:
+            logger.info(
+                "Attack library initialized with %d vectors from %d categories "
+                "(%d failed to parse)",
+                len(self._vectors),
+                len(self.categories),
+                len(self._load_errors),
+            )
+        else:
+            logger.info(
+                "Attack library initialized with %d vectors from %d categories",
+                len(self._vectors),
+                len(self.categories),
+            )
 
     @property
     def vectors(self) -> list[AttackVector]:
@@ -114,6 +124,20 @@ class AttackLibrary:
     def categories(self) -> set[AttackCategory]:
         """All categories represented in the library."""
         return {v.category for v in self._vectors.values()}
+
+    @property
+    def load_error_count(self) -> int:
+        """Number of vectors or files that failed to load."""
+        return len(self._load_errors)
+
+    @property
+    def load_errors(self) -> list[tuple[str, Exception]]:
+        """List of ``(source, exception)`` pairs for each load failure.
+
+        *source* is a file path or vector ID depending on where the error
+        occurred.
+        """
+        return list(self._load_errors)
 
     def get_vector(self, vector_id: str) -> AttackVector | None:
         """Get a specific vector by ID.
@@ -270,8 +294,10 @@ class AttackLibrary:
                 self._load_file(yaml_file)
             except (yaml.YAMLError, ValidationError, KeyError, OSError) as exc:
                 logger.warning("Failed to load attack vectors from %s: %s", yaml_file, exc)
-            except Exception:
+                self._load_errors.append((str(yaml_file), exc))
+            except Exception as exc:
                 logger.exception("Unexpected error loading attack vectors from %s", yaml_file)
+                self._load_errors.append((str(yaml_file), exc))
 
     def _load_file(self, filepath: Path) -> None:
         """Load attack vectors from a single YAML file.
@@ -297,18 +323,22 @@ class AttackLibrary:
                     )
                 self._vectors[vector.id] = vector
             except (ValidationError, KeyError, ValueError) as exc:
+                vector_id = vector_data.get("id", "unknown")
                 logger.warning(
                     "Failed to parse vector '%s' from %s: %s",
-                    vector_data.get("id", "unknown"),
+                    vector_id,
                     filepath,
                     exc,
                 )
-            except Exception:
+                self._load_errors.append((str(vector_id), exc))
+            except Exception as exc:
+                vector_id = vector_data.get("id", "unknown")
                 logger.exception(
                     "Unexpected error parsing vector '%s' from %s",
-                    vector_data.get("id", "unknown"),
+                    vector_id,
                     filepath,
                 )
+                self._load_errors.append((str(vector_id), exc))
 
     @staticmethod
     def _parse_vector(data: dict[str, Any]) -> AttackVector:

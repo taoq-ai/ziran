@@ -21,6 +21,7 @@ Usage::
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass
 
@@ -175,14 +176,21 @@ def classify_tool(tool_name: str) -> ToolClassification:
     Returns a ``ToolClassification`` with ``risk="low"`` if nothing
     matches.
 
+    Results are cached by normalized tool name so that repeated
+    classifications of the same tool skip the regex chain entirely.
+
     Args:
         tool_name: The tool name to classify.
 
     Returns:
         Classification with risk tier and description.
     """
-    normalized = _normalize(tool_name)
+    return _classify_cached(_normalize(tool_name))
 
+
+@functools.lru_cache(maxsize=1024)
+def _classify_cached(normalized: str) -> ToolClassification:
+    """Cached inner classification on the already-normalized name."""
     for pattern, desc in _CRITICAL:
         if pattern.search(normalized):
             return ToolClassification(risk="critical", description=desc)
@@ -203,8 +211,15 @@ def is_dangerous(tool_name: str) -> bool:
 
     This is the convenience function used by adapters to flag capabilities.
 
+    Results are cached by normalized tool name.
+
     Args:
         tool_name: The tool name to check.
     """
-    normalized = _normalize(tool_name)
+    return _is_dangerous_cached(_normalize(tool_name))
+
+
+@functools.lru_cache(maxsize=1024)
+def _is_dangerous_cached(normalized: str) -> bool:
+    """Cached inner dangerous check on the already-normalized name."""
     return any(p.search(normalized) for p in _ALL_DANGEROUS)
