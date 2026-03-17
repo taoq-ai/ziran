@@ -196,12 +196,18 @@ class RefusalDetector:
         self._prefix_patterns_lower = tuple(s.lower() for s in REFUSAL_PREFIXES)
         self._substring_patterns_lower = tuple(s.lower() for s in REFUSAL_SUBSTRINGS)
 
-        # Pre-compile word-boundary regexes for "word" matchtype
+        # Pre-compile a combined mega-regex for fast substring matching.
+        # A single alternation regex is faster than 94 individual `in` checks
+        # because the regex engine can use Aho-Corasick-like optimizations.
+        all_patterns = [*self._prefix_patterns_lower, *self._substring_patterns_lower]
+        escaped = [re.escape(p) for p in all_patterns]
+        self._mega_regex = re.compile("|".join(escaped), re.IGNORECASE)
+
+        # Pre-compile word-boundary regexes for "word" matchtype — single regex
         if matchtype == "word":
-            self._word_regexes = [
-                re.compile(r"\b" + re.escape(s) + r"\b", re.IGNORECASE)
-                for s in (*REFUSAL_PREFIXES, *REFUSAL_SUBSTRINGS)
-            ]
+            word_escaped = [re.escape(s) for s in (*REFUSAL_PREFIXES, *REFUSAL_SUBSTRINGS)]
+            word_alts = [r"\b" + e + r"\b" for e in word_escaped]
+            self._word_mega_regex = re.compile("|".join(word_alts), re.IGNORECASE)
 
     @property
     def name(self) -> str:
@@ -252,18 +258,18 @@ class RefusalDetector:
     # ── Private match helpers ─────────────────────────────────────────
 
     def _match_substring(self, content_lower: str) -> list[str]:
-        """Substring matching (default, fastest)."""
+        """Substring matching via combined mega-regex."""
+        matches = self._mega_regex.findall(content_lower)
+        # findall returns the matched text; deduplicate and cap at 3
+        seen: set[str] = set()
         hits: list[str] = []
-        for pattern in self._prefix_patterns_lower:
-            if pattern in content_lower:
-                hits.append(pattern)
+        for m in matches:
+            ml = m.lower()
+            if ml not in seen:
+                seen.add(ml)
+                hits.append(ml)
                 if len(hits) >= 3:
-                    return hits
-        for pattern in self._substring_patterns_lower:
-            if pattern in content_lower:
-                hits.append(pattern)
-                if len(hits) >= 3:
-                    return hits
+                    break
         return hits
 
     def _match_startswith(self, content_lower: str) -> list[str]:
@@ -272,5 +278,15 @@ class RefusalDetector:
         return [p for p in self._prefix_patterns_lower if stripped.startswith(p)][:3]
 
     def _match_word(self, content: str) -> list[str]:
-        """Regex word-boundary matching (most precise)."""
-        return [rx.pattern for rx in self._word_regexes if rx.search(content)][:3]
+        """Regex word-boundary matching via combined mega-regex."""
+        matches = self._word_mega_regex.findall(content)
+        seen: set[str] = set()
+        hits: list[str] = []
+        for m in matches:
+            ml = m.lower()
+            if ml not in seen:
+                seen.add(ml)
+                hits.append(ml)
+                if len(hits) >= 3:
+                    break
+        return hits
