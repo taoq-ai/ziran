@@ -8,6 +8,7 @@ with enterprise-grade features (auth, TLS, retries, proxy).
 from __future__ import annotations
 
 import asyncio
+import enum
 import logging
 import time
 from typing import TYPE_CHECKING, Any
@@ -43,6 +44,69 @@ _DISCOVERY_PROBES = [
 ]
 
 
+class CircuitState(enum.Enum):
+    """States for the circuit breaker."""
+
+    CLOSED = "closed"  # Normal operation — requests flow through
+    OPEN = "open"  # Too many failures — requests are rejected immediately
+    HALF_OPEN = "half_open"  # Testing recovery — one request allowed through
+
+
+class CircuitBreaker:
+    """Circuit breaker for failing remote agents.
+
+    Prevents repeated requests to a failing endpoint by tracking
+    consecutive failures and opening the circuit when a threshold is
+    reached. After a cooldown period the circuit enters half-open state,
+    allowing a single probe request to determine recovery.
+
+    Args:
+        failure_threshold: Consecutive failures before opening the circuit.
+        recovery_timeout: Seconds to wait in open state before probing.
+    """
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 30.0,
+    ) -> None:
+        self._failure_threshold = failure_threshold
+        self._recovery_timeout = recovery_timeout
+        self._state = CircuitState.CLOSED
+        self._failure_count = 0
+        self._last_failure_time: float = 0.0
+
+    @property
+    def state(self) -> CircuitState:
+        """Current circuit state (may transition from OPEN to HALF_OPEN)."""
+        if (
+            self._state == CircuitState.OPEN
+            and time.monotonic() - self._last_failure_time >= self._recovery_timeout
+        ):
+            self._state = CircuitState.HALF_OPEN
+        return self._state
+
+    def record_success(self) -> None:
+        """Record a successful request — reset the failure counter."""
+        self._failure_count = 0
+        self._state = CircuitState.CLOSED
+
+    def record_failure(self) -> None:
+        """Record a failed request — may open the circuit."""
+        self._failure_count += 1
+        self._last_failure_time = time.monotonic()
+        if self._failure_count >= self._failure_threshold:
+            self._state = CircuitState.OPEN
+            logger.warning(
+                "Circuit breaker opened after %d consecutive failures",
+                self._failure_count,
+            )
+
+
+class CircuitOpenError(Exception):
+    """Raised when a request is rejected because the circuit is open."""
+
+
 class HttpAgentAdapter(BaseAgentAdapter):
     """Adapter for scanning agents published over HTTPS.
 
@@ -66,6 +130,10 @@ class HttpAgentAdapter(BaseAgentAdapter):
         self._session_id = ""
         self._client: httpx.AsyncClient | None = None
         self._handler: BaseProtocolHandler | None = None
+        self._circuit_breaker = CircuitBreaker(
+            failure_threshold=config.retry.max_retries * 2 or 5,
+            recovery_timeout=30.0,
+        )
 
     async def _ensure_initialized(self) -> None:
         """Lazily initialize the httpx client and protocol handler."""
@@ -411,19 +479,32 @@ class HttpAgentAdapter(BaseAgentAdapter):
         """Send with configurable retry on transient failures.
 
         Respects the ``Retry-After`` header on 429 responses when available,
-        falling back to exponential backoff otherwise.
+        falling back to exponential backoff otherwise. Integrates with the
+        circuit breaker to short-circuit requests when the remote agent is
+        consistently failing.
         """
         if self._handler is None:
             raise RuntimeError("Handler not initialized — call initialize() first")
+
+        # Check circuit breaker before attempting
+        cb_state = self._circuit_breaker.state
+        if cb_state == CircuitState.OPEN:
+            raise CircuitOpenError(
+                f"Circuit breaker is open for {self._config.normalized_url} "
+                f"— too many consecutive failures"
+            )
 
         retry = self._config.retry
         last_error: Exception | None = None
 
         for attempt in range(retry.max_retries + 1):
             try:
-                return await self._handler.send(message, **kwargs)
+                result = await self._handler.send(message, **kwargs)
+                self._circuit_breaker.record_success()
+                return result
             except ProtocolError as exc:
                 last_error = exc
+                self._circuit_breaker.record_failure()
                 if exc.status_code and exc.status_code not in retry.retry_on:
                     raise
                 if attempt < retry.max_retries:
