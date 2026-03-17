@@ -408,7 +408,11 @@ class HttpAgentAdapter(BaseAgentAdapter):
     # ── Retry Logic ──────────────────────────────────────────────
 
     async def _send_with_retry(self, message: str, **kwargs: Any) -> dict[str, Any]:
-        """Send with configurable retry on transient failures."""
+        """Send with configurable retry on transient failures.
+
+        Respects the ``Retry-After`` header on 429 responses when available,
+        falling back to exponential backoff otherwise.
+        """
         if self._handler is None:
             raise RuntimeError("Handler not initialized — call initialize() first")
 
@@ -423,7 +427,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
                 if exc.status_code and exc.status_code not in retry.retry_on:
                     raise
                 if attempt < retry.max_retries:
-                    wait = retry.backoff_factor * (2**attempt)
+                    wait = self._compute_retry_wait(exc, retry.backoff_factor, attempt)
                     logger.warning(
                         "Request failed (attempt %d/%d), retrying in %.1fs: %s",
                         attempt + 1,
@@ -436,6 +440,22 @@ class HttpAgentAdapter(BaseAgentAdapter):
         if last_error is None:
             raise RuntimeError("Retry loop exited without capturing an error")
         raise last_error
+
+    @staticmethod
+    def _compute_retry_wait(exc: ProtocolError, backoff_factor: float, attempt: int) -> float:
+        """Compute the wait time for a retry attempt.
+
+        Uses the ``Retry-After`` header value (in seconds) for 429 responses
+        when present, otherwise falls back to exponential backoff.
+        """
+        if exc.status_code == 429 and exc.headers:
+            retry_after = exc.headers.get("Retry-After") or exc.headers.get("retry-after")
+            if retry_after is not None:
+                try:
+                    return max(0.0, min(float(retry_after), 120.0))
+                except (ValueError, TypeError):
+                    pass
+        return float(backoff_factor * (2**attempt))
 
     # ── Probe-Based Discovery ────────────────────────────────────
 

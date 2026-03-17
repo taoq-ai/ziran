@@ -202,7 +202,9 @@ class A2AProtocolHandler(BaseProtocolHandler):
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             msg = f"Failed to fetch Agent Card: HTTP {exc.response.status_code}"
-            raise ProtocolError(msg, status_code=exc.response.status_code) from exc
+            raise ProtocolError(
+                msg, status_code=exc.response.status_code, headers=dict(exc.response.headers)
+            ) from exc
         except httpx.HTTPError as exc:
             msg = f"Failed to fetch Agent Card: {exc}"
             raise ProtocolError(msg) from exc
@@ -268,7 +270,9 @@ class A2AProtocolHandler(BaseProtocolHandler):
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             msg = f"A2A SendMessage failed: HTTP {exc.response.status_code}"
-            raise ProtocolError(msg, status_code=exc.response.status_code) from exc
+            raise ProtocolError(
+                msg, status_code=exc.response.status_code, headers=dict(exc.response.headers)
+            ) from exc
         except httpx.HTTPError as exc:
             msg = f"A2A SendMessage failed: {exc}"
             raise ProtocolError(msg) from exc
@@ -298,7 +302,9 @@ class A2AProtocolHandler(BaseProtocolHandler):
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             msg = f"A2A JSON-RPC SendMessage failed: HTTP {exc.response.status_code}"
-            raise ProtocolError(msg, status_code=exc.response.status_code) from exc
+            raise ProtocolError(
+                msg, status_code=exc.response.status_code, headers=dict(exc.response.headers)
+            ) from exc
         except httpx.HTTPError as exc:
             msg = f"A2A JSON-RPC SendMessage failed: {exc}"
             raise ProtocolError(msg) from exc
