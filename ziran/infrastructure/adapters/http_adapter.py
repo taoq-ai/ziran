@@ -27,7 +27,11 @@ from ziran.domain.interfaces.adapter import (
     BaseAgentAdapter,
 )
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
-from ziran.infrastructure.adapters.protocols import BaseProtocolHandler, ProtocolError
+from ziran.infrastructure.adapters.protocols import (
+    BaseProtocolHandler,
+    ProtocolError,
+    ProtocolResponse,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -475,7 +479,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     # ── Retry Logic ──────────────────────────────────────────────
 
-    async def _send_with_retry(self, message: str, **kwargs: Any) -> dict[str, Any]:
+    async def _send_with_retry(self, message: str, **kwargs: Any) -> ProtocolResponse:
         """Send with configurable retry on transient failures.
 
         Respects the ``Retry-After`` header on 429 responses when available,
