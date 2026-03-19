@@ -8,7 +8,7 @@ agents over different wire protocols.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -17,6 +17,18 @@ if TYPE_CHECKING:
 
     from ziran.domain.entities.streaming import AgentResponseChunk
     from ziran.domain.entities.target import TargetConfig
+
+
+class ProtocolResponse(TypedDict):
+    """Structured response from a protocol handler's ``send`` method."""
+
+    content: str
+    tool_calls: NotRequired[list[dict[str, Any]]]
+    metadata: NotRequired[dict[str, Any]]
+    prompt_tokens: NotRequired[int]
+    completion_tokens: NotRequired[int]
+    total_tokens: NotRequired[int]
+    model: NotRequired[str]
 
 
 class ProtocolError(Exception):
@@ -50,7 +62,7 @@ class BaseProtocolHandler(ABC):
         self._config = config
 
     @abstractmethod
-    async def send(self, message: str, **kwargs: Any) -> dict[str, Any]:
+    async def send(self, message: str, **kwargs: Any) -> ProtocolResponse:
         """Send a prompt to the remote agent and return the raw response.
 
         Args:
@@ -58,10 +70,13 @@ class BaseProtocolHandler(ABC):
             **kwargs: Protocol-specific options.
 
         Returns:
-            A dict containing at minimum:
+            A ``ProtocolResponse`` containing at minimum:
             - ``content`` (str): The agent's text response.
-            - ``tool_calls`` (list[dict]): Any tool invocations observed.
-            - ``metadata`` (dict): Protocol-specific metadata.
+            Optionally:
+            - ``tool_calls``: Any tool invocations observed.
+            - ``metadata``: Protocol-specific metadata.
+            - ``prompt_tokens``, ``completion_tokens``, ``total_tokens``: Usage.
+            - ``model``: Model identifier.
 
         Raises:
             ProtocolError: On transport or protocol-level failures.
