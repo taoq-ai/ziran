@@ -42,6 +42,14 @@ class SkillCVE(BaseModel):
         description="Whether this is a real CVE or a documented design risk",
     )
     cvss_score: float | None = Field(default=None, description="CVSS base score if available")
+    affected_tool_patterns: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Generic tool name keywords that indicate an agent may be affected. "
+            "Used by check_agent() for matching when skill_name is a specific "
+            "library path (e.g. ['url', 'loader', 'http'] for an SSRF CVE)."
+        ),
+    )
     discovered_date: datetime | None = None
     reported_by: str = Field(default="ZIRAN Team")
     references: list[str] = Field(default_factory=list, description="Links to research")
@@ -64,6 +72,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "high",
         "cvss_score": 8.8,
         "risk_type": "cve",
+        "affected_tool_patterns": ["url", "loader", "requests", "http", "fetch", "scrape"],
         "description": (
             "Server-Side Request Forgery in LangChain's RecursiveUrlLoader allows "
             "crawling from an external server to an internal server, enabling "
@@ -86,6 +95,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "critical",
         "cvss_score": 9.3,
         "risk_type": "cve",
+        "affected_tool_patterns": ["python", "repl", "exec", "code", "deserializ", "pickle"],
         "description": (
             "Serialization injection in LangChain's dumps()/dumpd() functions. "
             "Dictionaries containing 'lc' keys are misinterpreted as serialized "
@@ -108,6 +118,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "high",
         "cvss_score": 8.3,
         "risk_type": "cve",
+        "affected_tool_patterns": ["prompt", "template", "jinja", "format"],
         "description": (
             "Template injection via attribute access in LangChain prompt templates. "
             "F-string, Mustache, and Jinja2 templates accept attribute traversal "
@@ -128,6 +139,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "vulnerability_type": "prompt_injection",
         "severity": "high",
         "risk_type": "cve",
+        "affected_tool_patterns": ["agent", "react", "chain", "rag", "retriev"],
         "description": (
             "Indirect prompt injection vulnerability in LangChain agents. "
             "ReAct agents expose their reasoning chain, which can be manipulated "
@@ -146,6 +158,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "vulnerability_type": "sql_injection",
         "severity": "high",
         "risk_type": "cve",
+        "affected_tool_patterns": ["sql", "query", "database", "sqlite", "db"],
         "description": (
             "SQL injection in LangGraph's SQLite checkpoint saver. "
             "User-controlled input is passed to SQL queries without "
@@ -164,6 +177,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "vulnerability_type": "remote_code_execution",
         "severity": "high",
         "risk_type": "cve",
+        "affected_tool_patterns": ["python", "repl", "exec", "code", "json", "serializ"],
         "description": (
             "Remote code execution via LangGraph's JsonPlus serializer. "
             "Deserialization of untrusted data can lead to arbitrary code "
@@ -201,6 +215,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "high",
         "cvss_score": 7.3,
         "risk_type": "cve",
+        "affected_tool_patterns": ["mcp", "file", "read", "write", "filesystem"],
         "description": (
             "Symlink exploitation in the MCP Filesystem server. Attackers can "
             "create symlinks within allowed directories to access arbitrary files "
@@ -222,6 +237,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "high",
         "cvss_score": 7.3,
         "risk_type": "cve",
+        "affected_tool_patterns": ["mcp", "file", "read", "write", "filesystem"],
         "description": (
             "Path validation bypass in the MCP Filesystem server via naive "
             "prefix matching. Allows access to sibling directories when the "
@@ -243,6 +259,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "medium",
         "cvss_score": 6.4,
         "risk_type": "cve",
+        "affected_tool_patterns": ["mcp", "git", "repository", "repo"],
         "description": (
             "Missing repo_path validation in the MCP Git server when using "
             "the --repository flag. Tool calls can operate on repositories "
@@ -263,6 +280,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "critical",
         "cvss_score": 9.6,
         "risk_type": "cve",
+        "affected_tool_patterns": ["mcp", "shell", "exec", "command", "remote"],
         "description": (
             "OS command injection in mcp-remote via crafted OAuth discovery "
             "authorization_endpoint URL. Connecting to an untrusted MCP server "
@@ -283,6 +301,7 @@ _SEED_CVES: list[dict[str, Any]] = [
         "severity": "critical",
         "cvss_score": 9.3,
         "risk_type": "cve",
+        "affected_tool_patterns": ["email", "send", "document", "read", "search"],
         "description": (
             "AI command injection in Microsoft 365 Copilot (EchoLeak). "
             "Zero-click prompt injection via hidden text in Word documents, "
@@ -620,11 +639,47 @@ class SkillCVEDatabase:
         """Return all entries of a given risk type ('cve' or 'design_risk')."""
         return [c for c in self._cves if c.risk_type == risk_type]
 
+    @staticmethod
+    def _extract_keywords(text: str) -> set[str]:
+        """Extract normalised keywords from a tool/skill name.
+
+        Splits on dots, underscores, hyphens, spaces, and camelCase
+        boundaries, then lowercases each token.  Single-character
+        tokens and common stop-words are discarded.
+
+        Also adds the full lowered token as an extra keyword so that
+        ``SHELLTOOL`` produces both ``shelltool`` and (after splitting)
+        ``shell``, ``tool`` — ensuring substring-style matches work.
+
+        >>> sorted(SkillCVEDatabase._extract_keywords("langchain.tools.shell.ShellTool"))
+        ['langchain', 'shell', 'shelltool', 'tool', 'tools']
+        """
+        import re as _re
+
+        # Split on dots, underscores, hyphens, spaces
+        parts = _re.split(r"[._\-\s/]+", text)
+        # Further split camelCase (e.g. ShellTool → Shell, Tool)
+        tokens: list[str] = []
+        for part in parts:
+            sub_tokens = _re.sub(r"([a-z])([A-Z])", r"\1 \2", part).split()
+            tokens.extend(sub_tokens)
+            # Also add the unsplit form (e.g. "ShellTool" → "shelltool")
+            if len(sub_tokens) > 1:
+                tokens.append(part)
+
+        stop = {"a", "an", "the", "of", "in", "for", "to", "and", "or", "is"}
+        return {t.lower() for t in tokens if len(t) > 1 and t.lower() not in stop}
+
     def check_agent(self, capabilities: list[AgentCapability]) -> list[SkillCVE]:
         """Check whether an agent uses any tools with known CVEs.
 
-        Matching is substring-based: a capability whose name contains
-        a CVE's skill name (or vice-versa) is considered a match.
+        Uses keyword-overlap matching: for each capability, we extract
+        keywords from its ``id``, ``name``, and ``description``, then
+        compare against keywords extracted from each CVE's
+        ``skill_name``.  A match requires that every "meaningful" word
+        in the CVE's short tool name appears in the capability's
+        keyword set (minus generic filler like "tool", "tools",
+        "wrapper").
 
         Args:
             capabilities: Capabilities discovered for the agent.
@@ -635,24 +690,55 @@ class SkillCVEDatabase:
         matches: list[SkillCVE] = []
         seen_ids: set[str] = set()
 
-        for cap in capabilities:
-            cap_name_lower = cap.name.lower()
-            cap_id_lower = cap.id.lower()
+        # Generic words that shouldn't drive a match on their own.
+        # Includes framework names, common suffixes, and package-path
+        # segments that don't indicate tool functionality.
+        filler = {
+            "tool", "tools", "wrapper", "base",
+            "langchain", "crewai", "management",
+            "message", "messages",
+        }  # fmt: skip
 
-            for cve in self._cves:
+        # Pre-compute CVE keyword sets.  For the meaningful set we
+        # use only the *split* tokens (e.g. "Shell", "Tool"), not the
+        # unsplit compound ("ShellTool") which is an artefact of the
+        # class-name format and would rarely appear in capability data.
+        cve_info: list[tuple[SkillCVE, set[str], set[str]]] = []
+        for cve in self._cves:
+            all_kw = self._extract_keywords(cve.skill_name)
+            # "Meaningful" keywords = split tokens minus filler
+            meaningful = all_kw - filler
+            # Remove compound forms that contain a filler word
+            meaningful = {k for k in meaningful if not any(f in k for f in filler if f != k)}
+            cve_info.append((cve, all_kw, meaningful))
+
+        for cap in capabilities:
+            # Build a broad keyword set from all capability fields
+            cap_keywords: set[str] = set()
+            cap_keywords |= self._extract_keywords(cap.id)
+            cap_keywords |= self._extract_keywords(cap.name)
+            if cap.description:
+                cap_keywords |= self._extract_keywords(cap.description)
+
+            for cve, _all_kw, meaningful_kw in cve_info:
                 if cve.cve_id in seen_ids:
                     continue
 
-                skill_lower = cve.skill_name.lower()
-                # Match on: skill name contained in capability name/id,
-                # or the short tool name matches
-                short_skill = skill_lower.rsplit(".", 1)[-1]
+                matched = False
 
-                if (
-                    short_skill in cap_name_lower
-                    or short_skill in cap_id_lower
-                    or cap_name_lower in skill_lower
-                ):
+                # Strategy 1: keyword overlap on skill_name
+                if meaningful_kw and meaningful_kw <= cap_keywords:
+                    matched = True
+
+                # Strategy 2: affected_tool_patterns — require at least
+                # 2 pattern keywords to match to avoid single-word FPs
+                if not matched and cve.affected_tool_patterns:
+                    patterns_lower = {p.lower() for p in cve.affected_tool_patterns}
+                    overlap = patterns_lower & cap_keywords
+                    if len(overlap) >= 2:
+                        matched = True
+
+                if matched:
                     matches.append(cve)
                     seen_ids.add(cve.cve_id)
 

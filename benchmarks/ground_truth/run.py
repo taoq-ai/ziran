@@ -205,6 +205,16 @@ def benchmark_chain_analyzer(
 # ── 2. Skill CVE Matcher Benchmark ────────────────────────────────────
 
 
+def _is_cve_reference(ref: str) -> bool:
+    """Check if a reference is a CVE or DESIGN-RISK ID (matchable by check_agent).
+
+    Non-CVE references like 'OWASP LLM06', 'Agent Security Bench', or
+    'chain_patterns cicd_pipeline' are informational labels that cannot
+    be matched by the CVE database and should be excluded from scoring.
+    """
+    return ref.startswith(("CVE-", "DESIGN-RISK-")) and " " not in ref
+
+
 def benchmark_skill_cve(
     agents: dict[str, AgentDefinition],
 ) -> Metrics:
@@ -231,7 +241,11 @@ def benchmark_skill_cve(
 
         found_cves = db.check_agent(caps)
         found_ids = {cve.cve_id for cve in found_cves}
-        expected_refs = {v.reference for v in agent.known_vulnerabilities}
+
+        # Only score references that are actual CVE/DESIGN-RISK IDs
+        expected_refs = {
+            v.reference for v in agent.known_vulnerabilities if _is_cve_reference(v.reference)
+        }
 
         # TP: found CVEs that match expected references
         for ref in expected_refs:
