@@ -122,10 +122,10 @@ def cross_reference_cves(scenarios: list[GroundTruthScenario]) -> list[str]:
                     "-remediation"
                 )
                 if is_checkable and ref_id not in known_ids:
-                        errors.append(
-                            f"{scenario.scenario_id}: reference '{ref_id}' "
-                            f"not found in SkillCVEDatabase"
-                        )
+                    errors.append(
+                        f"{scenario.scenario_id}: reference '{ref_id}' "
+                        f"not found in SkillCVEDatabase"
+                    )
     except ImportError:
         errors.append("Could not import SkillCVEDatabase for cross-reference check")
 
