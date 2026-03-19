@@ -33,12 +33,36 @@ patterns:
     description: File contents can be sent to an external server
     remediation: Implement an allowlist for external URLs; validate file access scope
 
+  - source: read_file
+    target: requests
+    type: data_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: File contents can be sent to an external server via HTTP client
+    remediation: Implement an allowlist for external URLs; validate file access scope
+
+  - source: read_file
+    target: mcp_fetch
+    type: data_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: File contents can be exfiltrated via MCP fetch
+    remediation: Restrict outbound fetch URLs; validate file access scope
+
   - source: database_query
     target: http_request
     type: database_exfiltration
     risk: critical
     category: data_exfiltration
     description: Database data can be sent to an attacker-controlled endpoint
+    remediation: Restrict outbound network access; audit database queries
+
+  - source: database_query
+    target: requests
+    type: database_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: Database data can be sent externally via HTTP client
     remediation: Restrict outbound network access; audit database queries
 
   - source: read_file
@@ -57,6 +81,14 @@ patterns:
     description: Database search results can be emailed to external recipients
     remediation: Audit email recipients; limit data returned by search
 
+  - source: database_query
+    target: send_email
+    type: data_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: Database query results can be emailed to external recipients
+    remediation: Audit email recipients; restrict query scope
+
   - source: get_user_info
     target: http_request
     type: pii_leakage
@@ -64,6 +96,30 @@ patterns:
     category: data_exfiltration
     description: User PII can be sent to external endpoints
     remediation: Mask PII before external API calls; enforce data classification
+
+  - source: get_user_info
+    target: send_email
+    type: pii_leakage
+    risk: critical
+    category: data_exfiltration
+    description: User PII can be exfiltrated via email
+    remediation: Mask PII fields; restrict email recipients
+
+  - source: query_employees
+    target: send_email
+    type: pii_leakage
+    risk: critical
+    category: data_exfiltration
+    description: Employee PII can be exfiltrated via email
+    remediation: Redact sensitive fields; restrict email recipients
+
+  - source: query_employees
+    target: http_request
+    type: pii_leakage
+    risk: critical
+    category: data_exfiltration
+    description: Employee PII can be sent to external endpoints
+    remediation: Mask PII before external calls; enforce data classification
 
   - source: read_file
     target: external_api
@@ -73,7 +129,7 @@ patterns:
     description: File contents sent to a third-party API
     remediation: Restrict external API access; validate outbound payloads
 
-  # ── SQL Injection to RCE ──────────────────────────────────────────
+  # ── Code Execution Chains ─────────────────────────────────────────
   - source: sql_query
     target: execute_code
     type: sql_to_rce
@@ -89,6 +145,46 @@ patterns:
     category: code_execution
     description: Database output piped into code execution
     remediation: Sanitise all database output before processing
+
+  - source: execute_code
+    target: shell_execute
+    type: code_to_shell
+    risk: critical
+    category: code_execution
+    description: Code execution can spawn shell commands for full system access
+    remediation: Sandbox code execution; block subprocess/os.system calls
+
+  - source: execute_code
+    target: http_request
+    type: code_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: Code execution results can be exfiltrated via HTTP
+    remediation: Restrict outbound network from code execution environment
+
+  - source: execute_code
+    target: requests
+    type: code_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: Code execution results can be exfiltrated via HTTP client
+    remediation: Restrict outbound network from code execution environment
+
+  - source: python_repl
+    target: requests
+    type: code_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: Python REPL output can be exfiltrated via HTTP client
+    remediation: Sandbox Python execution; restrict network access
+
+  - source: python_repl
+    target: shell
+    type: code_to_shell
+    risk: critical
+    category: code_execution
+    description: Python REPL can spawn shell commands for full system access
+    remediation: Sandbox Python execution; block subprocess/os.system calls
 
   # ── PII Leakage ───────────────────────────────────────────────────
   - source: get_user_info

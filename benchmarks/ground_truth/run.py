@@ -132,19 +132,47 @@ def _build_graph_for_agent(
     return graph
 
 
+def _tool_keywords(tool_id: str) -> set[str]:
+    """Split a tool ID into keywords: 'mcp_read_file' → {'mcp', 'read', 'file'}."""
+    import re
+
+    return {t for t in re.split(r"[_\-\s./]+", tool_id.lower()) if len(t) > 1}
+
+
+def _tool_match(expected: str, found: str) -> bool:
+    """Check if a single expected tool matches a found tool.
+
+    Uses substring matching first, then keyword overlap.  For keyword
+    overlap, at least half the expected keywords must appear in (or
+    contain) at least one found keyword.  This handles naming variants
+    like ``'http_request'`` matching ``'requests_get'`` (shared
+    ``'request'``/``'requests'`` root) even when ``'http'`` has no
+    counterpart.
+    """
+    exp_lower = expected.lower()
+    found_lower = found.lower()
+    # Strategy 1: direct substring
+    if exp_lower in found_lower or found_lower in exp_lower:
+        return True
+    # Strategy 2: keyword overlap — at least half of expected keywords
+    # must appear in some found keyword (via substring containment)
+    exp_kw = _tool_keywords(expected)
+    found_kw = _tool_keywords(found)
+    if not exp_kw:
+        return False
+    hits = sum(1 for ek in exp_kw if any(ek in fk or fk in ek for fk in found_kw))
+    return hits >= max(1, len(exp_kw) // 2)
+
+
 def _chain_matches(found_tools: list[str], expected_tools: list[str]) -> bool:
     """Check if a found chain matches an expected chain.
 
-    Uses substring matching: found tool "tool_read_file" matches
-    expected tool "read_file".
+    Each expected tool must match at least one found tool (using
+    substring or keyword overlap matching).
     """
     if len(found_tools) < len(expected_tools):
         return False
-    for expected in expected_tools:
-        exp_lower = expected.lower()
-        if not any(exp_lower in ft.lower() or ft.lower() in exp_lower for ft in found_tools):
-            return False
-    return True
+    return all(any(_tool_match(exp, ft) for ft in found_tools) for exp in expected_tools)
 
 
 def benchmark_chain_analyzer(

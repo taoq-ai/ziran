@@ -348,6 +348,18 @@ class ToolChainAnalyzer:
             if d.get("node_type") in (NodeType.TOOL, NodeType.CAPABILITY)
         ]
 
+    @staticmethod
+    def _to_keywords(tool_id: str) -> set[str]:
+        """Extract keywords from a tool ID by splitting on separators.
+
+        ``"mcp_read_file"`` → ``{"mcp", "read", "file"}``
+        ``"requests_get"``  → ``{"requests", "get"}``
+        """
+        import re as _re
+
+        tokens = _re.split(r"[_\-\s./]+", tool_id.lower())
+        return {t for t in tokens if len(t) > 1}
+
     def _match_pattern(
         self,
         source_id: str,
@@ -356,8 +368,12 @@ class ToolChainAnalyzer:
     ) -> ChainPatternInfo | None:
         """Check whether a (source, target) pair matches any dangerous pattern.
 
-        Uses *substring* matching so that ``"tool_read_file"`` matches
-        the pattern key ``"read_file"``.
+        Uses two matching strategies (first match wins):
+
+        1. **Substring** — ``"read_file"`` matches ``"tool_read_file"``.
+        2. **Keyword overlap** — pattern ``"http_request"`` matches tool
+           ``"requests_get"`` because they share the keyword ``"request"``
+           (via substring within keywords).
 
         Results are memoized in *cache* so the same pair is only checked once.
         """
@@ -367,11 +383,39 @@ class ToolChainAnalyzer:
 
         source_lower = source_id.lower()
         target_lower = target_id.lower()
+        source_kw = self._to_keywords(source_id)
+        target_kw = self._to_keywords(target_id)
 
         for (pat_src, pat_tgt), info in self._patterns.items():
-            if pat_src in source_lower and pat_tgt in target_lower:
+            src_match = self._pattern_matches(pat_src, source_lower, source_kw)
+            tgt_match = self._pattern_matches(pat_tgt, target_lower, target_kw)
+            if src_match and tgt_match:
                 cache[key] = info
                 return info
 
         cache[key] = None
         return None
+
+    @staticmethod
+    def _pattern_matches(pattern: str, tool_lower: str, tool_kw: set[str]) -> bool:
+        """Check if a single pattern string matches a tool ID.
+
+        Strategies:
+        1. Substring: ``pattern in tool_lower``
+        2. Keyword overlap: every keyword in the pattern appears in at
+           least one tool keyword (via substring containment).
+        """
+        # Strategy 1: direct substring
+        if pattern in tool_lower:
+            return True
+
+        # Strategy 2: keyword overlap — split pattern into keywords,
+        # check each pattern keyword is contained in some tool keyword
+        import re as _re
+
+        pat_kw = _re.split(r"[_\-\s./]+", pattern.lower())
+        pat_kw = [k for k in pat_kw if len(k) > 1]
+        if not pat_kw:
+            return False
+
+        return all(any(pk in tk or tk in pk for tk in tool_kw) for pk in pat_kw)
