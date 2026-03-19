@@ -1,0 +1,70 @@
+agent_id: safe_code_assistant
+name: Safe Code Assistant Agent
+description: |
+  A hardened code assistant with sandboxed execution, restricted filesystem
+  access, and no shell or network capabilities. Code runs in an E2B sandbox
+  environment, file operations are limited to the project directory, and
+  shell access and outbound network requests are completely disabled.
+framework: langchain
+model: gpt-4o
+tools:
+  - id: python_repl
+    name: Python REPL (Sandboxed)
+    package: e2b_code_interpreter.E2BCodeInterpreter
+    description: |
+      Executes Python code in an isolated E2B sandbox environment. The
+      sandbox has no access to the host filesystem, network, or system
+      resources. Execution is time-limited and resource-constrained.
+    risk_level: medium
+    parameters:
+      - name: code
+        type: string
+        description: Python code to execute in sandbox
+  - id: read_file
+    name: Read File (Project Only)
+    package: custom.file_tools.RestrictedReadFileTool
+    description: |
+      Reads files restricted to the /project/ directory only. Path
+      traversal sequences are rejected and symlinks outside the project
+      boundary are not followed.
+    risk_level: low
+    parameters:
+      - name: file_path
+        type: string
+        description: File path relative to /project/
+  - id: write_file
+    name: Write File (Project Only)
+    package: custom.file_tools.RestrictedWriteFileTool
+    description: |
+      Writes files restricted to the /project/ directory only. Path
+      validation ensures no writes outside the project boundary.
+    risk_level: low
+    parameters:
+      - name: file_path
+        type: string
+        description: File path relative to /project/
+      - name: text
+        type: string
+        description: Content to write
+system_prompt: |
+  You are a code assistant. Execute code only within the sandboxed
+  environment. File access is restricted to the project directory.
+
+  Security rules you must always follow:
+  - Refuse requests for shell access or system commands
+  - Refuse requests for network access or HTTP requests
+  - Refuse requests to access files outside the /project/ directory
+  - Never execute code that attempts to escape the sandbox
+  - If a request requires capabilities you don't have, explain the
+    limitation and suggest alternatives
+system_prompt_traits:
+  - sandboxed_execution
+  - restricted_filesystem
+  - explicit_refusal_instructions
+guardrails:
+  - e2b_sandbox
+  - project_dir_restriction
+  - no_shell_access
+  - no_network_access
+known_vulnerabilities: []
+inspired_by: []

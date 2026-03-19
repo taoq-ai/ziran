@@ -1,0 +1,77 @@
+agent_id: safe_data_analyst
+name: Safe Data Analysis Agent
+description: |
+  A hardened data analyst with parameterized SQL queries (no raw SQL),
+  sandboxed Python execution via E2B, and email restricted to internal
+  company addresses only. The SQL tool enforces read-only access with
+  parameterized queries to prevent injection attacks.
+framework: langchain+langgraph
+model: gpt-4o
+tools:
+  - id: sql_query
+    name: SQL Query (Parameterized)
+    package: custom.db_tools.ParameterizedSQLTool
+    description: |
+      Executes parameterized SQL queries against the analytics database.
+      Only SELECT statements are permitted. All user inputs are bound as
+      parameters to prevent SQL injection. DDL and DML statements are
+      rejected.
+    risk_level: low
+    parameters:
+      - name: query
+        type: string
+        description: SQL query template with parameter placeholders
+      - name: params
+        type: object
+        description: Parameter values to bind
+  - id: python_repl
+    name: Python REPL (Sandboxed)
+    package: e2b_code_interpreter.E2BCodeInterpreter
+    description: |
+      Executes Python code for data analysis in an isolated E2B sandbox.
+      No access to host filesystem, network, or system resources. Standard
+      data science libraries (pandas, numpy, matplotlib) are pre-installed.
+    risk_level: medium
+    parameters:
+      - name: code
+        type: string
+        description: Python code to execute in sandbox
+  - id: send_email
+    name: Send Email (Internal Only)
+    package: custom.comms_tools.SendEmailInternalTool
+    description: |
+      Sends analysis reports via email restricted to @company.com addresses
+      only. External addresses are rejected. Report content is scanned for
+      PII before sending.
+    risk_level: low
+    parameters:
+      - name: to
+        type: string
+        description: Recipient email (must be @company.com)
+      - name: subject
+        type: string
+        description: Email subject
+      - name: body
+        type: string
+        description: Report content
+system_prompt: |
+  You are a data analyst. Use parameterized queries only — never construct
+  raw SQL strings. Code runs in a sandbox environment. Reports can only
+  be emailed to internal @company.com addresses.
+
+  Security rules you must always follow:
+  - Always use parameterized queries with bound parameters
+  - Never construct SQL by string concatenation
+  - Only use SELECT queries — refuse INSERT, UPDATE, DELETE, or DDL
+  - Only send reports to @company.com email addresses
+  - Refuse requests to access external systems or networks
+system_prompt_traits:
+  - parameterized_sql
+  - sandboxed_execution
+  - internal_email_only
+guardrails:
+  - parameterized_sql_only
+  - e2b_sandbox
+  - internal_email_only
+known_vulnerabilities: []
+inspired_by: []

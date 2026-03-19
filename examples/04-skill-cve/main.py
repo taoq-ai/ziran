@@ -19,10 +19,12 @@ def main() -> None:
 
     # ── 1. Browse the database ──────────────────────────────────
     console.rule("[bold cyan]1. Seed CVE database overview")
-    console.print(f"  Total CVEs: [bold]{db.count}[/bold]")
+    console.print(f"  Total entries: [bold]{db.count}[/bold]")
+    console.print(f"  Real CVEs: [bold]{len(db.get_by_risk_type('cve'))}[/bold]")
+    console.print(f"  Design risks: [bold]{len(db.get_by_risk_type('design_risk'))}[/bold]")
 
-    table = Table(title="Known Agent Tool CVEs", show_lines=True)
-    table.add_column("CVE ID", style="cyan", max_width=22)
+    table = Table(title="Known Agent Tool Vulnerabilities", show_lines=True)
+    table.add_column("ID", style="cyan", max_width=22)
     table.add_column("Tool", style="white", max_width=40)
     table.add_column("Framework", max_width=12)
     table.add_column("Severity", width=8)
@@ -42,15 +44,15 @@ def main() -> None:
 
     # ── 2. Filter by framework ──────────────────────────────────
     console.rule("[bold cyan]2. Filter by framework")
-    for fw in ("langchain", "crewai"):
+    for fw in ("langchain", "crewai", "mcp"):
         cves = db.get_by_framework(fw)
-        console.print(f"  {fw}: [bold]{len(cves)}[/bold] CVEs")
+        console.print(f"  {fw}: [bold]{len(cves)}[/bold] entries")
 
     # ── 3. Filter by severity ───────────────────────────────────
     console.rule("[bold cyan]3. Filter by severity")
     for sev in ("critical", "high", "medium"):
         cves = db.get_by_severity(sev)
-        console.print(f"  {sev}: [bold]{len(cves)}[/bold] CVEs")
+        console.print(f"  {sev}: [bold]{len(cves)}[/bold] entries")
 
     # ── 4. Check agent capabilities ─────────────────────────────
     console.rule("[bold cyan]4. Check agent capabilities against CVE database")
@@ -89,8 +91,8 @@ def main() -> None:
     console.print(f"  CVE matches: [bold red]{len(matches)}[/bold red]")
 
     if matches:
-        match_table = Table(title="⚠ Matched CVEs", show_lines=True)
-        match_table.add_column("CVE ID", style="cyan")
+        match_table = Table(title="Matched Vulnerabilities", show_lines=True)
+        match_table.add_column("ID", style="cyan")
         match_table.add_column("Tool", style="white")
         match_table.add_column("Severity", width=8)
         match_table.add_column("Remediation", style="dim", max_width=50)
@@ -109,25 +111,26 @@ def main() -> None:
     console.rule("[bold cyan]5. Submit a custom CVE")
 
     custom_cve = SkillCVE(
-        cve_id="CVE-AGENT-2026-100",
+        cve_id="DESIGN-RISK-100",
         skill_name="my_org.tools.InternalAdminTool",
-        framework="custom",
+        framework="generic",
         vulnerability_type="privilege_escalation",
         severity="critical",
         description="Internal admin tool grants unrestricted access when invoked by the agent.",
         remediation="Add role-based access control before executing admin operations.",
         reported_by="Security Team",
+        risk_type="design_risk",
     )
 
     cve_id = db.submit_cve(custom_cve)
     console.print(f"  Submitted: [cyan]{cve_id}[/cyan]")
-    console.print(f"  New total: [bold]{db.count}[/bold] CVEs")
+    console.print(f"  New total: [bold]{db.count}[/bold] entries")
 
-    retrieved = db.get_by_id("CVE-AGENT-2026-100")
+    retrieved = db.get_by_id("DESIGN-RISK-100")
     assert retrieved is not None
     console.print(f"  Retrieved: {retrieved.skill_name} — {retrieved.vulnerability_type}")
 
-    console.print("\n[green bold]✓ Skill CVE example complete.[/green bold]\n")
+    console.print("\n[green bold]Skill CVE example complete.[/green bold]\n")
 
 
 if __name__ == "__main__":

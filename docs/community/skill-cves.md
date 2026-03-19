@@ -4,23 +4,30 @@ ZIRAN maintains a curated database of known security vulnerabilities in popular 
 
 ## What is a Skill CVE?
 
-A **Skill CVE** (Common Vulnerabilities and Exposures) is a documented security vulnerability in a specific agent tool or skill. Unlike traditional CVEs that track software bugs, Skill CVEs track **inherent security risks** in how agent tools can be misused.
+The database contains two types of entries:
 
-## Naming Convention
+- **Real CVEs** — Verified vulnerabilities from the NVD/GitHub Advisory Database (e.g. `CVE-2025-68664`)
+- **Design Risks** — Architectural weaknesses documented in OWASP LLM Top 10 and framework security guides (e.g. `DESIGN-RISK-001`)
+
+## ID Format
 
 ```
-CVE-AGENT-YYYY-NNN
+CVE-YYYY-NNNNN      # Real CVE from NVD
+DESIGN-RISK-NNN     # OWASP/framework design risk
 ```
-
-Example: `CVE-AGENT-2026-001` — ShellTool RCE in LangChain
 
 ## Current Database
 
-ZIRAN ships with 15 seed CVEs covering:
+ZIRAN ships with 27 seed entries covering:
 
-- **LangChain** — ShellTool, PythonREPL, SQL tools, file tools, Gmail, search
-- **CrewAI** — ScrapeWebsite, FileRead, CodeInterpreter
-- **MCP** — Tool invocation without scope validation
+### Real CVEs
+- **LangChain** — CVE-2023-46229 (SSRF), CVE-2025-68664 (serialization injection), CVE-2025-65106 (template injection), CVE-2025-46059 (prompt injection), CVE-2025-8709 (SQL injection), CVE-2025-64439 (RCE), CVE-2025-2828 (SSRF)
+- **MCP** — CVE-2025-53109 (symlink bypass), CVE-2025-53110 (path traversal), CVE-2025-68145 (git path bypass), CVE-2025-6514 (command injection), CVE-2026-27825 (file write RCE)
+- **Other** — CVE-2025-32711 (M365 Copilot), CVE-2026-29783 (Copilot CLI)
+
+### Design Risks (OWASP LLM Top 10)
+- **LangChain** — ShellTool, RequestsGetTool, ReadFileTool, WriteFileTool, QuerySQLDataBaseTool, PythonREPLTool, SerpAPIWrapper, ConversationBufferMemory, GmailSendMessage, TavilySearchResults
+- **CrewAI** — ScrapeWebsiteTool, FileReadTool, CodeInterpreterTool
 
 ## Checking Your Agent
 
@@ -33,6 +40,7 @@ matches = db.check_agent(discovered_capabilities)
 for cve in matches:
     print(f"{cve.cve_id}: {cve.skill_name}")
     print(f"  Severity: {cve.severity}")
+    print(f"  Type: {cve.risk_type}")
     print(f"  Risk: {cve.description}")
     print(f"  Fix: {cve.remediation}")
 ```
@@ -48,7 +56,8 @@ Found a vulnerability in an agent tool? Help the community by submitting it:
    - Vulnerability type and severity
    - Description and proof of concept
    - Remediation guidance
-3. The ZIRAN team will review, assign a CVE ID, and add it to the database
+   - **Real CVE ID** if available (from NVD or GitHub advisories)
+3. The ZIRAN team will review and add it to the database
 
 ## Vision
 
