@@ -70,7 +70,23 @@ Most security tools test individual prompts or tools in isolation. ZIRAN discove
 - **A2A + MCP Protocol Depth** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents.
 - **Framework Agnostic** — LangChain, CrewAI, Bedrock, MCP, browser UIs, remote HTTPS agents, or [custom adapters](examples/08-custom-adapter/).
 
-Not an LLM safety tool, runtime guardrail, or general eval framework — see the comparison table above for complementary tools.
+### What ZIRAN Is / What ZIRAN Is Not
+
+**ZIRAN is** an agent security scanner that discovers dangerous tool compositions via graph analysis, detects execution-level side effects, and runs multi-phase campaigns that model real attacker behavior.
+
+**ZIRAN is not:**
+
+- An LLM safety/alignment tool — for prompt injection breadth, jailbreak templates, and compliance testing, use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak)
+- A runtime guardrail — for real-time input/output protection, use [NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails), [Lakera Guard](https://www.lakera.ai/), or [LLM Guard](https://github.com/protectai/llm-guard)
+- A general-purpose eval framework — for model evaluation and benchmarking, use [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) or [Deepeval](https://github.com/confident-ai/deepeval)
+
+### Works With
+
+ZIRAN is complementary to other tools in the AI security ecosystem:
+
+- **[Promptfoo](https://github.com/promptfoo/promptfoo)** for attack breadth (encoding strategies, jailbreak templates, compliance plugins) + **ZIRAN** for agent depth (tool chains, side-effects, campaigns)
+- **[Garak](https://github.com/NVIDIA/garak)** for LLM-layer vulnerability scanning + **ZIRAN** for agent-layer tool chain analysis
+- **[NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails)** / **[Lakera](https://www.lakera.ai/)** for runtime protection + **ZIRAN** for pre-deployment testing
 
 ---
 
