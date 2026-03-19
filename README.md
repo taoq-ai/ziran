@@ -7,6 +7,7 @@
 [![CI](https://github.com/taoq-ai/ziran/actions/workflows/test.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/test.yml)
 [![Lint](https://github.com/taoq-ai/ziran/actions/workflows/lint.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/lint.yml)
 [![PyPI](https://img.shields.io/pypi/v/ziran.svg)](https://pypi.org/project/ziran/)
+[![Downloads](https://img.shields.io/pypi/dm/ziran.svg)](https://pypistats.org/packages/ziran)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -17,6 +18,24 @@
 [Install](#install) · [Quick Start](#quick-start) · [Examples](examples/) · [Docs](https://taoq-ai.github.io/ziran/)
 
 </div>
+
+---
+
+## Benchmarks
+
+> **354** attack vectors · **11** categories · **80%** OWASP LLM Top 10 · **20** benchmarks analyzed
+
+| Benchmark | Coverage |
+|-----------|----------|
+| AgentHarm (ICLR 2025) | 100% harm categories |
+| JailbreakBench (NeurIPS 2024) | 100% categories, 105 vectors |
+| Agent Security Bench | 88.5% vectors (354/400) |
+| HarmBench (ICML 2024) | 55.6% tactics, 105 jailbreak vectors |
+| R-Judge | 100% risk types |
+| ALERT | 100% micro categories (32/32) |
+| MITRE ATLAS | 73.3% attack categories |
+
+Full results: [benchmarks/](benchmarks/) · [docs](https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/)
 
 ---
 
@@ -43,13 +62,13 @@ Most security tools test individual prompts or tools in isolation. ZIRAN discove
 
 **Key differentiators:**
 
-- **Tool Chain Discovery** — Automatically detects dangerous tool combinations via NetworkX graph analysis (`read_file` → `http_request` = data exfiltration). Discovery-based, not policy-based — finds what you didn't know to look for.
-- **Side-Effect Detection** — Catches when agents refuse in text but execute dangerous tools anyway. Priority-based conflict resolution between detectors gives execution-level visibility that text-only evaluation misses.
-- **Multi-Phase Campaigns with Knowledge Graph Feedback** — 8-phase trust exploitation where each phase updates a live knowledge graph, and results from phase N inform attack selection in phase N+1.
-- **Autonomous Pentesting Agent** — An LLM-driven agent that plans, executes, and adapts attack campaigns autonomously, with finding deduplication and interactive red-team mode.
-- **Multi-Agent Coordination** — Discovers topologies (supervisor, router, peer-to-peer) and tests cross-agent trust boundaries and delegation patterns.
-- **A2A + MCP Protocol Depth** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents, including Agent Card discovery, task lifecycle attacks, and multi-turn manipulation.
-- **Framework Agnostic** — LangChain, CrewAI, Bedrock, MCP, browser-based chat UIs, remote HTTPS agents, or [write your own adapter](examples/08-custom-adapter/).
+- **Tool Chain Discovery** — Graph-based detection of dangerous tool combinations (`read_file` → `http_request` = data exfiltration). Discovery-based, not policy-based.
+- **Side-Effect Detection** — Catches when agents refuse in text but execute dangerous tools anyway.
+- **Multi-Phase Campaigns** — 8-phase trust exploitation with live knowledge graph feedback between phases.
+- **Autonomous Pentesting Agent** — LLM-driven agent that plans, executes, and adapts attack campaigns with finding deduplication.
+- **Multi-Agent Coordination** — Discovers topologies and tests cross-agent trust boundaries.
+- **A2A + MCP Protocol Depth** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents.
+- **Framework Agnostic** — LangChain, CrewAI, Bedrock, MCP, browser UIs, remote HTTPS agents, or [custom adapters](examples/08-custom-adapter/).
 
 ### What ZIRAN Is / What ZIRAN Is Not
 
@@ -251,71 +270,7 @@ flowchart LR
     style P fill:#2d2d44,stroke:#e94560,color:#fff
 ```
 
-### Multi-Phase Trust Exploitation
-
-| Phase | Goal |
-|-------|------|
-| Reconnaissance | Discover capabilities and data sources |
-| Trust Building | Establish rapport with the agent |
-| Capability Mapping | Map tools, permissions, data access |
-| Vulnerability Discovery | Identify attack paths |
-| Exploitation Setup | Position without triggering defences |
-| Execution | Execute the exploit chain |
-| Persistence | Maintain access across sessions *(opt-in)* |
-| Exfiltration | Extract sensitive data *(opt-in)* |
-
-Each phase builds on the knowledge graph from previous phases.
-
-### Campaign Strategies
-
-| Strategy | Description |
-|----------|-------------|
-| `fixed` | Sequential phases in order (default) |
-| `adaptive` | Rule-based adaptation — skips, repeats, or re-orders phases based on knowledge graph state |
-| `llm-adaptive` | LLM-driven strategy — uses an LLM to analyze findings and plan the next phase dynamically |
-
-```bash
-ziran scan --target target.yaml --strategy adaptive
-ziran scan --target target.yaml --strategy llm-adaptive
-```
-
-### Autonomous Pentesting Agent
-
-An LLM-powered agent that autonomously plans, executes, and adapts penetration testing campaigns:
-
-```bash
-# fully autonomous mode
-ziran pentest --target target.yaml --max-iterations 5
-
-# interactive red-team mode — collaborate with the agent
-ziran pentest --target target.yaml --interactive
-```
-
-The pentesting agent:
-- **Plans** attack strategies using LLM reasoning and knowledge graph state
-- **Executes** multi-step exploit chains with real-time adaptation
-- **Deduplicates** findings using LLM embeddings to cluster related vulnerabilities
-- **Reports** with detailed HTML reports including OWASP LLM Top 10 mapping
-
-See [examples/19-pentesting-agent/](examples/19-pentesting-agent/) for a complete walkthrough.
-
-### Multi-Agent Scanning
-
-Test coordinated multi-agent systems — supervisors, routers, peer-to-peer networks:
-
-```bash
-ziran multi-agent-scan --target target.yaml
-```
-
-ZIRAN discovers the agent topology, scans each agent individually, then runs cross-agent attacks targeting trust boundaries and delegation patterns.
-
-### Streaming
-
-Monitor attack responses in real-time via SSE or WebSocket:
-
-```bash
-ziran scan --target target.yaml --streaming
-```
+**Campaigns** run 8 phases (reconnaissance → trust building → capability mapping → vulnerability discovery → exploitation setup → execution → persistence → exfiltration), each feeding a live knowledge graph. Three strategies: `fixed` (sequential), `adaptive` (rule-based reordering), `llm-adaptive` (LLM-driven planning). See [adaptive campaigns docs](https://taoq-ai.github.io/ziran/concepts/adaptive-campaigns/).
 
 ---
 
@@ -403,7 +358,7 @@ If you use ZIRAN in academic work, please cite:
   year      = {2026},
   url       = {https://github.com/taoq-ai/ziran},
   license   = {Apache-2.0},
-  version   = {0.9.0}
+  version   = {0.12.0}
 }
 ```
 
