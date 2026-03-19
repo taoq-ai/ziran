@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import sys
 from collections import defaultdict
+from datetime import UTC, datetime
 from itertools import combinations
 from pathlib import Path
 from typing import Any
@@ -94,6 +95,16 @@ class Metrics:
     def f1(self) -> float:
         p, r = self.precision, self.recall
         return 2 * p * r / (p + r) if (p + r) > 0 else 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "tp": self.tp,
+            "fp": self.fp,
+            "fn": self.fn,
+            "precision": round(self.precision, 4),
+            "recall": round(self.recall, 4),
+            "f1": round(self.f1, 4),
+        }
 
     def __repr__(self) -> str:
         return (
@@ -426,6 +437,56 @@ def main() -> int:
     avg_f1 = sum(m.f1 for m in all_metrics) / len(all_metrics)
     print(f"{'Macro Average':<25s} {avg_p:>9.1%} {avg_r:>9.1%} {avg_f1:>9.1%}")
     print("=" * 60)
+
+    # Save results to benchmarks/results/
+    results_dir = Path(__file__).resolve().parent.parent / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.now(UTC)
+
+    # Build markdown report
+    components = [
+        ("Chain Analyzer", chain_metrics),
+        ("Skill CVE Matcher", cve_metrics),
+        ("Tool Classifier", tool_metrics),
+        ("Scenario Verdict", verdict_metrics),
+    ]
+
+    lines = [
+        "# Ground Truth Benchmark Results",
+        "",
+        f"**Date:** {now.strftime('%Y-%m-%d %H:%M:%S')} UTC",
+        f"**Dataset:** {len(agents)} agents, {len(scenarios)} scenarios "
+        f"({tp_count} TP, {tn_count} TN)",
+        "",
+        "## Summary",
+        "",
+        "| Component | TP | FP | FN | Precision | Recall | F1 |",
+        "|---|--:|--:|--:|--:|--:|--:|",
+    ]
+
+    for name, m in components:
+        lines.append(
+            f"| {name} | {m.tp} | {m.fp} | {m.fn} "
+            f"| {m.precision:.1%} | {m.recall:.1%} | {m.f1:.1%} |"
+        )
+
+    lines.append(
+        f"| **Macro Average** | | | | **{avg_p:.1%}** | **{avg_r:.1%}** | **{avg_f1:.1%}** |"
+    )
+    lines.append("")
+
+    md_content = "\n".join(lines) + "\n"
+
+    # Write timestamped result and latest
+    filename = f"ground_truth_{now.strftime('%Y%m%d_%H%M%S')}.md"
+    result_path = results_dir / filename
+    result_path.write_text(md_content)
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    print(f"\nResults saved to {result_path.relative_to(repo_root)}")
+
+    latest_path = results_dir / "ground_truth_latest.md"
+    latest_path.write_text(md_content)
 
     return 0
 
