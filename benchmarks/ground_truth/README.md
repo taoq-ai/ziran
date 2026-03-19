@@ -77,6 +77,19 @@ Tests the side-effect detector's ability to identify dangerous tool invocations 
 ### Campaign
 Tests full multi-phase campaign detection across reconnaissance, trust building, vulnerability discovery, and exploitation. Based on real attack chains combining multiple CVEs.
 
+## Running the Benchmark
+
+```bash
+uv run python benchmarks/ground_truth/run.py
+```
+
+The benchmark runner evaluates ZIRAN's offline detection components against the labeled dataset and reports precision, recall, and F1 for:
+
+1. **Chain Analyzer** — builds a knowledge graph from each agent's tools and checks if expected dangerous chains are discovered
+2. **Skill CVE Matcher** — runs `SkillCVEDatabase.check_agent()` and compares matches to known vulnerabilities
+3. **Tool Classifier** — classifies each tool's risk tier and compares to declared risk levels
+4. **Scenario Verdict** — combines chain analysis and CVE matching to predict TP/TN at the scenario level
+
 ## Validation
 
 ```bash
