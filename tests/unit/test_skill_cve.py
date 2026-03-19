@@ -128,15 +128,18 @@ class TestCheckAgent:
         """Tool names with different casing should still match."""
         caps = [
             AgentCapability(
-                id="cap-1",
-                name="SHELLTOOL",
+                id="shell_execute",
+                name="Shell Execute",
                 type=CapabilityType.TOOL,
+                description="Executes arbitrary shell commands",
                 dangerous=True,
                 requires_permission=True,
             ),
         ]
         matches = db.check_agent(caps)
         assert len(matches) >= 1
+        # Should match DESIGN-RISK-001 (ShellTool) via keyword overlap
+        assert any(m.cve_id == "DESIGN-RISK-001" for m in matches)
 
 
 # ── Tests: get_by_id() ───────────────────────────────────────────────
