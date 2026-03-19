@@ -22,6 +22,7 @@ class TestClassifyTool:
     @pytest.mark.parametrize(
         "tool_name",
         [
+            # Code execution
             "shell_execute",
             "bash_run",
             "execute_code",
@@ -32,16 +33,35 @@ class TestClassifyTool:
             "terminal_exec",
             "subprocess_call",
             "system_command",
+            "python_repl",
+            "repl",
+            "code_interpreter",
+            # File mutation
             "write_file",
             "create_file",
             "delete_file",
             "remove_file",
+            # Outbound network
             "http_request",
             "http_post",
             "fetch_url",
             "curl",
             "webhook_send",
             "send_data",
+            # Unrestricted SQL
+            "sql_query",
+            "run_database_query",
+            "raw_sql",
+            # Environment / secrets
+            "read_env",
+            "get_env",
+            "env_var_reader",
+            # Deployment
+            "deploy",
+            "deploy_service",
+            # Financial
+            "process_payment",
+            "transfer_funds",
         ],
     )
     def test_critical_tools(self, tool_name: str) -> None:
@@ -53,12 +73,16 @@ class TestClassifyTool:
     @pytest.mark.parametrize(
         "tool_name",
         [
+            # Email / messaging
             "send_email",
             "send_message",
+            "gmail_send",
+            # Permissions
             "update_permission",
             "modify_permission",
             "grant_access",
             "revoke_access",
+            # Database mutations
             "database_write",
             "database_update",
             "database_delete",
@@ -66,16 +90,42 @@ class TestClassifyTool:
             "update_record",
             "delete_record",
             "sql_execute",
+            "database_query",
+            # Configuration
             "modify_config",
             "update_config",
+            "read_config",
+            # File transfer
             "download",
             "upload",
+            # Secrets / credentials
             "credential_store",
             "password_manager",
             "secret_vault",
             "token_refresh",
             "api_key_rotate",
+            # Remote invocation
             "lambda_invoke",
+            # HTTP client
+            "requests_get",
+            "requests_post",
+            # Git
+            "git_commit",
+            "git_push",
+            # PII access
+            "query_employees",
+            "get_user_info",
+            # Agent delegation
+            "delegate_task",
+            "agent_call",
+            "agent_invoke",
+            # MCP tools
+            "mcp_read_file",
+            "mcp_fetch",
+            "mcp_read_resource",
+            # File read (may expose secrets/PII)
+            "read_file",
+            "get_file",
         ],
     )
     def test_high_tools(self, tool_name: str) -> None:
@@ -87,13 +137,8 @@ class TestClassifyTool:
     @pytest.mark.parametrize(
         "tool_name",
         [
-            "read_file",
-            "get_file",
             "list_directory",
             "search_database",
-            "database_query",
-            "sql_query",
-            "get_user_info",
             "search_users",
             "api_call",
             "external_api",
@@ -158,8 +203,13 @@ class TestIsDangerous:
 
     def test_medium_not_dangerous(self) -> None:
         """Medium-risk tools are NOT classified as 'dangerous'."""
-        assert is_dangerous("read_file") is False
+        assert is_dangerous("list_directory") is False
         assert is_dangerous("search_database") is False
+
+    def test_high_is_dangerous(self) -> None:
+        """High-risk tools ARE classified as 'dangerous'."""
+        assert is_dangerous("read_file") is True
+        assert is_dangerous("delegate_task") is True
 
 
 @pytest.mark.unit

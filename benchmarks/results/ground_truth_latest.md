@@ -1,6 +1,6 @@
 # Ground Truth Benchmark Results
 
-**Date:** 2026-03-19 08:51:44 UTC
+**Date:** 2026-03-19 10:39:38 UTC
 **Dataset:** 14 agents, 54 scenarios (29 TP, 25 TN)
 
 ## Summary
@@ -9,7 +9,7 @@
 |---|--:|--:|--:|--:|--:|--:|
 | Chain Analyzer | 5 | 0 | 14 | 100.0% | 26.3% | 41.7% |
 | Skill CVE Matcher | 1 | 1 | 24 | 50.0% | 4.0% | 7.4% |
-| Tool Classifier | 8 | 3 | 19 | 72.7% | 29.6% | 42.1% |
+| Tool Classifier | 26 | 12 | 1 | 68.4% | 96.3% | 80.0% |
 | Scenario Verdict | 20 | 9 | 9 | 69.0% | 69.0% | 69.0% |
-| **Macro Average** | | | | **72.9%** | **32.2%** | **40.0%** |
+| **Macro Average** | | | | **71.8%** | **48.9%** | **49.5%** |
 
