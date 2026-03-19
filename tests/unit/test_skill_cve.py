@@ -74,17 +74,24 @@ class TestSkillCVEDatabaseInit:
 
     def test_all_seeds_have_valid_fields(self, db: SkillCVEDatabase) -> None:
         for cve in db.all_cves:
-            assert cve.cve_id.startswith("CVE-AGENT-")
+            assert cve.cve_id.startswith(("CVE-", "DESIGN-RISK-"))
             assert cve.skill_name
             assert cve.framework in ("langchain", "crewai", "mcp", "autogen", "generic")
             assert cve.severity in ("critical", "high", "medium", "low")
             assert cve.vulnerability_type
             assert cve.description
             assert cve.remediation
+            assert cve.risk_type in ("cve", "design_risk")
 
     def test_cve_ids_are_unique(self, db: SkillCVEDatabase) -> None:
         ids = [cve.cve_id for cve in db.all_cves]
         assert len(ids) == len(set(ids))
+
+    def test_real_cves_have_references(self, db: SkillCVEDatabase) -> None:
+        """Real CVEs should have at least one reference URL."""
+        for cve in db.all_cves:
+            if cve.risk_type == "cve":
+                assert len(cve.references) >= 1, f"{cve.cve_id} missing references"
 
 
 # ── Tests: check_agent() ─────────────────────────────────────────────
@@ -138,13 +145,20 @@ class TestCheckAgent:
 class TestGetById:
     """Tests for lookup by CVE ID."""
 
-    def test_existing_id(self, db: SkillCVEDatabase) -> None:
-        cve = db.get_by_id("CVE-AGENT-2026-001")
+    def test_existing_real_cve(self, db: SkillCVEDatabase) -> None:
+        cve = db.get_by_id("CVE-2023-46229")
         assert cve is not None
-        assert cve.cve_id == "CVE-AGENT-2026-001"
+        assert cve.cve_id == "CVE-2023-46229"
+        assert cve.risk_type == "cve"
+
+    def test_existing_design_risk(self, db: SkillCVEDatabase) -> None:
+        cve = db.get_by_id("DESIGN-RISK-001")
+        assert cve is not None
+        assert cve.cve_id == "DESIGN-RISK-001"
+        assert cve.risk_type == "design_risk"
 
     def test_missing_id(self, db: SkillCVEDatabase) -> None:
-        cve = db.get_by_id("CVE-AGENT-9999-999")
+        cve = db.get_by_id("CVE-9999-99999")
         assert cve is None
 
 
@@ -163,6 +177,11 @@ class TestGetByFramework:
         results = db.get_by_framework("crewai")
         assert len(results) >= 1
         assert all(r.framework == "crewai" for r in results)
+
+    def test_mcp_has_entries(self, db: SkillCVEDatabase) -> None:
+        results = db.get_by_framework("mcp")
+        assert len(results) >= 1
+        assert all(r.framework == "mcp" for r in results)
 
     def test_unknown_framework_empty(self, db: SkillCVEDatabase) -> None:
         results = db.get_by_framework("nonexistent_framework")
@@ -188,6 +207,23 @@ class TestGetBySeverity:
         assert "medium" in all_severities
 
 
+# ── Tests: get_by_risk_type() ────────────────────────────────────────
+
+
+class TestGetByRiskType:
+    """Tests for filtering by risk type."""
+
+    def test_has_real_cves(self, db: SkillCVEDatabase) -> None:
+        results = db.get_by_risk_type("cve")
+        assert len(results) >= 5
+        assert all(r.risk_type == "cve" for r in results)
+
+    def test_has_design_risks(self, db: SkillCVEDatabase) -> None:
+        results = db.get_by_risk_type("design_risk")
+        assert len(results) >= 5
+        assert all(r.risk_type == "design_risk" for r in results)
+
+
 # ── Tests: submit_cve() ──────────────────────────────────────────────
 
 
@@ -197,17 +233,18 @@ class TestSubmitCVE:
     def test_add_new_cve(self, db: SkillCVEDatabase) -> None:
         original_count = db.count
         new_cve = SkillCVE(
-            cve_id="CVE-AGENT-2026-100",
+            cve_id="CVE-2099-99999",
             skill_name="DangerousTool",
             framework="generic",
             vulnerability_type="test_vuln",
             severity="low",
             description="A test vulnerability",
             remediation="Don't use it",
+            risk_type="cve",
         )
         db.submit_cve(new_cve)
         assert db.count == original_count + 1
-        assert db.get_by_id("CVE-AGENT-2026-100") is not None
+        assert db.get_by_id("CVE-2099-99999") is not None
 
     def test_duplicate_cve_rejected(self, db: SkillCVEDatabase) -> None:
         """Submitting a CVE with an existing ID should raise ValueError."""
@@ -217,17 +254,18 @@ class TestSubmitCVE:
 
     def test_submitted_cve_retrievable(self, db: SkillCVEDatabase) -> None:
         new_cve = SkillCVE(
-            cve_id="CVE-AGENT-2026-200",
+            cve_id="DESIGN-RISK-999",
             skill_name="TestSearch",
             framework="crewai",
             vulnerability_type="info_leak",
             severity="medium",
             description="Test",
             remediation="Fix",
+            risk_type="design_risk",
         )
         db.submit_cve(new_cve)
         by_framework = db.get_by_framework("crewai")
-        assert any(c.cve_id == "CVE-AGENT-2026-200" for c in by_framework)
+        assert any(c.cve_id == "DESIGN-RISK-999" for c in by_framework)
 
 
 # ── Tests: SkillCVE model ────────────────────────────────────────────
@@ -238,7 +276,7 @@ class TestSkillCVEModel:
 
     def test_valid_creation(self) -> None:
         cve = SkillCVE(
-            cve_id="CVE-AGENT-2026-999",
+            cve_id="CVE-2099-99998",
             skill_name="TestTool",
             framework="generic",
             vulnerability_type="test",
@@ -246,11 +284,11 @@ class TestSkillCVEModel:
             description="desc",
             remediation="rem",
         )
-        assert cve.cve_id == "CVE-AGENT-2026-999"
+        assert cve.cve_id == "CVE-2099-99998"
 
     def test_optional_fields_default(self) -> None:
         cve = SkillCVE(
-            cve_id="CVE-AGENT-2026-998",
+            cve_id="CVE-2099-99997",
             skill_name="TestTool",
             framework="generic",
             vulnerability_type="test",
@@ -260,10 +298,12 @@ class TestSkillCVEModel:
         )
         assert cve.skill_version == "*"
         assert cve.references == []
+        assert cve.risk_type == "cve"
+        assert cve.cvss_score is None
 
     def test_serialization_roundtrip(self) -> None:
         cve = SkillCVE(
-            cve_id="CVE-AGENT-2026-997",
+            cve_id="CVE-2099-99996",
             skill_name="RoundTrip",
             framework="langchain",
             vulnerability_type="rce",
@@ -272,6 +312,8 @@ class TestSkillCVEModel:
             remediation="fix it",
             skill_version="<=0.1.0",
             references=["https://example.com"],
+            risk_type="cve",
+            cvss_score=9.8,
         )
         data = cve.model_dump()
         restored = SkillCVE(**data)
@@ -279,7 +321,7 @@ class TestSkillCVEModel:
 
     def test_is_critical_property(self) -> None:
         cve_critical = SkillCVE(
-            cve_id="CVE-AGENT-2026-996",
+            cve_id="CVE-2099-99995",
             skill_name="CriticalTool",
             framework="generic",
             vulnerability_type="rce",
@@ -287,7 +329,7 @@ class TestSkillCVEModel:
             description="desc",
         )
         cve_low = SkillCVE(
-            cve_id="CVE-AGENT-2026-995",
+            cve_id="CVE-2099-99994",
             skill_name="LowTool",
             framework="generic",
             vulnerability_type="info",

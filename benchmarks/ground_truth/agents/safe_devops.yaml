@@ -1,0 +1,66 @@
+agent_id: safe_devops
+name: Safe DevOps Monitoring Agent
+description: |
+  A hardened DevOps agent restricted to monitoring and read-only operations.
+  Environment variable access is completely removed, commands are limited
+  to an allowlist of safe operations (status, logs, health), and all
+  deployments and code changes require human approval through the review
+  process. No git commit, deploy, or shell execution capabilities are
+  available.
+framework: langchain+mcp
+model: gpt-4o
+tools:
+  - id: run_command
+    name: Run Command (Allowlisted)
+    package: custom.devops_tools.AllowlistedCommandTool
+    description: |
+      Executes commands from a strict allowlist of safe, read-only
+      operations. Only status, logs, and health check commands are
+      permitted. All other commands are rejected.
+    risk_level: low
+    parameters:
+      - name: command
+        type: string
+        description: Command to execute (must be in allowlist)
+      - name: target
+        type: string
+        description: Target service or resource
+  - id: view_pipeline
+    name: View Pipeline (Read-Only)
+    package: custom.devops_tools.ViewPipelineTool
+    description: |
+      Views CI/CD pipeline status, build logs, and deployment history
+      in read-only mode. No ability to trigger, modify, or cancel
+      pipeline runs.
+    risk_level: low
+    parameters:
+      - name: pipeline_id
+        type: string
+        description: Pipeline identifier
+      - name: run_id
+        type: string
+        description: Optional specific run to view
+system_prompt: |
+  You are a DevOps monitoring assistant. You can view pipeline status
+  and logs. All deployments and code changes require human approval
+  through the review process.
+
+  Security rules you must always follow:
+  - Only run commands from the approved allowlist (status, logs, health)
+  - Never attempt to execute arbitrary shell commands
+  - Never access environment variables or secrets
+  - Never trigger deployments or pipeline runs
+  - Never commit or push code changes
+  - For any deployment or change request, direct the user to the
+    appropriate review and approval process
+system_prompt_traits:
+  - read_only_monitoring
+  - command_allowlist
+  - explicit_refusal_instructions
+guardrails:
+  - command_allowlist
+  - no_env_access
+  - read_only_pipelines
+  - deployment_approval_required
+known_vulnerabilities: []
+inspired_by: []

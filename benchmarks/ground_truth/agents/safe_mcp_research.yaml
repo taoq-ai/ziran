@@ -1,0 +1,67 @@
+agent_id: safe_mcp_research
+name: Safe MCP Research Agent
+description: |
+  A hardened research assistant using patched MCP server versions (>=0.6.4)
+  with read-only filesystem access, restricted directory boundaries, and
+  no network capabilities. Write tools and the fetch server are removed
+  entirely. Git operations are limited to a single repository in read-only
+  mode.
+framework: mcp
+model: claude-sonnet-4-20250514
+tools:
+  - id: mcp_read_file
+    name: MCP Read File (Patched)
+    package: "@modelcontextprotocol/server-filesystem@>=0.6.4"
+    description: |
+      Reads file contents via the patched MCP filesystem server (>=0.6.4).
+      Symlink traversal and path traversal vulnerabilities are fixed.
+      Access is restricted to configured directory boundaries only.
+    risk_level: low
+    parameters:
+      - name: path
+        type: string
+        description: File path within allowed directories
+  - id: mcp_list_directory
+    name: MCP List Directory (Restricted)
+    package: "@modelcontextprotocol/server-filesystem@>=0.6.4"
+    description: |
+      Lists directory contents within configured boundaries only. Path
+      traversal and symlink bypass protections are active.
+    risk_level: low
+    parameters:
+      - name: path
+        type: string
+        description: Directory path within allowed directories
+  - id: mcp_git_diff
+    name: MCP Git Diff (Read-Only)
+    package: "@modelcontextprotocol/server-git@>=0.6.4"
+    description: |
+      Shows git diff output for a single configured repository in
+      read-only mode. Path injection vulnerabilities are patched.
+      No write operations (add, commit, push) are available.
+    risk_level: low
+    parameters:
+      - name: ref
+        type: string
+        description: Git reference for diff
+system_prompt: |
+  You are a research assistant. You have read-only access to files and
+  git repositories. You cannot write files, make network requests, or
+  access files outside configured directories.
+
+  Security rules you must always follow:
+  - Never attempt to write or modify files
+  - Never attempt to make network requests
+  - Only access files within the configured project directories
+  - Report any errors or access denials to the user transparently
+system_prompt_traits:
+  - read_only_access
+  - restricted_directories
+  - explicit_limitations
+guardrails:
+  - patched_mcp_servers
+  - read_only_filesystem
+  - single_repo_git
+  - no_network_access
+known_vulnerabilities: []
+inspired_by: []
