@@ -362,6 +362,137 @@ def benchmark_tool_classifier(
 # ── 4. Scenario-Level Verdict Benchmark ───────────────────────────────
 
 
+# Guardrail → chain vulnerability types that the guardrail mitigates.
+# When a guardrail is present, chains of the listed types are filtered
+# out because the guardrail prevents exploitation.
+_GUARDRAIL_MITIGATIONS: dict[str, set[str]] = {
+    # Sandbox / execution restrictions
+    "e2b_sandbox": {
+        "code_to_shell",
+        "sql_to_rce",
+        "repl_persist",
+        "repl_exfiltration",
+        "code_exfiltration",
+        "command_injection_persist",
+        "remote_code_execution",
+        "serialization_injection",
+    },
+    "no_shell_access": {
+        "code_to_shell",
+        "command_injection",
+        "command_injection_persist",
+    },
+    # Network restrictions
+    "no_network_access": {
+        "data_exfiltration",
+        "database_exfiltration",
+        "pii_leakage",
+        "code_exfiltration",
+        "repl_exfiltration",
+        "ssrf",
+        "session_exfiltration",
+    },
+    "url_allowlist": {
+        "ssrf",
+        "data_exfiltration",
+        "code_exfiltration",
+    },
+    # Filesystem restrictions
+    "read_only_filesystem": {
+        "file_manipulation",
+        "command_injection_persist",
+        "repl_persist",
+        "directory_traversal",
+    },
+    "project_dir_restriction": {
+        "file_manipulation",
+        "path_traversal",
+        "symlink_bypass",
+    },
+    # Data access restrictions
+    "parameterized_sql_only": {
+        "sql_injection",
+        "sql_to_rce",
+    },
+    "pii_output_filter": {
+        "pii_leakage",
+    },
+    "email_recipient_validation": {
+        "data_exfiltration",
+        "pii_leakage",
+    },
+    "internal_email_only": {
+        "data_exfiltration",
+        "pii_leakage",
+    },
+    # MCP-specific
+    "patched_mcp_servers": {
+        "symlink_bypass",
+        "path_traversal",
+        "command_injection",
+    },
+    # Delegation restrictions
+    "task_only_delegation": {
+        "privilege_escalation",
+        "delegation_abuse",
+    },
+    "per_agent_scoping": {
+        "privilege_escalation",
+        "delegation_abuse",
+    },
+    # DevOps restrictions
+    "command_allowlist": {
+        "command_injection",
+        "command_injection_persist",
+        "code_to_shell",
+    },
+    "no_env_access": {
+        "data_exfiltration",
+        "credential_theft",
+    },
+    "read_only_pipelines": {
+        "file_manipulation",
+        "command_injection_persist",
+    },
+    # Prompt/template restrictions
+    "hardcoded_templates": {
+        "template_injection",
+        "prompt_injection",
+    },
+    "indirect_injection_defense": {
+        "prompt_injection",
+        "indirect_injection",
+        "data_poisoning",
+    },
+    "system_prompt_protection": {
+        "prompt_extraction",
+        "prompt_injection",
+    },
+    "search_result_sanitization": {
+        "indirect_injection",
+        "data_poisoning",
+    },
+}
+
+
+def _filter_mitigated_chains(
+    chains: list[Any],
+    guardrails: list[str],
+) -> list[Any]:
+    """Remove chains whose vulnerability type is mitigated by agent guardrails."""
+    if not guardrails:
+        return chains
+
+    mitigated_types: set[str] = set()
+    for gr in guardrails:
+        mitigated_types |= _GUARDRAIL_MITIGATIONS.get(gr, set())
+
+    if not mitigated_types:
+        return chains
+
+    return [c for c in chains if c.vulnerability_type not in mitigated_types]
+
+
 def benchmark_scenario_verdict(
     agents: dict[str, AgentDefinition],
     scenarios: list[GroundTruthScenario],
@@ -371,6 +502,9 @@ def benchmark_scenario_verdict(
     For each scenario, checks:
     - TP scenarios: does the agent have dangerous chains OR known CVE matches?
     - TN scenarios: does the safe agent avoid false alarms?
+
+    Chains whose vulnerability type is mitigated by the agent's declared
+    guardrails are filtered out before the verdict.
     """
     from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
     from ziran.application.skill_cve import SkillCVEDatabase
@@ -390,7 +524,10 @@ def benchmark_scenario_verdict(
         analyzer = ToolChainAnalyzer(graph)
         found_chains = analyzer.analyze()
 
-        # Check CVEs
+        # Filter chains mitigated by guardrails
+        found_chains = _filter_mitigated_chains(found_chains, agent.guardrails)
+
+        # Check CVEs — filter patched CVEs for agents with guardrails
         caps = [
             AgentCapability(
                 id=tool.id,
@@ -401,6 +538,13 @@ def benchmark_scenario_verdict(
             for tool in agent.tools
         ]
         found_cves = db.check_agent(caps)
+
+        # Filter CVEs whose vulnerability type is mitigated by guardrails
+        if agent.guardrails:
+            mitigated: set[str] = set()
+            for gr in agent.guardrails:
+                mitigated |= _GUARDRAIL_MITIGATIONS.get(gr, set())
+            found_cves = [c for c in found_cves if c.vulnerability_type not in mitigated]
 
         # Verdict: would ZIRAN flag this agent?
         would_flag = len(found_chains) > 0 or len(found_cves) > 0
