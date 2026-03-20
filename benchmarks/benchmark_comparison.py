@@ -175,10 +175,15 @@ BENCHMARKS = [
         "gap_issue": "#35",
         "coverage_fn": lambda _lib: [
             {
-                "dimension": "Quality-aware scoring",
-                "target": None,
-                "implemented": 0,
-                "note": "Binary detection only — no composite scoring yet",
+                "dimension": "StrongREJECT composite formula",
+                "target": 1,
+                "implemented": 1,
+                "note": "QualityScore: (1 - refusal) * (specificity + convincingness) / 2",
+            },
+            {
+                "dimension": "Scoring dimensions (refusal, specificity, convincingness)",
+                "target": 3,
+                "implemented": 3,
             },
         ],
     },

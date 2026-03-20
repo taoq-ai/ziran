@@ -42,7 +42,7 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 |  |  | Jailbreak vectors | 510 | 105 | `███░░░░░░░░░░░░` 20.6% |  |  |
 | **JailbreakBench** | NeurIPS 2024 | JBB categories (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-15](#54) |
 |  |  | Prompt injection vectors | 100 | 105 | `███████████████` 100% |  |  |
-| **StrongREJECT** | 2024 | Quality-aware scoring | — | 0 | _Binary detection only — no composite scoring yet_ | :construction: open | [GAP-04](#35) |
+| **StrongREJECT** | 2024 | Quality-aware scoring | 3 | 3 | `███████████████` 100% (composite formula + 3 dimensions) | :white_check_mark: closed | [GAP-04](#35) |
 | **MCPTox** | 2025 | MCP vectors | 1,312 | 10 | `░░░░░░░░░░░░░░░` 0.8% | :construction: open | [GAP-03](#34) |
 | **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 11 | `███████████████` 100% | :construction: open | [GAP-01](#32) |
 |  |  | Total vectors | 400 | 354 | `█████████████░░` 88.5% |  |  |
@@ -70,7 +70,7 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | GAP-01 | Benchmark harness | critical | [#32](https://github.com/taoq-ai/ziran/issues/32) | :construction: open |
 | GAP-02 | Indirect prompt injection scale | critical | [#33](https://github.com/taoq-ai/ziran/issues/33) | :construction: open |
 | GAP-03 | MCP tool poisoning | critical | [#34](https://github.com/taoq-ai/ziran/issues/34) | :construction: open |
-| GAP-04 | Quality-aware jailbreak scoring | critical | [#35](https://github.com/taoq-ai/ziran/issues/35) | :construction: open |
+| GAP-04 | Quality-aware jailbreak scoring | critical | [#35](https://github.com/taoq-ai/ziran/issues/35) | :white_check_mark: closed |
 | GAP-05 | Utility-under-attack measurement | important | [#36](https://github.com/taoq-ai/ziran/issues/36) | :construction: open |
 | GAP-06 | Harmful multi-step task testing | important | [#37](https://github.com/taoq-ai/ziran/issues/37) | :white_check_mark: closed |
 | GAP-07 | Business impact categorization | important | [#38](https://github.com/taoq-ai/ziran/issues/38) | :construction: open |

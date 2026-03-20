@@ -41,7 +41,7 @@ How ZIRAN's attack vector library compares against published AI agent security b
 |  |  | Jailbreak vectors | 510 | 105 | `███░░░░░░░░░░░░` 20.6% |  |  |
 | **JailbreakBench** | NeurIPS 2024 | JBB categories (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-15](https://github.com/taoq-ai/ziran/issues/54) |
 |  |  | Prompt injection vectors | 100 | 105 | `███████████████` 100% |  |  |
-| **StrongREJECT** | 2024 | Quality-aware scoring | — | 0 | _Binary detection only — no composite scoring yet_ | :construction: open | [GAP-04](https://github.com/taoq-ai/ziran/issues/35) |
+| **StrongREJECT** | 2024 | Quality-aware scoring | 3 | 3 | `███████████████` 100% (composite formula + 3 dimensions) | :white_check_mark: closed | [GAP-04](https://github.com/taoq-ai/ziran/issues/35) |
 | **MCPTox** | 2025 | MCP vectors | 1,312 | 10 | `░░░░░░░░░░░░░░░` 0.8% | :construction: open | [GAP-03](https://github.com/taoq-ai/ziran/issues/34) |
 | **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 11 | `███████████████` 100% | :construction: open | [GAP-01](https://github.com/taoq-ai/ziran/issues/32) |
 |  |  | Total vectors | 400 | 354 | `█████████████░░` 88.5% |  |  |
@@ -67,7 +67,7 @@ How ZIRAN's attack vector library compares against published AI agent security b
 | GAP-01 | Benchmark harness | critical | :construction: open ([#32](https://github.com/taoq-ai/ziran/issues/32)) |
 | GAP-02 | Indirect prompt injection scale | critical | :construction: open ([#33](https://github.com/taoq-ai/ziran/issues/33)) |
 | GAP-03 | MCP tool poisoning | critical | :construction: open ([#34](https://github.com/taoq-ai/ziran/issues/34)) |
-| GAP-04 | Quality-aware jailbreak scoring | critical | :construction: open ([#35](https://github.com/taoq-ai/ziran/issues/35)) |
+| GAP-04 | Quality-aware jailbreak scoring | critical | :white_check_mark: closed ([#35](https://github.com/taoq-ai/ziran/issues/35)) |
 | GAP-05 | Utility-under-attack measurement | important | :construction: open ([#36](https://github.com/taoq-ai/ziran/issues/36)) |
 | GAP-06 | Harmful multi-step task testing | important | :white_check_mark: closed ([#37](https://github.com/taoq-ai/ziran/issues/37)) |
 | GAP-07 | Business impact categorization | important | :construction: open ([#38](https://github.com/taoq-ai/ziran/issues/38)) |
