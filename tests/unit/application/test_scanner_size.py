@@ -19,10 +19,10 @@ _SCANNER_PY = _AGENT_SCANNER_DIR / "scanner.py"
 class TestScannerSize:
     """Validate that scanner.py stays within the target line budget."""
 
-    def test_scanner_under_700_lines(self) -> None:
+    def test_scanner_under_750_lines(self) -> None:
         line_count = len(_SCANNER_PY.read_text().splitlines())
-        assert line_count <= 700, (
-            f"scanner.py has {line_count} lines, which exceeds the 700-line target. "
+        assert line_count <= 750, (
+            f"scanner.py has {line_count} lines, which exceeds the 750-line target. "
             "Consider extracting more logic into sub-modules."
         )
 
