@@ -171,6 +171,21 @@ vectors:
         mcp_attacks = [v for v in library.vectors if "mcp" in v.protocol_filter]
         assert len(mcp_attacks) >= 10, f"Expected 10+ MCP vectors, got {len(mcp_attacks)}"
 
+    def test_mcptox_expanded_coverage(self, library: AttackLibrary) -> None:
+        """Issue #146: MCPTox expansion should provide 100+ MCP vectors."""
+        mcp_attacks = library.get_attacks_by_tag("mcp")
+        assert len(mcp_attacks) >= 100, (
+            f"Expected 100+ MCP vectors for MCPTox coverage, got {len(mcp_attacks)}"
+        )
+
+    def test_mcptox_category_diversity(self, library: AttackLibrary) -> None:
+        """Issue #146: MCPTox vectors should span multiple attack categories."""
+        mcptox = library.get_attacks_by_tag("mcptox")
+        categories = {v.category for v in mcptox}
+        assert len(categories) >= 3, (
+            f"Expected MCPTox vectors in 3+ categories, got {len(categories)}: {categories}"
+        )
+
     def test_mcp_vectors_have_protocol_filter(self, library: AttackLibrary) -> None:
         """All MCP vectors should have protocol_filter=['mcp']."""
         mcp_attacks = [v for v in library.vectors if v.id.startswith("mcp_")]
