@@ -470,3 +470,167 @@ class TestDisplayResults:
 
         result = CampaignResult.model_validate(_vulnerable_campaign_result())
         _display_results(result)  # Should not raise
+
+
+# ── dry-run mode ──────────────────────────────────────────────────────
+
+
+class TestDryRun:
+    def test_scan_help_includes_dry_run(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["scan", "--help"])
+        assert "--dry-run" in result.output
+
+    @patch("ziran.interfaces.cli.main.load_agent_adapter")
+    @patch("ziran.interfaces.cli.main.asyncio")
+    def test_dry_run_does_not_execute_campaign(
+        self, mock_asyncio: MagicMock, mock_load: MagicMock, runner: CliRunner
+    ) -> None:
+        """--dry-run should NOT call scanner.run_campaign."""
+        mock_adapter = MagicMock()
+        mock_load.return_value = mock_adapter
+
+        # discover_capabilities returns a list of capabilities
+        mock_cap = MagicMock()
+        mock_cap.dangerous = True
+        mock_asyncio.run.return_value = [mock_cap]
+
+        with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+            f.write("agent_executor = None\n")
+            f.flush()
+            result = runner.invoke(
+                cli,
+                [
+                    "scan",
+                    "--framework",
+                    "langchain",
+                    "--agent-path",
+                    f.name,
+                    "--dry-run",
+                ],
+                catch_exceptions=False,
+            )
+
+        assert result.exit_code == 0
+        assert "Dry Run Summary" in result.output or "Configuration valid" in result.output
+
+    @patch("ziran.interfaces.cli.main.load_remote_adapter")
+    @patch("ziran.interfaces.cli.main.asyncio")
+    def test_dry_run_remote_target(
+        self, mock_asyncio: MagicMock, mock_load: MagicMock, runner: CliRunner
+    ) -> None:
+        """--dry-run with --target should load adapter and show summary."""
+        mock_adapter = MagicMock()
+        mock_config = MagicMock()
+        mock_config.url = "https://agent.example.com"
+        mock_config.protocol.value = "openai"
+        mock_config.auth = None
+        mock_load.return_value = (mock_adapter, mock_config)
+
+        mock_cap = MagicMock()
+        mock_cap.dangerous = False
+        mock_asyncio.run.return_value = [mock_cap]
+
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
+            f.write("url: https://agent.example.com\n")
+            f.flush()
+            result = runner.invoke(
+                cli,
+                ["scan", "--target", f.name, "--dry-run"],
+                catch_exceptions=False,
+            )
+
+        assert result.exit_code == 0
+
+
+# ── config validation warnings ────────────────────────────────────────
+
+
+class TestConfigValidationWarnings:
+    def test_attack_timeout_exceeds_phase_timeout(self) -> None:
+        from ziran.interfaces.cli.main import _warn_config_issues
+
+        # Should not raise — just prints warnings
+        _warn_config_issues(
+            attack_timeout=600.0,
+            phase_timeout=300.0,
+            concurrency=5,
+            strategy="fixed",
+            llm_provider=None,
+            encoding=(),
+        )
+
+    def test_high_concurrency_warning(self) -> None:
+        from ziran.interfaces.cli.main import _warn_config_issues
+
+        _warn_config_issues(
+            attack_timeout=60.0,
+            phase_timeout=300.0,
+            concurrency=100,
+            strategy="fixed",
+            llm_provider=None,
+            encoding=(),
+        )
+
+    def test_llm_adaptive_without_provider(self) -> None:
+        from ziran.interfaces.cli.main import _warn_config_issues
+
+        _warn_config_issues(
+            attack_timeout=60.0,
+            phase_timeout=300.0,
+            concurrency=5,
+            strategy="llm-adaptive",
+            llm_provider=None,
+            encoding=(),
+        )
+
+    def test_no_warnings_with_valid_config(self) -> None:
+        from ziran.interfaces.cli.main import _warn_config_issues
+
+        # Should produce no warnings
+        _warn_config_issues(
+            attack_timeout=60.0,
+            phase_timeout=300.0,
+            concurrency=5,
+            strategy="fixed",
+            llm_provider=None,
+            encoding=(),
+        )
+
+
+# ── validate command ──────────────────────────────────────────────────
+
+
+class TestValidateCommand:
+    def test_validate_help(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["validate", "--help"])
+        assert result.exit_code == 0
+        assert "Validate" in result.output or "validate" in result.output
+
+    def test_validate_valid_yaml(self, runner: CliRunner) -> None:
+        """Valid YAML config should pass parse and schema checks."""
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
+            f.write("url: https://agent.example.com\nprotocol: openai\n")
+            f.flush()
+            result = runner.invoke(cli, ["validate", f.name])
+
+        # URL is not actually reachable, but parse+schema should pass
+        assert "YAML parse" in result.output
+        assert "Config schema" in result.output
+
+    def test_validate_invalid_yaml(self, runner: CliRunner) -> None:
+        """Invalid YAML should fail with a clear error."""
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
+            f.write("{{not: valid: yaml:::\n")
+            f.flush()
+            result = runner.invoke(cli, ["validate", f.name])
+
+        assert result.exit_code != 0
+
+    def test_validate_invalid_schema(self, runner: CliRunner) -> None:
+        """Valid YAML but missing required fields should fail schema validation."""
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
+            f.write("name: missing_url_field\n")
+            f.flush()
+            result = runner.invoke(cli, ["validate", f.name])
+
+        assert result.exit_code != 0
