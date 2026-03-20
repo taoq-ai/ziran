@@ -92,7 +92,7 @@ GAPS = [
         "title": "Resilience gap metric",
         "priority": "important",
         "issue": "#40",
-        "status": "open",
+        "status": "closed",
         "benchmarks": ["AILuminate"],
         "effort": "small",
     },
