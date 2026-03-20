@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.0](https://github.com/taoq-ai/ziran/compare/v0.15.0...v0.16.0) (2026-03-20)
+
+
+### Features
+
+* add precision, recall, and F1 metrics for detection accuracy ([#197](https://github.com/taoq-ai/ziran/issues/197)) ([2958e5c](https://github.com/taoq-ai/ziran/commit/2958e5c8f73620b6a7779c47e3dd16b650c2982a))
+* close GAP-04 quality-aware scoring and update benchmarks ([#195](https://github.com/taoq-ai/ziran/issues/195)) ([470c487](https://github.com/taoq-ai/ziran/commit/470c487792c10d807a5f024ab38f0249c01a9a9a))
+* expand MCPTox tool poisoning coverage to 100+ vectors ([#192](https://github.com/taoq-ai/ziran/issues/192)) ([c414792](https://github.com/taoq-ai/ziran/commit/c4147920dc7cdbd79367a09d42a63c538fcda397))
+
 ## [0.15.0](https://github.com/taoq-ai/ziran/compare/v0.14.0...v0.15.0) (2026-03-20)
 
 
