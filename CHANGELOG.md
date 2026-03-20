@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0](https://github.com/taoq-ai/ziran/compare/v0.14.0...v0.15.0) (2026-03-20)
+
+
+### Features
+
+* add --dry-run mode and config validation to CLI ([76611f7](https://github.com/taoq-ai/ziran/commit/76611f7c9a8149a9575c431f08bc802c8fbef8f7))
+* add campaign checkpoint/resume support ([9c79f2e](https://github.com/taoq-ai/ziran/commit/9c79f2e0b7bc7031acc00be5acd13f9befa83658))
+
 ## [0.14.0](https://github.com/taoq-ai/ziran/compare/v0.13.0...v0.14.0) (2026-03-20)
 
 
