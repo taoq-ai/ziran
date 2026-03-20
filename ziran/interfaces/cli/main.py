@@ -229,6 +229,13 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     help="Enable OpenTelemetry tracing (requires opentelemetry-sdk). "
     "Exports spans to the console by default.",
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Validate configuration and show attack plan without executing. "
+    "Loads the adapter, discovers capabilities, and counts attack vectors.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -250,6 +257,7 @@ def scan(
     quality_scoring: bool,
     utility_tasks: str | None,
     otel: bool,
+    dry_run: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -331,8 +339,20 @@ def scan(
         config_table.add_row("LLM Model", llm_model or "gpt-4o")
     if quality_scoring:
         config_table.add_row("Quality Scoring", "enabled (StrongREJECT-style)")
+    if dry_run:
+        config_table.add_row("Dry Run", "enabled (no attacks will execute)")
     console.print(config_table)
     console.print()
+
+    # ── Config validation warnings ──────────────────────────────────
+    _warn_config_issues(
+        attack_timeout=attack_timeout,
+        phase_timeout=phase_timeout,
+        concurrency=concurrency,
+        strategy=strategy,
+        llm_provider=llm_provider,
+        encoding=encoding,
+    )
 
     # Load adapter
     try:
@@ -363,6 +383,19 @@ def scan(
             f"parse \u2014 use --verbose to see errors[/yellow]"
         )
     console.print()
+
+    # ── Dry-run: show plan and exit without executing ───────────────
+    if dry_run:
+        _dry_run_summary(
+            adapter=adapter,
+            attack_library=attack_library,
+            coverage=coverage,
+            phases=phases,
+            has_remote=has_remote,
+            target=target,
+            protocol=protocol,
+        )
+        return
 
     # Parse phases
     phase_list: list[ScanPhase] | None = None
@@ -1004,6 +1037,107 @@ def _display_audit_report(report: Any) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# validate command (config validation)
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.argument("target_config", type=click.Path(exists=True))
+@click.option(
+    "--protocol",
+    type=click.Choice(["rest", "openai", "mcp", "a2a", "browser", "auto"], case_sensitive=False),
+    default=None,
+    help="Override protocol type.",
+)
+def validate(target_config: str, protocol: str | None) -> None:
+    """Validate a target YAML configuration file.
+
+    Checks that the configuration file is well-formed, the target URL
+    is reachable, auth tokens resolve, and the protocol can be detected.
+
+    \b
+    Examples:
+        ziran validate ./target.yaml
+        ziran validate ./target.yaml --protocol openai
+    """
+    from ziran.domain.entities.target import TargetConfig, TargetConfigError, load_target_config
+
+    config_path = Path(target_config)
+    checks: list[tuple[str, bool, str]] = []  # (label, passed, detail)
+
+    # 1. Load and validate config (YAML parse + schema validation)
+    config: TargetConfig | None = None
+    try:
+        config = load_target_config(config_path)
+        checks.append(("YAML parse", True, "Configuration file is valid YAML"))
+        checks.append(("Config schema", True, f"URL: {config.url}"))
+    except TargetConfigError as e:
+        msg = str(e)
+        if "YAML" in msg or "parse" in msg.lower():
+            checks.append(("YAML parse", False, msg))
+        else:
+            checks.append(("YAML parse", True, "Configuration file is valid YAML"))
+            checks.append(("Config schema", False, msg))
+        _display_validation_results(checks)
+        return
+    except Exception as e:
+        checks.append(("Config load", False, str(e)))
+        _display_validation_results(checks)
+        return
+
+    # 2. Check protocol
+    effective_protocol = protocol or config.protocol.value
+    checks.append(("Protocol", True, effective_protocol))
+
+    # 3. Check auth token resolution
+    if config.auth:
+        env_var = config.auth.env_var
+        if env_var:
+            import os
+
+            resolved = os.environ.get(env_var)
+            if resolved:
+                checks.append(("Auth token", True, f"Resolved from env ${env_var}"))
+            else:
+                checks.append(("Auth token", False, f"Env var ${env_var} not set"))
+        elif config.auth.token:
+            checks.append(("Auth token", True, f"Type: {config.auth.type.value}"))
+        else:
+            checks.append(("Auth token", False, "Auth configured but no token provided"))
+    else:
+        checks.append(("Auth", True, "No auth configured (anonymous)"))
+
+    # 4. Check URL reachability (best-effort)
+    try:
+        import urllib.request
+
+        req = urllib.request.Request(str(config.url), method="HEAD")
+        urllib.request.urlopen(req, timeout=5)
+        checks.append(("URL reachable", True, str(config.url)))
+    except Exception as e:
+        checks.append(("URL reachable", False, f"{e}"))
+
+    _display_validation_results(checks)
+
+
+def _display_validation_results(checks: list[tuple[str, bool, str]]) -> None:
+    """Render validation check results."""
+    console.print()
+    all_passed = all(passed for _, passed, _ in checks)
+
+    for label, passed, detail in checks:
+        icon = "[green]✓[/green]" if passed else "[red]✗[/red]"
+        console.print(f"  {icon} {label}: {detail}")
+
+    console.print()
+    if all_passed:
+        console.print("[green]✓ All checks passed — configuration is valid.[/green]")
+    else:
+        console.print("[red]✗ Some checks failed — review the errors above.[/red]")
+        sys.exit(1)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # ci command (CI/CD quality gate)
 # ──────────────────────────────────────────────────────────────────────
 
@@ -1185,6 +1319,98 @@ def _display_gate_result(gate: Any) -> None:
 # ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
+
+
+def _warn_config_issues(
+    *,
+    attack_timeout: float,
+    phase_timeout: float,
+    concurrency: int,
+    strategy: str,
+    llm_provider: str | None,
+    encoding: tuple[str, ...],
+) -> None:
+    """Detect and display warnings for contradictory or risky config options."""
+    warnings: list[str] = []
+
+    if attack_timeout > phase_timeout:
+        warnings.append(
+            f"--attack-timeout ({attack_timeout}s) exceeds --phase-timeout "
+            f"({phase_timeout}s) — individual attacks may be killed before they finish."
+        )
+
+    if concurrency > 50:
+        warnings.append(
+            f"--concurrency {concurrency} is very high — this is likely to trigger "
+            "rate limits on the target agent."
+        )
+
+    if strategy == "llm-adaptive" and llm_provider is None:
+        warnings.append(
+            "--strategy llm-adaptive requires --llm-provider to be configured. "
+            "The strategy will fall back to rule-based adaptation."
+        )
+
+    if encoding and strategy == "fixed":
+        # Not strictly contradictory, but encodings add significant volume
+        warnings.append(
+            f"--encoding specified ({len(encoding)} encodings) with --strategy fixed. "
+            "Consider using 'adaptive' strategy to manage the larger attack surface."
+        )
+
+    for w in warnings:
+        console.print(f"[yellow]⚠ Warning:[/yellow] {w}")
+    if warnings:
+        console.print()
+
+
+def _dry_run_summary(
+    *,
+    adapter: Any,
+    attack_library: Any,
+    coverage: str,
+    phases: tuple[str, ...],
+    has_remote: bool,
+    target: str | None,
+    protocol: str | None,
+) -> None:
+    """Run capability discovery and show attack plan without executing."""
+    # Discover capabilities
+    capabilities = asyncio.run(adapter.discover_capabilities())
+    dangerous_count = sum(1 for c in capabilities if c.dangerous) if capabilities else 0
+    total_caps = len(capabilities) if capabilities else 0
+
+    # Count vectors by coverage
+    coverage_level = CoverageLevel(coverage.lower())
+    vectors = attack_library.vectors
+    if coverage_level == CoverageLevel.ESSENTIAL:
+        vectors = [v for v in vectors if v.severity in ("critical",)]
+    elif coverage_level == CoverageLevel.STANDARD:
+        vectors = [v for v in vectors if v.severity in ("critical", "high")]
+    # comprehensive = all vectors
+
+    total_prompts = sum(v.prompt_count for v in vectors)
+
+    # Count phases
+    phase_count = len(phases) if phases else len({v.target_phase for v in vectors})
+
+    # Build summary table
+    summary = Table(title="Dry Run Summary", show_header=False)
+    summary.add_column("Key", style="cyan")
+    summary.add_column("Value", style="white")
+
+    if has_remote and target:
+        summary.add_row("Target", str(target))
+        if protocol:
+            summary.add_row("Protocol", protocol)
+    summary.add_row("Capabilities", f"{total_caps} discovered ({dangerous_count} dangerous)")
+    summary.add_row("Attack Vectors", f"{len(vectors)} ({coverage} coverage)")
+    summary.add_row("Total Prompts", str(total_prompts))
+    summary.add_row("Estimated Phases", str(phase_count))
+
+    console.print(summary)
+    console.print()
+    console.print("[green]✓ Configuration valid.[/green] Run without --dry-run to start.")
 
 
 def _display_results(result: CampaignResult) -> None:
