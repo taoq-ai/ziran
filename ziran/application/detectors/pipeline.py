@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Literal
 
 from ziran.application.detectors.authorization import AuthorizationDetector
 from ziran.application.detectors.indicator import IndicatorDetector
@@ -33,6 +34,7 @@ from ziran.infrastructure.telemetry.tracing import get_tracer
 if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
     from ziran.domain.interfaces.adapter import AgentResponse
+    from ziran.domain.interfaces.detector import BaseDetector
     from ziran.infrastructure.llm.base import BaseLLMClient
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,29 @@ _SAFE_THRESHOLD = 0.3
 
 #: Timeout for the LLM judge call in seconds.
 _LLM_JUDGE_TIMEOUT: float = 30.0
+
+
+@dataclass
+class DetectorConfig:
+    """Configuration for the detector pipeline.
+
+    Controls which detectors are enabled and their settings.
+    All detectors are enabled by default.
+
+    Example::
+
+        config = DetectorConfig(disabled={"side_effect", "authorization"})
+        pipeline = DetectorPipeline(detector_config=config)
+    """
+
+    disabled: set[str] = field(default_factory=set)
+    """Set of detector names to disable (e.g. ``{"side_effect", "llm_judge"}``)."""
+
+    refusal_matchtype: Literal["str", "word", "startswith"] = "str"
+    """Match type for the refusal detector (``"str"``, ``"word"``, ``"startswith"``)."""
+
+    indicator_matchtype: Literal["str", "word"] = "str"
+    """Match type for the indicator detector."""
 
 
 class DetectorPipeline:
@@ -66,14 +91,19 @@ class DetectorPipeline:
         *,
         llm_client: BaseLLMClient | None = None,
         quality_scoring: bool = False,
+        detector_config: DetectorConfig | None = None,
     ) -> None:
-        self._refusal = RefusalDetector(matchtype="str")
-        self._indicator = IndicatorDetector(matchtype="str")
+        config = detector_config or DetectorConfig()
+        self._disabled = config.disabled
+        self._custom_detectors: list[BaseDetector] = []
+
+        self._refusal = RefusalDetector(matchtype=config.refusal_matchtype)
+        self._indicator = IndicatorDetector(matchtype=config.indicator_matchtype)
         self._side_effect = SideEffectDetector()
         self._authorization = AuthorizationDetector()
         self._llm_judge = None
 
-        if llm_client is not None:
+        if llm_client is not None and "llm_judge" not in self._disabled:
             from ziran.application.detectors.llm_judge import LLMJudgeDetector
 
             self._llm_judge = LLMJudgeDetector(llm_client, quality_scoring=quality_scoring)
@@ -81,6 +111,24 @@ class DetectorPipeline:
                 "LLM judge detector enabled (quality_scoring=%s)",
                 quality_scoring,
             )
+
+    def register_detector(self, detector: BaseDetector) -> None:
+        """Register a custom detector to participate in the pipeline.
+
+        Custom detectors run after the built-in detectors. If a custom
+        detector has the same name as an existing one, it replaces it.
+
+        Args:
+            detector: A detector implementing :class:`BaseDetector`.
+        """
+        # Replace existing custom detector with the same name
+        self._custom_detectors = [d for d in self._custom_detectors if d.name != detector.name]
+        self._custom_detectors.append(detector)
+        logger.info("Registered custom detector: %s", detector.name)
+
+    def _is_enabled(self, name: str) -> bool:
+        """Check if a detector is enabled."""
+        return name not in self._disabled
 
     async def evaluate(
         self,
@@ -104,25 +152,37 @@ class DetectorPipeline:
         _det_span = _tracer.start_span("ziran.detection")
 
         # ── 1. Refusal detector (highest priority) ───────────────
-        refusal_result = self._refusal.detect(prompt, response, prompt_spec, vector)
-        results.append(refusal_result)
+        if self._is_enabled("refusal"):
+            refusal_result = self._refusal.detect(prompt, response, prompt_spec, vector)
+            results.append(refusal_result)
 
         # ── 2. Indicator detector ────────────────────────────────
-        indicator_result = self._indicator.detect(prompt, response, prompt_spec, vector)
-        results.append(indicator_result)
+        if self._is_enabled("indicator"):
+            indicator_result = self._indicator.detect(prompt, response, prompt_spec, vector)
+            results.append(indicator_result)
 
         # ── 3. Side-effect detector (tool call analysis) ─────────
-        side_effect_result = self._side_effect.detect(prompt, response, prompt_spec, vector)
-        results.append(side_effect_result)
+        if self._is_enabled("side_effect"):
+            side_effect_result = self._side_effect.detect(prompt, response, prompt_spec, vector)
+            results.append(side_effect_result)
 
         # ── 4. Authorization detector (for BOLA/BFLA vectors) ─────
-        if self._is_authz_vector(vector):
+        if self._is_enabled("authorization") and self._is_authz_vector(vector):
             authz_result = self._authorization.detect(prompt, response, prompt_spec, vector)
             results.append(authz_result)
 
-        # ── 5. LLM judge (optional, only for ambiguous cases) ────
+        # ── 5. Custom detectors ──────────────────────────────────
+        for custom in self._custom_detectors:
+            if self._is_enabled(custom.name):
+                try:
+                    custom_result = custom.detect(prompt, response, prompt_spec, vector)
+                    results.append(custom_result)
+                except Exception as exc:
+                    logger.warning("Custom detector '%s' failed: %s", custom.name, exc)
+
+        # ── 6. LLM judge (optional, only for ambiguous cases) ────
         llm_judge_result = None
-        if self._llm_judge is not None:
+        if self._llm_judge is not None and self._is_enabled("llm_judge"):
             try:
                 async with asyncio.timeout(_LLM_JUDGE_TIMEOUT):
                     llm_judge_result = await self._llm_judge.detect(
