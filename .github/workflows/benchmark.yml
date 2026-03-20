@@ -1,0 +1,59 @@
+name: Benchmark Coverage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ziran/application/attacks/vectors/**"
+      - "ziran/domain/entities/attack.py"
+      - "benchmarks/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "ziran/application/attacks/vectors/**"
+      - "ziran/domain/entities/attack.py"
+      - "benchmarks/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev --extra all
+
+      - name: Run benchmark generation
+        run: uv run python benchmarks/generate_all.py
+
+      - name: Run benchmark regression check
+        run: uv run python benchmarks/regression_check.py
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmarks/results/
+          retention-days: 90
+
+      - name: Post benchmark summary as PR comment
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUMMARY=$(uv run python benchmarks/regression_check.py --format markdown 2>/dev/null || echo "Benchmark check failed")
+          gh pr comment ${{ github.event.pull_request.number }} --body "$SUMMARY" || true

@@ -1,0 +1,258 @@
+{
+  "timestamp": "2026-03-20T20:04:16.311438+00:00",
+  "total_vectors": 445,
+  "categories": 11,
+  "owasp_coverage_pct": 90.0,
+  "owasp_covered": 9,
+  "multi_turn_vectors": 99,
+  "harm_category_count": 11,
+  "tactics_count": 11,
+  "benchmark_count": 20,
+  "benchmark_details": {
+    "AgentHarm": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Multi-step vectors",
+          "implemented": 41,
+          "target": 440,
+          "pct": 9.3
+        }
+      ]
+    },
+    "InjecAgent": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Indirect injection vectors",
+          "implemented": 50,
+          "target": 1054,
+          "pct": 4.7
+        }
+      ]
+    },
+    "AgentDojo": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Indirect injection vectors",
+          "implemented": 50,
+          "target": 629,
+          "pct": 7.9
+        }
+      ]
+    },
+    "HarmBench": {
+      "status": "closed",
+      "metrics": [
+        {
+          "dimension": "Attack tactics",
+          "implemented": 10,
+          "target": 18,
+          "pct": 55.6
+        },
+        {
+          "dimension": "Jailbreak vectors",
+          "implemented": 138,
+          "target": 510,
+          "pct": 27.1
+        }
+      ]
+    },
+    "JailbreakBench": {
+      "status": "closed",
+      "metrics": [
+        {
+          "dimension": "JBB categories (10)",
+          "implemented": 10,
+          "target": 10,
+          "pct": 100.0
+        },
+        {
+          "dimension": "Prompt injection vectors",
+          "implemented": 138,
+          "target": 100,
+          "pct": 100
+        }
+      ]
+    },
+    "StrongREJECT": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Quality-aware scoring",
+          "implemented": 0,
+          "target": null,
+          "pct": null
+        }
+      ]
+    },
+    "MCPTox": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "MCP vectors",
+          "implemented": 101,
+          "target": 1312,
+          "pct": 7.7
+        }
+      ]
+    },
+    "Agent Security Bench (ASB)": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Attack categories",
+          "implemented": 11,
+          "target": 10,
+          "pct": 100
+        },
+        {
+          "dimension": "Total vectors",
+          "implemented": 445,
+          "target": 400,
+          "pct": 100
+        }
+      ]
+    },
+    "TensorTrust": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Prompt injection vectors",
+          "implemented": 138,
+          "target": 126000,
+          "pct": 0.1
+        }
+      ]
+    },
+    "WildJailbreak": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Jailbreak tactics",
+          "implemented": 11,
+          "target": 105000,
+          "pct": 0.0
+        }
+      ]
+    },
+    "LLMail-Inject": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "RAG injection vectors",
+          "implemented": 0,
+          "target": null,
+          "pct": null
+        }
+      ]
+    },
+    "Agent-SafetyBench": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Business impact types",
+          "implemented": 7,
+          "target": 8,
+          "pct": 87.5
+        }
+      ]
+    },
+    "BIPIA": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Indirect injection vectors",
+          "implemented": 50,
+          "target": null,
+          "pct": null
+        }
+      ]
+    },
+    "CyberSecEval": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Total vectors",
+          "implemented": 445,
+          "target": null,
+          "pct": null
+        }
+      ]
+    },
+    "ToolEmu": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Tool manipulation vectors",
+          "implemented": 84,
+          "target": 144,
+          "pct": 58.3
+        }
+      ]
+    },
+    "R-Judge": {
+      "status": "closed",
+      "metrics": [
+        {
+          "dimension": "R-Judge risk types (10)",
+          "implemented": 10,
+          "target": 10,
+          "pct": 100.0
+        },
+        {
+          "dimension": "Risk scoring detectors",
+          "implemented": 5,
+          "target": null,
+          "pct": null
+        }
+      ]
+    },
+    "AILuminate": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Resilience gap metric",
+          "implemented": 0,
+          "target": null,
+          "pct": null
+        }
+      ]
+    },
+    "ALERT": {
+      "status": "closed",
+      "metrics": [
+        {
+          "dimension": "ALERT micro categories (32)",
+          "implemented": 32,
+          "target": 32,
+          "pct": 100.0
+        },
+        {
+          "dimension": "Harm categories",
+          "implemented": 11,
+          "target": null,
+          "pct": null
+        }
+      ]
+    },
+    "MITRE ATLAS": {
+      "status": "open",
+      "metrics": [
+        {
+          "dimension": "Attack categories vs tactics",
+          "implemented": 11,
+          "target": 15,
+          "pct": 73.3
+        },
+        {
+          "dimension": "ATLAS technique mapping",
+          "implemented": 0,
+          "target": null,
+          "pct": null
+        }
+      ]
+    }
+  }
+}

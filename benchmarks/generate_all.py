@@ -10,6 +10,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from benchmarks.accuracy_metrics import collect_accuracy_metrics
 from benchmarks.benchmark_comparison import collect_benchmark_comparison
 from benchmarks.gap_status import collect_gap_status
 from benchmarks.inventory import collect_inventory
@@ -381,6 +382,10 @@ def main() -> None:
     print("Collecting gap status...")
     gaps = collect_gap_status()
     write_json(gaps, RESULTS_DIR / "gap_status.json")
+
+    print("Computing accuracy metrics...")
+    accuracy = collect_accuracy_metrics()
+    write_json(accuracy, RESULTS_DIR / "accuracy_metrics.json")
 
     print("Generating markdown report...")
     md = generate_markdown(inventory, owasp, benchmarks, gaps)

@@ -47,7 +47,7 @@ GAPS = [
         "title": "Quality-aware jailbreak scoring",
         "priority": "critical",
         "issue": "#35",
-        "status": "open",
+        "status": "closed",
         "benchmarks": ["StrongREJECT", "HarmBench", "JailbreakBench"],
         "effort": "small",
     },
