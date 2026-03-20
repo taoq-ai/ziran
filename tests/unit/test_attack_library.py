@@ -166,6 +166,31 @@ vectors:
             )
             seen[vector.id] = str(vector.category)
 
+    def test_agentharm_multistep_coverage(self, library: AttackLibrary) -> None:
+        """Issue #131: AgentHarm expansion should provide 100+ multi-step vectors."""
+        harm_vectors = [v for v in library.vectors if getattr(v, "harm_category", None) is not None]
+        assert len(harm_vectors) >= 100, (
+            f"Expected 100+ harm-category vectors, got {len(harm_vectors)}"
+        )
+
+    def test_agentharm_all_categories_covered(self, library: AttackLibrary) -> None:
+        """Issue #131: All 11 AgentHarm harm categories should have vectors."""
+        from ziran.domain.entities.attack import HarmCategory
+
+        harm_vectors = [v for v in library.vectors if getattr(v, "harm_category", None) is not None]
+        covered = {v.harm_category for v in harm_vectors}
+        expected = set(HarmCategory)
+        missing = expected - covered
+        assert not missing, f"Missing harm categories: {missing}"
+
+    def test_agentharm_tactic_diversity(self, library: AttackLibrary) -> None:
+        """Issue #131: Expanded vectors should use diverse multi-turn tactics."""
+        harm_vectors = [v for v in library.vectors if getattr(v, "harm_category", None) is not None]
+        tactics = {v.tactic for v in harm_vectors if v.tactic}
+        assert len(tactics) >= 5, (
+            f"Expected 5+ distinct tactics in harm vectors, got {len(tactics)}: {tactics}"
+        )
+
     def test_mcp_vectors_loaded(self, library: AttackLibrary) -> None:
         """GAP-03: MCP tool poisoning vectors should be loaded."""
         mcp_attacks = [v for v in library.vectors if "mcp" in v.protocol_filter]
