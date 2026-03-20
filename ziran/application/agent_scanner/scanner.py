@@ -12,17 +12,37 @@ and attempt exploitation — all tracked via the knowledge graph.
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from ziran.application.agent_scanner.attack_executor import (
+    _ERROR_SENTINELS as _ERROR_SENTINELS,
+)
+from ziran.application.agent_scanner.attack_executor import (
+    AttackExecutor as AttackExecutor,
+)
+from ziran.application.agent_scanner.attack_executor import (
+    _is_error_response as _is_error_response,
+)
+from ziran.application.agent_scanner.phase_executor import PhaseExecutor
+from ziran.application.agent_scanner.progress import (
+    ProgressEmitter as ProgressEmitter,
+)
+from ziran.application.agent_scanner.progress import (
+    ProgressEvent as ProgressEvent,
+)
+from ziran.application.agent_scanner.progress import (
+    ProgressEventType as ProgressEventType,
+)
+from ziran.application.agent_scanner.result_builder import (
+    ResultBuilder as ResultBuilder,
+)
+from ziran.application.agent_scanner.result_builder import (
+    _compute_utility as _compute_utility,
+)
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorPipeline
-from ziran.application.detectors.side_effect import get_side_effect_summary
-from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import (
     AttackKnowledgeGraph,
     EdgeType,
@@ -32,14 +52,10 @@ from ziran.application.strategies.fixed import FixedStrategy
 from ziran.application.strategies.protocol import (
     CampaignContext,
     CampaignStrategy,
-    PhaseDecision,
 )
 from ziran.domain.entities.attack import (
-    AttackPrompt,
     AttackResult,
-    AttackVector,
     TokenUsage,
-    get_business_impacts,
 )
 from ziran.domain.entities.phase import (
     CORE_PHASES,
@@ -47,7 +63,6 @@ from ziran.domain.entities.phase import (
     CoverageLevel,
     PhaseResult,
     ScanPhase,
-    compute_resilience,
 )
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
@@ -57,67 +72,10 @@ if TYPE_CHECKING:
 
     from ziran.domain.entities.capability import AgentCapability
     from ziran.domain.entities.utility import UtilityTask
-    from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
+    from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = logging.getLogger(__name__)
 _tracer = get_tracer(__name__)
-
-
-def _compute_utility(
-    baseline_score: float,
-    baseline_results: list[Any],
-    post_score: float,
-    post_results: list[Any],
-    tasks_run: int,
-) -> dict[str, Any]:
-    """Build utility metrics dict for CampaignResult.metadata."""
-    from ziran.application.utility.measurer import compute_utility_metrics
-
-    return compute_utility_metrics(
-        baseline_score, baseline_results, post_score, post_results, tasks_run
-    )
-
-
-class ProgressEventType(StrEnum):
-    """Types of progress events emitted during a campaign."""
-
-    CAMPAIGN_START = "campaign_start"
-    PHASE_START = "phase_start"
-    PHASE_ATTACKS_LOADED = "phase_attacks_loaded"
-    ATTACK_START = "attack_start"
-    ATTACK_STREAMING = "attack_streaming"
-    ATTACK_COMPLETE = "attack_complete"
-    PHASE_COMPLETE = "phase_complete"
-    CAMPAIGN_COMPLETE = "campaign_complete"
-
-
-@dataclass
-class ProgressEvent:
-    """Progress event emitted during campaign execution.
-
-    Provides enough information for callers to build progress bars,
-    logging hooks, or real-time dashboards.
-
-    Attributes:
-        event: The type of progress event.
-        phase: Current phase name (None for campaign-level events).
-        phase_index: 0-based index of the current phase.
-        total_phases: Total number of phases in the campaign.
-        attack_index: 0-based index of the current attack within the phase.
-        total_attacks: Total attacks in the current phase.
-        attack_name: Human-readable name of the current attack vector.
-        message: Optional human-readable description of the event.
-    """
-
-    event: ProgressEventType
-    phase: str | None = None
-    phase_index: int = 0
-    total_phases: int = 0
-    attack_index: int = 0
-    total_attacks: int = 0
-    attack_name: str = ""
-    message: str = ""
-    extra: dict[str, Any] = field(default_factory=dict)
 
 
 class AgentScannerError(Exception):
@@ -260,7 +218,25 @@ class AgentScanner:
             },
         )
 
-        # Store callback + settings for use in _execute_phase
+        # Build sub-components
+        emitter = ProgressEmitter(on_progress)
+        attack_executor = AttackExecutor(
+            self.adapter,
+            self._detector_pipeline,
+            streaming=streaming,
+            emitter=emitter,
+            encoding=encoding,
+        )
+        phase_executor = PhaseExecutor(
+            attack_executor,
+            self.attack_library,
+            self.graph,
+            emitter=emitter,
+            attack_timeout=self._attack_timeout,
+            phase_timeout=self._phase_timeout,
+        )
+
+        # Store settings for backward compat (some tests may poke at internals)
         self._on_progress = on_progress
         self._coverage = coverage
         self._max_concurrent = max_concurrent_attacks
@@ -268,10 +244,6 @@ class AgentScanner:
         self._streaming = streaming
         self._exclude_vectors = exclude_vectors or set()
         self._encoding = encoding
-
-        def _emit(event: ProgressEvent) -> None:
-            if on_progress is not None:
-                on_progress(event)
 
         logger.info(
             "Starting scan campaign %s with %d phases (coverage=%s, concurrency=%d, strategy=%s, streaming=%s)",
@@ -283,7 +255,7 @@ class AgentScanner:
             streaming,
         )
 
-        _emit(
+        emitter.emit(
             ProgressEvent(
                 event=ProgressEventType.CAMPAIGN_START,
                 total_phases=len(phases),
@@ -301,7 +273,7 @@ class AgentScanner:
             from ziran.application.utility.measurer import UtilityMeasurer
 
             logger.info("Measuring baseline utility (%d tasks)", len(utility_tasks))
-            _emit(
+            emitter.emit(
                 ProgressEvent(
                     event=ProgressEventType.CAMPAIGN_START,
                     message="Measuring baseline utility...",
@@ -352,7 +324,7 @@ class AgentScanner:
                 decision.reasoning or "none",
             )
 
-            _emit(
+            emitter.emit(
                 ProgressEvent(
                     event=ProgressEventType.PHASE_START,
                     phase=phase.value,
@@ -366,7 +338,20 @@ class AgentScanner:
             if reset_between_phases:
                 self.adapter.reset_state()
 
-            result = await self._execute_phase(phase, phase_idx, total_phases)
+            result = await phase_executor.execute(
+                phase,
+                phase_idx,
+                total_phases,
+                coverage=coverage,
+                max_concurrent=max_concurrent_attacks,
+                strategy=strategy,
+                decision=decision,
+                exclude_vectors=self._exclude_vectors,
+                tested_vector_ids=self._tested_vector_ids,
+                attack_results=self._attack_results,
+                max_results=self._max_results,
+                calculate_trust_score=self._calculate_trust_score,
+            )
             phase_results.append(result)
 
             # Remove executed phase from remaining
@@ -395,7 +380,7 @@ class AgentScanner:
             )
             strategy.on_phase_complete(result, updated_context)
 
-            _emit(
+            emitter.emit(
                 ProgressEvent(
                     event=ProgressEventType.PHASE_COMPLETE,
                     phase=phase.value,
@@ -426,79 +411,46 @@ class AgentScanner:
             _post_score, _post_results = await measurer.measure()
             logger.info("Post-attack utility score: %.1f%%", _post_score * 100)
 
-        # Analyze graph for attack paths
-        critical_paths = self.graph.find_all_attack_paths()
-
-        # NEW: Analyze tool chains for dangerous combinations
-        chain_analyzer = ToolChainAnalyzer(self.graph)
-        dangerous_chains = chain_analyzer.analyze()
+        # Build final result via ResultBuilder
+        result_builder = ResultBuilder(self.graph, type(self.adapter).__name__)
+        campaign_result, dangerous_chains = result_builder.build(
+            campaign_id=campaign_id,
+            phase_results=phase_results,
+            attack_results=self._attack_results,
+            campaign_tokens=campaign_tokens,
+            coverage_value=coverage.value,
+            max_concurrent_attacks=max_concurrent_attacks,
+            duration=(datetime.now(tz=UTC) - campaign_start).total_seconds(),
+            capabilities_count=len(capabilities),
+            baseline_score=_baseline_score,
+            baseline_results=_baseline_results,
+            post_score=_post_score,
+            post_results=_post_results,
+            utility_tasks_count=len(utility_tasks or []),
+        )
         self._discovered_chains = dangerous_chains
 
-        duration = (datetime.now(tz=UTC) - campaign_start).total_seconds()
-
-        campaign_result = CampaignResult(
-            campaign_id=campaign_id,
-            target_agent=type(self.adapter).__name__,
-            phases_executed=phase_results,
-            total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
-            critical_paths=critical_paths,
-            final_trust_score=phase_results[-1].trust_score if phase_results else 0.0,
-            success=len(critical_paths) > 0 or any(p.vulnerabilities_found for p in phase_results),
-            attack_results=(
-                serialized_results := [r.model_dump(mode="json") for r in self._attack_results]
-            ),
-            dangerous_tool_chains=[c.model_dump(mode="json") for c in dangerous_chains],
-            critical_chain_count=len([c for c in dangerous_chains if c.risk_level == "critical"]),
-            token_usage={
-                "prompt_tokens": campaign_tokens.prompt_tokens,
-                "completion_tokens": campaign_tokens.completion_tokens,
-                "total_tokens": campaign_tokens.total_tokens,
-            },
-            coverage_level=coverage.value,
-            resilience=compute_resilience(serialized_results, phase_results),
-            metadata={
-                "duration_seconds": duration,
-                "capabilities_discovered": len(capabilities),
-                "graph_stats": self.graph.export_state()["stats"],
-                "attack_results_count": len(self._attack_results),
-                "dangerous_chain_count": len(dangerous_chains),
-                "coverage_level": coverage.value,
-                "max_concurrent_attacks": max_concurrent_attacks,
-                **(
-                    {
-                        "utility": _compute_utility(
-                            _baseline_score,
-                            _baseline_results,
-                            _post_score,
-                            _post_results,
-                            len(utility_tasks or []),
-                        )
-                    }
-                    if _baseline_score is not None and _post_score is not None
-                    else {}
-                ),
-            },
-        )
+        duration = campaign_result.metadata["duration_seconds"]
 
         logger.info(
             "Campaign %s complete: %d vulnerabilities, %d critical paths, "
             "%d dangerous chains (%.1fs, %d tokens)",
             campaign_id,
             campaign_result.total_vulnerabilities,
-            len(critical_paths),
+            len(campaign_result.critical_paths),
             len(dangerous_chains),
             duration,
             campaign_tokens.total_tokens,
         )
 
-        _emit(
+        emitter.emit(
             ProgressEvent(
                 event=ProgressEventType.CAMPAIGN_COMPLETE,
                 total_phases=len(phases),
                 message=f"Campaign complete: {campaign_result.total_vulnerabilities} vulnerabilities found",
                 extra={
                     "total_vulnerabilities": campaign_result.total_vulnerabilities,
-                    "critical_paths": len(critical_paths),
+                    "critical_paths": len(campaign_result.critical_paths),
                     "dangerous_chains": len(dangerous_chains),
                     "duration_seconds": duration,
                     "total_tokens": campaign_tokens.total_tokens,
@@ -517,6 +469,8 @@ class AgentScanner:
             span.end()
 
         return campaign_result
+
+    # ── Capability discovery (stays here — graph management) ──────────────
 
     async def _discover_and_map_capabilities(self) -> list[AgentCapability]:
         """Discover agent capabilities and add them to the knowledge graph.
@@ -582,483 +536,7 @@ class AgentScanner:
 
         return capabilities
 
-    async def _execute_phase(
-        self,
-        phase: ScanPhase,
-        phase_index: int = 0,
-        total_phases: int = 1,
-    ) -> PhaseResult:
-        """Execute a single scan phase.
-
-        Gets all attacks targeting this phase from the library (filtered by
-        coverage level), executes them with bounded concurrency, and
-        aggregates results including token usage.
-
-        Args:
-            phase: The phase to execute.
-            phase_index: 0-based index of this phase in the campaign.
-            total_phases: Total number of phases in the campaign.
-
-        Returns:
-            Phase result with all findings.
-        """
-        start_time = datetime.now(tz=UTC)
-        _phase_span = _tracer.start_span(
-            "ziran.phase",
-            attributes={
-                "ziran.phase": phase.value,
-                "ziran.phase_index": phase_index,
-                "ziran.total_phases": total_phases,
-            },
-        )
-
-        coverage: CoverageLevel = getattr(self, "_coverage", CoverageLevel.COMPREHENSIVE)
-        max_concurrent: int = getattr(self, "_max_concurrent", 5)
-
-        # Get phase-specific attacks filtered by coverage level
-        attacks = self.attack_library.get_attacks_for_phase(phase, coverage=coverage)
-
-        # Exclude already-tested vectors to avoid redundant work
-        exclude: set[str] = getattr(self, "_exclude_vectors", set()) | self._tested_vector_ids
-        if exclude:
-            before = len(attacks)
-            attacks = [a for a in attacks if a.id not in exclude]
-            if before != len(attacks):
-                logger.info(
-                    "Phase %s: excluded %d already-tested vectors (%d -> %d)",
-                    phase.value,
-                    before - len(attacks),
-                    before,
-                    len(attacks),
-                )
-
-        # Apply strategy-based attack prioritization and filtering
-        strategy: CampaignStrategy | None = getattr(self, "_strategy", None)
-        decision: PhaseDecision | None = getattr(self, "_current_decision", None)
-
-        if strategy is not None:
-            # Build a lightweight context for the strategy
-            strategy_context = CampaignContext(
-                graph_state=self.graph.export_state(),
-                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
-            )
-            attacks = strategy.prioritize_attacks(attacks, strategy_context)
-
-        if decision is not None:
-            # Apply decision-level filters (attack_filter, max_attacks)
-            if decision.attack_filter is not None:
-                allowed = set(decision.attack_filter)
-                attacks = [a for a in attacks if a.id in allowed]
-            if decision.max_attacks is not None:
-                attacks = attacks[: decision.max_attacks]
-
-        logger.info(
-            "Phase %s has %d attack vectors (coverage=%s)",
-            phase.value,
-            len(attacks),
-            coverage.value,
-        )
-
-        on_progress = getattr(self, "_on_progress", None)
-
-        # Emit PHASE_ATTACKS_LOADED so progress bars know the real total
-        if on_progress is not None:
-            on_progress(
-                ProgressEvent(
-                    event=ProgressEventType.PHASE_ATTACKS_LOADED,
-                    phase=phase.value,
-                    phase_index=phase_index,
-                    total_phases=total_phases,
-                    total_attacks=len(attacks),
-                    message=f"Loaded {len(attacks)} attacks for {phase.value}",
-                )
-            )
-
-        vulnerabilities: list[str] = []
-        discovered_capabilities: list[str] = []
-        artifacts: dict[str, Any] = {}
-        phase_tokens = TokenUsage()
-        completed_count = 0
-        # Lock to safely mutate shared state from concurrent tasks
-        lock = asyncio.Lock()
-        semaphore = asyncio.Semaphore(max_concurrent)
-
-        async def _run_attack(attack_idx: int, attack: AttackVector) -> None:
-            nonlocal completed_count, phase_tokens
-
-            if on_progress is not None:
-                on_progress(
-                    ProgressEvent(
-                        event=ProgressEventType.ATTACK_START,
-                        phase=phase.value,
-                        phase_index=phase_index,
-                        total_phases=total_phases,
-                        attack_index=attack_idx,
-                        total_attacks=len(attacks),
-                        attack_name=attack.name,
-                        message=f"Running: {attack.name}",
-                    )
-                )
-
-            try:
-                async with semaphore:
-                    async with asyncio.timeout(self._attack_timeout):
-                        result = await self._execute_attack(attack)
-
-                # Tag result with the phase for reporting
-                result.evidence.setdefault("phase", phase.value)
-
-                async with lock:
-                    if len(self._attack_results) < self._max_results:
-                        self._attack_results.append(result)
-                    self._tested_vector_ids.add(result.vector_id)
-                    phase_tokens = phase_tokens + result.token_usage
-
-                    if result.successful:
-                        vulnerabilities.append(result.vector_id)
-                        artifacts[result.vector_id] = {
-                            "name": result.vector_name,
-                            "category": result.category.value,
-                            "severity": result.severity,
-                            "evidence": result.evidence,
-                        }
-
-                        # Add vulnerability to graph
-                        self.graph.add_vulnerability(
-                            result.vector_id,
-                            result.severity,
-                            {
-                                "name": result.vector_name,
-                                "category": result.category.value,
-                                "phase": phase.value,
-                            },
-                        )
-
-            except TimeoutError:
-                logger.warning(
-                    "Attack %s timed out after %.0fs",
-                    attack.id,
-                    self._attack_timeout,
-                )
-            except Exception:
-                logger.exception("Failed to execute attack %s", attack.id)
-
-            if on_progress is not None:
-                async with lock:
-                    completed_count += 1
-                on_progress(
-                    ProgressEvent(
-                        event=ProgressEventType.ATTACK_COMPLETE,
-                        phase=phase.value,
-                        phase_index=phase_index,
-                        total_phases=total_phases,
-                        attack_index=attack_idx,
-                        total_attacks=len(attacks),
-                        attack_name=attack.name,
-                        message=f"Done: {attack.name}",
-                        extra={"successful": attack.id in vulnerabilities},
-                    )
-                )
-
-        # Run attacks concurrently with bounded parallelism
-        tasks = [_run_attack(idx, atk) for idx, atk in enumerate(attacks)]
-        try:
-            async with asyncio.timeout(self._phase_timeout):
-                await asyncio.gather(*tasks)
-        except TimeoutError:
-            logger.warning(
-                "Phase %s timed out after %.0fs",
-                phase.value,
-                self._phase_timeout,
-            )
-
-        # Calculate trust score
-        trust_score = self._calculate_trust_score(phase, vulnerabilities)
-
-        duration = (datetime.now(tz=UTC) - start_time).total_seconds()
-
-        # OTel: finalize phase span
-        _phase_span.set_attribute("ziran.phase.vulnerabilities", len(vulnerabilities))
-        _phase_span.set_attribute("ziran.phase.trust_score", trust_score)
-        _phase_span.set_attribute("ziran.phase.duration_seconds", duration)
-        _phase_span.set_attribute("ziran.phase.attacks_executed", len(attacks))
-        _phase_span.end()
-
-        return PhaseResult(
-            phase=phase,
-            success=len(vulnerabilities) > 0,
-            artifacts=artifacts,
-            trust_score=trust_score,
-            discovered_capabilities=discovered_capabilities,
-            vulnerabilities_found=vulnerabilities,
-            graph_state=self.graph.export_state(),
-            duration_seconds=duration,
-            token_usage={
-                "prompt_tokens": phase_tokens.prompt_tokens,
-                "completion_tokens": phase_tokens.completion_tokens,
-                "total_tokens": phase_tokens.total_tokens,
-            },
-        )
-
-    async def _execute_attack(self, attack: AttackVector) -> AttackResult:
-        """Execute a single attack vector against the agent.
-
-        Sends each prompt template in the vector to the agent and
-        uses the detector pipeline to determine success/failure.
-        Tracks token consumption across all prompts.
-
-        When ``self._streaming`` is True and the adapter supports it,
-        uses streaming invocation and emits ``ATTACK_STREAMING`` progress
-        events with chunk data for real-time monitoring.
-
-        Args:
-            attack: The attack vector to execute.
-
-        Returns:
-            Attack result with success determination, evidence, and token usage.
-        """
-        _attack_span = _tracer.start_span(
-            "ziran.attack",
-            attributes={
-                "ziran.attack.id": attack.id,
-                "ziran.attack.name": attack.name,
-                "ziran.attack.category": attack.category.value
-                if hasattr(attack.category, "value")
-                else str(attack.category),
-                "ziran.attack.severity": attack.severity,
-                "ziran.attack.tactic": attack.tactic,
-            },
-        )
-
-        if not attack.prompts:
-            _attack_span.set_attribute("ziran.attack.error", "no_prompts")
-            _attack_span.end()
-            return AttackResult(
-                vector_id=attack.id,
-                vector_name=attack.name,
-                category=attack.category,
-                severity=attack.severity,
-                successful=False,
-                error="No prompts defined for this attack vector",
-                owasp_mapping=attack.owasp_mapping,
-                business_impact=get_business_impacts(attack.category, attack.severity),
-                harm_category=attack.harm_category,
-            )
-
-        # Delegate to TacticExecutor for multi-turn tactics
-        if attack.tactic != "single":
-            from ziran.application.attacks.tactics import TacticExecutor
-
-            executor = TacticExecutor(self.adapter)
-            result = await executor.execute(attack, self._detector_pipeline, self._render_prompt)
-            _attack_span.set_attribute("ziran.attack.successful", result.successful)
-            _attack_span.end()
-            return result
-
-        attack_tokens = TokenUsage()
-
-        # Track last response/prompt for reporting even when all prompts fail
-        last_response_content: str | None = None
-        last_prompt_used: str | None = None
-        encoding_used: str | None = None
-
-        # Build list of (prompt_text, encoding_label) pairs to attempt.
-        # Render each prompt once and reuse for encoded variants.
-        prompt_attempts: list[tuple[str, str | None, AttackPrompt]] = []
-        rendered_cache: dict[int, str] = {}
-        for prompt_spec in attack.prompts:
-            rendered = self._render_prompt(prompt_spec)
-            rendered_cache[id(prompt_spec)] = rendered
-            prompt_attempts.append((rendered, None, prompt_spec))
-
-        encoding_config: list[str] | None = getattr(self, "_encoding", None)
-        if encoding_config:
-            from ziran.application.attacks.encoding import EncodingType, PromptEncoder
-
-            enc_types = [EncodingType(e) for e in encoding_config]
-            for prompt_spec in attack.prompts:
-                rendered = rendered_cache[id(prompt_spec)]
-                for enc_type in enc_types:
-                    encoder = PromptEncoder([enc_type])
-                    enc_result = encoder.encode(rendered)
-                    prompt_attempts.append((enc_result.encoded, enc_type.value, prompt_spec))
-
-        # Try each prompt variant
-        for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
-            try:
-                use_streaming = getattr(self, "_streaming", False)
-
-                if use_streaming:
-                    response = await self._invoke_streaming(rendered_prompt, attack.name)
-                else:
-                    response = await self.adapter.invoke(rendered_prompt)
-
-                # Accumulate token usage
-                attack_tokens = attack_tokens + TokenUsage(
-                    prompt_tokens=response.prompt_tokens,
-                    completion_tokens=response.completion_tokens,
-                    total_tokens=response.total_tokens,
-                )
-
-                # Always track the last valid response for reporting
-                if response.content and not _is_error_response(response.content):
-                    last_response_content = response.content
-                    last_prompt_used = rendered_prompt
-
-                # ── Error sentinel check ──────────────────────────
-                if _is_error_response(response.content):
-                    continue
-
-                # ── Detector pipeline ─────────────────────────────
-                verdict = await self._detector_pipeline.evaluate(
-                    rendered_prompt,
-                    response,
-                    prompt_spec,
-                    attack,
-                )
-
-                if verdict.successful:
-                    # Build side-effect summary for evidence
-                    side_effects = get_side_effect_summary(response.tool_calls)
-                    encoding_used = enc_label
-                    _attack_span.set_attribute("ziran.attack.successful", True)
-                    _attack_span.add_event("vulnerability_found", {"vector_id": attack.id})
-                    _attack_span.end()
-
-                    # Extract composite quality score if available
-                    quality = (
-                        verdict.quality_score.composite_score
-                        if verdict.quality_score is not None
-                        else None
-                    )
-
-                    return AttackResult(
-                        vector_id=attack.id,
-                        vector_name=attack.name,
-                        category=attack.category,
-                        severity=attack.severity,
-                        successful=True,
-                        evidence={
-                            "response_snippet": response.content[:500],
-                            "tool_calls": response.tool_calls,
-                            "matched_indicators": verdict.matched_indicators,
-                            "detector_scores": {
-                                r.detector_name: r.score for r in verdict.detector_results
-                            },
-                            "detector_reasoning": verdict.reasoning,
-                            "side_effects": side_effects,
-                        },
-                        agent_response=response.content,
-                        prompt_used=rendered_prompt,
-                        encoding_applied=encoding_used,
-                        owasp_mapping=attack.owasp_mapping,
-                        business_impact=get_business_impacts(attack.category, attack.severity),
-                        harm_category=attack.harm_category,
-                        quality_score=quality,
-                        token_usage=attack_tokens,
-                    )
-
-            except TimeoutError:
-                logger.warning("Prompt for %s timed out", attack.id)
-            except (ConnectionError, OSError) as exc:
-                logger.warning("Connection error executing prompt for %s: %s", attack.id, exc)
-            except Exception as e:
-                logger.warning("Error executing prompt for %s: %s", attack.id, str(e))
-
-        # None of the prompts succeeded — include last response for reporting
-        _attack_span.set_attribute("ziran.attack.successful", False)
-        _attack_span.end()
-        return AttackResult(
-            vector_id=attack.id,
-            vector_name=attack.name,
-            category=attack.category,
-            severity=attack.severity,
-            successful=False,
-            evidence={"note": "All prompts were blocked or failed"},
-            agent_response=last_response_content,
-            prompt_used=last_prompt_used,
-            owasp_mapping=attack.owasp_mapping,
-            business_impact=get_business_impacts(attack.category, attack.severity),
-            harm_category=attack.harm_category,
-            token_usage=attack_tokens,
-        )
-
-    async def _invoke_streaming(
-        self,
-        prompt: str,
-        attack_name: str,
-    ) -> AgentResponse:
-        """Invoke the agent with streaming and accumulate into AgentResponse.
-
-        Streams the agent response, emitting ``ATTACK_STREAMING`` progress
-        events for each chunk, then assembles the full ``AgentResponse``
-        for compatibility with the detection pipeline.
-
-        Args:
-            prompt: The rendered attack prompt.
-            attack_name: Name of the attack (for progress events).
-
-        Returns:
-            Assembled ``AgentResponse`` from accumulated chunks.
-        """
-        from ziran.domain.interfaces.adapter import AgentResponse
-
-        on_progress = getattr(self, "_on_progress", None)
-        content_parts: list[str] = []
-        tool_calls: list[dict[str, Any]] = []
-        metadata: dict[str, Any] = {}
-
-        async for chunk in self.adapter.stream(prompt):
-            if chunk.content_delta:
-                content_parts.append(chunk.content_delta)
-
-            if chunk.tool_call_delta:
-                tool_calls.append(chunk.tool_call_delta)
-
-            # Emit streaming progress event
-            if on_progress is not None:
-                on_progress(
-                    ProgressEvent(
-                        event=ProgressEventType.ATTACK_STREAMING,
-                        attack_name=attack_name,
-                        message=chunk.content_delta,
-                        extra={
-                            "is_final": chunk.is_final,
-                            "chunk_metadata": chunk.metadata,
-                        },
-                    )
-                )
-
-            if chunk.is_final:
-                metadata = chunk.metadata
-
-        content = "".join(content_parts)
-        # Deduplicate tool calls (streaming may send accumulated partials)
-        final_tool_calls = metadata.get("tool_calls", tool_calls)
-
-        return AgentResponse(
-            content=content,
-            tool_calls=final_tool_calls,
-            metadata=metadata,
-            prompt_tokens=metadata.get("prompt_tokens", 0),
-            completion_tokens=metadata.get("completion_tokens", 0),
-            total_tokens=metadata.get("total_tokens", 0),
-        )
-
-    @staticmethod
-    def _render_prompt(prompt_spec: AttackPrompt) -> str:
-        """Render a prompt template with its default variables.
-
-        Args:
-            prompt_spec: The prompt specification with template and variables.
-
-        Returns:
-            Rendered prompt string.
-        """
-        template = prompt_spec.template
-        for key, value in prompt_spec.variables.items():
-            template = template.replace(f"{{{key}}}", value)
-        return template.strip()
+    # ── Trust / critical helpers (stay here — use self.attack_library) ────
 
     def _calculate_trust_score(
         self,
@@ -1095,6 +573,8 @@ class AgentScanner:
             if vector and vector.severity == "critical":
                 return True
         return False
+
+    # ── Graph update (stays here — graph management) ─────────────────────
 
     def _update_graph_from_phase(self, result: PhaseResult) -> None:
         """Update the knowledge graph with phase execution results.
@@ -1136,24 +616,75 @@ class AgentScanner:
                     {"phase": result.phase.value},
                 )
 
+    # ── Backward-compatible delegation methods ───────────────────────────
+    # These methods are kept so that any code that calls them on an
+    # AgentScanner instance still works.  They delegate to the extracted
+    # classes internally.
 
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
+    async def _execute_phase(
+        self,
+        phase: ScanPhase,
+        phase_index: int = 0,
+        total_phases: int = 1,
+    ) -> PhaseResult:
+        """Execute a single scan phase (backward-compatible wrapper)."""
+        on_progress = getattr(self, "_on_progress", None)
+        coverage: CoverageLevel = getattr(self, "_coverage", CoverageLevel.COMPREHENSIVE)
+        max_concurrent: int = getattr(self, "_max_concurrent", 5)
+        strategy_val: CampaignStrategy | None = getattr(self, "_strategy", None)
+        decision_val = getattr(self, "_current_decision", None)
+        exclude_vectors: set[str] = getattr(self, "_exclude_vectors", set())
+        encoding_val: list[str] | None = getattr(self, "_encoding", None)
+        streaming_val: bool = getattr(self, "_streaming", False)
 
-_ERROR_SENTINELS: frozenset[str] = frozenset(
-    {
-        "agent stopped due to iteration limit",
-        "agent stopped due to max iterations",
-        "agent stopped due to time limit",
-    }
-)
+        emitter = ProgressEmitter(on_progress)
+        attack_executor = AttackExecutor(
+            self.adapter,
+            self._detector_pipeline,
+            streaming=streaming_val,
+            emitter=emitter,
+            encoding=encoding_val,
+        )
+        pe = PhaseExecutor(
+            attack_executor,
+            self.attack_library,
+            self.graph,
+            emitter=emitter,
+            attack_timeout=self._attack_timeout,
+            phase_timeout=self._phase_timeout,
+        )
+        return await pe.execute(
+            phase,
+            phase_index,
+            total_phases,
+            coverage=coverage,
+            max_concurrent=max_concurrent,
+            strategy=strategy_val,
+            decision=decision_val,
+            exclude_vectors=exclude_vectors,
+            tested_vector_ids=self._tested_vector_ids,
+            attack_results=self._attack_results,
+            max_results=self._max_results,
+            calculate_trust_score=self._calculate_trust_score,
+        )
 
+    async def _execute_attack(self, attack: Any) -> AttackResult:
+        """Execute a single attack vector (backward-compatible wrapper)."""
+        on_progress = getattr(self, "_on_progress", None)
+        encoding_val: list[str] | None = getattr(self, "_encoding", None)
+        streaming_val: bool = getattr(self, "_streaming", False)
 
-def _is_error_response(text: str) -> bool:
-    """Return *True* when *text* looks like a framework error rather than
-    a genuine agent answer.  Used to avoid counting iteration-limit
-    timeouts as successful attacks.
-    """
-    text_lower = text.strip().lower().rstrip(".")
-    return any(sentinel in text_lower for sentinel in _ERROR_SENTINELS)
+        emitter = ProgressEmitter(on_progress)
+        executor = AttackExecutor(
+            self.adapter,
+            self._detector_pipeline,
+            streaming=streaming_val,
+            emitter=emitter,
+            encoding=encoding_val,
+        )
+        return await executor.execute(attack)
+
+    @staticmethod
+    def _render_prompt(prompt_spec: Any) -> str:
+        """Render a prompt template (backward-compatible wrapper)."""
+        return AttackExecutor._render_prompt(prompt_spec)
