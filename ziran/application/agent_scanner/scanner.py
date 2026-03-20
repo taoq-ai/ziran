@@ -16,23 +16,20 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from ziran.application.agent_scanner.attack_executor import (  # noqa: F401
-    _ERROR_SENTINELS,
-    AttackExecutor,
-    _is_error_response,
+from ziran.application.agent_scanner.attack_executor import (
+    _ERROR_SENTINELS as _ERROR_SENTINELS,
+    AttackExecutor as AttackExecutor,
+    _is_error_response as _is_error_response,
 )
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
-
-# ── Sub-module re-exports (backward compatibility) ────────────────────────
-# Every public name that used to live here is still importable from this module.
 from ziran.application.agent_scanner.progress import (
-    ProgressEmitter,
-    ProgressEvent,
-    ProgressEventType,
+    ProgressEmitter as ProgressEmitter,
+    ProgressEvent as ProgressEvent,
+    ProgressEventType as ProgressEventType,
 )
-from ziran.application.agent_scanner.result_builder import (  # noqa: F401
-    ResultBuilder,
-    _compute_utility,
+from ziran.application.agent_scanner.result_builder import (
+    ResultBuilder as ResultBuilder,
+    _compute_utility as _compute_utility,
 )
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorPipeline
