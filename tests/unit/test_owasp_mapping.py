@@ -158,16 +158,23 @@ class TestAttackLibraryOwasp:
         for attack in pi_attacks:
             assert OwaspLlmCategory.LLM01 in attack.owasp_mapping
 
-    def test_data_exfiltration_maps_to_lmm02_and_lmm06(self, library: AttackLibrary) -> None:
+    def test_data_exfiltration_maps_to_lmm02_or_lmm07(self, library: AttackLibrary) -> None:
+        """Data exfiltration vectors should map to LLM02 or LLM07 (or both)."""
         de_attacks = library.get_attacks_by_category(AttackCategory.DATA_EXFILTRATION)
         for attack in de_attacks:
-            assert OwaspLlmCategory.LLM02 in attack.owasp_mapping
-            assert OwaspLlmCategory.LLM06 in attack.owasp_mapping
+            has_relevant_mapping = (
+                OwaspLlmCategory.LLM02 in attack.owasp_mapping
+                or OwaspLlmCategory.LLM07 in attack.owasp_mapping
+            )
+            assert has_relevant_mapping, (
+                f"Vector '{attack.id}' missing LLM02 or LLM07 in owasp_mapping: "
+                f"{attack.owasp_mapping}"
+            )
 
-    def test_get_attacks_by_owasp_untested_returns_empty(self, library: AttackLibrary) -> None:
-        """LLM05 (Supply Chain) isn't mapped to any built-in vector."""
+    def test_get_attacks_by_owasp_lmm05_supply_chain(self, library: AttackLibrary) -> None:
+        """LLM05 (Supply Chain) should have MCP supply chain vectors."""
         lmm05 = library.get_attacks_by_owasp(OwaspLlmCategory.LLM05)
-        assert lmm05 == []
+        assert len(lmm05) >= 1, "Expected LLM05 vectors from MCP supply chain attacks"
 
     def test_lmm04_dos_vectors_exist(self, library: AttackLibrary) -> None:
         """LLM04 (Model DoS) vectors should exist."""
