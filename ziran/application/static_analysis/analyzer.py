@@ -36,7 +36,6 @@ Example::
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
@@ -186,7 +185,7 @@ def _run_check(
 ) -> list[StaticFinding]:
     """Run a generic check definition against lines of source code."""
     findings: list[StaticFinding] = []
-    compiled = [re.compile(p.pattern) for p in check.patterns]
+    compiled = check.compiled_patterns
 
     for i, line in enumerate(lines, 1):
         if check.skip_comments and _is_comment_or_docstring(line):
@@ -215,7 +214,7 @@ def _run_dangerous_tool_checks(
 ) -> list[StaticFinding]:
     """Run dangerous-tool pattern checks."""
     findings: list[StaticFinding] = []
-    compiled = [(re.compile(c.pattern), c) for c in checks]
+    compiled = [(c.compiled_pattern, c) for c in checks]
 
     for i, line in enumerate(lines, 1):
         for pattern, check in compiled:
@@ -243,10 +242,10 @@ def _check_input_validation(
     file_path: str,
 ) -> list[StaticFinding]:
     """Heuristic: flag tool definitions with no validation logic."""
-    if not re.search(check.tool_definition_pattern, content):
+    if not check.compiled_tool_pattern.search(content):
         return []
 
-    has_validation = bool(re.search(check.validation_pattern, content))
+    has_validation = bool(check.compiled_validation_pattern.search(content))
     if not has_validation:
         return [
             StaticFinding(
