@@ -7,7 +7,6 @@ for scanning agents, discovering capabilities, and generating reports.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import sys
 from pathlib import Path
@@ -21,6 +20,7 @@ from rich.table import Table
 from ziran import __version__
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
+from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import OwaspLlmCategory
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import setup_logging
@@ -337,10 +337,15 @@ def scan(
     # Load adapter
     try:
         if has_remote:
-            adapter = _load_remote_adapter(str(target), protocol)
+            adapter, config = load_remote_adapter(str(target), protocol)
+            console.print(f"[dim]Target: {config.url}[/dim]")
+            console.print(f"[dim]Protocol: {config.protocol.value}[/dim]")
+            if config.auth:
+                console.print(f"[dim]Auth: {config.auth.type.value}[/dim]")
+            console.print()
         else:
-            adapter = _load_agent_adapter(str(framework), str(agent_path))
-    except Exception as e:
+            adapter = load_agent_adapter(str(framework), str(agent_path))
+    except (ValueError, ImportError, FileNotFoundError, Exception) as e:
         console.print(f"[bold red]Error loading agent:[/bold red] {e}")
         sys.exit(1)
 
@@ -395,7 +400,7 @@ def scan(
     coverage_level = CoverageLevel(coverage.lower())
 
     # Build campaign strategy
-    campaign_strategy = _build_strategy(strategy, stop_on_critical, llm_client)
+    campaign_strategy = build_strategy(strategy, stop_on_critical, llm_client)
     if strategy != "fixed":
         console.print(f"[dim]Campaign strategy: {strategy}[/dim]")
 
@@ -495,7 +500,7 @@ def discover(
 
     try:
         if has_remote:
-            adapter = _load_remote_adapter(str(target), protocol)
+            adapter, _config = load_remote_adapter(str(target), protocol)
         else:
             if framework is None or agent_path is None:
                 console.print(
@@ -503,8 +508,8 @@ def discover(
                     "are required for in-process discovery."
                 )
                 sys.exit(1)
-            adapter = _load_agent_adapter(framework, agent_path)
-    except Exception as e:
+            adapter = load_agent_adapter(framework, agent_path)
+    except (ValueError, ImportError, FileNotFoundError, Exception) as e:
         console.print(f"[bold red]Error loading agent:[/bold red] {e}")
         sys.exit(1)
 
@@ -1182,207 +1187,6 @@ def _display_gate_result(gate: Any) -> None:
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _load_agent_adapter(framework: str, agent_path: str) -> Any:
-    """Load an agent adapter for the specified framework.
-
-    Dynamically imports the adapter module to keep framework
-    dependencies optional (lazy loading).
-
-    Args:
-        framework: Framework name (langchain, crewai, bedrock).
-        agent_path: Path to the agent code/config.
-
-    Returns:
-        Configured BaseAgentAdapter instance.
-
-    Raises:
-        click.ClickException: If the framework is not supported or import fails.
-    """
-    if framework == "langchain":
-        try:
-            from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
-        except ImportError as e:
-            raise click.ClickException(
-                f"LangChain not installed. Run: uv sync --extra langchain\n{e}"
-            ) from e
-
-        # Load agent from path
-        agent_executor = _load_python_object(agent_path, "agent_executor")
-        return LangChainAdapter(agent_executor)
-
-    elif framework == "crewai":
-        try:
-            from ziran.infrastructure.adapters.crewai_adapter import CrewAIAdapter
-        except ImportError as e:
-            raise click.ClickException(
-                f"CrewAI not installed. Run: uv sync --extra crewai\n{e}"
-            ) from e
-
-        crew = _load_python_object(agent_path, "crew")
-        return CrewAIAdapter(crew)
-
-    elif framework == "bedrock":
-        try:
-            from ziran.infrastructure.adapters.bedrock_adapter import BedrockAdapter
-        except ImportError as e:
-            raise click.ClickException(
-                f"boto3 not installed. Run: uv sync --extra bedrock\n{e}"
-            ) from e
-
-        # Load Bedrock config from YAML or use agent_path as agent ID
-        bedrock_config = _load_bedrock_config(agent_path)
-        return BedrockAdapter(**bedrock_config)
-
-    elif framework == "agentcore":
-        try:
-            from ziran.infrastructure.adapters.agentcore_adapter import AgentCoreAdapter
-        except ImportError as e:
-            raise click.ClickException(
-                f"bedrock-agentcore not installed. Run: uv sync --extra agentcore\n{e}"
-            ) from e
-
-        entrypoint = _load_python_object(agent_path, "invoke")
-        # Try to also load the app object for capability discovery
-        app = None
-        with contextlib.suppress(click.ClickException):
-            app = _load_python_object(agent_path, "app")
-        return AgentCoreAdapter(entrypoint, app=app)
-
-    else:
-        raise click.ClickException(f"Unsupported framework: {framework}")
-
-
-def _load_bedrock_config(agent_path: str) -> dict[str, Any]:
-    """Load Bedrock agent configuration from a YAML file or agent ID string.
-
-    If ``agent_path`` ends with ``.yaml`` or ``.yml``, it's read as a
-    YAML config with keys ``agent_id``, ``agent_alias_id``,
-    ``region_name``, etc. Otherwise it's treated as a bare agent ID.
-
-    Args:
-        agent_path: Path to YAML config or a Bedrock agent ID.
-
-    Returns:
-        Dict of kwargs for ``BedrockAdapter.__init__``.
-    """
-    if agent_path.endswith((".yaml", ".yml")):
-        import yaml
-
-        path = Path(agent_path)
-        if not path.exists():
-            raise click.ClickException(f"Bedrock config file not found: {agent_path}")
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except yaml.YAMLError as exc:
-            raise click.ClickException(f"Invalid YAML in Bedrock config: {exc}") from exc
-        if not isinstance(data, dict) or "agent_id" not in data:
-            raise click.ClickException("Bedrock config YAML must contain at least 'agent_id'")
-        return data
-    else:
-        return {"agent_id": agent_path}
-
-
-def _load_remote_adapter(target_path: str, protocol_override: str | None = None) -> Any:
-    """Load an agent adapter from a YAML target config.
-
-    Creates either a :class:`BrowserAgentAdapter` (for ``protocol: browser``)
-    or a :class:`HttpAgentAdapter` (for all other protocols).
-
-    Args:
-        target_path: Path to the YAML target configuration file.
-        protocol_override: Optional protocol to override the config value.
-
-    Returns:
-        Configured adapter instance.
-
-    Raises:
-        click.ClickException: If the config is invalid or can't be loaded.
-    """
-    try:
-        from ziran.domain.entities.target import ProtocolType, load_target_config
-    except ImportError as e:
-        raise click.ClickException(f"Failed to import target config components: {e}") from e
-
-    try:
-        config = load_target_config(Path(target_path))
-    except (FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"Failed to load target config from {target_path}: {e}") from e
-    except Exception as e:
-        raise click.ClickException(
-            f"Unexpected error loading target config from {target_path}: {e}"
-        ) from e
-
-    if protocol_override:
-        config.protocol = ProtocolType(protocol_override)
-
-    console.print(f"[dim]Target: {config.url}[/dim]")
-    console.print(f"[dim]Protocol: {config.protocol.value}[/dim]")
-    if config.auth:
-        console.print(f"[dim]Auth: {config.auth.type.value}[/dim]")
-    console.print()
-
-    if config.protocol == ProtocolType.BROWSER:
-        try:
-            from ziran.infrastructure.adapters.browser_adapter import BrowserAgentAdapter
-        except ImportError as e:
-            raise click.ClickException(
-                "Playwright is required for browser scanning. "
-                "Install with: pip install ziran[browser] && playwright install chromium\n"
-                f"{e}"
-            ) from e
-        return BrowserAgentAdapter(config)
-
-    from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
-
-    return HttpAgentAdapter(config)
-
-
-def _load_python_object(filepath: str, object_name: str) -> Any:
-    """Load a Python object from a file by executing it.
-
-    Executes the file and extracts the named object from its namespace.
-
-    Args:
-        filepath: Path to the Python file.
-        object_name: Name of the object to extract.
-
-    Returns:
-        The extracted Python object.
-
-    Raises:
-        click.ClickException: If the file can't be loaded or the object isn't found.
-    """
-    import importlib.util
-    import sys
-
-    path = Path(filepath).resolve()
-
-    if not path.exists():
-        raise click.ClickException(f"File not found: {filepath}")
-
-    spec = importlib.util.spec_from_file_location("_ziran_target", str(path))
-    if spec is None or spec.loader is None:
-        raise click.ClickException(f"Could not load module from: {filepath}")
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["_ziran_target"] = module
-
-    try:
-        spec.loader.exec_module(module)
-    except Exception as e:
-        raise click.ClickException(f"Error executing {filepath}: {e}") from e
-
-    obj = getattr(module, object_name, None)
-    if obj is None:
-        available = [a for a in dir(module) if not a.startswith("_")]
-        raise click.ClickException(
-            f"Object '{object_name}' not found in {filepath}. "
-            f"Available objects: {', '.join(available)}"
-        )
-
-    return obj
-
-
 def _display_results(result: CampaignResult) -> None:
     """Display campaign results in the terminal with Rich formatting.
 
@@ -1567,45 +1371,6 @@ def _save_results(
         poc_gen = PoCGenerator(output_dir=poc_dir)
         poc_paths = poc_gen.generate_all(result)
         console.print(f"  [dim]PoC artifacts: {len(poc_paths)} files in {poc_dir}/[/dim]")
-
-
-def _build_strategy(
-    strategy_name: str,
-    stop_on_critical: bool,
-    llm_client: Any | None = None,
-) -> Any:
-    """Build a campaign strategy from its CLI name.
-
-    Args:
-        strategy_name: One of 'fixed', 'adaptive', 'llm-adaptive'.
-        stop_on_critical: Whether to stop on critical findings.
-        llm_client: LLM client instance (required for 'llm-adaptive').
-
-    Returns:
-        A CampaignStrategy instance.
-    """
-    from ziran.application.strategies.adaptive import AdaptiveStrategy
-    from ziran.application.strategies.fixed import FixedStrategy
-
-    if strategy_name == "adaptive":
-        return AdaptiveStrategy(stop_on_critical=stop_on_critical)
-
-    if strategy_name == "llm-adaptive":
-        if llm_client is None:
-            console.print(
-                "[yellow]Warning:[/yellow] llm-adaptive strategy requires --llm-provider/--llm-model. "
-                "Falling back to adaptive strategy."
-            )
-            return AdaptiveStrategy(stop_on_critical=stop_on_critical)
-        from ziran.application.strategies.llm_adaptive import LLMAdaptiveStrategy
-
-        return LLMAdaptiveStrategy(
-            llm_client=llm_client,
-            stop_on_critical=stop_on_critical,
-        )
-
-    # Default: fixed
-    return FixedStrategy(stop_on_critical=stop_on_critical)
 
 
 # ──────────────────────────────────────────────────────────────────────

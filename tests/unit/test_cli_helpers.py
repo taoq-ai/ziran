@@ -1,11 +1,13 @@
 """Unit tests for CLI helper functions — display & strategy helpers.
 
 Tests for display functions in ``ziran.interfaces.cli.main`` that do
-not require Click runner setup: ``_build_strategy``,
-``_display_session_results``, ``_display_gate_result``,
-``_display_audit_report``, ``_display_policy_verdict``,
-``_load_pentest_adapter``, ``_load_agent_adapter`` branches, and
-``_load_remote_adapter``.
+not require Click runner setup: ``_display_session_results``,
+``_display_gate_result``, ``_display_audit_report``,
+``_display_policy_verdict``, ``_load_pentest_adapter``.
+
+Factory functions (``build_strategy``, ``load_agent_adapter``,
+``load_remote_adapter``) have been extracted to
+``ziran.application.factories`` — see ``test_factories.py``.
 """
 
 from __future__ import annotations
@@ -14,7 +16,6 @@ import sys
 import tempfile
 from unittest.mock import MagicMock, patch
 
-import click
 import pytest
 
 # ──────────────────────────────────────────────────────────────────────
@@ -24,38 +25,38 @@ import pytest
 
 @pytest.mark.unit
 class TestBuildStrategy:
-    """Tests for _build_strategy helper."""
+    """Tests for build_strategy (extracted to ziran.application.factories)."""
 
     def test_fixed_strategy(self) -> None:
-        from ziran.interfaces.cli.main import _build_strategy
+        from ziran.application.factories import build_strategy
 
-        strategy = _build_strategy("fixed", stop_on_critical=True)
+        strategy = build_strategy("fixed", stop_on_critical=True)
         assert strategy.__class__.__name__ == "FixedStrategy"
 
     def test_adaptive_strategy(self) -> None:
-        from ziran.interfaces.cli.main import _build_strategy
+        from ziran.application.factories import build_strategy
 
-        strategy = _build_strategy("adaptive", stop_on_critical=False)
+        strategy = build_strategy("adaptive", stop_on_critical=False)
         assert strategy.__class__.__name__ == "AdaptiveStrategy"
 
     def test_llm_adaptive_with_client(self) -> None:
-        from ziran.interfaces.cli.main import _build_strategy
+        from ziran.application.factories import build_strategy
 
         mock_llm = MagicMock()
-        strategy = _build_strategy("llm-adaptive", stop_on_critical=True, llm_client=mock_llm)
+        strategy = build_strategy("llm-adaptive", stop_on_critical=True, llm_client=mock_llm)
         assert strategy.__class__.__name__ == "LLMAdaptiveStrategy"
 
     def test_llm_adaptive_without_client_falls_back(self) -> None:
-        from ziran.interfaces.cli.main import _build_strategy
+        from ziran.application.factories import build_strategy
 
-        strategy = _build_strategy("llm-adaptive", stop_on_critical=False, llm_client=None)
+        strategy = build_strategy("llm-adaptive", stop_on_critical=False, llm_client=None)
         # Falls back to AdaptiveStrategy when no LLM client
         assert strategy.__class__.__name__ == "AdaptiveStrategy"
 
     def test_unknown_strategy_defaults_to_fixed(self) -> None:
-        from ziran.interfaces.cli.main import _build_strategy
+        from ziran.application.factories import build_strategy
 
-        strategy = _build_strategy("unknown", stop_on_critical=True)
+        strategy = build_strategy("unknown", stop_on_critical=True)
         assert strategy.__class__.__name__ == "FixedStrategy"
 
 
@@ -384,54 +385,54 @@ class TestLoadPentestAdapter:
 
 @pytest.mark.unit
 class TestLoadAgentAdapter:
-    """Tests for _load_agent_adapter framework branches."""
+    """Tests for load_agent_adapter (extracted to ziran.application.factories)."""
 
     def test_langchain_adapter(self) -> None:
-        from ziran.interfaces.cli.main import _load_agent_adapter
+        from ziran.application.factories import load_agent_adapter
 
-        with patch("ziran.interfaces.cli.main._load_python_object") as mock_load:
+        with patch("ziran.application.factories._load_python_object") as mock_load:
             mock_load.return_value = MagicMock()
-            adapter = _load_agent_adapter("langchain", "/fake/path.py")
+            adapter = load_agent_adapter("langchain", "/fake/path.py")
             assert adapter.__class__.__name__ == "LangChainAdapter"
 
     def test_crewai_adapter(self) -> None:
-        from ziran.interfaces.cli.main import _load_agent_adapter
+        from ziran.application.factories import load_agent_adapter
 
-        with patch("ziran.interfaces.cli.main._load_python_object") as mock_load:
+        with patch("ziran.application.factories._load_python_object") as mock_load:
             mock_load.return_value = MagicMock()
-            adapter = _load_agent_adapter("crewai", "/fake/path.py")
+            adapter = load_agent_adapter("crewai", "/fake/path.py")
             assert adapter.__class__.__name__ == "CrewAIAdapter"
 
     def test_bedrock_import_error(self) -> None:
         """Test bedrock path when boto3 is not installed."""
-        from ziran.interfaces.cli.main import _load_agent_adapter
+        from ziran.application.factories import load_agent_adapter
 
         with (
-            patch("ziran.interfaces.cli.main._load_bedrock_config") as mock_cfg,
+            patch("ziran.application.factories._load_bedrock_config") as mock_cfg,
             patch.dict(sys.modules, {"boto3": None}),
         ):
             mock_cfg.return_value = {"agent_id": "test123", "region_name": "us-east-1"}
             # BedrockAdapter will fail on boto3 import
             try:
-                adapter = _load_agent_adapter("bedrock", "/fake/config.yaml")
+                adapter = load_agent_adapter("bedrock", "/fake/config.yaml")
                 # If boto3 happens to be installed, just check type
                 assert adapter.__class__.__name__ == "BedrockAdapter"
-            except (click.ClickException, ImportError):
+            except ImportError:
                 pass  # Expected when boto3 is missing
 
     def test_agentcore_adapter(self) -> None:
-        from ziran.interfaces.cli.main import _load_agent_adapter
+        from ziran.application.factories import load_agent_adapter
 
-        with patch("ziran.interfaces.cli.main._load_python_object") as mock_load:
+        with patch("ziran.application.factories._load_python_object") as mock_load:
             mock_load.return_value = MagicMock()
-            adapter = _load_agent_adapter("agentcore", "/fake/path.py")
+            adapter = load_agent_adapter("agentcore", "/fake/path.py")
             assert adapter.__class__.__name__ == "AgentCoreAdapter"
 
     def test_unsupported_framework_raises(self) -> None:
-        from ziran.interfaces.cli.main import _load_agent_adapter
+        from ziran.application.factories import load_agent_adapter
 
-        with pytest.raises(click.ClickException, match="Unsupported"):
-            _load_agent_adapter("unknown_fw", "/fake/path.py")
+        with pytest.raises(ValueError, match="Unsupported"):
+            load_agent_adapter("unknown_fw", "/fake/path.py")
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -441,10 +442,10 @@ class TestLoadAgentAdapter:
 
 @pytest.mark.unit
 class TestLoadRemoteAdapter:
-    """Tests for _load_remote_adapter."""
+    """Tests for load_remote_adapter (extracted to ziran.application.factories)."""
 
     def test_loads_from_yaml(self) -> None:
-        from ziran.interfaces.cli.main import _load_remote_adapter
+        from ziran.application.factories import load_remote_adapter
 
         yaml_content = "url: https://api.example.com\nprotocol: openai\n"
 
@@ -452,7 +453,7 @@ class TestLoadRemoteAdapter:
             f.write(yaml_content)
             f.flush()
 
-            adapter = _load_remote_adapter(f.name)
+            adapter, _config = load_remote_adapter(f.name)
             assert adapter is not None
             assert adapter.__class__.__name__ == "HttpAgentAdapter"
 

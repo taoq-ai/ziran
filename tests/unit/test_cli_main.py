@@ -1,8 +1,8 @@
 """Tests for CLI commands — exercises every Click command via CliRunner.
 
 Covers: scan, discover, library, report, poc, policy, audit, ci, plus
-the internal helpers _load_agent_adapter, _load_remote_adapter,
-_load_python_object, _display_results, _save_results, etc.
+display and save helpers. Factory functions (load_agent_adapter,
+load_remote_adapter, build_strategy) are in ziran.application.factories.
 
 Every external side-effect (file I/O, asyncio.run, adapter loading) is
 mocked so these tests are fast and deterministic.
@@ -141,7 +141,7 @@ class TestScanCommand:
         result = runner.invoke(cli, ["scan", "--framework", "langchain"])
         assert result.exit_code != 0
 
-    @patch("ziran.interfaces.cli.main._load_agent_adapter")
+    @patch("ziran.interfaces.cli.main.load_agent_adapter")
     @patch("ziran.interfaces.cli.main.asyncio")
     def test_scan_local_success(
         self, mock_asyncio: MagicMock, mock_load: MagicMock, runner: CliRunner
@@ -383,12 +383,12 @@ class TestCiCommand:
         assert result.exit_code != 0
 
 
-# ── Helper: _load_python_object ─────────────────────────────────────
+# ── Helper: _load_python_object (now in ziran.application.factories) ──
 
 
 class TestLoadPythonObject:
     def test_load_existing_object(self) -> None:
-        from ziran.interfaces.cli.main import _load_python_object
+        from ziran.application.factories import _load_python_object
 
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("my_var = 42\n")
@@ -397,33 +397,33 @@ class TestLoadPythonObject:
         assert obj == 42
 
     def test_load_missing_object(self) -> None:
-        from ziran.interfaces.cli.main import _load_python_object
+        from ziran.application.factories import _load_python_object
 
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("x = 1\n")
             f.flush()
-            with pytest.raises(Exception, match="not found"):
+            with pytest.raises(ValueError, match="not found"):
                 _load_python_object(f.name, "nonexistent")
 
     def test_load_missing_file(self) -> None:
-        from ziran.interfaces.cli.main import _load_python_object
+        from ziran.application.factories import _load_python_object
 
-        with pytest.raises(Exception, match=r"not found|No such file"):
+        with pytest.raises(FileNotFoundError, match=r"not found|No such file"):
             _load_python_object("/nonexistent/path.py", "obj")
 
 
-# ── Helper: _load_bedrock_config ────────────────────────────────────
+# ── Helper: _load_bedrock_config (now in ziran.application.factories) ──
 
 
 class TestLoadBedrockConfig:
     def test_load_agent_id_string(self) -> None:
-        from ziran.interfaces.cli.main import _load_bedrock_config
+        from ziran.application.factories import _load_bedrock_config
 
         result = _load_bedrock_config("my-agent-id")
         assert result == {"agent_id": "my-agent-id"}
 
     def test_load_yaml_config(self) -> None:
-        from ziran.interfaces.cli.main import _load_bedrock_config
+        from ziran.application.factories import _load_bedrock_config
 
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("agent_id: abc123\nregion_name: us-east-1\n")
@@ -433,24 +433,24 @@ class TestLoadBedrockConfig:
         assert result["region_name"] == "us-east-1"
 
     def test_load_invalid_yaml_config(self) -> None:
-        from ziran.interfaces.cli.main import _load_bedrock_config
+        from ziran.application.factories import _load_bedrock_config
 
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             f.write("- just_a_list\n")
             f.flush()
-            with pytest.raises(Exception, match="agent_id"):
+            with pytest.raises(ValueError, match="agent_id"):
                 _load_bedrock_config(f.name)
 
 
-# ── Helper: _load_agent_adapter ────────────────────────────────────
+# ── Helper: load_agent_adapter (now in ziran.application.factories) ──
 
 
 class TestLoadAgentAdapter:
     def test_unsupported_framework(self) -> None:
-        from ziran.interfaces.cli.main import _load_agent_adapter
+        from ziran.application.factories import load_agent_adapter
 
-        with pytest.raises(Exception, match="Unsupported"):
-            _load_agent_adapter("unknown_framework", "dummy.py")
+        with pytest.raises(ValueError, match="Unsupported"):
+            load_agent_adapter("unknown_framework", "dummy.py")
 
 
 # ── Helper: _display_results ────────────────────────────────────────
