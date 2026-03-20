@@ -230,6 +230,13 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     "Exports spans to the console by default.",
 )
 @click.option(
+    "--resume",
+    is_flag=True,
+    default=False,
+    help="Resume a previously interrupted campaign from the last checkpoint. "
+    "Reads checkpoint from the --output directory.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -257,6 +264,7 @@ def scan(
     quality_scoring: bool,
     utility_tasks: str | None,
     otel: bool,
+    resume: bool,
     dry_run: bool,
 ) -> None:
     """Run a security scan campaign against an AI agent.
@@ -445,6 +453,21 @@ def scan(
         loaded_utility_tasks = load_utility_tasks(Path(utility_tasks))
         console.print(f"[dim]Utility tasks: {len(loaded_utility_tasks)} tasks loaded[/dim]")
 
+    # Set up checkpoint manager (always enabled — used for resume and safety)
+    from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+    output_dir = Path(output)
+    checkpoint_mgr = CheckpointManager(output_dir)
+
+    if resume:
+        if checkpoint_mgr.exists():
+            console.print(f"[cyan]Resuming from checkpoint:[/cyan] {checkpoint_mgr.path}")
+        else:
+            console.print(
+                "[yellow]Warning:[/yellow] --resume specified but no checkpoint found "
+                f"in {output_dir}. Starting fresh."
+            )
+
     with console.status("[bold yellow]Running security scan campaign...[/bold yellow]"):
         result = asyncio.run(
             scanner.run_campaign(
@@ -456,6 +479,8 @@ def scan(
                 streaming=streaming,
                 encoding=list(encoding) if encoding else None,
                 utility_tasks=loaded_utility_tasks,
+                checkpoint_manager=checkpoint_mgr,
+                resume_from_checkpoint=resume,
             )
         )
 
@@ -463,7 +488,6 @@ def scan(
     _display_results(result)
 
     # Save results
-    output_dir = Path(output)
     _save_results(result, scanner.graph, output_dir)
 
     console.print(f"\n[dim]Results saved to {output_dir}/[/dim]")
