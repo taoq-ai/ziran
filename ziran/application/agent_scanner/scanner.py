@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from ziran.application.agent_scanner.checkpoint import CheckpointManager
     from ziran.domain.entities.capability import AgentCapability
     from ziran.domain.entities.utility import UtilityTask
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
@@ -170,6 +171,8 @@ class AgentScanner:
         exclude_vectors: set[str] | None = None,
         encoding: list[str] | None = None,
         utility_tasks: list[UtilityTask] | None = None,
+        checkpoint_manager: CheckpointManager | None = None,
+        resume_from_checkpoint: bool = False,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -207,6 +210,37 @@ class AgentScanner:
         campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
         campaign_start = datetime.now(tz=UTC)
 
+        # ── Resume from checkpoint if available ────────────────────
+        _resumed = False
+        phase_results: list[PhaseResult] = []
+        campaign_tokens = TokenUsage()
+
+        if checkpoint_manager and resume_from_checkpoint and checkpoint_manager.exists():
+            checkpoint = checkpoint_manager.load()
+            campaign_id = checkpoint.campaign_id
+            phase_results = [PhaseResult.model_validate(p) for p in checkpoint.completed_phases]
+            campaign_tokens = TokenUsage(
+                prompt_tokens=checkpoint.token_usage.get("prompt_tokens", 0),
+                completion_tokens=checkpoint.token_usage.get("completion_tokens", 0),
+                total_tokens=checkpoint.token_usage.get("total_tokens", 0),
+            )
+            self._tested_vector_ids = set(checkpoint.tested_vector_ids)
+
+            # Restore attack results
+            for ar_dict in checkpoint.attack_results:
+                self._attack_results.append(AttackResult.model_validate(ar_dict))
+
+            # Resume from remaining phases
+            completed_phase_names = {p.phase for p in phase_results}
+            phases = [p for p in phases if p not in completed_phase_names]
+            _resumed = True
+            logger.info(
+                "Resuming campaign %s from checkpoint (%d phases completed, %d remaining)",
+                campaign_id,
+                len(phase_results),
+                len(phases),
+            )
+
         # OTel: root span for the entire campaign
         self._campaign_span = _tracer.start_span(
             "ziran.campaign",
@@ -215,6 +249,7 @@ class AgentScanner:
                 "ziran.phase_count": len(phases),
                 "ziran.coverage": coverage.value,
                 "ziran.strategy": type(strategy).__name__,
+                "ziran.resumed": _resumed,
             },
         )
 
@@ -246,7 +281,8 @@ class AgentScanner:
         self._encoding = encoding
 
         logger.info(
-            "Starting scan campaign %s with %d phases (coverage=%s, concurrency=%d, strategy=%s, streaming=%s)",
+            "%s scan campaign %s with %d phases (coverage=%s, concurrency=%d, strategy=%s, streaming=%s)",
+            "Resuming" if _resumed else "Starting",
             campaign_id,
             len(phases),
             coverage.value,
@@ -259,7 +295,7 @@ class AgentScanner:
             ProgressEvent(
                 event=ProgressEventType.CAMPAIGN_START,
                 total_phases=len(phases),
-                message=f"Starting campaign {campaign_id} with {len(phases)} phases",
+                message=f"{'Resuming' if _resumed else 'Starting'} campaign {campaign_id} with {len(phases)} phases",
             )
         )
 
@@ -269,7 +305,7 @@ class AgentScanner:
         # ── Baseline utility measurement (pre-attack) ─────────────
         _baseline_score: float | None = None
         _baseline_results: list[Any] = []
-        if utility_tasks:
+        if utility_tasks and not _resumed:
             from ziran.application.utility.measurer import UtilityMeasurer
 
             logger.info("Measuring baseline utility (%d tasks)", len(utility_tasks))
@@ -283,13 +319,10 @@ class AgentScanner:
             _baseline_score, _baseline_results = await measurer.measure()
             logger.info("Baseline utility score: %.1f%%", _baseline_score * 100)
 
-        phase_results: list[PhaseResult] = []
-        campaign_tokens = TokenUsage()
-
         # Track which phases remain available for the strategy
         remaining_phases = list(phases)
-        phase_idx = 0
-        total_phases = len(phases)
+        phase_idx = len(phase_results)  # Continue numbering from checkpoint
+        total_phases = len(phase_results) + len(phases)
 
         while True:
             # Build context for strategy decision-making
@@ -398,6 +431,20 @@ class AgentScanner:
                 result.trust_score,
             )
 
+            # ── Save checkpoint after each phase ──────────────────
+            if checkpoint_manager is not None:
+                ckpt = checkpoint_manager.build_checkpoint(
+                    campaign_id=campaign_id,
+                    phase_results=phase_results,
+                    attack_results=self._attack_results,
+                    tested_vector_ids=self._tested_vector_ids,
+                    token_usage=campaign_tokens.model_dump(),
+                    coverage=coverage.value,
+                    remaining_phases=[p.value for p in remaining_phases],
+                )
+                checkpoint_manager.save(ckpt)
+                logger.debug("Checkpoint saved after phase %s", phase.value)
+
             phase_idx += 1
 
         # ── Post-attack utility measurement ───────────────────────
@@ -467,6 +514,11 @@ class AgentScanner:
             span.set_attribute("ziran.total_tokens", campaign_tokens.total_tokens)
             span.set_attribute("ziran.dangerous_chain_count", len(dangerous_chains))
             span.end()
+
+        # Clean up checkpoint on successful completion
+        if checkpoint_manager is not None:
+            checkpoint_manager.cleanup()
+            logger.info("Checkpoint cleaned up after successful campaign")
 
         return campaign_result
 

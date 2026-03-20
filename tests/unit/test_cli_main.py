@@ -182,6 +182,7 @@ class TestScanCommand:
         assert result.exit_code == 0
         assert "--attack-timeout" in result.output
         assert "--phase-timeout" in result.output
+        assert "--resume" in result.output
 
 
 # ── discover command ────────────────────────────────────────────────
