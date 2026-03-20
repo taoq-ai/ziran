@@ -645,6 +645,38 @@ patterns:
     description: MCP tool on one server triggers tool on another server
     remediation: Restrict cross-server MCP tool invocation chains
 
+  - source: mcp_read_file
+    target: mcp_fetch
+    type: mcp_file_exfiltration
+    risk: critical
+    category: mcp_specific
+    description: File content read via MCP exfiltrated through MCP fetch
+    remediation: Block MCP fetch after MCP file reads without user approval
+
+  - source: mcp_git_diff
+    target: mcp_fetch
+    type: mcp_code_exfiltration
+    risk: critical
+    category: mcp_specific
+    description: Git diff content exfiltrated through MCP fetch
+    remediation: Block MCP fetch after MCP git operations
+
+  - source: mcp_write_file
+    target: execute_code
+    type: mcp_write_to_rce
+    risk: critical
+    category: mcp_specific
+    description: MCP writes file that is then executed as code
+    remediation: Validate file content and restrict execution after MCP writes
+
+  - source: mcp_read_file
+    target: send_email
+    type: mcp_file_to_email
+    risk: critical
+    category: mcp_specific
+    description: File content read via MCP sent via email
+    remediation: Block email sending after MCP file reads without approval
+
   # ── A2A / Multi-Agent Delegation ──────────────────────────────────
   - source: delegate_task
     target: execute_code
@@ -847,6 +879,14 @@ patterns:
     category: cicd_pipeline
     description: Dockerfile contents used to craft malicious file writes
     remediation: Validate Dockerfile processing; restrict write targets
+
+  - source: read_env
+    target: deploy
+    type: env_secret_injection
+    risk: critical
+    category: cicd_pipeline
+    description: Environment secrets injected into deployment
+    remediation: Never pass raw env vars to deployment tools; use secret managers
 
   - source: read_env
     target: write_file

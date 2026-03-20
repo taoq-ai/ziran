@@ -62,6 +62,11 @@ class TestClassifyTool:
             # Financial
             "process_payment",
             "transfer_funds",
+            "payment",
+            "transaction",
+            # MCP write operations
+            "mcp_write_file",
+            "mcp_write",
         ],
     )
     def test_critical_tools(self, tool_name: str) -> None:
@@ -123,6 +128,8 @@ class TestClassifyTool:
             "mcp_read_file",
             "mcp_fetch",
             "mcp_read_resource",
+            # A2A protocol
+            "send_task",
             # File read (may expose secrets/PII)
             "read_file",
             "get_file",
@@ -143,6 +150,9 @@ class TestClassifyTool:
             "api_call",
             "external_api",
             "browser_open",
+            # MCP git operations
+            "mcp_git_diff",
+            "mcp_git_log",
         ],
     )
     def test_medium_tools(self, tool_name: str) -> None:

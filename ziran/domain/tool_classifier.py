@@ -97,6 +97,11 @@ CRITICAL_PATTERNS: dict[str, str] = {
     # Financial
     r"\bprocess[\s_-]?payment\b": "Payment processing",
     r"\btransfer[\s_-]?funds?\b": "Fund transfer",
+    r"\bpayment\b": "Payment operation",
+    r"\btransaction\b": "Financial transaction",
+    # MCP write operations (filesystem mutation via MCP)
+    r"\bmcp[\s_-]?write[\s_-]?file\b": "MCP filesystem write",
+    r"\bmcp[\s_-]?write\b": "MCP write operation",
 }
 
 # ── High: email, permissions, DB writes ──────────────────────────────
@@ -153,6 +158,8 @@ HIGH_PATTERNS: dict[str, str] = {
     r"\bmcp[\s_-]?read[\s_-]?file\b": "MCP filesystem read",
     r"\bmcp[\s_-]?fetch\b": "MCP outbound fetch",
     r"\bmcp[\s_-]?read[\s_-]?resource\b": "MCP resource read",
+    # A2A / multi-agent protocol
+    r"\bsend[\s_-]?task\b": "A2A task delegation",
     # File read (promoted from medium — can expose secrets/PII)
     r"\bread[\s_-]?file\b": "File read (may expose secrets)",
     r"\bget[\s_-]?file\b": "File read",
@@ -170,6 +177,9 @@ MEDIUM_PATTERNS: dict[str, str] = {
     # External API
     r"\bapi[\s_-]?call\b": "External API call",
     r"\bexternal[\s_-]?api\b": "External API call",
+    # MCP git operations (read-only but may expose code/secrets)
+    r"\bmcp[\s_-]?git[\s_-]?diff\b": "MCP git diff (code exposure)",
+    r"\bmcp[\s_-]?git[\s_-]?log\b": "MCP git log",
     # Browser
     r"\bbrowser\b": "Browser access",
     r"\bscrape\b": "Web scraping",
