@@ -15,11 +15,12 @@ Example::
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ── Building blocks ──────────────────────────────────────────────────
 
@@ -28,10 +29,18 @@ class PatternRule(BaseModel):
     """A single regex pattern with associated metadata."""
 
     pattern: str
-    """Regex pattern string (will be compiled at runtime)."""
+    """Regex pattern string — compiled eagerly at construction time."""
 
     description: str = ""
     """Optional human-readable description of what this pattern detects."""
+
+    compiled: re.Pattern[str] = Field(default=None, exclude=True)  # type: ignore[arg-type]
+    """Pre-compiled regex pattern (excluded from serialization)."""
+
+    @model_validator(mode="after")
+    def _compile_pattern(self) -> PatternRule:
+        object.__setattr__(self, "compiled", re.compile(self.pattern))
+        return self
 
 
 class CheckDefinition(BaseModel):
@@ -59,6 +68,11 @@ class CheckDefinition(BaseModel):
     skip_comments: bool = True
     """Whether to skip lines that look like comments / docstrings."""
 
+    @property
+    def compiled_patterns(self) -> list[re.Pattern[str]]:
+        """Pre-compiled regex patterns derived from the patterns list."""
+        return [p.compiled for p in self.patterns]
+
 
 class DangerousToolCheck(BaseModel):
     """A dangerous-tool pattern with its own description."""
@@ -71,6 +85,14 @@ class DangerousToolCheck(BaseModel):
         "Restrict tool permissions and add guardrails. Consider sandboxing or an approval workflow."
     )
     skip_comments: bool = True
+
+    compiled_pattern: re.Pattern[str] = Field(default=None, exclude=True)  # type: ignore[arg-type]
+    """Pre-compiled regex pattern (excluded from serialization)."""
+
+    @model_validator(mode="after")
+    def _compile_pattern(self) -> DangerousToolCheck:
+        object.__setattr__(self, "compiled_pattern", re.compile(self.pattern))
+        return self
 
 
 class InputValidationCheck(BaseModel):
@@ -90,6 +112,18 @@ class InputValidationCheck(BaseModel):
         r"if\s+not\s+\w+|raise\s+ValueError)"
     )
     """Pattern that indicates validation is present."""
+
+    compiled_tool_pattern: re.Pattern[str] = Field(default=None, exclude=True)  # type: ignore[arg-type]
+    """Pre-compiled tool definition pattern (excluded from serialization)."""
+
+    compiled_validation_pattern: re.Pattern[str] = Field(default=None, exclude=True)  # type: ignore[arg-type]
+    """Pre-compiled validation pattern (excluded from serialization)."""
+
+    @model_validator(mode="after")
+    def _compile_patterns(self) -> InputValidationCheck:
+        object.__setattr__(self, "compiled_tool_pattern", re.compile(self.tool_definition_pattern))
+        object.__setattr__(self, "compiled_validation_pattern", re.compile(self.validation_pattern))
+        return self
 
 
 # ── Top-level config ─────────────────────────────────────────────────
