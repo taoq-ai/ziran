@@ -16,6 +16,7 @@ from benchmarks.gap_status import collect_gap_status
 from benchmarks.inventory import collect_inventory
 from benchmarks.owasp_coverage import collect_owasp_coverage
 from benchmarks.performance_metrics import collect_performance_metrics
+from benchmarks.utility_metrics import collect_utility_metrics
 
 RESULTS_DIR = Path(__file__).parent / "results"
 DOCS_DIR = Path(__file__).parent.parent / "docs" / "reference" / "benchmarks"
@@ -391,6 +392,10 @@ def main() -> None:
     print("Running performance benchmarks...")
     performance = collect_performance_metrics()
     write_json(performance, RESULTS_DIR / "performance_metrics.json")
+
+    print("Computing utility-under-attack metrics...")
+    utility = collect_utility_metrics()
+    write_json(utility, RESULTS_DIR / "utility_metrics.json")
 
     print("Generating markdown report...")
     md = generate_markdown(inventory, owasp, benchmarks, gaps)

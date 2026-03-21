@@ -56,7 +56,7 @@ GAPS = [
         "title": "Utility-under-attack measurement",
         "priority": "important",
         "issue": "#36",
-        "status": "open",
+        "status": "closed",
         "benchmarks": ["AgentDojo", "ASB"],
         "effort": "medium",
     },
