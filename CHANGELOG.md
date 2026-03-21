@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/taoq-ai/ziran/compare/v0.18.1...v0.18.2) (2026-03-21)
+
+
+### Bug Fixes
+
+* increase performance benchmark targets to 30s for CI compatibility ([138dbaa](https://github.com/taoq-ai/ziran/commit/138dbaa4b18635a037842aaec0df0d352b27f086))
+
 ## [0.18.1](https://github.com/taoq-ai/ziran/compare/v0.18.0...v0.18.1) (2026-03-21)
 
 
