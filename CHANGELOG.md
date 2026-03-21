@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.4](https://github.com/taoq-ai/ziran/compare/v0.18.3...v0.18.4) (2026-03-21)
+
+
+### Bug Fixes
+
+* suppress coroutine warning by mocking AgentScanner in scan test ([#209](https://github.com/taoq-ai/ziran/issues/209)) ([221de4a](https://github.com/taoq-ai/ziran/commit/221de4a474384ff9898e82a886e5da95ca7d7003))
+
 ## [0.18.3](https://github.com/taoq-ai/ziran/compare/v0.18.2...v0.18.3) (2026-03-21)
 
 
