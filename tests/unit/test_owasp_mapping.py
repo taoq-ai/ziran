@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from ziran.application.attacks.library import AttackLibrary
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import (
     OWASP_LLM_DESCRIPTIONS,
     AttackCategory,
@@ -133,8 +136,8 @@ class TestAttackLibraryOwasp:
     """Tests for OWASP filtering in AttackLibrary."""
 
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        return shared_attack_library
 
     def test_all_builtin_vectors_have_owasp_mapping(self, library: AttackLibrary) -> None:
         """Every built-in vector should have at least one OWASP mapping."""

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from benchmarks.benchmark_comparison import collect_benchmark_comparison
 from benchmarks.gap_status import collect_gap_status
 from benchmarks.inventory import collect_inventory
 from benchmarks.owasp_coverage import collect_owasp_coverage
-from ziran.application.attacks.library import AttackLibrary
+
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 
 
 class TestInventory:
@@ -22,9 +26,9 @@ class TestInventory:
         assert "multi_turn_vectors" in data
         assert "business_impact_coverage" in data
 
-    def test_total_matches_library(self) -> None:
+    def test_total_matches_library(self, shared_attack_library: AttackLibrary) -> None:
         data = collect_inventory()
-        library = AttackLibrary()
+        library = shared_attack_library
         assert data["total_vectors"] == len(library.vectors)
 
     def test_categories_sum_to_total(self) -> None:

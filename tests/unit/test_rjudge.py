@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from ziran.application.attacks.library import AttackLibrary
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 
 # R-Judge's 10 risk types across 5 application categories.
 RJUDGE_RISK_TYPES = [
@@ -25,8 +28,8 @@ class TestRJudgeCoverage:
     """GAP-20: Verify R-Judge 10 risk type coverage."""
 
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        return shared_attack_library
 
     def test_rjudge_has_10_risk_types(self) -> None:
         assert len(RJUDGE_RISK_TYPES) == 10
