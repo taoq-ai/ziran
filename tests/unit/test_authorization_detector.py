@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from ziran.application.detectors.authorization import AuthorizationDetector
+
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
 from ziran.domain.entities.phase import ScanPhase
 from ziran.domain.interfaces.adapter import AgentResponse
@@ -169,44 +172,34 @@ class TestAuthorizationDetector:
 
 
 class TestAuthorizationVectorsYAML:
-    def test_vectors_load(self) -> None:
+    def test_vectors_load(self, shared_attack_library: AttackLibrary) -> None:
         """Authorization vectors should load without errors."""
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+        library = shared_attack_library
         authz_vectors = library.get_attacks_by_category(AttackCategory.AUTHORIZATION_BYPASS)
         assert len(authz_vectors) >= 15
 
-    def test_vectors_have_authorization_tag(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_vectors_have_authorization_tag(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         authz_vectors = library.get_attacks_by_category(AttackCategory.AUTHORIZATION_BYPASS)
         for v in authz_vectors:
             assert "authorization" in v.tags, f"Vector {v.id} missing 'authorization' tag"
 
-    def test_vectors_have_bola_or_bfla_tag(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_vectors_have_bola_or_bfla_tag(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         authz_vectors = library.get_attacks_by_category(AttackCategory.AUTHORIZATION_BYPASS)
         for v in authz_vectors:
             tags = set(v.tags)
             has_type = bool(tags & {"bola", "bfla", "impersonation", "privilege_escalation"})
             assert has_type, f"Vector {v.id} missing BOLA/BFLA/related tag"
 
-    def test_vectors_have_prompts(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_vectors_have_prompts(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         authz_vectors = library.get_attacks_by_category(AttackCategory.AUTHORIZATION_BYPASS)
         for v in authz_vectors:
             assert len(v.prompts) >= 1, f"Vector {v.id} has no prompts"
 
-    def test_multi_turn_vectors_have_tactic(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_multi_turn_vectors_have_tactic(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         authz_vectors = library.get_attacks_by_category(AttackCategory.AUTHORIZATION_BYPASS)
         multi_turn = [v for v in authz_vectors if "multi_turn" in v.tags]
         assert len(multi_turn) >= 3

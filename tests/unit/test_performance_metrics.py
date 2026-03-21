@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from benchmarks.performance_metrics import (
@@ -11,28 +13,31 @@ from benchmarks.performance_metrics import (
 )
 
 
+@pytest.fixture(scope="module")
+def perf_data() -> dict[str, Any]:
+    """Run collect_performance_metrics once for all tests in this module."""
+    return collect_performance_metrics()
+
+
 @pytest.mark.unit
 class TestPerformanceMetrics:
     """Tests for performance benchmark infrastructure."""
 
-    def test_collect_returns_all_sections(self) -> None:
+    def test_collect_returns_all_sections(self, perf_data: dict) -> None:
         """Collected metrics should have all required top-level keys."""
-        data = collect_performance_metrics()
-        assert "benchmarks" in data
-        assert "summary" in data
-        assert "targets" in data
-        assert "regressions" in data
-        assert "regression_detected" in data
+        assert "benchmarks" in perf_data
+        assert "summary" in perf_data
+        assert "targets" in perf_data
+        assert "regressions" in perf_data
+        assert "regression_detected" in perf_data
 
-    def test_benchmarks_list_nonempty(self) -> None:
+    def test_benchmarks_list_nonempty(self, perf_data: dict) -> None:
         """Should have at least one benchmark result."""
-        data = collect_performance_metrics()
-        assert len(data["benchmarks"]) >= 5
+        assert len(perf_data["benchmarks"]) >= 5
 
-    def test_benchmark_structure(self) -> None:
+    def test_benchmark_structure(self, perf_data: dict) -> None:
         """Each benchmark should have timing and memory data."""
-        data = collect_performance_metrics()
-        for bench in data["benchmarks"]:
+        for bench in perf_data["benchmarks"]:
             assert "name" in bench
             assert "timing_seconds" in bench
             assert "memory_bytes" in bench
@@ -42,24 +47,23 @@ class TestPerformanceMetrics:
             assert "mean" in t
             assert t["min"] <= t["mean"] <= t["max"]
 
-    def test_summary_has_throughput(self) -> None:
+    def test_summary_has_throughput(self, perf_data: dict) -> None:
         """Summary should include vector throughput."""
-        data = collect_performance_metrics()
-        s = data["summary"]
+        s = perf_data["summary"]
         assert "vectors_per_second" in s
         assert s["vectors_per_second"] > 0
 
-    def test_targets_defined(self) -> None:
+    def test_targets_defined(self, perf_data: dict) -> None:
         """Performance targets should be defined."""
-        data = collect_performance_metrics()
-        targets = data["targets"]
+        targets = perf_data["targets"]
         assert "library_init_max_seconds" in targets
         assert all(v > 0 for v in targets.values())
 
-    def test_no_regressions_on_clean_run(self) -> None:
+    def test_no_regressions_on_clean_run(self, perf_data: dict) -> None:
         """A clean run should not detect regressions (generous targets)."""
-        data = collect_performance_metrics()
-        assert not data["regression_detected"], f"Unexpected regressions: {data['regressions']}"
+        assert not perf_data["regression_detected"], (
+            f"Unexpected regressions: {perf_data['regressions']}"
+        )
 
     def test_measure_operation_basic(self) -> None:
         """Measure operation should return valid timing data."""

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from ziran.application.attacks.library import AttackLibrary
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import AttackCategory
 
 # JailbreakBench's 10 categories aligned with OpenAI usage policies.
@@ -26,8 +29,8 @@ class TestJailbreakBenchCoverage:
     """GAP-15: Verify JailbreakBench 10 category coverage."""
 
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        return shared_attack_library
 
     def test_jbb_has_10_categories(self) -> None:
         assert len(JBB_CATEGORIES) == 10
