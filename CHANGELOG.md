@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.18.1](https://github.com/taoq-ai/ziran/compare/v0.18.0...v0.18.1) (2026-03-21)
+
+
+### Bug Fixes
+
+* add workflow_dispatch to release workflow for re-releasing versions ([13b169c](https://github.com/taoq-ai/ziran/commit/13b169c53608f30a0b4fb0f5656e64d3dc563bbf))
+* trigger release workflow on release event from release-please ([#206](https://github.com/taoq-ai/ziran/issues/206)) ([5fd8ebf](https://github.com/taoq-ai/ziran/commit/5fd8ebfae75ed5296173524b78d866b4a11b53c4))
+* use correct context for job-level if conditions in release workflow ([b353fb0](https://github.com/taoq-ai/ziran/commit/b353fb07e1d8cdacd312156fc60b3de821deb02a))
+
 ## [0.18.0](https://github.com/taoq-ai/ziran/compare/v0.17.0...v0.18.0) (2026-03-21)
 
 
