@@ -7,11 +7,13 @@ knowledge graph extensions, and multi-agent scanner.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.multi_agent import (
     AgentEdge,
     AgentNode,
@@ -230,18 +232,15 @@ class TestKnowledgeGraphMultiAgent:
 class TestMultiAgentAttackVectors:
     """Tests that multi-agent YAML vectors load correctly."""
 
-    def test_vectors_load(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
+    def test_vectors_load(self, shared_attack_library: AttackLibrary) -> None:
         from ziran.domain.entities.attack import AttackCategory
 
-        library = AttackLibrary()
+        library = shared_attack_library
         # Should have multi_agent category
         assert AttackCategory.MULTI_AGENT in library.categories
 
-    def test_vector_ids_unique(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_vector_ids_unique(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         ids = [v.id for v in library.vectors]
         assert len(ids) == len(set(ids)), "Duplicate vector IDs found"
 

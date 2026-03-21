@@ -4,8 +4,8 @@
 
 ### AI Agent Security Testing
 
-[![CI](https://github.com/taoq-ai/ziran/actions/workflows/test.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/test.yml)
-[![Lint](https://github.com/taoq-ai/ziran/actions/workflows/lint.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/lint.yml)
+[![CI](https://github.com/taoq-ai/ziran/actions/workflows/ci.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/ci.yml)
+[![Tests](https://github.com/taoq-ai/ziran/actions/workflows/test.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/ziran.svg)](https://pypi.org/project/ziran/)
 [![Downloads](https://img.shields.io/pypi/dm/ziran.svg)](https://pypistats.org/packages/ziran)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)

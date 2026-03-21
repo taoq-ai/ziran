@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from ziran.application.attacks.library import AttackLibrary
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import AttackCategory, OwaspLlmCategory
 
 
@@ -15,8 +18,8 @@ class TestModelDosCategory:
 
 class TestModelDosVectors:
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        return shared_attack_library
 
     def test_dos_vectors_load(self, library: AttackLibrary) -> None:
         """All model_dos vectors should load without validation errors."""
