@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.18.0](https://github.com/taoq-ai/ziran/compare/v0.17.0...v0.18.0) (2026-03-21)
+
+
+### Features
+
+* add comparative analysis against Promptfoo, Garak, and other tools ([#203](https://github.com/taoq-ai/ziran/issues/203)) ([d526b64](https://github.com/taoq-ai/ziran/commit/d526b64c8944edb5773efadc046a10a0cdcff824)), closes [#153](https://github.com/taoq-ai/ziran/issues/153)
+* add historical tracking and trend analysis for benchmarks ([#204](https://github.com/taoq-ai/ziran/issues/204)) ([4783f75](https://github.com/taoq-ai/ziran/commit/4783f750ced7d9a9cc994f8e826ff2701fb41391)), closes [#154](https://github.com/taoq-ai/ziran/issues/154)
+* add performance benchmarks with timing, throughput, and memory tracking ([#202](https://github.com/taoq-ai/ziran/issues/202)) ([3fa307e](https://github.com/taoq-ai/ziran/commit/3fa307e4576b1376f2093312b7f32e4a914bd602)), closes [#152](https://github.com/taoq-ai/ziran/issues/152)
+
 ## [0.17.0](https://github.com/taoq-ai/ziran/compare/v0.16.0...v0.17.0) (2026-03-20)
 
 
