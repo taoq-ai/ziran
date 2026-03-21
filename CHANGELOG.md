@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/taoq-ai/ziran/compare/v0.16.0...v0.17.0) (2026-03-20)
+
+
+### Features
+
+* expand AgentHarm multi-step vector coverage to 161 vectors ([#193](https://github.com/taoq-ai/ziran/issues/193)) ([3b632ea](https://github.com/taoq-ai/ziran/commit/3b632ea243f71c74dc0e91a692ae114b48a723a5))
+
 ## [0.16.0](https://github.com/taoq-ai/ziran/compare/v0.15.0...v0.16.0) (2026-03-20)
 
 
