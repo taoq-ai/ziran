@@ -15,6 +15,7 @@ from benchmarks.benchmark_comparison import collect_benchmark_comparison
 from benchmarks.gap_status import collect_gap_status
 from benchmarks.inventory import collect_inventory
 from benchmarks.owasp_coverage import collect_owasp_coverage
+from benchmarks.performance_metrics import collect_performance_metrics
 
 RESULTS_DIR = Path(__file__).parent / "results"
 DOCS_DIR = Path(__file__).parent.parent / "docs" / "reference" / "benchmarks"
@@ -386,6 +387,10 @@ def main() -> None:
     print("Computing accuracy metrics...")
     accuracy = collect_accuracy_metrics()
     write_json(accuracy, RESULTS_DIR / "accuracy_metrics.json")
+
+    print("Running performance benchmarks...")
+    performance = collect_performance_metrics()
+    write_json(performance, RESULTS_DIR / "performance_metrics.json")
 
     print("Generating markdown report...")
     md = generate_markdown(inventory, owasp, benchmarks, gaps)
