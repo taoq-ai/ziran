@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -14,6 +15,9 @@ from ziran.domain.entities.target import (
     TargetConfig,
 )
 from ziran.infrastructure.adapters.protocols import ProtocolError
+
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 
 # ──────────────────────────────────────────────────────────────────────
 # ProtocolError
@@ -488,29 +492,23 @@ class TestAttackLibraryProtocolFilter:
         )
         assert vector.protocol_filter == []
 
-    def test_library_loads_a2a_vectors(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_library_loads_a2a_vectors(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         a2a_vectors = library.get_attacks_by_protocol("a2a")
         # Should include both generic vectors and A2A-specific ones
         a2a_specific = [v for v in a2a_vectors if v.protocol_filter == ["a2a"]]
         assert len(a2a_specific) > 0
 
-    def test_library_protocol_filter_excludes(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_library_protocol_filter_excludes(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         rest_vectors = library.get_attacks_by_protocol("rest")
         # A2A-only vectors should not appear for REST
         for v in rest_vectors:
             if v.protocol_filter:
                 assert "rest" in v.protocol_filter
 
-    def test_search_with_protocol(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_search_with_protocol(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         results = library.search(protocol="a2a")
         # Should include generic + A2A-specific vectors
         assert len(results) > 0

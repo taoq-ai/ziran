@@ -25,17 +25,21 @@ class TestAgentScanner:
     """Tests for the AgentScanner."""
 
     @pytest.fixture
-    def scanner(self, mock_adapter: MockAgentAdapter) -> AgentScanner:
+    def scanner(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> AgentScanner:
         return AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
 
     @pytest.fixture
-    def vulnerable_scanner(self, vulnerable_adapter: MockAgentAdapter) -> AgentScanner:
+    def vulnerable_scanner(
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> AgentScanner:
         return AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
 
     async def test_run_empty_campaign(self, mock_adapter: MockAgentAdapter) -> None:
@@ -161,12 +165,14 @@ class TestAgentScannerPromptRendering:
 class TestProgressCallback:
     """Tests for the on_progress callback mechanism."""
 
-    async def test_callback_receives_campaign_events(self, mock_adapter: MockAgentAdapter) -> None:
+    async def test_callback_receives_campaign_events(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
         """Callback should receive CAMPAIGN_START and CAMPAIGN_COMPLETE."""
         events: list[ProgressEvent] = []
         scanner = AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         await scanner.run_campaign(
             phases=[ScanPhase.RECONNAISSANCE],
@@ -176,12 +182,14 @@ class TestProgressCallback:
         assert ProgressEventType.CAMPAIGN_START in event_types
         assert ProgressEventType.CAMPAIGN_COMPLETE in event_types
 
-    async def test_callback_receives_phase_events(self, mock_adapter: MockAgentAdapter) -> None:
+    async def test_callback_receives_phase_events(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
         """Callback should receive PHASE_START and PHASE_COMPLETE for each phase."""
         events: list[ProgressEvent] = []
         scanner = AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         await scanner.run_campaign(
             phases=[ScanPhase.RECONNAISSANCE, ScanPhase.TRUST_BUILDING],
@@ -195,13 +203,13 @@ class TestProgressCallback:
         assert phase_starts[1].phase == "trust_building"
 
     async def test_callback_receives_attack_events(
-        self, vulnerable_adapter: MockAgentAdapter
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
     ) -> None:
         """Callback should receive ATTACK_START and ATTACK_COMPLETE for each attack."""
         events: list[ProgressEvent] = []
         scanner = AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         await scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
@@ -217,7 +225,9 @@ class TestProgressCallback:
             assert evt.attack_name != ""
             assert evt.total_attacks > 0
 
-    async def test_callback_phase_index_tracking(self, mock_adapter: MockAgentAdapter) -> None:
+    async def test_callback_phase_index_tracking(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
         """Phase events should track correct indices."""
         events: list[ProgressEvent] = []
         phases = [
@@ -227,7 +237,7 @@ class TestProgressCallback:
         ]
         scanner = AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         await scanner.run_campaign(phases=phases, on_progress=events.append)
 
@@ -237,11 +247,13 @@ class TestProgressCallback:
             assert evt.phase_index == idx
             assert evt.total_phases == 3
 
-    async def test_no_callback_still_works(self, mock_adapter: MockAgentAdapter) -> None:
+    async def test_no_callback_still_works(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
         """Campaign should work fine when on_progress is None (default)."""
         scanner = AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         result = await scanner.run_campaign(
             phases=[ScanPhase.RECONNAISSANCE],
@@ -249,13 +261,13 @@ class TestProgressCallback:
         assert result.campaign_id.startswith("campaign_")
 
     async def test_campaign_complete_has_metadata(
-        self, vulnerable_adapter: MockAgentAdapter
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
     ) -> None:
         """CAMPAIGN_COMPLETE event should include total_vulnerabilities in extra."""
         events: list[ProgressEvent] = []
         scanner = AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         await scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
@@ -300,12 +312,12 @@ class TestConcurrentAttackExecution:
     """Tests for concurrent attack execution and race conditions in _execute_phase."""
 
     async def test_concurrent_attacks_aggregate_tokens_correctly(
-        self, vulnerable_adapter: MockAgentAdapter
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
     ) -> None:
         """Token usage must be correct even when attacks run concurrently."""
         scanner = AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
             config={"attack_timeout": 10.0, "phase_timeout": 30.0},
         )
         result = await scanner.run_campaign(
@@ -322,12 +334,12 @@ class TestConcurrentAttackExecution:
         assert tokens["total_tokens"] == tokens["prompt_tokens"] + tokens["completion_tokens"]
 
     async def test_concurrent_attacks_no_duplicate_results(
-        self, vulnerable_adapter: MockAgentAdapter
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
     ) -> None:
         """Each attack vector should produce exactly one result, no duplicates."""
         scanner = AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         await scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
@@ -341,12 +353,12 @@ class TestConcurrentAttackExecution:
         )
 
     async def test_concurrent_attacks_all_results_recorded(
-        self, vulnerable_adapter: MockAgentAdapter
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
     ) -> None:
         """All attacks that run should have their results recorded."""
         scanner = AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         attacks = scanner.attack_library.get_attacks_for_phase(
             ScanPhase.VULNERABILITY_DISCOVERY, coverage=CoverageLevel.COMPREHENSIVE
@@ -361,7 +373,9 @@ class TestConcurrentAttackExecution:
         # Every attack vector should produce a result (success or failure)
         assert len(scanner._attack_results) == expected_count
 
-    async def test_concurrent_attacks_with_slow_adapter(self) -> None:
+    async def test_concurrent_attacks_with_slow_adapter(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
         """Attacks should truly run concurrently - total time < sum of individual times."""
         import asyncio
         import time
@@ -382,7 +396,7 @@ class TestConcurrentAttackExecution:
         )
         scanner = AgentScanner(
             adapter=adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
 
         t0 = time.monotonic()
@@ -401,12 +415,12 @@ class TestConcurrentAttackExecution:
             )
 
     async def test_concurrent_attacks_vulnerability_list_consistent(
-        self, vulnerable_adapter: MockAgentAdapter
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
     ) -> None:
         """Vulnerabilities found in phase result must match successful attack results."""
         scanner = AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         result = await scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
@@ -417,7 +431,9 @@ class TestConcurrentAttackExecution:
         successful_ids = {r.vector_id for r in scanner._attack_results if r.successful}
         assert set(phase_result.vulnerabilities_found) == successful_ids
 
-    async def test_concurrent_attacks_with_mixed_failures(self) -> None:
+    async def test_concurrent_attacks_with_mixed_failures(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
         """Some attacks failing should not corrupt results of successful ones."""
         import asyncio
 
@@ -439,7 +455,7 @@ class TestConcurrentAttackExecution:
         )
         scanner = AgentScanner(
             adapter=adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         # Should not raise even when some attacks fail
         result = await scanner.run_campaign(
@@ -450,7 +466,9 @@ class TestConcurrentAttackExecution:
         # Campaign should complete without error
         assert result.campaign_id.startswith("campaign_")
 
-    async def test_concurrent_phase_timeout_does_not_lose_results(self) -> None:
+    async def test_concurrent_phase_timeout_does_not_lose_results(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
         """When phase times out, results gathered before timeout should be preserved."""
         import asyncio
 
@@ -465,7 +483,7 @@ class TestConcurrentAttackExecution:
         )
         scanner = AgentScanner(
             adapter=adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
             config={"phase_timeout": 60.0, "attack_timeout": 5.0},
         )
         result = await scanner.run_campaign(
@@ -479,13 +497,13 @@ class TestConcurrentAttackExecution:
         assert len(scanner._attack_results) >= 0
 
     async def test_progress_events_under_concurrency(
-        self, vulnerable_adapter: MockAgentAdapter
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
     ) -> None:
         """Progress events should be emitted correctly even with concurrent attacks."""
         events: list[ProgressEvent] = []
         scanner = AgentScanner(
             adapter=vulnerable_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
         )
         await scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
@@ -506,11 +524,15 @@ class TestConcurrentAttackExecution:
 class TestScannerLLMClientWiring:
     """Tests that AgentScanner passes llm_client to DetectorPipeline."""
 
-    def test_scanner_without_llm(self, mock_adapter: MockAgentAdapter) -> None:
-        scanner = AgentScanner(adapter=mock_adapter, attack_library=AttackLibrary())
+    def test_scanner_without_llm(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
+        scanner = AgentScanner(adapter=mock_adapter, attack_library=shared_attack_library)
         assert scanner._detector_pipeline._llm_judge is None
 
-    def test_scanner_with_llm_client_in_config(self, mock_adapter: MockAgentAdapter) -> None:
+    def test_scanner_with_llm_client_in_config(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
         from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig
 
         mock_client = AsyncMock(spec=BaseLLMClient)
@@ -518,23 +540,27 @@ class TestScannerLLMClientWiring:
 
         scanner = AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
             config={"llm_client": mock_client},
         )
         assert scanner._detector_pipeline._llm_judge is not None
 
-    def test_scanner_with_none_llm_client(self, mock_adapter: MockAgentAdapter) -> None:
+    def test_scanner_with_none_llm_client(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
         scanner = AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
             config={"llm_client": None},
         )
         assert scanner._detector_pipeline._llm_judge is None
 
-    def test_scanner_with_empty_config(self, mock_adapter: MockAgentAdapter) -> None:
+    def test_scanner_with_empty_config(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
         scanner = AgentScanner(
             adapter=mock_adapter,
-            attack_library=AttackLibrary(),
+            attack_library=shared_attack_library,
             config={},
         )
         assert scanner._detector_pipeline._llm_judge is None

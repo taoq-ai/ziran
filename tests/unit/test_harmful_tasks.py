@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from ziran.application.attacks.library import AttackLibrary
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import (
     HARM_CATEGORY_DESCRIPTIONS,
     AttackResult,
@@ -42,8 +45,8 @@ class TestHarmCategory:
 
 class TestHarmfulTaskVectors:
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        return shared_attack_library
 
     def test_harmful_task_vectors_load(self, library: AttackLibrary) -> None:
         """All harmful task vectors should load without validation errors."""
@@ -179,8 +182,8 @@ class TestAlertCoverage:
     """GAP-21: Verify 100% coverage of ALERT's 32 micro categories."""
 
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        return shared_attack_library
 
     def test_alert_has_32_micro_categories(self) -> None:
         assert len(ALERT_MICRO_CATEGORIES) == 32
