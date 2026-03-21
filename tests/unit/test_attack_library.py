@@ -15,9 +15,9 @@ class TestAttackLibrary:
     """Tests for AttackLibrary YAML loading and filtering."""
 
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        """Library loaded with built-in vectors."""
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        """Library loaded with built-in vectors (session-cached)."""
+        return shared_attack_library
 
     def test_loads_builtin_vectors(self, library: AttackLibrary) -> None:
         assert library.vector_count > 0

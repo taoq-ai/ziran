@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.18.4](https://github.com/taoq-ai/ziran/compare/v0.18.3...v0.18.4) (2026-03-21)
+
+
+### Bug Fixes
+
+* suppress coroutine warning by mocking AgentScanner in scan test ([#209](https://github.com/taoq-ai/ziran/issues/209)) ([221de4a](https://github.com/taoq-ai/ziran/commit/221de4a474384ff9898e82a886e5da95ca7d7003))
+
+## [0.18.3](https://github.com/taoq-ai/ziran/compare/v0.18.2...v0.18.3) (2026-03-21)
+
+
+### Performance Improvements
+
+* reduce test suite runtime from 7min to 1.5min (4.7x speedup) ([#210](https://github.com/taoq-ai/ziran/issues/210)) ([5a1d465](https://github.com/taoq-ai/ziran/commit/5a1d465af19a70c243bca5d175b43194ec86d32b))
+
+## [0.18.2](https://github.com/taoq-ai/ziran/compare/v0.18.1...v0.18.2) (2026-03-21)
+
+
+### Bug Fixes
+
+* increase performance benchmark targets to 30s for CI compatibility ([138dbaa](https://github.com/taoq-ai/ziran/commit/138dbaa4b18635a037842aaec0df0d352b27f086))
+
+## [0.18.1](https://github.com/taoq-ai/ziran/compare/v0.18.0...v0.18.1) (2026-03-21)
+
+
+### Bug Fixes
+
+* add workflow_dispatch to release workflow for re-releasing versions ([13b169c](https://github.com/taoq-ai/ziran/commit/13b169c53608f30a0b4fb0f5656e64d3dc563bbf))
+* trigger release workflow on release event from release-please ([#206](https://github.com/taoq-ai/ziran/issues/206)) ([5fd8ebf](https://github.com/taoq-ai/ziran/commit/5fd8ebfae75ed5296173524b78d866b4a11b53c4))
+* use correct context for job-level if conditions in release workflow ([b353fb0](https://github.com/taoq-ai/ziran/commit/b353fb07e1d8cdacd312156fc60b3de821deb02a))
+
 ## [0.18.0](https://github.com/taoq-ai/ziran/compare/v0.17.0...v0.18.0) (2026-03-21)
 
 

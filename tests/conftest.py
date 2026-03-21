@@ -6,10 +6,26 @@ from typing import Any
 
 import pytest
 
+from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackResult, AttackVector
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.entities.phase import ScanPhase
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+
+# ──────────────────────────────────────────────────────────────────────
+# Session-scoped fixtures (expensive objects loaded once per test run)
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def shared_attack_library() -> AttackLibrary:
+    """Session-scoped AttackLibrary — YAML parsing happens once per test run.
+
+    Tests that only read from the library (filtering, counting, etc.)
+    should use this fixture instead of constructing AttackLibrary().
+    """
+    return AttackLibrary()
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Mock Agent Adapter

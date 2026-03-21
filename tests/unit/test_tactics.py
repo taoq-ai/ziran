@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
 import pytest
 
 from ziran.application.attacks.tactics import TacticExecutor, TacticType
+
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.domain.entities.attack import (
     AttackCategory,
@@ -253,40 +256,34 @@ class TestTacticExecutor:
 
 
 class TestMultiTurnVectorsYAML:
-    def test_vectors_load(self) -> None:
+    def test_vectors_load(self, shared_attack_library: AttackLibrary) -> None:
         """Multi-turn tactic vectors should load without errors."""
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+        library = shared_attack_library
         all_vectors = library.vectors
 
         multi_turn = [v for v in all_vectors if v.tactic != "single"]
         assert len(multi_turn) >= 10
 
-    def test_vectors_have_multi_turn_tag(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_vectors_have_multi_turn_tag(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         all_vectors = library.vectors
 
         multi_turn = [v for v in all_vectors if v.tactic != "single"]
         for v in multi_turn:
             assert "multi_turn" in v.tags, f"Vector {v.id} missing 'multi_turn' tag"
 
-    def test_vectors_have_multiple_prompts(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_vectors_have_multiple_prompts(self, shared_attack_library: AttackLibrary) -> None:
+        library = shared_attack_library
         all_vectors = library.vectors
 
         multi_turn = [v for v in all_vectors if v.tactic != "single"]
         for v in multi_turn:
             assert len(v.prompts) >= 2, f"Vector {v.id} has only {len(v.prompts)} prompt(s)"
 
-    def test_vectors_have_success_indicators_on_later_prompts(self) -> None:
-        from ziran.application.attacks.library import AttackLibrary
-
-        library = AttackLibrary()
+    def test_vectors_have_success_indicators_on_later_prompts(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        library = shared_attack_library
         all_vectors = library.vectors
 
         multi_turn = [v for v in all_vectors if v.tactic != "single"]

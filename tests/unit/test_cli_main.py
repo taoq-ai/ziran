@@ -142,9 +142,14 @@ class TestScanCommand:
         assert result.exit_code != 0
 
     @patch("ziran.interfaces.cli.main.load_agent_adapter")
+    @patch("ziran.interfaces.cli.main.AgentScanner")
     @patch("ziran.interfaces.cli.main.asyncio")
     def test_scan_local_success(
-        self, mock_asyncio: MagicMock, mock_load: MagicMock, runner: CliRunner
+        self,
+        mock_asyncio: MagicMock,
+        mock_scanner_cls: MagicMock,
+        mock_load: MagicMock,
+        runner: CliRunner,
     ) -> None:
         """Scan with --framework + --agent-path should go through the local path."""
         mock_adapter = MagicMock()
@@ -156,6 +161,10 @@ class TestScanCommand:
         result_data = _minimal_campaign_result()
         mock_result = CampaignResult.model_validate(result_data)
         mock_asyncio.run.return_value = mock_result
+
+        # Mock AgentScanner so run_campaign doesn't create a real coroutine
+        mock_scanner = MagicMock()
+        mock_scanner_cls.return_value = mock_scanner
 
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("agent_executor = None\n")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from ziran.application.attacks.encoding import (
@@ -12,7 +14,9 @@ from ziran.application.attacks.encoding import (
     _encode_token_boundary,
     _encode_word_shuffle,
 )
-from ziran.application.attacks.library import AttackLibrary
+
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 from ziran.application.attacks.tactics import TacticType
 
 # ── New TacticType values ────────────────────────────────────────────
@@ -50,8 +54,8 @@ class TestNewTacticTypes:
 
 class TestExpandedTacticsVectors:
     @pytest.fixture
-    def library(self) -> AttackLibrary:
-        return AttackLibrary()
+    def library(self, shared_attack_library: AttackLibrary) -> AttackLibrary:
+        return shared_attack_library
 
     def test_expanded_vectors_load(self, library: AttackLibrary) -> None:
         """All expanded tactic vectors should load without validation errors."""
