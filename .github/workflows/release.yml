@@ -169,7 +169,10 @@ jobs:
 
   # ── Publish to TestPyPI (pre-releases only) ────────────────────────
   publish-testpypi:
-    if: contains(env.RELEASE_TAG, 'a') || contains(env.RELEASE_TAG, 'b') || contains(env.RELEASE_TAG, 'rc')
+    if: >-
+      contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'a')
+      || contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'b')
+      || contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'rc')
     needs: [build]
     runs-on: ubuntu-latest
     environment:
@@ -230,7 +233,10 @@ jobs:
   # to the latest stable release so they automatically get patches.
   # Uses the GitHub API instead of git push to bypass tag protection rules.
   update-action-tag:
-    if: ${{ !contains(env.RELEASE_TAG, 'a') && !contains(env.RELEASE_TAG, 'b') && !contains(env.RELEASE_TAG, 'rc') }}
+    if: >-
+      !contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'a')
+      && !contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'b')
+      && !contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'rc')
     needs: [github-release]
     runs-on: ubuntu-latest
     permissions:
