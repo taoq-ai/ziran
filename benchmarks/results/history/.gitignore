@@ -1,0 +1,2 @@
+# Track historical snapshots in git for trend analysis
+!snapshot_*.json
