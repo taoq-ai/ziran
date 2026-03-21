@@ -12,6 +12,13 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+" # alpha:   v1.2.3a1
       - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+" # beta:    v1.2.3b1
       - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+" # rc:     v1.2.3rc1
+  # Manual trigger for re-releasing missed versions
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g., v0.15.0)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,6 +28,13 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+# Resolve the tag name across all trigger types:
+#   release event   → github.event.release.tag_name
+#   push (tag)      → github.ref_name
+#   workflow_dispatch → inputs.tag
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
+
 jobs:
   # ── Gate: full CI must pass before publishing ──────────────────────
   lint:
@@ -28,6 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0  # full history for hatch-vcs
 
       - uses: astral-sh/setup-uv@v4
@@ -60,6 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0  # full history for hatch-vcs
 
       - uses: astral-sh/setup-uv@v4
@@ -84,13 +100,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0  # full history for hatch-vcs
 
       # Force hatch-vcs / setuptools-scm to use the tag version.
       # git describe may pick the floating 'v0' tag over 'v0.3.0'
       # when both point to the same commit.
       - name: Pin package version from tag
-        run: echo "SETUPTOOLS_SCM_PRETEND_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        run: echo "SETUPTOOLS_SCM_PRETEND_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -115,7 +132,7 @@ jobs:
           name = name.rsplit('.', 1)[0]  # ziran-<version>
           print(name.split('-', 1)[1])
           ")
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${RELEASE_TAG#v}"
           echo "Package version: $PKG_VERSION"
           echo "Tag version:     $TAG_VERSION"
           if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
@@ -152,7 +169,7 @@ jobs:
 
   # ── Publish to TestPyPI (pre-releases only) ────────────────────────
   publish-testpypi:
-    if: contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc')
+    if: contains(env.RELEASE_TAG, 'a') || contains(env.RELEASE_TAG, 'b') || contains(env.RELEASE_TAG, 'rc')
     needs: [build]
     runs-on: ubuntu-latest
     environment:
@@ -193,7 +210,7 @@ jobs:
       - name: Determine pre-release flag
         id: prerelease
         run: |
-          if echo "${{ github.ref_name }}" | grep -qE '(a|b|rc)[0-9]+$'; then
+          if echo "${RELEASE_TAG}" | grep -qE '(a|b|rc)[0-9]+$'; then
             echo "flag=true" >> "$GITHUB_OUTPUT"
           else
             echo "flag=false" >> "$GITHUB_OUTPUT"
@@ -202,8 +219,8 @@ jobs:
       - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           prerelease: ${{ steps.prerelease.outputs.flag }}
           files: dist/*
@@ -213,7 +230,7 @@ jobs:
   # to the latest stable release so they automatically get patches.
   # Uses the GitHub API instead of git push to bypass tag protection rules.
   update-action-tag:
-    if: ${{ !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc') }}
+    if: ${{ !contains(env.RELEASE_TAG, 'a') && !contains(env.RELEASE_TAG, 'b') && !contains(env.RELEASE_TAG, 'rc') }}
     needs: [github-release]
     runs-on: ubuntu-latest
     permissions:
@@ -223,9 +240,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MAJOR=$(echo "${{ github.ref_name }}" | grep -oE '^v[0-9]+')
-          SHA=$(gh api repos/${{ github.repository }}/git/ref/tags/${{ github.ref_name }} --jq '.object.sha')
-          echo "Updating ${MAJOR} → ${SHA} (${{ github.ref_name }})"
+          MAJOR=$(echo "${RELEASE_TAG}" | grep -oE '^v[0-9]+')
+          SHA=$(gh api repos/${{ github.repository }}/git/ref/tags/${RELEASE_TAG} --jq '.object.sha')
+          echo "Updating ${MAJOR} → ${SHA} (${RELEASE_TAG})"
 
           # Try to update existing tag ref; create if it doesn't exist
           if gh api repos/${{ github.repository }}/git/refs/tags/${MAJOR} --silent 2>/dev/null; then
