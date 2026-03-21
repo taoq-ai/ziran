@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/taoq-ai/ziran/compare/v0.18.4...v0.19.0) (2026-03-21)
+
+
+### Features
+
+* implement utility-under-attack aggregate metrics ([#199](https://github.com/taoq-ai/ziran/issues/199)) ([a3af35c](https://github.com/taoq-ai/ziran/commit/a3af35c0b8eaaf09aab1a620a7cf44f480582b50))
+
 ## [0.18.4](https://github.com/taoq-ai/ziran/compare/v0.18.3...v0.18.4) (2026-03-21)
 
 
