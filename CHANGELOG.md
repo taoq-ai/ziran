@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.3](https://github.com/taoq-ai/ziran/compare/v0.18.2...v0.18.3) (2026-03-21)
+
+
+### Performance Improvements
+
+* reduce test suite runtime from 7min to 1.5min (4.7x speedup) ([#210](https://github.com/taoq-ai/ziran/issues/210)) ([5a1d465](https://github.com/taoq-ai/ziran/commit/5a1d465af19a70c243bca5d175b43194ec86d32b))
+
 ## [0.18.2](https://github.com/taoq-ai/ziran/compare/v0.18.1...v0.18.2) (2026-03-21)
 
 
