@@ -58,7 +58,9 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 | **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 159 | `███████████████` 100% | :construction: open | [GAP-19](#58) |
 | **R-Judge** | 2024 | R-Judge risk types (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-20](#59) |
 |  |  | Risk scoring detectors | — | 5 | _5 detectors — different approach than interaction records_ |  |  |
-| **AILuminate** | MLCommons, 2025 | Resilience gap metric | — | 0 | _Not yet implemented_ | :construction: open | [GAP-09](#40) |
+| **AILuminate** | MLCommons, 2025 | Resilience gap metric | 1 | 1 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-09](#40) |
+|  |  | Baseline performance measurement | 1 | 1 | `███████████████` 100.0% |  |  |
+|  |  | Under-attack performance measurement | 1 | 1 | `███████████████` 100.0% |  |  |
 | **ALERT** | 2024 | ALERT micro categories (32) | 32 | 32 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-21](#60) |
 |  |  | Harm categories | — | 11 | _N/A_ |  |  |
 | **MITRE ATLAS** | MITRE, 2025 | Attack categories vs tactics | 15 | 11 | `███████████░░░░` 73.3% | :construction: open | [GAP-22](#61) |
@@ -78,7 +80,7 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | GAP-06 | Harmful multi-step task testing | important | [#37](https://github.com/taoq-ai/ziran/issues/37) | :white_check_mark: closed |
 | GAP-07 | Business impact categorization | important | [#38](https://github.com/taoq-ai/ziran/issues/38) | :construction: open |
 | GAP-08 | Jailbreak tactic breadth | important | [#39](https://github.com/taoq-ai/ziran/issues/39) | :white_check_mark: closed |
-| GAP-09 | Resilience gap metric | important | [#40](https://github.com/taoq-ai/ziran/issues/40) | :construction: open |
+| GAP-09 | Resilience gap metric | important | [#40](https://github.com/taoq-ai/ziran/issues/40) | :white_check_mark: closed |
 | GAP-10 | OWASP LLM04 (Model DoS) | lower | [#41](https://github.com/taoq-ai/ziran/issues/41) | :white_check_mark: closed |
 | GAP-11 | OWASP LLM05 (Supply Chain) | lower | [#42](https://github.com/taoq-ai/ziran/issues/42) | :construction: open |
 | GAP-12 | OWASP LLM10 (Model Theft) | lower | [#43](https://github.com/taoq-ai/ziran/issues/43) | :construction: open |

@@ -402,9 +402,19 @@ BENCHMARKS = [
         "coverage_fn": lambda _lib: [
             {
                 "dimension": "Resilience gap metric",
-                "target": None,
-                "implemented": 0,
-                "note": "Not yet implemented",
+                "target": 1,
+                "implemented": 1,
+                "note": "baseline_performance - under_attack_performance delta",
+            },
+            {
+                "dimension": "Baseline performance measurement",
+                "target": 1,
+                "implemented": 1,
+            },
+            {
+                "dimension": "Under-attack performance measurement",
+                "target": 1,
+                "implemented": 1,
             },
         ],
     },
