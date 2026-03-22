@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import get_attack_library
 
 # Tool capability matrix based on published documentation and features.
 # Each tool has capabilities scored as:
@@ -202,7 +202,7 @@ def _score_to_value(score: str) -> float:
 
 def collect_comparative_analysis() -> dict:
     """Collect comparative analysis data."""
-    lib = AttackLibrary()
+    lib = get_attack_library()
 
     # Compute scores per tool
     tool_scores: dict[str, dict] = {}

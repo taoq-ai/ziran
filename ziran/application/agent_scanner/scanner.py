@@ -41,7 +41,7 @@ from ziran.application.agent_scanner.result_builder import (
 from ziran.application.agent_scanner.result_builder import (
     _compute_utility as _compute_utility,
 )
-from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import AttackLibrary, get_attack_library
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.application.knowledge_graph.graph import (
     AttackKnowledgeGraph,
@@ -146,7 +146,9 @@ class AgentScanner:
         )
 
         custom_dirs = [custom_attacks_dir] if custom_attacks_dir else None
-        self.attack_library = attack_library or AttackLibrary(custom_dirs=custom_dirs)
+        self.attack_library = attack_library or (
+            get_attack_library(custom_dirs=custom_dirs) if custom_dirs else get_attack_library()
+        )
 
         self.graph = AttackKnowledgeGraph()
         self._current_phase: ScanPhase | None = None

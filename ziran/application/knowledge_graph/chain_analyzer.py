@@ -204,55 +204,83 @@ class ToolChainAnalyzer:
         """Find dangerous chains A → X → … → B via intermediate nodes."""
         chains: list[DangerousChain] = []
 
-        for source_id, _ in tool_nodes:
-            for target_id, _ in tool_nodes:
-                if source_id == target_id:
-                    continue
+        # Pre-compute keywords and lowercase forms for all tool IDs so
+        # that pattern matching can quickly determine candidate pairs.
+        tool_ids = [tid for tid, _ in tool_nodes]
+        tool_lower = {tid: tid.lower() for tid in tool_ids}
+        tool_kw = {tid: self._to_keywords(tid) for tid in tool_ids}
 
-                # Skip if there's already a direct edge (handled above)
-                if self.graph.graph.has_edge(source_id, target_id):
-                    continue
+        # Build candidate (source, target) pairs by checking which tools
+        # could match each pattern role.  This avoids the full O(T²) loop
+        # for patterns that only apply to a small subset of tools.
+        candidate_pairs: dict[tuple[str, str], ChainPatternInfo] = {}
+        for (pat_src, pat_tgt), info in self._patterns.items():
+            src_matches = [
+                tid
+                for tid in tool_ids
+                if self._pattern_matches(pat_src, tool_lower[tid], tool_kw[tid])
+            ]
+            tgt_matches = [
+                tid
+                for tid in tool_ids
+                if self._pattern_matches(pat_tgt, tool_lower[tid], tool_kw[tid])
+            ]
+            for s in src_matches:
+                for t in tgt_matches:
+                    if s != t and (s, t) not in candidate_pairs:
+                        candidate_pairs[(s, t)] = info
 
-                pattern_info = self._match_pattern(source_id, target_id, pattern_cache)
-                if pattern_info is None:
-                    continue
+        for (source_id, target_id), pattern_info in candidate_pairs.items():
+            # Skip if there's already a direct edge (handled above)
+            if self.graph.graph.has_edge(source_id, target_id):
+                continue
 
-                # Search for paths via intermediate nodes
-                try:
-                    paths = list(
-                        nx.all_simple_paths(
-                            self.graph.graph,
-                            source_id,
-                            target_id,
-                            cutoff=max_hops,
-                        )
+            # Fast reachability check before expensive path enumeration
+            try:
+                if not nx.has_path(self.graph.graph, source_id, target_id):
+                    continue
+            except (nx.NetworkXError, nx.NodeNotFound):
+                continue
+
+            # Populate the pattern cache for consistency
+            pattern_cache.setdefault((source_id, target_id), pattern_info)
+
+            # Search for paths via intermediate nodes
+            try:
+                paths = list(
+                    nx.all_simple_paths(
+                        self.graph.graph,
+                        source_id,
+                        target_id,
+                        cutoff=max_hops,
                     )
-                except (nx.NetworkXError, nx.NodeNotFound):
-                    continue
+                )
+            except (nx.NetworkXError, nx.NodeNotFound):
+                continue
 
-                for path in paths:
-                    if len(path) < 3:
-                        continue  # must have at least 1 intermediate
+            for path in paths:
+                if len(path) < 3:
+                    continue  # must have at least 1 intermediate
 
-                    chains.append(
-                        DangerousChain(
-                            tools=[source_id, target_id],
-                            risk_level=pattern_info["risk"],
-                            vulnerability_type=pattern_info["type"],
-                            exploit_description=(
-                                f"{pattern_info['description']} "
-                                f"(via {len(path) - 2} intermediate node(s))"
-                            ),
-                            remediation=pattern_info.get("remediation", ""),
-                            graph_path=path,
-                            chain_type="indirect",
-                            evidence={
-                                "full_path": path,
-                                "intermediate_nodes": path[1:-1],
-                                "hops": len(path) - 1,
-                            },
-                        )
+                chains.append(
+                    DangerousChain(
+                        tools=[source_id, target_id],
+                        risk_level=pattern_info["risk"],
+                        vulnerability_type=pattern_info["type"],
+                        exploit_description=(
+                            f"{pattern_info['description']} "
+                            f"(via {len(path) - 2} intermediate node(s))"
+                        ),
+                        remediation=pattern_info.get("remediation", ""),
+                        graph_path=path,
+                        chain_type="indirect",
+                        evidence={
+                            "full_path": path,
+                            "intermediate_nodes": path[1:-1],
+                            "hops": len(path) - 1,
+                        },
                     )
+                )
 
         return chains
 

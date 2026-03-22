@@ -13,7 +13,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import get_attack_library
 from ziran.domain.entities.attack import (
     OWASP_LLM_DESCRIPTIONS,
     OwaspLlmCategory,
@@ -32,7 +32,7 @@ _STRONG = 10
 
 def collect_owasp_coverage() -> dict:
     """Analyze OWASP LLM Top 10 coverage."""
-    library = AttackLibrary()
+    library = get_attack_library()
     vectors = library.vectors
 
     per_category: dict[str, dict] = {}

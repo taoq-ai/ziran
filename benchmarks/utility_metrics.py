@@ -15,7 +15,7 @@ import json
 import sys
 from pathlib import Path
 
-from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import AttackLibrary, get_attack_library
 from ziran.domain.entities.attack import AttackCategory
 from ziran.domain.entities.utility import UtilityMetrics, UtilityTask
 
@@ -42,7 +42,7 @@ def collect_utility_metrics() -> dict:
     Evaluates ZIRAN's capability to measure utility degradation
     against AgentDojo and ASB benchmark expectations.
     """
-    lib = AttackLibrary()
+    lib = get_attack_library()
 
     # Core infrastructure capabilities
     capabilities = {
