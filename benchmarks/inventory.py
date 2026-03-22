@@ -15,7 +15,7 @@ from collections import Counter
 from pathlib import Path
 
 from ziran.application.attacks.encoding import EncodingType
-from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import get_attack_library
 from ziran.domain.entities.attack import get_business_impacts
 
 try:
@@ -26,7 +26,7 @@ except ImportError:
 
 def collect_inventory() -> dict:
     """Return a dict summarising every vector in the built-in library."""
-    library = AttackLibrary()
+    library = get_attack_library()
     vectors = library.vectors
 
     categories: Counter[str] = Counter()

@@ -14,7 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 from benchmarks.gap_status import GAPS
-from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import AttackLibrary, get_attack_library
 from ziran.domain.entities.attack import OwaspLlmCategory  # noqa: TC001
 
 try:
@@ -493,7 +493,7 @@ def _compute_status(metrics: list[dict]) -> str:
 
 def collect_benchmark_comparison() -> dict:
     """Run coverage comparison against all benchmarks."""
-    library = AttackLibrary()
+    library = get_attack_library()
     gap_lookup = _gap_status_lookup()
 
     results = []

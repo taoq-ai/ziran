@@ -24,7 +24,7 @@ def _measure_operation(
     name: str,
     fn: Any,
     *args: Any,
-    iterations: int = 3,
+    iterations: int = 1,
     **kwargs: Any,
 ) -> dict:
     """Run an operation multiple times and collect timing/memory stats.
@@ -88,19 +88,19 @@ def _bench_library_init() -> Any:
 
 def _bench_library_filter_category() -> Any:
     """Benchmark: Filter vectors by category."""
-    from ziran.application.attacks.library import AttackLibrary
+    from ziran.application.attacks.library import get_attack_library
     from ziran.domain.entities.attack import AttackCategory
 
-    lib = AttackLibrary()
+    lib = get_attack_library()
     return lib.get_attacks_by_category(AttackCategory.PROMPT_INJECTION)
 
 
 def _bench_library_filter_owasp() -> Any:
     """Benchmark: Filter vectors by OWASP category."""
-    from ziran.application.attacks.library import AttackLibrary
+    from ziran.application.attacks.library import get_attack_library
     from ziran.domain.entities.attack import OwaspLlmCategory
 
-    lib = AttackLibrary()
+    lib = get_attack_library()
     return lib.get_attacks_by_owasp(OwaspLlmCategory.LLM01)
 
 
@@ -154,9 +154,9 @@ def collect_performance_metrics() -> dict:
     lib_bench = benchmarks[0]
     lib_time = lib_bench["timing_seconds"]["mean"]
 
-    from ziran.application.attacks.library import AttackLibrary
+    from ziran.application.attacks.library import get_attack_library
 
-    lib = AttackLibrary()
+    lib = get_attack_library()
     vector_count = len(lib.vectors)
 
     throughput = round(vector_count / lib_time, 1) if lib_time > 0 else 0

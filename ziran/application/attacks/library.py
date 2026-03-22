@@ -322,7 +322,7 @@ class AttackLibrary:
             filepath: Path to the YAML file.
         """
         with filepath.open() as f:
-            data = yaml.safe_load(f)
+            data = yaml.load(f, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
 
         if not data or "vectors" not in data:
             logger.warning("No vectors found in %s", filepath)
@@ -394,3 +394,22 @@ class AttackLibrary:
             if data.get("harm_category")
             else None,
         )
+
+
+_INSTANCE: AttackLibrary | None = None
+
+
+def get_attack_library(**kwargs: Any) -> AttackLibrary:
+    """Return a cached ``AttackLibrary`` singleton for default configuration.
+
+    When called without arguments the same instance is returned on every
+    invocation, avoiding repeated YAML parsing.  Any keyword argument
+    forces a fresh instance so that custom directories or other overrides
+    are honoured.
+    """
+    global _INSTANCE
+    if kwargs:
+        return AttackLibrary(**kwargs)
+    if _INSTANCE is None:
+        _INSTANCE = AttackLibrary()
+    return _INSTANCE
