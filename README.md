@@ -23,14 +23,14 @@
 
 ## Benchmarks
 
-> **354** attack vectors · **11** categories · **80%** OWASP LLM Top 10 · **20** benchmarks analyzed
+> **565** attack vectors · **11** categories · **90%** OWASP LLM Top 10 · **20** benchmarks analyzed
 
 | Benchmark | Coverage |
 |-----------|----------|
 | AgentHarm (ICLR 2025) | 100% harm categories |
-| JailbreakBench (NeurIPS 2024) | 100% categories, 105 vectors |
-| Agent Security Bench | 88.5% vectors (354/400) |
-| HarmBench (ICML 2024) | 55.6% tactics, 105 jailbreak vectors |
+| JailbreakBench (NeurIPS 2024) | 100% categories, 175 vectors |
+| Agent Security Bench | 100% vectors (565/400) |
+| HarmBench (ICML 2024) | 55.6% tactics, 175 jailbreak vectors |
 | R-Judge | 100% risk types |
 | ALERT | 100% micro categories (32/32) |
 | MITRE ATLAS | 73.3% attack categories |
@@ -358,7 +358,7 @@ If you use ZIRAN in academic work, please cite:
   year      = {2026},
   url       = {https://github.com/taoq-ai/ziran},
   license   = {Apache-2.0},
-  version   = {0.12.0}
+  version   = {0.20.0}
 }
 ```
 
