@@ -111,6 +111,12 @@ BENCHMARKS = [
                 "target": 629,
                 "implemented": _count_vectors_by_category(lib, "indirect_injection"),
             },
+            {
+                "dimension": "Utility measurement (baseline + post-attack)",
+                "target": 1,
+                "implemented": 1,
+                "note": "UtilityMeasurer: baseline_score, post_attack_score, utility_delta",
+            },
         ],
     },
     {
@@ -223,6 +229,12 @@ BENCHMARKS = [
                 "dimension": "Total vectors",
                 "target": 400,
                 "implemented": len(lib.vectors),
+            },
+            {
+                "dimension": "Utility-under-attack measurement",
+                "target": 1,
+                "implemented": 1,
+                "note": "Pre/post-attack utility scoring with per-task breakdown",
             },
         ],
     },
