@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/taoq-ai/ziran/compare/v0.19.0...v0.20.0) (2026-03-22)
+
+
+### Features
+
+* implement resilience gap metric with baseline vs under-attack delta ([#198](https://github.com/taoq-ai/ziran/issues/198)) ([79005be](https://github.com/taoq-ai/ziran/commit/79005be36b456d54b9c14b4ad429c07d427ecb2a)), closes [#155](https://github.com/taoq-ai/ziran/issues/155)
+
+
+### Performance Improvements
+
+* optimize YAML parsing, library caching, benchmarks, and chain analysis ([#223](https://github.com/taoq-ai/ziran/issues/223)) ([478be97](https://github.com/taoq-ai/ziran/commit/478be97a9bb3f7d507af6608f6cd8bc1c6f85430))
+
 ## [0.19.0](https://github.com/taoq-ai/ziran/compare/v0.18.4...v0.19.0) (2026-03-21)
 
 
