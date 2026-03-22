@@ -178,6 +178,9 @@ class ReportGenerator:
             lines.append(f"| Attack Resilience Rate | {r.attack_resilience_rate:.1%} |")
             lines.append(f"| Trust Degradation | {r.trust_degradation:.2f} |")
             lines.append(f"| **Resilience Score** | **{r.resilience_score:.1%}** |")
+            lines.append(f"| Baseline Performance | {r.baseline_performance:.1%} |")
+            lines.append(f"| Under-Attack Performance | {r.under_attack_performance:.1%} |")
+            lines.append(f"| **Resilience Gap** | **{r.resilience_gap:.1%}** |")
 
         lines.append("")
 
