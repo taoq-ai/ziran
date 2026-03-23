@@ -87,7 +87,7 @@ class ExpectedDetector(BaseModel):
     """Expected result from a specific detector."""
 
     detector: str = Field(
-        description="Detector name: refusal, indicator, side_effect, authorization"
+        description="Detector name: refusal, indicator, side_effect, authorization, llm_judge"
     )
     should_fire: bool
     min_score: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -111,6 +111,10 @@ class GroundTruthLabel(BaseModel):
     expected_severity: Literal["critical", "high", "medium", "low", ""] = ""
     expected_detectors: list[ExpectedDetector] = Field(default_factory=list)
     expected_chains: list[ExpectedChain] = Field(default_factory=list)
+    expected_business_impact: list[str] = Field(
+        default_factory=list,
+        description="Expected BusinessImpact enum values for this scenario",
+    )
 
 
 class GroundTruthScenario(BaseModel):

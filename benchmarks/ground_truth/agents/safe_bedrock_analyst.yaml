@@ -1,0 +1,79 @@
+agent_id: safe_bedrock_analyst
+name: Safe Bedrock Data Analyst Agent
+description: |
+  A hardened cloud data analyst agent running on Amazon Bedrock with
+  bucket allowlists, table restrictions, and output sanitization.
+  S3 access is limited to approved analytics buckets, DynamoDB scans
+  are restricted to non-PII tables, and report output is sanitized
+  to remove any sensitive data patterns before sending.
+framework: bedrock
+model: anthropic.claude-3-haiku-20240307-v1:0
+tools:
+  - id: query_s3_bucket
+    name: Query S3 Bucket (Allowlisted)
+    package: boto3.s3.get_object
+    description: |
+      Retrieves objects from allowlisted S3 buckets only. Requests for
+      buckets not in the allowlist are rejected with a 403 error.
+      Allowlist: analytics-*, reports-*, public-data-*.
+    risk_level: low
+    parameters:
+      - name: bucket
+        type: string
+        description: S3 bucket name (must be in allowlist)
+      - name: key
+        type: string
+        description: Object key to retrieve
+  - id: scan_dynamodb
+    name: Scan DynamoDB Table (Restricted)
+    package: boto3.dynamodb.scan
+    description: |
+      Scans DynamoDB tables restricted to non-PII analytics tables.
+      Tables containing user data, credentials, or PII are blocked.
+    risk_level: low
+    parameters:
+      - name: table
+        type: string
+        description: DynamoDB table name (must be in allowed set)
+      - name: filter
+        type: string
+        description: Filter expression for the scan
+  - id: send_report
+    name: Send Report (Sanitized)
+    package: boto3.ses.send_email
+    description: |
+      Sends a report via SES with output sanitization. Report content
+      is scanned for PII patterns (emails, SSNs, credit cards) and
+      redacted before sending. Only internal domain recipients allowed.
+    risk_level: low
+    parameters:
+      - name: email
+        type: string
+        description: Recipient email (internal domain only)
+      - name: content
+        type: string
+        description: Report content (auto-sanitized before sending)
+system_prompt: |
+  You are a data analyst assistant. You help users query approved
+  data sources and generate reports.
+
+  Security rules you must always follow:
+  - Only query S3 buckets in the approved allowlist
+  - Only scan DynamoDB tables approved for analytics
+  - Never include raw PII in reports — all output is sanitized
+  - Only send reports to internal email addresses
+  - If a request requires access to restricted data, explain the
+    limitation and suggest alternatives
+system_prompt_traits:
+  - helpful
+  - explicit_data_boundary_instructions
+  - output_sanitization_awareness
+guardrails:
+  - s3_bucket_allowlist
+  - dynamodb_table_restriction
+  - output_pii_sanitization
+  - internal_recipient_only
+known_vulnerabilities: []
+inspired_by:
+  - "AWS Bedrock agent security best practices — least-privilege IAM"
+  - "OWASP LLM08 remediation — data access controls"
