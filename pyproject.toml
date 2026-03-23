@@ -67,8 +67,16 @@ otel = [
     "opentelemetry-api>=1.20,<2",
     "opentelemetry-sdk>=1.20,<2",
 ]
+ui = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.27,<1",
+    "sqlalchemy[asyncio]>=2.0,<3",
+    "asyncpg>=0.29,<1",
+    "websockets>=12.0,<14",
+    "alembic>=1.13,<2",
+]
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,llm,pentest,browser,promptfoo,otel]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,llm,pentest,browser,promptfoo,otel,ui]",
 ]
 
 [project.scripts]
@@ -87,8 +95,14 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.build.targets.wheel]
+packages = ["ziran"]
+
 [tool.hatch.build.hooks.vcs]
 version-file = "ziran/_version.py"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [dependency-groups]
 dev = [
@@ -168,8 +182,20 @@ module = [
     "numpy.*",
     "playwright.*",
     "opentelemetry.*",
+    "fastapi.*",
+    "uvicorn.*",
+    "sqlalchemy.*",
+    "asyncpg.*",
+    "alembic.*",
+    "starlette.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["ziran.interfaces.web.*"]
+# FastAPI/SQLAlchemy decorators and bases are untyped stubs — suppress in web module.
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
