@@ -191,6 +191,12 @@ module = [
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["ziran.interfaces.web.*"]
+# FastAPI/SQLAlchemy decorators and bases are untyped stubs — suppress in web module.
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
