@@ -41,6 +41,26 @@ export interface PhaseResult {
   error: string | null
 }
 
+export interface RunDetail extends RunSummary {
+  config_json: Record<string, unknown>
+  result_json: Record<string, unknown> | null
+  graph_state_json: Record<string, unknown> | null
+  error: string | null
+  phase_results: PhaseResult[]
+}
+
+export interface ProgressMessage {
+  event: string
+  phase: string | null
+  phase_index: number
+  total_phases: number
+  attack_index: number
+  total_attacks: number
+  attack_name: string
+  message: string
+  extra: Record<string, unknown>
+}
+
 export interface ConfigPreset {
   id: string
   name: string

@@ -19,6 +19,14 @@ class TestCreateApp:
         app = create_app()
         paths = [route.path for route in app.routes]
         assert "/api/health" in paths
+        assert "/api/runs" in paths
+        assert "/api/runs/{run_id}" in paths
+        assert "/api/runs/{run_id}/cancel" in paths
+
+    def test_has_websocket_route(self) -> None:
+        app = create_app()
+        paths = [route.path for route in app.routes]
+        assert "/ws/runs/{run_id}" in paths
 
 
 @pytest.mark.integration
