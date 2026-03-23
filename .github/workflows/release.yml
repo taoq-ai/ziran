@@ -1,9 +1,10 @@
 name: Release
 
 on:
-  # Trigger on GitHub releases created by release-please.
-  # release-please uses GITHUB_TOKEN which doesn't trigger tag-push events,
-  # but the 'release' event IS dispatched for API-created releases.
+  # Note: release-please uses GITHUB_TOKEN, so releases it creates do NOT
+  # trigger this event (GitHub anti-cascade rule). release-please.yml
+  # explicitly dispatches this workflow via workflow_dispatch instead.
+  # This trigger remains for manually-published releases.
   release:
     types: [published]
   # Also support manual tag pushes (e.g., pre-releases pushed via git)
@@ -23,9 +24,11 @@ on:
 permissions:
   contents: read
 
-# Prevent concurrent releases
+# Prevent concurrent releases of the SAME tag, but allow different tags
+# to run in parallel. Using a shared group caused v0.15–v0.18 to cancel
+# each other when release-please created multiple releases rapidly.
 concurrency:
-  group: release
+  group: release-${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 # Resolve the tag name across all trigger types:

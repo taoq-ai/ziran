@@ -14,5 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # GITHUB_TOKEN-created releases do NOT trigger other workflows
+      # (GitHub's anti-cascade rule). Explicitly dispatch release.yml.
+      - name: Trigger release workflow
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release.yml \
+            -f tag="${{ steps.release.outputs.tag_name }}"
