@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-03-22
+Auto-generated from all feature plans. Last updated: 2026-03-23
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -8,6 +8,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-22
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + Pydantic (config models), re (stdlib regex) (003-precompile-regex-patterns)
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + PyYAML (scenario loading), Pydantic (schema validation) (007-ground-truth-business-impact)
 - YAML files (ground truth scenarios and agent archetypes) (007-ground-truth-business-impact)
+- Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + TypeScript 5.x (frontend) + FastAPI, SQLAlchemy (async), asyncpg, Alembic, uvicorn (backend); React 18, Vite, TanStack Query, shadcn/ui, Tailwind CSS, vis-network (frontend) (008-web-ui-foundation)
+- PostgreSQL via asyncpg (configurable via `ZIRAN_DATABASE_URL` env var) (008-web-ui-foundation)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -27,9 +29,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 008-web-ui-foundation: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + TypeScript 5.x (frontend) + FastAPI, SQLAlchemy (async), asyncpg, Alembic, uvicorn (backend); React 18, Vite, TanStack Query, shadcn/ui, Tailwind CSS, vis-network (frontend)
 - 007-ground-truth-business-impact: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + PyYAML (scenario loading), Pydantic (schema validation)
 - 003-precompile-regex-patterns: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + Pydantic (config models), re (stdlib regex)
-- 003-split-agent-scanner: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing)
 
 
 <!-- MANUAL ADDITIONS START -->

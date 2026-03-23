@@ -2133,5 +2133,40 @@ def _display_session_results(session: Any) -> None:
         console.print(findings_table)
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Web UI
+# ──────────────────────────────────────────────────────────────────────
+
+
+@cli.command("ui")
+@click.option("--host", default="127.0.0.1", help="Server bind address.")
+@click.option("--port", default=8484, type=int, help="Server port.")
+@click.option("--dev", is_flag=True, default=False, help="Development mode (CORS + auto-reload).")
+def ui_cmd(host: str, port: int, dev: bool) -> None:
+    """Launch the web dashboard."""
+    try:
+        import uvicorn  # noqa: F811
+
+        from ziran.interfaces.web.app import create_app
+    except ImportError:
+        console.print("[red]Web UI dependencies not installed.[/red]")
+        console.print("Run: [bold]pip install ziran[ui][/bold]")
+        raise SystemExit(1)
+
+    if dev:
+        console.print("[bold cyan]Ziran Web UI starting in development mode...[/bold cyan]")
+        console.print(f"Dashboard: [link]http://{host}:{port}[/link]")
+        console.print("CORS enabled for all origins.")
+        console.print("Auto-reload enabled.")
+    else:
+        console.print("[bold cyan]Ziran Web UI starting...[/bold cyan]")
+        console.print(f"Dashboard: [link]http://{host}:{port}[/link]")
+
+    console.print("Press Ctrl+C to stop.\n")
+
+    app = create_app(dev=dev)
+    uvicorn.run(app, host=host, port=port, reload=dev)
+
+
 if __name__ == "__main__":
     cli()
