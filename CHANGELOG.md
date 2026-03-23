@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/taoq-ai/ziran/compare/v0.21.0...v0.22.0) (2026-03-23)
+
+
+### Features
+
+* **ui:** web UI foundation + core API ([#229](https://github.com/taoq-ai/ziran/issues/229)) ([a320676](https://github.com/taoq-ai/ziran/commit/a320676051cfa760a7a95bc839b14762a9dae891))
+
 ## [0.21.0](https://github.com/taoq-ai/ziran/compare/v0.20.0...v0.21.0) (2026-03-23)
 
 
