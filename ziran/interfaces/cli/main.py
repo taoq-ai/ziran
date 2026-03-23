@@ -2145,13 +2145,13 @@ def _display_session_results(session: Any) -> None:
 def ui_cmd(host: str, port: int, dev: bool) -> None:
     """Launch the web dashboard."""
     try:
-        import uvicorn  # noqa: F811
+        import uvicorn
 
         from ziran.interfaces.web.app import create_app
-    except ImportError:
+    except ImportError as exc:
         console.print("[red]Web UI dependencies not installed.[/red]")
         console.print("Run: [bold]pip install ziran[ui][/bold]")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
 
     if dev:
         console.print("[bold cyan]Ziran Web UI starting in development mode...[/bold cyan]")
