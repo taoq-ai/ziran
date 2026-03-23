@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/taoq-ai/ziran/compare/v0.20.0...v0.21.0) (2026-03-23)
+
+
+### Features
+
+* expand ground truth dataset with authorization, LLM judge, and framework scenarios ([#226](https://github.com/taoq-ai/ziran/issues/226)) ([2c27337](https://github.com/taoq-ai/ziran/commit/2c27337e962cad245d86c21ef04be63d65672ecd))
+
 ## [0.20.0](https://github.com/taoq-ai/ziran/compare/v0.19.0...v0.20.0) (2026-03-22)
 
 
