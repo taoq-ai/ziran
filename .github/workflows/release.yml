@@ -122,9 +122,7 @@ jobs:
           node-version: "20"
 
       - name: Build frontend
-        run: |
-          echo "registry=https://registry.npmjs.org/" > ui/.npmrc
-          cd ui && npm ci && npm run build
+        run: cd ui && npm ci && npm run build
 
       - name: Build package
         run: uv build
