@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/taoq-ai/ziran/compare/v0.22.0...v0.23.0) (2026-03-24)
+
+
+### Features
+
+* **ui:** add findings management, OWASP compliance, TaoQ design system ([#233](https://github.com/taoq-ai/ziran/issues/233)) ([1e9debf](https://github.com/taoq-ai/ziran/commit/1e9debf142d3d3d89ac8839f9100b9d86a5cc435))
+
 ## [0.22.0](https://github.com/taoq-ai/ziran/compare/v0.21.0...v0.22.0) (2026-03-23)
 
 
