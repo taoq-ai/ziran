@@ -1,15 +1,12 @@
 name: Release
 
 on:
-  # Note: release-please uses GITHUB_TOKEN, so releases it creates do NOT
-  # trigger this event (GitHub anti-cascade rule). release-please.yml
-  # explicitly dispatches this workflow via workflow_dispatch instead.
-  # This trigger remains for manually-published releases.
-  release:
-    types: [published]
-  # Also support manual tag pushes (e.g., pre-releases pushed via git)
+  # Tag push is the primary trigger. release-please creates tags via
+  # GITHUB_TOKEN, and tag pushes ARE NOT blocked by the anti-cascade rule
+  # (only release/workflow_run events are). This works without a PAT.
   push:
     tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"        # stable:  v1.2.3
       - "v[0-9]+.[0-9]+.[0-9]+a[0-9]+" # alpha:   v1.2.3a1
       - "v[0-9]+.[0-9]+.[0-9]+b[0-9]+" # beta:    v1.2.3b1
       - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+" # rc:     v1.2.3rc1
@@ -25,18 +22,16 @@ permissions:
   contents: read
 
 # Prevent concurrent releases of the SAME tag, but allow different tags
-# to run in parallel. Using a shared group caused v0.15–v0.18 to cancel
-# each other when release-please created multiple releases rapidly.
+# to run in parallel.
 concurrency:
-  group: release-${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
-# Resolve the tag name across all trigger types:
-#   release event   → github.event.release.tag_name
-#   push (tag)      → github.ref_name
-#   workflow_dispatch → inputs.tag
+# Resolve the tag name across trigger types:
+#   push (tag)        → github.ref_name
+#   workflow_dispatch  → inputs.tag
 env:
-  RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   # ── Gate: full CI must pass before publishing ──────────────────────
@@ -183,9 +178,9 @@ jobs:
   # ── Publish to TestPyPI (pre-releases only) ────────────────────────
   publish-testpypi:
     if: >-
-      contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'a')
-      || contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'b')
-      || contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'rc')
+      contains(github.event.inputs.tag || github.ref_name, 'a')
+      || contains(github.event.inputs.tag || github.ref_name, 'b')
+      || contains(github.event.inputs.tag || github.ref_name, 'rc')
     needs: [build]
     runs-on: ubuntu-latest
     environment:
@@ -206,9 +201,8 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
 
   # ── Upload artifacts to GitHub Release ─────────────────────────────
-  # When triggered by release-please (release event), the release already
-  # exists — softprops/action-gh-release updates it with build artifacts.
-  # When triggered by tag push (pre-releases), it creates a new release.
+  # release-please creates the release, this job updates it with build
+  # artifacts. For pre-release tag pushes, it creates a new release.
   github-release:
     needs: [publish-pypi]
     runs-on: ubuntu-latest
@@ -247,9 +241,9 @@ jobs:
   # Uses the GitHub API instead of git push to bypass tag protection rules.
   update-action-tag:
     if: >-
-      !contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'a')
-      && !contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'b')
-      && !contains(github.event.release.tag_name || github.event.inputs.tag || github.ref_name, 'rc')
+      !contains(github.event.inputs.tag || github.ref_name, 'a')
+      && !contains(github.event.inputs.tag || github.ref_name, 'b')
+      && !contains(github.event.inputs.tag || github.ref_name, 'rc')
     needs: [github-release]
     runs-on: ubuntu-latest
     permissions:
