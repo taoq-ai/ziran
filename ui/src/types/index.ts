@@ -69,3 +69,86 @@ export interface ConfigPreset {
   created_at: string
   updated_at: string
 }
+
+// ── Findings ──────────────────────────────────────────────────────────
+
+export type Severity = "critical" | "high" | "medium" | "low" | "info"
+
+export type FindingStatus = "open" | "fixed" | "false_positive" | "ignored"
+
+export interface FindingSummary {
+  id: string
+  run_id: string
+  vector_name: string
+  category: string
+  severity: Severity
+  owasp_category: string | null
+  target_agent: string
+  status: FindingStatus
+  title: string
+  created_at: string
+}
+
+export interface ComplianceMapping {
+  framework: string
+  control_id: string
+  control_name: string
+}
+
+export interface FindingDetail extends FindingSummary {
+  fingerprint: string
+  vector_id: string
+  status_changed_at: string | null
+  description: string | null
+  remediation: string | null
+  prompt_used: string | null
+  agent_response: string | null
+  evidence: Record<string, unknown> | null
+  detection_metadata: Record<string, unknown> | null
+  business_impact: string[] | null
+  compliance_mappings: ComplianceMapping[]
+}
+
+export interface FindingListResponse {
+  items: FindingSummary[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface FindingStats {
+  total: number
+  by_severity: Record<string, number>
+  by_status: Record<string, number>
+  by_category: Record<string, number>
+  by_owasp: Record<string, number>
+}
+
+export interface BulkStatusResponse {
+  updated: number
+  failed: number
+}
+
+// ── Compliance ────────────────────────────────────────────────────────
+
+export interface OwaspCategoryStatus {
+  control_id: string
+  control_name: string
+  description: string
+  finding_count: number
+  by_severity: Record<string, number>
+  status: "critical" | "warning" | "pass" | "not_tested"
+}
+
+export interface ComplianceSummary {
+  total_categories: number
+  tested: number
+  not_tested: number
+  with_critical: number
+  with_findings: number
+}
+
+export interface OwaspComplianceResponse {
+  categories: OwaspCategoryStatus[]
+  summary: ComplianceSummary
+}

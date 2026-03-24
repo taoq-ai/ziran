@@ -14,6 +14,9 @@ from starlette.staticfiles import StaticFiles
 
 from ziran.interfaces.web.config import WebUIConfig
 from ziran.interfaces.web.dependencies import init_db
+from ziran.interfaces.web.routes.compliance import router as compliance_router
+from ziran.interfaces.web.routes.export import router as export_router
+from ziran.interfaces.web.routes.findings import router as findings_router
 from ziran.interfaces.web.routes.health import router as health_router
 from ziran.interfaces.web.routes.runs import router as runs_router
 from ziran.interfaces.web.routes.ws import router as ws_router
@@ -110,6 +113,9 @@ def create_app(
     # --- API routes ---
     app.include_router(health_router, prefix="/api")
     app.include_router(runs_router, prefix="/api")
+    app.include_router(findings_router, prefix="/api")
+    app.include_router(compliance_router, prefix="/api")
+    app.include_router(export_router, prefix="/api")
 
     # --- WebSocket ---
     app.include_router(ws_router)

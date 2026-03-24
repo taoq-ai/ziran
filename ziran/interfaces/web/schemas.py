@@ -111,3 +111,119 @@ class ProgressMessage(BaseModel):
     attack_name: str = ""
     message: str = ""
     extra: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── Findings ──────────────────────────────────────────────────────────
+
+
+class FindingSummary(BaseModel):
+    """List-item response for GET /api/findings."""
+
+    id: uuid.UUID
+    run_id: uuid.UUID
+    vector_name: str
+    category: str
+    severity: str
+    owasp_category: str | None
+    target_agent: str
+    status: str
+    title: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ComplianceMappingSchema(BaseModel):
+    """Compliance mapping nested in FindingDetail."""
+
+    framework: str
+    control_id: str
+    control_name: str
+
+    model_config = {"from_attributes": True}
+
+
+class FindingDetail(FindingSummary):
+    """Full detail response for GET /api/findings/{id}."""
+
+    fingerprint: str
+    vector_id: str
+    status_changed_at: datetime | None
+    description: str | None
+    remediation: str | None
+    prompt_used: str | None
+    agent_response: str | None
+    evidence: dict[str, Any] | None
+    detection_metadata: dict[str, Any] | None
+    business_impact: list[Any] | None
+    compliance_mappings: list[ComplianceMappingSchema] = Field(default_factory=list)
+
+
+class FindingStatusUpdate(BaseModel):
+    """Request body for PATCH /api/findings/{id}/status."""
+
+    status: str
+
+
+class BulkStatusUpdate(BaseModel):
+    """Request body for POST /api/findings/bulk-status."""
+
+    finding_ids: list[uuid.UUID]
+    status: str
+
+
+class BulkStatusResponse(BaseModel):
+    """Response for POST /api/findings/bulk-status."""
+
+    updated: int
+    failed: int
+
+
+class FindingListResponse(BaseModel):
+    """Paginated wrapper for GET /api/findings."""
+
+    items: list[FindingSummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class FindingStats(BaseModel):
+    """Aggregate finding statistics."""
+
+    total: int
+    by_severity: dict[str, int]
+    by_status: dict[str, int]
+    by_category: dict[str, int]
+    by_owasp: dict[str, int]
+
+
+# ── Compliance ────────────────────────────────────────────────────────
+
+
+class OwaspCategoryStatus(BaseModel):
+    """Single OWASP category in compliance matrix."""
+
+    control_id: str
+    control_name: str
+    description: str
+    finding_count: int
+    by_severity: dict[str, int]
+    status: str  # critical, warning, pass, not_tested
+
+
+class ComplianceSummary(BaseModel):
+    """Summary section of OWASP compliance response."""
+
+    total_categories: int
+    tested: int
+    not_tested: int
+    with_critical: int
+    with_findings: int
+
+
+class OwaspComplianceResponse(BaseModel):
+    """Response for GET /api/compliance/owasp."""
+
+    categories: list[OwaspCategoryStatus]
+    summary: ComplianceSummary

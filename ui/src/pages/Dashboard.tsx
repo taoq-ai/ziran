@@ -5,11 +5,11 @@ import { cn } from "../lib/utils"
 import type { RunStatus } from "../types"
 
 const statusColors: Record<RunStatus, string> = {
-  pending: "text-yellow-400",
-  running: "text-blue-400",
-  completed: "text-green-400",
-  failed: "text-red-400",
-  cancelled: "text-text-muted",
+  pending: "text-severity-warning-yellow",
+  running: "text-accent",
+  completed: "text-severity-safe",
+  failed: "text-severity-danger",
+  cancelled: "text-severity-muted",
 }
 
 export function Dashboard() {
@@ -26,7 +26,7 @@ export function Dashboard() {
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-6">Dashboard</h2>
+      <h2 className="text-2xl font-semibold text-fg-primary mb-6">Dashboard</h2>
 
       <div className="grid grid-cols-3 gap-4 mb-8">
         <StatCard
@@ -37,7 +37,7 @@ export function Dashboard() {
         <StatCard
           label="Vulnerabilities Found"
           value={data ? String(totalVulns) : "—"}
-          icon={<AlertTriangle className="h-5 w-5 text-red-400" />}
+          icon={<AlertTriangle className="h-5 w-5 text-severity-danger" />}
         />
         <StatCard
           label="Avg Resilience Score"
@@ -46,19 +46,19 @@ export function Dashboard() {
               ? `${(avgResilience * 100).toFixed(0)}%`
               : "—"
           }
-          icon={<Shield className="h-5 w-5 text-green-400" />}
+          icon={<Shield className="h-5 w-5 text-severity-safe" />}
         />
       </div>
 
       {isLoading ? (
-        <div className="text-center text-text-muted py-10">Loading...</div>
+        <div className="text-center text-fg-secondary py-10">Loading...</div>
       ) : runs.length === 0 ? (
-        <div className="rounded-lg border border-border bg-bg-card p-10 flex flex-col items-center justify-center text-center">
-          <Shield className="h-12 w-12 text-text-muted mb-4" />
-          <h3 className="text-lg font-medium text-text-primary">
+        <div className="rounded-lg border border-border bg-bg-secondary p-10 flex flex-col items-center justify-center text-center">
+          <Shield className="h-12 w-12 text-fg-secondary mb-4" />
+          <h3 className="text-lg font-medium text-fg-primary">
             No scans yet
           </h3>
-          <p className="text-sm text-text-muted mt-1 max-w-sm">
+          <p className="text-sm text-fg-secondary mt-1 max-w-sm">
             Run your first security scan to see results here.
           </p>
           <Link
@@ -71,7 +71,7 @@ export function Dashboard() {
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-bg-secondary text-text-muted">
+            <thead className="bg-bg-secondary text-fg-secondary">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Target</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -103,7 +103,7 @@ export function Dashboard() {
                       ? `${(run.final_trust_score * 100).toFixed(0)}%`
                       : "—"}
                   </td>
-                  <td className="px-4 py-3 text-text-muted">
+                  <td className="px-4 py-3 text-fg-secondary">
                     {new Date(run.created_at).toLocaleDateString()}
                   </td>
                 </tr>
@@ -126,12 +126,12 @@ function StatCard({
   icon: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-border bg-bg-card p-5">
+    <div className="rounded-lg border border-border bg-bg-secondary p-5">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-text-muted">{label}</p>
+        <p className="text-sm text-fg-secondary">{label}</p>
         {icon}
       </div>
-      <p className="text-2xl font-bold mt-1 text-text-primary">{value}</p>
+      <p className="text-2xl font-bold mt-1 text-fg-primary">{value}</p>
     </div>
   )
 }
