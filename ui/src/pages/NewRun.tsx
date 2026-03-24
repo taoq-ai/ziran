@@ -31,11 +31,11 @@ export function NewRun() {
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-6">New Run</h2>
+      <h2 className="text-2xl font-semibold text-fg-primary mb-6">New Run</h2>
 
       <form
         onSubmit={handleSubmit}
-        className="rounded-lg border border-border bg-bg-card p-6 max-w-2xl space-y-5"
+        className="rounded-lg border border-border bg-bg-secondary p-6 max-w-2xl space-y-5"
       >
         <Field label="Name (optional)">
           <input
@@ -127,14 +127,14 @@ export function NewRun() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="px-5 py-2 rounded-md border border-border text-sm text-text-secondary hover:text-text-primary transition-colors"
+            className="px-5 py-2 rounded-md border border-border text-sm text-fg-secondary hover:text-fg-primary transition-colors"
           >
             Cancel
           </button>
         </div>
 
         {createRun.isError && (
-          <p className="text-sm text-red-400">
+          <p className="text-sm text-severity-danger">
             Error: {createRun.error.message}
           </p>
         )}
@@ -152,7 +152,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm text-text-secondary mb-1 block">{label}</span>
+      <span className="text-sm text-fg-secondary mb-1 block">{label}</span>
       {children}
     </label>
   )

@@ -1,10 +1,21 @@
-import { BookOpen, LayoutDashboard, Plus, Settings } from "lucide-react"
+import {
+  AlertTriangle,
+  BookOpen,
+  LayoutDashboard,
+  Plus,
+  Settings,
+  Shield,
+  ShieldCheck,
+} from "lucide-react"
 import { NavLink } from "react-router-dom"
 import { cn } from "../../lib/utils"
+import { ThemeToggle } from "./ThemeToggle"
 
 const links = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/runs/new", label: "New Run", icon: Plus },
+  { to: "/findings", label: "Findings", icon: AlertTriangle },
+  { to: "/compliance", label: "Compliance", icon: ShieldCheck },
   { to: "/library", label: "Library", icon: BookOpen },
   { to: "/settings", label: "Settings", icon: Settings },
 ]
@@ -13,8 +24,11 @@ export function Sidebar() {
   return (
     <aside className="w-56 border-r border-border bg-bg-secondary flex flex-col">
       <div className="px-4 py-5 border-b border-border">
-        <h1 className="text-lg font-bold tracking-tight text-accent">ZIRAN</h1>
-        <p className="text-xs text-text-muted">AI Agent Security</p>
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-accent" />
+          <h1 className="text-lg font-bold tracking-tight text-accent">ZIRAN</h1>
+        </div>
+        <p className="text-xs text-fg-secondary mt-1">AI Agent Security</p>
       </div>
       <nav className="flex-1 px-2 py-3 space-y-1">
         {links.map(({ to, label, icon: Icon }) => (
@@ -27,7 +41,7 @@ export function Sidebar() {
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 isActive
                   ? "bg-accent/10 text-accent"
-                  : "text-text-secondary hover:text-text-primary hover:bg-bg-card"
+                  : "text-fg-secondary hover:text-fg-primary hover:bg-bg-tertiary"
               )
             }
           >
@@ -36,6 +50,9 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      <div className="px-2 py-3 border-t border-border">
+        <ThemeToggle />
+      </div>
     </aside>
   )
 }

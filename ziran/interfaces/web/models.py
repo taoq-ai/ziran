@@ -7,7 +7,16 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import Boolean as SaBool
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -50,6 +59,9 @@ class Run(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     phase_results: Mapped[list[PhaseResultRow]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+    findings: Mapped[list[Finding]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
 
@@ -101,3 +113,93 @@ class ConfigPreset(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
     )
+
+
+class Finding(Base):
+    """A single vulnerability finding extracted from scan results."""
+
+    __tablename__ = "findings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
+    )
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    vector_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    vector_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    severity: Mapped[str] = mapped_column(String(10), nullable=False)
+    owasp_category: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    target_agent: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    status_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    remediation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prompt_used: Mapped[str | None] = mapped_column(Text, nullable=True)
+    agent_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    detection_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    business_impact: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    run: Mapped[Run] = relationship(back_populates="findings")
+    compliance_mappings: Mapped[list[ComplianceMapping]] = relationship(
+        "ComplianceMapping", back_populates="finding", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("ix_findings_fingerprint", "fingerprint"),
+        Index("ix_findings_run_id", "run_id"),
+        Index("ix_findings_severity", "severity"),
+        Index("ix_findings_status", "status"),
+        Index("ix_findings_category", "category"),
+        Index("ix_findings_owasp", "owasp_category"),
+        Index("ix_findings_target", "target_agent"),
+        Index("ix_findings_severity_status", "severity", "status"),
+    )
+
+
+class ComplianceMapping(Base):
+    """Links a finding to a compliance framework control."""
+
+    __tablename__ = "compliance_mappings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    finding_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("findings.id", ondelete="CASCADE"), nullable=False
+    )
+    framework: Mapped[str] = mapped_column(String(50), nullable=False)
+    control_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    control_name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    finding: Mapped[Finding] = relationship(back_populates="compliance_mappings")
+
+    __table_args__ = (
+        Index("ix_compliance_finding", "finding_id"),
+        Index("ix_compliance_framework_control", "framework", "control_id"),
+        UniqueConstraint(
+            "finding_id", "framework", "control_id", name="uq_compliance_finding_framework_control"
+        ),
+    )
+
+
+class ExportJob(Base):
+    """An async export job (schema-only for future use)."""
+
+    __tablename__ = "export_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    format: Mapped[str] = mapped_column(String(10), nullable=False)
+    filters_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -182,6 +182,20 @@ class RunManager:
 
                     await session.commit()
 
+            # Extract findings from results into queryable rows
+            try:
+                from ziran.interfaces.web.services.findings_extractor import (
+                    extract_findings,
+                )
+
+                async with self._session_factory() as extraction_session:
+                    run_for_extraction = await extraction_session.get(Run, uuid.UUID(run_id))
+                    if run_for_extraction:
+                        await extract_findings(extraction_session, run_for_extraction)
+                        await extraction_session.commit()
+            except Exception:
+                logger.exception("Failed to extract findings for run %s", run_id)
+
             # Broadcast completion
             await self._broadcast(
                 run_id,
