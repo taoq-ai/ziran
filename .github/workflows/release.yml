@@ -122,7 +122,12 @@ jobs:
           node-version: "20"
 
       - name: Build frontend
-        run: cd ui && npm ci && npm run build
+        run: |
+          cd ui
+          echo "registry=https://registry.npmjs.org/" > .npmrc
+          npm install --package-lock-only --registry=https://registry.npmjs.org/
+          npm ci
+          npm run build
 
       - name: Build package
         run: uv build
