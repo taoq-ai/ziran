@@ -6,6 +6,6 @@ export function useOwaspCompliance(runId?: string) {
   const qs = runId ? `?run_id=${runId}` : ""
   return useQuery<OwaspComplianceResponse>({
     queryKey: ["owasp-compliance", runId],
-    queryFn: () => get<OwaspComplianceResponse>(`/compliance/owasp${qs}`),
+    queryFn: () => get<OwaspComplianceResponse>(`/api/compliance/owasp${qs}`),
   })
 }

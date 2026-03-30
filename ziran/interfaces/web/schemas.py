@@ -1,16 +1,12 @@
 """Pydantic request/response schemas for the web UI API."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+import uuid
+from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from ziran import __version__
-
-if TYPE_CHECKING:
-    import uuid
-    from datetime import datetime
 
 # ── Health ─────────────────────────────────────────────────────────────
 
