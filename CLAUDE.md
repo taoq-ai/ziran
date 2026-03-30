@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-03-24
+Auto-generated from all feature plans. Last updated: 2026-03-30
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -12,6 +12,7 @@ Auto-generated from all feature plans. Last updated: 2026-03-24
 - PostgreSQL via asyncpg (configurable via `ZIRAN_DATABASE_URL` env var) (008-web-ui-foundation)
 - Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2 (backend); React 18, Vite, TanStack Query, TanStack Table, shadcn/ui, Tailwind CSS (frontend) (009-ui-findings-compliance)
 - PostgreSQL via asyncpg (existing `ZIRAN_DATABASE_URL`) (009-ui-findings-compliance)
+- Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 (backend); React 18, Vite, TanStack Query/Table, shadcn/ui, Tailwind CSS, vis-network (frontend) (010-ui-polish-pages)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -31,9 +32,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 010-ui-polish-pages: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 (backend); React 18, Vite, TanStack Query/Table, shadcn/ui, Tailwind CSS, vis-network (frontend)
 - 009-ui-findings-compliance: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2 (backend); React 18, Vite, TanStack Query, TanStack Table, shadcn/ui, Tailwind CSS (frontend)
 - 008-web-ui-foundation: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + TypeScript 5.x (frontend) + FastAPI, SQLAlchemy (async), asyncpg, Alembic, uvicorn (backend); React 18, Vite, TanStack Query, shadcn/ui, Tailwind CSS, vis-network (frontend)
-- 007-ground-truth-business-impact: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + PyYAML (scenario loading), Pydantic (schema validation)
 
 
 <!-- MANUAL ADDITIONS START -->

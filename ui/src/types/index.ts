@@ -152,3 +152,71 @@ export interface OwaspComplianceResponse {
   categories: OwaspCategoryStatus[]
   summary: ComplianceSummary
 }
+
+// ── Library ──────────────────────────────────────────────────────────
+
+export interface PromptTemplate {
+  template: string
+  variables: Record<string, string>
+  success_indicators: string[]
+  failure_indicators: string[]
+}
+
+export interface VectorSummary {
+  id: string
+  name: string
+  category: string
+  severity: string
+  target_phase: string
+  description: string
+  tags: string[]
+  owasp_mapping: string[]
+  prompt_count: number
+  protocol_filter: string[]
+}
+
+export interface VectorDetail extends VectorSummary {
+  references: string[]
+  prompts: PromptTemplate[]
+}
+
+export interface VectorListResponse {
+  vectors: VectorSummary[]
+  total: number
+}
+
+export interface LibraryStats {
+  total_vectors: number
+  total_prompts: number
+  by_category: Record<string, number>
+  by_severity: Record<string, number>
+  by_owasp: Record<string, number>
+}
+
+// ── Graph ────────────────────────────────────────────────────────────
+
+export interface GraphNode {
+  id: string
+  node_type: string
+  [key: string]: unknown
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  edge_type: string
+  [key: string]: unknown
+}
+
+export interface GraphState {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  campaign_start: string
+  campaign_duration_seconds: number
+  stats: {
+    total_nodes: number
+    total_edges: number
+    density: number
+    node_types: Record<string, number>
+  }
+}

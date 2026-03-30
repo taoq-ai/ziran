@@ -1,18 +1,13 @@
 """WebSocket endpoint for real-time scan progress."""
 
-from __future__ import annotations
-
 import uuid
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ziran.interfaces.web.dependencies import get_db, get_run_manager
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from ziran.interfaces.web.services.run_manager import RunManager
+from ziran.interfaces.web.services.run_manager import RunManager
 
 router = APIRouter()
 

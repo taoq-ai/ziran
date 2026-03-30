@@ -1,24 +1,19 @@
 """Export endpoints — CSV, JSON, YAML, Markdown."""
 
-from __future__ import annotations
-
 import csv
 import io
-from typing import TYPE_CHECKING, Annotated, Any
+import uuid
+from collections.abc import Generator
+from typing import Annotated, Any
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ziran.interfaces.web.dependencies import get_db
 from ziran.interfaces.web.models import Finding, Run
-
-if TYPE_CHECKING:
-    import uuid
-    from collections.abc import Generator
-
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 

@@ -1,16 +1,12 @@
 """Pydantic request/response schemas for the web UI API."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+import uuid
+from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from ziran import __version__
-
-if TYPE_CHECKING:
-    import uuid
-    from datetime import datetime
 
 # ── Health ─────────────────────────────────────────────────────────────
 
@@ -227,3 +223,86 @@ class OwaspComplianceResponse(BaseModel):
 
     categories: list[OwaspCategoryStatus]
     summary: ComplianceSummary
+
+
+# ── Library ──────────────────────────────────────────────────────────
+
+
+class PromptTemplate(BaseModel):
+    """Single prompt template from an attack vector."""
+
+    template: str
+    variables: dict[str, str] = Field(default_factory=dict)
+    success_indicators: list[str] = Field(default_factory=list)
+    failure_indicators: list[str] = Field(default_factory=list)
+
+
+class VectorSummary(BaseModel):
+    """Summary of an attack vector for list views."""
+
+    id: str
+    name: str
+    category: str
+    severity: str
+    target_phase: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+    owasp_mapping: list[str] = Field(default_factory=list)
+    prompt_count: int
+    protocol_filter: list[str] = Field(default_factory=list)
+
+
+class VectorDetail(VectorSummary):
+    """Full attack vector detail with prompts."""
+
+    references: list[str] = Field(default_factory=list)
+    prompts: list[PromptTemplate] = Field(default_factory=list)
+
+
+class VectorListResponse(BaseModel):
+    """Paginated vector list."""
+
+    vectors: list[VectorSummary]
+    total: int
+
+
+class LibraryStatsResponse(BaseModel):
+    """Aggregate library statistics."""
+
+    total_vectors: int
+    total_prompts: int
+    by_category: dict[str, int] = Field(default_factory=dict)
+    by_severity: dict[str, int] = Field(default_factory=dict)
+    by_owasp: dict[str, int] = Field(default_factory=dict)
+
+
+# ── Config Presets ───────────────────────────────────────────────────
+
+
+class ConfigPresetCreate(BaseModel):
+    """Request body for creating a config preset."""
+
+    name: str
+    description: str | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class ConfigPresetUpdate(BaseModel):
+    """Request body for updating a config preset."""
+
+    name: str | None = None
+    description: str | None = None
+    config: dict[str, Any] | None = None
+
+
+class ConfigPresetResponse(BaseModel):
+    """Response for a config preset."""
+
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    config_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
