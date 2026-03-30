@@ -1,10 +1,12 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useCreateRun } from "../api/runs"
+import { useConfigs } from "../api/configs"
 
 export function NewRun() {
   const navigate = useNavigate()
   const createRun = useCreateRun()
+  const { data: presets } = useConfigs()
 
   const [form, setForm] = useState({
     name: "",
@@ -14,6 +16,21 @@ export function NewRun() {
     strategy: "fixed",
     concurrency: 5,
   })
+
+  const handlePresetSelect = (presetId: string) => {
+    const preset = presets?.find((p) => p.id === presetId)
+    if (!preset) return
+    const cfg = preset.config_json as Record<string, string | number>
+    setForm({
+      ...form,
+      coverage_level: (cfg.coverage_level as string) ?? form.coverage_level,
+      strategy: (cfg.strategy as string) ?? form.strategy,
+      concurrency: (cfg.concurrency as number) ?? form.concurrency,
+      protocol: (cfg.protocol as string) ?? form.protocol,
+      target_url: (cfg.target_url as string) ?? form.target_url,
+      name: preset.name,
+    })
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,6 +54,22 @@ export function NewRun() {
         onSubmit={handleSubmit}
         className="rounded-lg border border-border bg-bg-secondary p-6 max-w-2xl space-y-5"
       >
+        {/* Preset selector */}
+        {presets && presets.length > 0 && (
+          <Field label="Load from preset">
+            <select
+              onChange={(e) => e.target.value && handlePresetSelect(e.target.value)}
+              className="input"
+              defaultValue=""
+            >
+              <option value="">Select a preset...</option>
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+
         <Field label="Name (optional)">
           <input
             type="text"

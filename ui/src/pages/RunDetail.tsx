@@ -10,6 +10,8 @@ import { useParams } from "react-router-dom"
 import { useCancelRun, useRun } from "../api/runs"
 import { downloadRunMarkdown, downloadRunYaml } from "../api/export"
 import { OwaspMatrix } from "../components/compliance/OwaspMatrix"
+import { KnowledgeGraph } from "../components/graph/KnowledgeGraph"
+import type { GraphState } from "../types"
 import { useRunProgress } from "../hooks/useWebSocket"
 import type { RunStatus } from "../types"
 
@@ -146,6 +148,14 @@ export function RunDetail() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Knowledge Graph */}
+      {run.graph_state_json && (
+        <div className="mb-6 relative">
+          <h3 className="text-lg font-medium mb-3">Knowledge Graph</h3>
+          <KnowledgeGraph graphState={run.graph_state_json as GraphState} />
         </div>
       )}
 
