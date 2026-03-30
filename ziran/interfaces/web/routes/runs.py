@@ -1,12 +1,11 @@
 """Runs CRUD + background scan execution."""
 
-from __future__ import annotations
-
 import uuid
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ziran.interfaces.web.dependencies import get_db, get_run_manager
@@ -17,11 +16,7 @@ from ziran.interfaces.web.schemas import (
     RunListResponse,
     RunSummary,
 )
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from ziran.interfaces.web.services.run_manager import RunManager
+from ziran.interfaces.web.services.run_manager import RunManager
 
 router = APIRouter()
 

@@ -13,9 +13,9 @@
 
 **Find vulnerabilities in AI agents — not just LLMs, but agents with tools, memory, and multi-step reasoning.**
 
-![ZIRAN Demo](docs/assets/demo.gif)
+![ZIRAN Dashboard](docs/assets/ui-dashboard.png)
 
-[Install](#install) · [Quick Start](#quick-start) · [Examples](examples/) · [Docs](https://taoq-ai.github.io/ziran/)
+[Install](#install) · [Quick Start](#quick-start) · [Web UI](#web-ui) · [Examples](examples/) · [Docs](https://taoq-ai.github.io/ziran/)
 
 </div>
 
@@ -102,8 +102,36 @@ pip install ziran[a2a]          # A2A protocol support
 pip install ziran[streaming]    # SSE/WebSocket streaming
 pip install ziran[pentest]      # autonomous pentesting agent
 pip install ziran[otel]         # OpenTelemetry tracing
+pip install ziran[ui]            # web dashboard
 pip install ziran[all]          # everything
 ```
+
+---
+
+## Web UI
+
+ZIRAN includes a built-in web dashboard for visual security analysis. Install the UI extra and start:
+
+```bash
+pip install ziran[ui]
+ziran ui
+# Dashboard: http://127.0.0.1:8484
+```
+
+Or with Docker:
+
+```bash
+docker compose up
+# Dashboard: http://localhost:8484
+```
+
+### Attack Library — 565 vectors across 11 categories
+
+![Attack Library](docs/assets/ui-library.png)
+
+### Scan Configuration
+
+![New Run](docs/assets/ui-new-run.png)
 
 ---
 

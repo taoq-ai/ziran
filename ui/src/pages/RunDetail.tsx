@@ -155,7 +155,7 @@ export function RunDetail() {
       {run.graph_state_json && (
         <div className="mb-6 relative">
           <h3 className="text-lg font-medium mb-3">Knowledge Graph</h3>
-          <KnowledgeGraph graphState={run.graph_state_json as GraphState} />
+          <KnowledgeGraph graphState={run.graph_state_json as unknown as GraphState} />
         </div>
       )}
 

@@ -49,6 +49,7 @@ export function useFinding(id: string | undefined) {
 }
 
 export function useFindingStats(filters: FindingFilters = {}) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { sort, limit, offset, ...statsFilters } = filters
   const qs = buildParams(statsFilters)
   return useQuery<FindingStats>({

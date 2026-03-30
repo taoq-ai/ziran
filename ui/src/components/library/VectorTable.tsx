@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
-import type { VectorSummary, VectorDetail as VectorDetailType } from "../../types"
+import type { VectorSummary } from "../../types"
 import { useVectorDetail } from "../../api/library"
 import { SeverityBadge } from "../findings/SeverityBadge"
 import { VectorDetail } from "./VectorDetail"

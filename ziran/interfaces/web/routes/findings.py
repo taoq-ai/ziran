@@ -1,12 +1,12 @@
 """Findings CRUD, status management, and aggregate statistics."""
 
-from __future__ import annotations
-
+import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ziran.interfaces.web.dependencies import get_db
@@ -20,11 +20,6 @@ from ziran.interfaces.web.schemas import (
     FindingStatusUpdate,
     FindingSummary,
 )
-
-if TYPE_CHECKING:
-    import uuid
-
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { useConfigs, useCreateConfig, useDeleteConfig } from "../api/configs"
 import type { ConfigPreset } from "../types"
 

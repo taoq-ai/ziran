@@ -1,11 +1,11 @@
 """OWASP LLM Top 10 compliance matrix endpoint."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Annotated
+import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ziran.domain.entities.attack import OWASP_LLM_DESCRIPTIONS, OwaspLlmCategory
 from ziran.interfaces.web.dependencies import get_db
@@ -15,11 +15,6 @@ from ziran.interfaces.web.schemas import (
     OwaspCategoryStatus,
     OwaspComplianceResponse,
 )
-
-if TYPE_CHECKING:
-    import uuid
-
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 

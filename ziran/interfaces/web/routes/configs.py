@@ -1,12 +1,12 @@
 """Config presets CRUD endpoints."""
 
-from __future__ import annotations
-
+import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ziran.interfaces.web.dependencies import get_db
 from ziran.interfaces.web.models import ConfigPreset
@@ -15,11 +15,6 @@ from ziran.interfaces.web.schemas import (
     ConfigPresetResponse,
     ConfigPresetUpdate,
 )
-
-if TYPE_CHECKING:
-    import uuid
-
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 

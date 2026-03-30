@@ -14,8 +14,6 @@ interface FindingsTableProps {
   total: number
   limit: number
   offset: number
-  sort?: string
-  onSortChange?: (sort: string) => void
   onPageChange: (offset: number) => void
   onRowClick: (finding: FindingSummary) => void
   rowSelection: RowSelectionState
@@ -34,8 +32,6 @@ export function FindingsTable({
   total,
   limit,
   offset,
-  sort: _sort,
-  onSortChange: _onSortChange,
   onPageChange,
   onRowClick,
   rowSelection,

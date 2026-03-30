@@ -34,10 +34,6 @@ export default function Findings() {
     }))
   }
 
-  const handleSortChange = (sort: string) => {
-    setFilters((prev) => ({ ...prev, sort }))
-  }
-
   const handlePageChange = (offset: number) => {
     setFilters((prev) => ({ ...prev, offset }))
   }
@@ -106,8 +102,6 @@ export default function Findings() {
           total={data?.total ?? 0}
           limit={filters.limit ?? 25}
           offset={filters.offset ?? 0}
-          sort={filters.sort ?? "-created_at"}
-          onSortChange={handleSortChange}
           onPageChange={handlePageChange}
           onRowClick={handleRowClick}
           rowSelection={rowSelection}

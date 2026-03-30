@@ -152,7 +152,7 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
             tooltipDelay: 200,
           },
           edges: {
-            smooth: { type: "continuous", roundness: 0.2 },
+            smooth: { enabled: true, type: "continuous", roundness: 0.2 },
           },
         }
       )
@@ -190,12 +190,13 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
     const allNodeIds = graphState?.nodes.map((n) => n.id) ?? []
 
     // Dim nodes not in path
-    const updates = allNodeIds.map((id) => ({
-      id,
-      opacity: pathSet.has(id) ? 1.0 : 0.15,
+    const nodeUpdates: Array<{ id: string; opacity: number }> = allNodeIds.map((nid) => ({
+      id: nid,
+      opacity: pathSet.has(nid) ? 1.0 : 0.15,
     }))
 
-    networkRef.current.body.data.nodes.update(updates)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(networkRef.current as any).body.data.nodes.update(nodeUpdates)
   }, [highlightPath, graphState])
 
   // Physics toggle
