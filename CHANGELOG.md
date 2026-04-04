@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/taoq-ai/ziran/compare/v0.23.0...v0.24.0) (2026-03-30)
+
+
+### Features
+
+* **ui:** knowledge graph, attack library, settings, Docker, UX polish ([#244](https://github.com/taoq-ai/ziran/issues/244)) ([c0e0104](https://github.com/taoq-ai/ziran/commit/c0e01040f1c171a4434d2fb2a64d2dd4a36f24e5))
+
 ## [0.23.0](https://github.com/taoq-ai/ziran/compare/v0.22.0...v0.23.0) (2026-03-24)
 
 
