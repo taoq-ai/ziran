@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
-**Find vulnerabilities in AI agents — not just LLMs, but agents with tools, memory, and multi-step reasoning.**
+**Find vulnerabilities in AI agents -- not just LLMs, but agents with tools, memory, and multi-step reasoning.**
 
 ![ZIRAN Dashboard](docs/assets/ui-dashboard.png)
 
@@ -41,34 +41,36 @@ Full results: [benchmarks/](benchmarks/) · [docs](https://taoq-ai.github.io/zir
 
 ## Why ZIRAN?
 
-Most security tools test individual prompts or tools in isolation. ZIRAN discovers how tool **combinations** create attack paths — an agent with `read_file` and `http_request` has a critical data exfiltration vulnerability, even if neither tool is dangerous alone.
+Most security tools test prompts and tools in isolation. But agent vulnerabilities emerge from how tools interact -- an agent with `read_file` and `http_request` has a data exfiltration path, even though neither tool is dangerous alone. Testing each tool individually misses this entirely.
+
+ZIRAN models your agent as a graph of capabilities and tests what happens when they combine.
 
 | Capability | ZIRAN | [Promptfoo](https://github.com/promptfoo/promptfoo) | [Invariant](https://invariantlabs.ai/) (Snyk) | [Garak](https://github.com/NVIDIA/garak) | [PyRIT](https://github.com/Azure/PyRIT) | [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Tool chain discovery (graph-based) | **Yes** | — | Policy-based | — | — | — |
-| Side-effect detection (execution-level) | **Yes** | — | Trace-based | — | — | Sandbox |
-| Multi-phase campaigns w/ graph feedback | **Yes** | Turn-level | Flow analysis | — | Composable | Multi-turn |
-| Autonomous pentesting agent | **Yes** | — | — | — | — | — |
-| Multi-agent coordination | **Yes** | — | — | — | — | — |
-| Knowledge graph tracking | **Yes** | — | Policy lang. | — | — | — |
-| Agent-aware (tools + memory) | **Yes** | Partial | **Yes** | — | — | Partial |
-| A2A protocol support | **Yes** | — | — | — | — | — |
-| MCP protocol support | **Yes** | Partial | **Yes** | — | — | — |
-| Encoding/obfuscation attacks | **Yes** (8) | **Yes** (12+) | — | — | — | — |
-| Industry compliance plugins | — | **Yes** (46) | — | — | — | — |
-| Streaming (SSE/WebSocket) | **Yes** | — | — | — | — | — |
-| CI/CD quality gate | **Yes** | **Yes** | — | — | — | — |
+| Tool chain discovery (graph-based) | Yes | -- | Policy-based | -- | -- | -- |
+| Side-effect detection (execution-level) | Yes | -- | Trace-based | -- | -- | Sandbox |
+| Multi-phase campaigns w/ graph feedback | Yes | Turn-level | Flow analysis | -- | Composable | Multi-turn |
+| Autonomous pentesting agent | Yes | -- | -- | -- | -- | -- |
+| Multi-agent coordination | Yes | -- | -- | -- | -- | -- |
+| Knowledge graph tracking | Yes | -- | Policy lang. | -- | -- | -- |
+| Agent-aware (tools + memory) | Yes | Partial | Yes | -- | -- | Partial |
+| A2A protocol support | Yes | -- | -- | -- | -- | -- |
+| MCP protocol support | Yes | Partial | Yes | -- | -- | -- |
+| Encoding/obfuscation attacks | Yes (8) | Yes (12+) | -- | -- | -- | -- |
+| Industry compliance plugins | -- | Yes (46) | -- | -- | -- | -- |
+| Streaming (SSE/WebSocket) | Yes | -- | -- | -- | -- | -- |
+| CI/CD quality gate | Yes | Yes | -- | -- | -- | -- |
 | Open source | Apache-2.0 | MIT | Partial | Apache-2.0 | MIT | MIT |
 
-**Key differentiators:**
+**What these capabilities catch:**
 
-- **Tool Chain Discovery** — Graph-based detection of dangerous tool combinations (`read_file` → `http_request` = data exfiltration). Discovery-based, not policy-based.
-- **Side-Effect Detection** — Catches when agents refuse in text but execute dangerous tools anyway.
-- **Multi-Phase Campaigns** — 8-phase trust exploitation with live knowledge graph feedback between phases.
-- **Autonomous Pentesting Agent** — LLM-driven agent that plans, executes, and adapts attack campaigns with finding deduplication.
-- **Multi-Agent Coordination** — Discovers topologies and tests cross-agent trust boundaries.
-- **A2A + MCP Protocol Depth** — First security tool to test [Agent-to-Agent](https://google.github.io/A2A/) agents.
-- **Framework Agnostic** — LangChain, CrewAI, Bedrock, MCP, browser UIs, remote HTTPS agents, or [custom adapters](examples/08-custom-adapter/).
+- **Tool Chain Discovery** -- Individual tools pass security review, but their compositions create vulnerabilities. Graph-based analysis finds transitive attack paths (e.g., `read_file` -> `http_request` = data exfiltration) that list-based testing misses.
+- **Side-Effect Detection** -- Agents can refuse a request in their text response while still executing the dangerous tool call. Without execution-level monitoring, these silent failures go undetected.
+- **Multi-Phase Campaigns** -- Real attackers don't send a single malicious prompt. They build trust, map capabilities, then exploit. Multi-phase campaigns model this behavior to find vulnerabilities that single-turn tests miss.
+- **Knowledge Graph** -- A live graph of discovered tools, permissions, and data flows grows as the scan progresses. Each phase uses it to plan the next, catching vulnerabilities that only appear after building enough context about the agent.
+- **Multi-Agent Coordination** -- In multi-agent systems, an agent may trust messages from peers without validation. Testing cross-agent trust boundaries reveals lateral movement paths.
+- **A2A + MCP Protocols** -- Tests [Agent-to-Agent](https://google.github.io/A2A/) and [MCP](https://modelcontextprotocol.io/) agents through their native protocols, exercising the actual attack surface rather than a simplified proxy.
+- **Framework Agnostic** -- LangChain, CrewAI, Bedrock, MCP, browser UIs, remote HTTPS agents, or [custom adapters](examples/08-custom-adapter/).
 
 ### What ZIRAN Is / What ZIRAN Is Not
 
@@ -76,9 +78,9 @@ Most security tools test individual prompts or tools in isolation. ZIRAN discove
 
 **ZIRAN is not:**
 
-- An LLM safety/alignment tool — for prompt injection breadth, jailbreak templates, and compliance testing, use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak)
-- A runtime guardrail — for real-time input/output protection, use [NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails), [Lakera Guard](https://www.lakera.ai/), or [LLM Guard](https://github.com/protectai/llm-guard)
-- A general-purpose eval framework — for model evaluation and benchmarking, use [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) or [Deepeval](https://github.com/confident-ai/deepeval)
+- An LLM safety/alignment tool -- for prompt injection breadth, jailbreak templates, and compliance testing, use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak)
+- A runtime guardrail -- for real-time input/output protection, use [NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails), [Lakera Guard](https://www.lakera.ai/), or [LLM Guard](https://github.com/protectai/llm-guard)
+- A general-purpose eval framework -- for model evaluation and benchmarking, use [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) or [Deepeval](https://github.com/confident-ai/deepeval)
 
 ### Works With
 
@@ -125,7 +127,7 @@ docker compose up
 # Dashboard: http://localhost:8484
 ```
 
-### Attack Library — 565 vectors across 11 categories
+### Attack Library -- 565 vectors across 11 categories
 
 ![Attack Library](docs/assets/ui-library.png)
 
@@ -190,13 +192,13 @@ print(f"Vulnerabilities found: {result.total_vulnerabilities}")
 print(f"Dangerous tool chains: {len(result.dangerous_tool_chains)}")
 ```
 
-See [examples/](examples/) for 22 runnable demos — from static analysis to autonomous pentesting.
+See [examples/](examples/) for 22 runnable demos -- from static analysis to autonomous pentesting.
 
 ---
 
 ## Remote Agent Scanning
 
-ZIRAN can test any published agent over HTTPS — no source code or in-process access required. Define your target in a YAML file and ZIRAN handles the rest:
+ZIRAN can test any published agent over HTTPS -- no source code or in-process access required. Define your target in a YAML file:
 
 ```yaml
 # target.yaml
@@ -238,20 +240,20 @@ See [examples/15-remote-agent-scan/](examples/15-remote-agent-scan/) for ready-t
 
 ## What ZIRAN Finds
 
-**Prompt-level** — injection, system prompt extraction, memory poisoning, chain-of-thought manipulation.
+**Prompt-level** -- injection, system prompt extraction, memory poisoning, chain-of-thought manipulation.
 
-**Tool-level** — tool manipulation, privilege escalation, data exfiltration chains.
+**Tool-level** -- tool manipulation, privilege escalation, data exfiltration chains.
 
-**Tool chains** (unique to ZIRAN) — automatic graph analysis of dangerous tool compositions:
+**Tool chains** -- automatic graph analysis of dangerous tool compositions:
 
 ```
-┌──────────┬─────────────────────┬─────────────────────────────┬──────────────────────────────────────┐
-│ Risk     │ Type                │ Tools                       │ Description                          │
-├──────────┼─────────────────────┼─────────────────────────────┼──────────────────────────────────────┤
-│ critical │ data_exfiltration   │ read_file → http_request    │ File contents sent to external server│
-│ critical │ sql_to_rce          │ sql_query → execute_code    │ SQL results executed as code         │
-│ high     │ pii_leakage         │ get_user_info → external_api│ User PII sent to third-party API     │
-└──────────┴─────────────────────┴─────────────────────────────┴──────────────────────────────────────┘
++----------+---------------------+-----------------------------+--------------------------------------+
+| Risk     | Type                | Tools                       | Description                          |
++----------+---------------------+-----------------------------+--------------------------------------+
+| critical | data_exfiltration   | read_file -> http_request   | File contents sent to external server|
+| critical | sql_to_rce          | sql_query -> execute_code   | SQL results executed as code         |
+| high     | pii_leakage         | get_user_info -> external_api| User PII sent to third-party API    |
++----------+---------------------+-----------------------------+--------------------------------------+
 ```
 
 ---
@@ -271,11 +273,11 @@ flowchart LR
 
     subgraph ziran["⛩️ ZIRAN Pipeline"]
         direction TB
-        D["1 · DISCOVER\nProbe tools, permissions,\ndata access"]
-        MAP["2 · MAP\nBuild knowledge graph\n(NetworkX MultiDiGraph)"]
-        A["3 · ANALYZE\nWalk graph for dangerous\nchains (30+ patterns)"]
-        ATK["4 · ATTACK\nMulti-phase exploits\ninformed by the graph"]
-        R["5 · REPORT\nScored findings with\nremediation guidance"]
+        D["🔍 DISCOVER\nProbe tools, permissions,\ndata access"]
+        MAP["🗺️ MAP\nBuild knowledge graph\n(NetworkX MultiDiGraph)"]
+        A["⚡ ANALYZE\nWalk graph for dangerous\nchains (30+ patterns)"]
+        ATK["🎯 ATTACK\nMulti-phase exploits\ninformed by the graph"]
+        R["📋 REPORT\nScored findings with\nremediation guidance"]
         D --> MAP --> A --> ATK --> R
     end
 
@@ -298,7 +300,52 @@ flowchart LR
     style P fill:#2d2d44,stroke:#e94560,color:#fff
 ```
 
-**Campaigns** run 8 phases (reconnaissance → trust building → capability mapping → vulnerability discovery → exploitation setup → execution → persistence → exfiltration), each feeding a live knowledge graph. Three strategies: `fixed` (sequential), `adaptive` (rule-based reordering), `llm-adaptive` (LLM-driven planning). See [adaptive campaigns docs](https://taoq-ai.github.io/ziran/concepts/adaptive-campaigns/).
+### Campaign Phases
+
+Campaigns run 8 phases: reconnaissance, trust building, capability mapping, vulnerability discovery, exploitation setup, execution, persistence, and exfiltration. Each phase feeds its findings into a live knowledge graph, and the graph informs which phase to run next.
+
+Phases are **not linear** -- the knowledge graph drives execution order. A discovery in the exploitation phase may trigger a return to reconnaissance. An agent that reveals new tools during trust building causes capability mapping to re-run with updated context.
+
+```mermaid
+flowchart TD
+    KG["🧠 Knowledge Graph\n(live state)"]
+
+    R["🔍 Reconnaissance"] --> KG
+    TB["🤝 Trust Building"] --> KG
+    CM["🗺️ Capability Mapping"] --> KG
+    VD["⚡ Vulnerability Discovery"] --> KG
+    ES["🎯 Exploitation Setup"] --> KG
+    EX["💥 Execution"] --> KG
+    PE["🔒 Persistence"] --> KG
+    EXF["📤 Exfiltration"] --> KG
+
+    KG -->|"decides next phase"| R
+    KG -->|"decides next phase"| TB
+    KG -->|"decides next phase"| CM
+    KG -->|"decides next phase"| VD
+    KG -->|"decides next phase"| ES
+    KG -->|"decides next phase"| EX
+    KG -->|"decides next phase"| PE
+    KG -->|"decides next phase"| EXF
+
+    style KG fill:#1a1a2e,stroke:#e94560,color:#fff,stroke-width:2px
+    style R fill:#16213e,stroke:#0ea5e9,color:#fff
+    style TB fill:#16213e,stroke:#0ea5e9,color:#fff
+    style CM fill:#16213e,stroke:#0ea5e9,color:#fff
+    style VD fill:#16213e,stroke:#0ea5e9,color:#fff
+    style ES fill:#16213e,stroke:#e94560,color:#fff
+    style EX fill:#16213e,stroke:#e94560,color:#fff
+    style PE fill:#16213e,stroke:#e94560,color:#fff
+    style EXF fill:#16213e,stroke:#e94560,color:#fff
+```
+
+Three strategies control this:
+
+- **`fixed`** -- Sequential execution through all 8 phases (reproducible, good for CI)
+- **`adaptive`** -- Rule-based reordering: skips phases that won't yield results given current graph state, revisits phases when new capabilities are discovered
+- **`llm-adaptive`** -- LLM-driven planning: an LLM examines the knowledge graph after each phase and decides what to do next
+
+See [adaptive campaigns docs](https://taoq-ai.github.io/ziran/concepts/adaptive-campaigns/).
 
 ---
 
@@ -306,9 +353,9 @@ flowchart LR
 
 Three output formats, generated automatically:
 
-- **HTML** — Interactive knowledge graph with attack path highlighting
-- **Markdown** — CI/CD-friendly summary tables
-- **JSON** — Machine-parseable for programmatic consumption
+- **HTML** -- Interactive knowledge graph with attack path highlighting
+- **Markdown** -- CI/CD-friendly summary tables
+- **JSON** -- Machine-parseable for programmatic consumption
 
 <div align="center">
   <img src="docs/assets/report.png" alt="ZIRAN HTML Report" width="800">
@@ -386,7 +433,7 @@ If you use ZIRAN in academic work, please cite:
   year      = {2026},
   url       = {https://github.com/taoq-ai/ziran},
   license   = {Apache-2.0},
-  version   = {0.20.0}
+  version   = {0.25.0}
 }
 ```
 
@@ -394,7 +441,7 @@ If you use ZIRAN in academic work, please cite:
 
 ## License
 
-[Apache License 2.0](LICENSE) — See [NOTICE](NOTICE) for third-party attributions.
+[Apache License 2.0](LICENSE) -- See [NOTICE](NOTICE) for third-party attributions.
 
 <p align="center">
   Built by <a href="https://www.taoq.ai">TaoQ AI</a>
