@@ -2,8 +2,9 @@ name: Release
 
 on:
   # Tag push is the primary trigger. release-please creates tags via
-  # GITHUB_TOKEN, and tag pushes ARE NOT blocked by the anti-cascade rule
-  # (only release/workflow_run events are). This works without a PAT.
+  # a PAT (RELEASE_PAT), so the push event triggers this workflow.
+  # Tags created by GITHUB_TOKEN would NOT trigger this due to
+  # GitHub's anti-cascade rule — that's why a PAT is required.
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"        # stable:  v1.2.3
@@ -43,6 +44,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Verify tag is ancestor of main
         run: |

@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
-        id: release
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      # No need to dispatch release.yml — release-please creates a tag,
-      # and release.yml triggers on push:tags. Tag pushes are NOT blocked
-      # by GitHub's anti-cascade rule (only release/workflow_run events are).
+          # MUST use a PAT, not GITHUB_TOKEN. Tags created by GITHUB_TOKEN
+          # do not trigger other workflows (GitHub's anti-cascade rule).
+          # The RELEASE_PAT needs repo scope so the tag push triggers
+          # the Release workflow (release.yml).
+          token: ${{ secrets.RELEASE_PAT }}
