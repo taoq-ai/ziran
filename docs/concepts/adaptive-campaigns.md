@@ -1,6 +1,10 @@
 # Adaptive Campaigns
 
-ZIRAN supports three campaign execution strategies that control how scan phases are orchestrated. Choose the strategy that fits your testing scenario.
+## Why Adaptive?
+
+A fixed-order scan runs every phase regardless of what it finds. This is predictable but wasteful -- if reconnaissance reveals the agent has no file access tools, running file-based exploitation phases produces no results.
+
+Adaptive strategies use the knowledge graph to make better decisions: skip phases that won't yield findings, repeat phases where partial results suggest deeper vulnerabilities, and prioritize the most promising attack surface. This means higher coverage with fewer wasted interactions.
 
 ## Strategies
 
@@ -31,7 +35,7 @@ Best for: Thorough manual assessments, complex agents with many capabilities.
 
 ### LLM-Adaptive
 
-Uses an LLM to analyze the current knowledge graph, all previous findings, and the agent's capabilities to dynamically plan the next phase. The LLM acts as a strategy advisor — it doesn't execute attacks, it decides *which* attacks to run and in *what order*.
+Uses an LLM to analyze the current knowledge graph, all previous findings, and the agent's capabilities to dynamically plan the next phase. The LLM acts as a strategy advisor -- it doesn't execute attacks, it decides *which* attacks to run and in *what order*.
 
 ```bash
 ziran scan --target target.yaml --strategy llm-adaptive
@@ -57,28 +61,30 @@ Best for: Maximum coverage on high-value targets, red-team exercises.
 
 ## How Adaptive Strategies Work
 
+All three strategies follow the same loop -- execute a phase, update the knowledge graph, decide what to do next. The difference is how "decide" works:
+
 ```mermaid
 flowchart TD
-    S["Start Campaign"] --> P["Execute Phase"]
-    P --> A["Analyze Results"]
-    A --> D{"Strategy\nDecision"}
-    D -->|"Fixed"| N["Next Phase\n(sequential)"]
-    D -->|"Adaptive"| R["Rule Engine\n(graph analysis)"]
-    D -->|"LLM-Adaptive"| L["LLM Advisor\n(dynamic planning)"]
-    R --> P
-    L --> P
-    N --> P
-    N --> E["End"]
-    R --> E
-    L --> E
+    S["🚀 Start Campaign"] --> P["⚡ Execute Phase"]
+    P --> G["🧠 Update Knowledge Graph"]
+    G --> D{"Strategy\nDecision"}
+    D -->|"Fixed"| N["Next Phase\n(sequential order)"]
+    D -->|"Adaptive"| R["🔧 Rule Engine\n(graph-based rules)"]
+    D -->|"LLM-Adaptive"| L["🤖 LLM Advisor\n(dynamic planning)"]
+    R --> C{"Continue?"}
+    L --> C
+    N --> C
+    C -->|"Yes"| P
+    C -->|"No"| E["📋 Report"]
 
     style S fill:#16213e,stroke:#0ea5e9,color:#fff
     style P fill:#16213e,stroke:#0ea5e9,color:#fff
-    style A fill:#16213e,stroke:#0ea5e9,color:#fff
+    style G fill:#1a1a2e,stroke:#e94560,color:#fff
     style D fill:#16213e,stroke:#e94560,color:#fff
     style R fill:#0f3460,stroke:#10b981,color:#fff
     style L fill:#0f3460,stroke:#10b981,color:#fff
     style N fill:#0f3460,stroke:#10b981,color:#fff
+    style C fill:#16213e,stroke:#e94560,color:#fff
     style E fill:#1e293b,stroke:#10b981,color:#fff
 ```
 
@@ -121,6 +127,6 @@ class MyStrategy(CampaignStrategy):
 
 ## See Also
 
-- [Architecture](architecture.md) — Overall system design
-- [Trust Exploitation](romance-scan.md) — The 8-phase methodology
-- [CLI Reference](../reference/cli.md) — `--strategy` option documentation
+- [Architecture](architecture.md) -- Overall system design
+- [Trust Exploitation](romance-scan.md) -- The 8-phase methodology
+- [CLI Reference](../reference/cli.md) -- `--strategy` option documentation

@@ -1,17 +1,27 @@
 # Knowledge Graph
 
+## Why a Graph?
+
+During a scan, ZIRAN discovers tools, permissions, data sources, and their relationships. A flat list of findings loses the connections between them -- you see that `read_file` exists and `http_request` exists, but not that they can chain together into a data exfiltration path.
+
+A directed graph preserves these relationships. Each discovery becomes a node, each relationship an edge. As the scan progresses, the graph grows and reveals attack paths that only become visible after enough context is gathered -- a tool discovered in phase 1 might combine with a permission found in phase 4 to create a vulnerability neither phase would catch alone.
+
+The graph also drives adaptive campaigns: after each phase, the strategy examines the graph to decide which phase to run next.
+
+## Implementation
+
 ZIRAN uses a **NetworkX-based directed multigraph** to track all discoveries, relationships, and attack paths during a scan campaign.
 
 ## Node Types
 
-| Type | Shape | Description |
-|------|-------|-------------|
-| `capability` | Circle | A discovered agent capability |
-| `tool` | Diamond | An invokable tool the agent has access to |
-| `vulnerability` | Triangle | A discovered vulnerability |
-| `data_source` | Square | A data source the agent can access |
-| `phase` | Hexagon | A scan phase execution |
-| `agent_state` | Ellipse | A snapshot of agent state |
+| Type | Icon | Description |
+|------|------|-------------|
+| `capability` | :gear: | A discovered agent capability |
+| `tool` | :wrench: | An invokable tool the agent has access to |
+| `vulnerability` | :warning: | A discovered vulnerability |
+| `data_source` | :file_folder: | A data source the agent can access |
+| `phase` | :repeat: | A scan phase execution |
+| `agent_state` | :robot: | A snapshot of agent state |
 
 ## Edge Types
 
