@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -159,5 +160,17 @@ class TestLangfuseErrorHandling:
 
     def test_api_mode_without_sdk(self, ingestor: LangfuseIngestor) -> None:
         """API mode raises ImportError if langfuse not installed."""
-        with pytest.raises(ImportError, match="Langfuse SDK"):
+        import builtins
+
+        _real_import = builtins.__import__
+
+        def _block_langfuse(name: str, *args: object, **kwargs: object) -> object:
+            if name == "langfuse":
+                raise ImportError("mocked: no langfuse")
+            return _real_import(name, *args, **kwargs)
+
+        with (
+            patch("builtins.__import__", side_effect=_block_langfuse),
+            pytest.raises(ImportError, match="Langfuse SDK"),
+        ):
             _run(ingestor.ingest("api"))
