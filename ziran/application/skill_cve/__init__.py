@@ -9,7 +9,7 @@ OWASP LLM Top 10 and framework security documentation.
 from __future__ import annotations
 
 import logging
-from datetime import datetime  # noqa: TC003 — Pydantic needs this at runtime
+from datetime import datetime  # noqa: TC003 — Pydantic needs at runtime
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field

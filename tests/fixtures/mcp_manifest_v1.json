@@ -1,0 +1,52 @@
+{
+  "server_name": "test-mcp-server",
+  "tools": [
+    {
+      "name": "weather_lookup",
+      "description": "Look up current weather for a given city.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"}
+        },
+        "required": ["city"]
+      }
+    },
+    {
+      "name": "file_reader",
+      "description": "Read the contents of a local file.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string", "description": "File path to read"}
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "calculator",
+      "description": "Evaluate a mathematical expression.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "expression": {"type": "string", "description": "Math expression"}
+        },
+        "required": ["expression"]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "file:///data/config.json",
+      "name": "config",
+      "description": "Application configuration",
+      "mimeType": "application/json"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "summarize",
+      "description": "Summarize provided text"
+    }
+  ]
+}

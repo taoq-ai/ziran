@@ -1,0 +1,57 @@
+name: Lint CI Templates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/07-cicd-quality-gate/**"
+      - ".github/workflows/lint-ci-templates.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/07-cicd-quality-gate/**"
+      - ".github/workflows/lint-ci-templates.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint-yaml:
+    name: Validate CI template YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate YAML templates
+        run: |
+          python3 << 'PYEOF'
+          import yaml, sys
+
+          templates = [
+              "examples/07-cicd-quality-gate/gitlab-ci.yml",
+              "examples/07-cicd-quality-gate/circleci-config.yml",
+              "examples/07-cicd-quality-gate/azure-pipelines.yml",
+              "examples/07-cicd-quality-gate/ziran-scan.yml",
+          ]
+
+          failed = False
+          for path in templates:
+              try:
+                  with open(path) as f:
+                      yaml.safe_load(f)
+                  print(f"OK: {path}")
+              except Exception as e:
+                  print(f"FAIL: {path} - {e}")
+                  failed = True
+
+          if failed:
+              sys.exit(1)
+          PYEOF

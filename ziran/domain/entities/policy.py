@@ -107,3 +107,41 @@ class PolicyVerdict(BaseModel):
     @property
     def warning_count(self) -> int:
         return len(self.warnings)
+
+
+# ── Guardrail policy models ────────────────────────────────────────
+
+
+class GuardrailPolicyFormat(StrEnum):
+    """Supported runtime guardrail policy formats."""
+
+    REGO = "rego"
+    CEDAR = "cedar"
+    COLANG = "colang"
+    INVARIANT = "invariant"
+
+
+class GuardrailPolicy(BaseModel):
+    """A generated runtime guardrail policy artifact."""
+
+    finding_id: str = Field(
+        description="Ziran finding ID this policy was generated from",
+    )
+    format: GuardrailPolicyFormat
+    content: str = Field(
+        description="Rendered policy text ready to write to file",
+    )
+    tool_chain: list[str] = Field(
+        description="Tool names in the denied chain",
+    )
+    severity: str = Field(
+        description="Severity of the originating finding",
+    )
+    skipped: bool = Field(
+        default=False,
+        description="True if chain couldn't be expressed",
+    )
+    skip_reason: str | None = Field(
+        default=None,
+        description="Explanation if skipped",
+    )

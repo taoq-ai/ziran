@@ -1,0 +1,47 @@
+# Ziran AI Agent Security Gate for CircleCI
+# Usage: Copy the relevant sections into your .circleci/config.yml
+#
+# Coverage levels: essential | standard | comprehensive
+# Severity threshold: critical | high | medium | low
+
+version: 2.1
+
+parameters:
+  ziran-coverage:
+    type: enum
+    enum: ["essential", "standard", "comprehensive"]
+    default: "standard"
+  ziran-severity-threshold:
+    type: enum
+    enum: ["critical", "high", "medium", "low"]
+    default: "medium"
+
+jobs:
+  ziran-security-scan:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Install Ziran
+          command: pip install ziran
+      - run:
+          name: Run security scan
+          command: |
+            ziran ci \
+              --result-file ${RESULT_FILE:-scan_results.json} \
+              --severity-threshold << pipeline.parameters.ziran-severity-threshold >> \
+              --coverage << pipeline.parameters.ziran-coverage >> \
+              --output sarif \
+              --sarif-file ziran-results.sarif
+      - store_artifacts:
+          path: ziran-results.sarif
+          destination: sarif-report
+      - store_artifacts:
+          path: scan_results.json
+          destination: scan-results
+
+workflows:
+  security:
+    jobs:
+      - ziran-security-scan

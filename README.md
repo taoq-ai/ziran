@@ -86,9 +86,22 @@ ZIRAN models your agent as a graph of capabilities and tests what happens when t
 
 ZIRAN is complementary to other tools in the AI security ecosystem:
 
+**Pre-deploy testing:**
+
 - **[Promptfoo](https://github.com/promptfoo/promptfoo)** for attack breadth (encoding strategies, jailbreak templates, compliance plugins) + **ZIRAN** for agent depth (tool chains, side-effects, campaigns)
 - **[Garak](https://github.com/NVIDIA/garak)** for LLM-layer vulnerability scanning + **ZIRAN** for agent-layer tool chain analysis
-- **[NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails)** / **[Lakera](https://www.lakera.ai/)** for runtime protection + **ZIRAN** for pre-deployment testing
+
+**Runtime governance:**
+
+- **[NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails)** / **[Lakera](https://www.lakera.ai/)** for runtime input/output protection + **ZIRAN** for pre-deployment testing
+- **[Invariant (Snyk)](https://invariantlabs.ai/)** for runtime policy enforcement + **ZIRAN** for pre-deploy tool chain analysis
+
+**Observability:**
+
+- **[Langfuse](https://langfuse.com/)** for production trace analytics + **ZIRAN** `analyze-traces` for security evaluation of production behavior
+- **[LangSmith](https://smith.langchain.com/)** for debugging and eval + **ZIRAN** for security-focused campaign testing
+
+See the [Agent Security Landscape](https://taoq-ai.github.io/ziran/concepts/agent-security-landscape/) for a full mapping of tools across pre-deploy, runtime, and observability layers.
 
 ---
 
@@ -365,36 +378,46 @@ Three output formats, generated automatically:
 
 ## CI/CD Integration
 
-Use ZIRAN as a quality gate in your pipeline:
+Use ZIRAN as a quality gate in your pipeline. Templates are available for five CI systems:
 
-### Live scan (runs the full attack suite against your agent)
+| CI System | Template | SARIF Integration |
+|-----------|----------|-------------------|
+| **GitHub Actions** | [`ziran-scan.yml`](examples/07-cicd-quality-gate/ziran-scan.yml) | GitHub Security tab |
+| **GitLab CI** | [`gitlab-ci.yml`](examples/07-cicd-quality-gate/gitlab-ci.yml) | GitLab Security Dashboard |
+| **Jenkins** | [`Jenkinsfile`](examples/07-cicd-quality-gate/Jenkinsfile) | Warnings Next Generation Plugin |
+| **CircleCI** | [`circleci-config.yml`](examples/07-cicd-quality-gate/circleci-config.yml) | Build artifacts |
+| **Azure Pipelines** | [`azure-pipelines.yml`](examples/07-cicd-quality-gate/azure-pipelines.yml) | PublishBuildArtifacts |
+
+### GitHub Actions (official action)
 
 ```yaml
 # .github/workflows/security.yml
 - uses: taoq-ai/ziran@v0
   with:
-    command: scan
-    framework: langchain        # langchain | crewai | bedrock
-    agent-path: my_agent.py     # OR use target: target.yaml for remote agents
-    coverage: standard           # essential | standard | comprehensive
-    gate-config: gate_config.yaml
-  env:
-    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}   # or ANTHROPIC_API_KEY, etc.
+    command: ci
+    result-file: scan_results.json
+    severity-threshold: medium
+    sarif-output: results.sarif
 ```
 
-### Offline CI gate (evaluate a previous scan result)
+### GitLab CI
 
 ```yaml
-- uses: taoq-ai/ziran@v0
-  with:
-    command: ci
-    result-file: scan_results/campaign_report.json
-    gate-config: gate_config.yaml
+ziran-security-scan:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install ziran
+  script:
+    - ziran ci --result-file scan_results.json --severity-threshold medium --output sarif --sarif-file gl-sast-report.json
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
 ```
 
 **Outputs:** `status` (passed/failed), `trust-score`, `total-findings`, `critical-findings`, `sarif-file`.
 
-See the [full example workflow](examples/07-cicd-quality-gate/ziran-scan.yml) or use the [Python API](examples/07-cicd-quality-gate/).
+See [CI integrations docs](https://taoq-ai.github.io/ziran/guides/ci-integrations/) for Jenkins, CircleCI, and Azure Pipelines examples, or browse the [template directory](examples/07-cicd-quality-gate/).
 
 ---
 

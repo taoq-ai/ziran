@@ -1,0 +1,38 @@
+// Ziran AI Agent Security Gate for Jenkins
+// Usage: Copy this file into your project root
+// Requires: Warnings Next Generation Plugin for SARIF support
+//
+// Coverage levels: essential | standard | comprehensive
+// Severity threshold: critical | high | medium | low
+
+pipeline {
+    agent any
+    parameters {
+        choice(name: 'ZIRAN_COVERAGE', choices: ['essential', 'standard', 'comprehensive'], description: 'Coverage level')
+        choice(name: 'ZIRAN_SEVERITY_THRESHOLD', choices: ['critical', 'high', 'medium', 'low'], description: 'Severity threshold')
+    }
+    stages {
+        stage('Install Ziran') {
+            steps {
+                sh 'pip install ziran'
+            }
+        }
+        stage('Security Scan') {
+            steps {
+                sh """
+                    ziran ci \
+                        --result-file ${RESULT_FILE ?: 'scan_results.json'} \
+                        --severity-threshold ${params.ZIRAN_SEVERITY_THRESHOLD} \
+                        --coverage ${params.ZIRAN_COVERAGE} \
+                        --output sarif \
+                        --sarif-file ziran-results.sarif
+                """
+            }
+            post {
+                always {
+                    recordIssues tool: sarif(pattern: 'ziran-results.sarif')
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,18 @@
+{
+  "server_name": "weahter-lookup",
+  "tools": [
+    {
+      "name": "weather_lookup",
+      "description": "Look up current weather for a given city.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"}
+        },
+        "required": ["city"]
+      }
+    }
+  ],
+  "resources": [],
+  "prompts": []
+}
