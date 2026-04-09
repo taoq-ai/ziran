@@ -17,7 +17,7 @@ class PolicyRenderer(ABC):
     @abstractmethod
     def format(self) -> GuardrailPolicyFormat:
         """The guardrail format this renderer produces."""
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def render(
@@ -26,4 +26,4 @@ class PolicyRenderer(ABC):
         finding_id: str,
     ) -> GuardrailPolicy:
         """Render a single finding into a guardrail policy."""
-        ...
+        raise NotImplementedError

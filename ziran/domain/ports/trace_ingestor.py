@@ -15,4 +15,6 @@ class TraceIngestor(ABC):
     """Port for ingesting production traces."""
 
     @abstractmethod
-    async def ingest(self, source: Path | str, **kwargs: Any) -> list[TraceSession]: ...
+    async def ingest(self, source: Path | str, **kwargs: Any) -> list[TraceSession]:
+        """Ingest traces from a file or remote source."""
+        raise NotImplementedError

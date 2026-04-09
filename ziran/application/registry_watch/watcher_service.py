@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 class ManifestFetcher(Protocol):
     """Protocol for fetching a server's manifest."""
 
-    async def fetch(self, server: ServerEntry) -> dict[str, Any]: ...
+    async def fetch(self, server: ServerEntry) -> dict[str, Any]:
+        """Fetch the current manifest from the server."""
+        raise NotImplementedError
 
 
 # ──────────────────────────────────────────────────────────────────────

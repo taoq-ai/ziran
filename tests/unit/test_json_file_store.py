@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from ziran.domain.entities.registry import ManifestSnapshot, ToolDescriptor
 from ziran.infrastructure.snapshot_stores.json_file_store import JsonFileStore

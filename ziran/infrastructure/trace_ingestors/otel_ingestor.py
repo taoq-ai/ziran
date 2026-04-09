@@ -129,7 +129,6 @@ class OTelIngestor(TraceIngestor):
                 continue
 
             start_nano = span.get("startTimeUnixNano", "0")
-            end_nano = span.get("endTimeUnixNano", "0")
             timestamp = _nano_to_datetime(start_nano)
 
             # Parse arguments if available

@@ -22,9 +22,9 @@ class SnapshotStore(ABC):
 
         Returns ``None`` if no snapshot exists.
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def save(self, server_name: str, snapshot: ManifestSnapshot) -> None:
         """Persist a snapshot, overwriting any previous version."""
-        ...
+        raise NotImplementedError
