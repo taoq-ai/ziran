@@ -90,8 +90,19 @@ ZIRAN operates in the pre-deploy layer, with connections to the other two:
 | Enforce runtime compliance policies | **Invariant** (Snyk) |
 | Monitor agent behavior in production | **Langfuse** or **LangSmith** |
 | Evaluate traces against security policies | **ZIRAN** (`analyze-traces`) |
+| Produce tamper-evident audit logs for compliance | **asqav**, signed OTel exporters |
 
 The strongest security posture combines tools from all three layers. Use ZIRAN with Promptfoo for testing breadth, add NeMo Guardrails or Lakera for runtime protection, and connect Langfuse for continuous observability.
+
+---
+
+## Emerging: Compliance Evidence Layer
+
+The three layers above cover discovery, enforcement, and visibility — but none produces tamper-evident proof of what an agent actually did. Regulations like the EU AI Act (Article 12) require auditable records that go beyond observability dashboards.
+
+A compliance evidence layer sits alongside observability and produces cryptographically signed, hash-chained receipts for each tool call. If a receipt is missing or altered, the chain breaks and the omission is detectable. Projects like [asqav](https://github.com/jagmarques/asqav) explore this space using post-quantum signatures (ML-DSA-65) per tool invocation.
+
+ZIRAN does not produce compliance evidence today, but its outputs can feed into such systems: `export-policy` rules define what should be audited, and `analyze-traces` findings flag which production sequences need closer scrutiny. A future integration could attach ZIRAN finding IDs to signed receipts, closing the loop from discovery to evidence.
 
 ---
 
