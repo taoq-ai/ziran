@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/taoq-ai/ziran/compare/v0.25.0...v0.26.0) (2026-04-09)
+
+
+### Features
+
+* v0.8 runtime bridge — export-policy, analyze-traces, watch-registry ([#258](https://github.com/taoq-ai/ziran/issues/258)) ([a2ba0c2](https://github.com/taoq-ai/ziran/commit/a2ba0c222955387ea4ec0894943b58b94e7b191e))
+
 ## [0.25.0](https://github.com/taoq-ai/ziran/compare/v0.24.0...v0.25.0) (2026-04-04)
 
 
