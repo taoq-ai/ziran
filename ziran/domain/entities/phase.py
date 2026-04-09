@@ -218,6 +218,7 @@ class CampaignResult(BaseModel):
         description="AILuminate-style resilience metrics computed from campaign data",
     )
     metadata: dict[str, Any] = Field(default_factory=dict)
+    source: str = Field(default="scan", description="Result source: 'scan' or 'trace-analysis'")
 
     @property
     def phases_with_findings(self) -> list[PhaseResult]:

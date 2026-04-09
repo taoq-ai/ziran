@@ -1,0 +1,57 @@
+# Ziran AI Agent Security Gate for Azure Pipelines
+# Usage: Copy this file into your repository root
+#
+# Coverage levels: essential | standard | comprehensive
+# Severity threshold: critical | high | medium | low
+
+trigger:
+  branches:
+    include:
+      - main
+
+parameters:
+  - name: ziranCoverage
+    displayName: Coverage Level
+    type: string
+    default: standard
+    values:
+      - essential
+      - standard
+      - comprehensive
+  - name: ziranSeverityThreshold
+    displayName: Severity Threshold
+    type: string
+    default: medium
+    values:
+      - critical
+      - high
+      - medium
+      - low
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+    displayName: Set up Python
+
+  - script: pip install ziran
+    displayName: Install Ziran
+
+  - script: |
+      ziran ci \
+        --result-file ${RESULT_FILE:-scan_results.json} \
+        --severity-threshold ${{ parameters.ziranSeverityThreshold }} \
+        --coverage ${{ parameters.ziranCoverage }} \
+        --output sarif \
+        --sarif-file $(Build.ArtifactStagingDirectory)/ziran-results.sarif
+    displayName: Run Ziran security scan
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: $(Build.ArtifactStagingDirectory)/ziran-results.sarif
+      artifactName: CodeAnalysisLogs
+    displayName: Upload SARIF report
+    condition: always()

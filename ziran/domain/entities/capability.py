@@ -6,6 +6,7 @@ during reconnaissance and capability mapping phases.
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -108,6 +109,19 @@ class DangerousChain(BaseModel):
     chain_type: str = Field(
         default="direct", description="Chain topology: direct, indirect, or cycle"
     )
+    observed_in_production: bool = Field(
+        default=False, description="True if this chain was observed in production traces"
+    )
+    first_seen: datetime | None = Field(
+        default=None, description="Earliest observation timestamp from trace analysis"
+    )
+    last_seen: datetime | None = Field(
+        default=None, description="Latest observation timestamp from trace analysis"
+    )
+    occurrence_count: int = Field(
+        default=0, ge=0, description="Number of times observed in production traces"
+    )
+    trace_source: str | None = Field(default=None, description="Trace source: 'otel' or 'langfuse'")
 
     @property
     def is_critical(self) -> bool:

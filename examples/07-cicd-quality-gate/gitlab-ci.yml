@@ -1,0 +1,28 @@
+# Ziran AI Agent Security Gate for GitLab CI
+# Usage: Copy this file content into your .gitlab-ci.yml
+#
+# Coverage levels: essential | standard | comprehensive
+# Severity threshold: critical | high | medium | low
+
+variables:
+  ZIRAN_COVERAGE: "standard"
+  ZIRAN_SEVERITY_THRESHOLD: "medium"
+
+ziran-security-scan:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install ziran
+  script:
+    - >-
+      ziran ci
+      --result-file ${RESULT_FILE:-scan_results.json}
+      --severity-threshold $ZIRAN_SEVERITY_THRESHOLD
+      --coverage $ZIRAN_COVERAGE
+      --output sarif
+      --sarif-file gl-sast-report.json
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+    when: always
+  allow_failure: false

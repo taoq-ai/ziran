@@ -2168,5 +2168,18 @@ def ui_cmd(host: str, port: int, dev: bool) -> None:
     uvicorn.run(app, host=host, port=port, reload=dev)
 
 
+def _register_v08_commands() -> None:
+    """Register v0.8 runtime-bridge CLI commands (lazy imports)."""
+    from ziran.interfaces.cli.analyze_traces import analyze_traces
+    from ziran.interfaces.cli.export_policy import export_policy
+    from ziran.interfaces.cli.watch_registry import watch_registry
+
+    cli.add_command(export_policy)
+    cli.add_command(analyze_traces)
+    cli.add_command(watch_registry)
+
+
+_register_v08_commands()
+
 if __name__ == "__main__":
     cli()

@@ -1,0 +1,1 @@
+"""Registry watch application services."""
