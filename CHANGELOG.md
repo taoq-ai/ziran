@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/taoq-ai/ziran/compare/v0.27.0...v0.28.0) (2026-04-21)
+
+
+### Features
+
+* **atlas:** retro-map every vector + atlas_coverage + CLI/report surface ([#263](https://github.com/taoq-ai/ziran/issues/263)) ([cd427ef](https://github.com/taoq-ai/ziran/commit/cd427ef138ca36d60218414e0a3f202818d019a1))
+
 ## [0.27.0](https://github.com/taoq-ai/ziran/compare/v0.26.0...v0.27.0) (2026-04-21)
 
 
