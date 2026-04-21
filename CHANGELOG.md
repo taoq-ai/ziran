@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/taoq-ai/ziran/compare/v0.26.0...v0.27.0) (2026-04-21)
+
+
+### Features
+
+* **domain:** add MITRE ATLAS taxonomy + atlas_mapping field on vectors/results ([#261](https://github.com/taoq-ai/ziran/issues/261)) ([acea6c2](https://github.com/taoq-ai/ziran/commit/acea6c2a4b0f6bee9085c0ae830e2ece4113a056))
+
 ## [0.26.0](https://github.com/taoq-ai/ziran/compare/v0.25.0...v0.26.0) (2026-04-09)
 
 
