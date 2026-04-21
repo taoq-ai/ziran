@@ -24,6 +24,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065, AML.T0068]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -53,6 +54,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065, AML.T0068]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -80,6 +82,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -107,6 +110,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -137,6 +141,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -165,6 +170,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -193,6 +199,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -220,6 +227,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -253,6 +261,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -282,6 +291,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0065, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -312,6 +322,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -339,6 +350,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0065, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -369,6 +381,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -398,6 +411,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0065, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -433,6 +447,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0051.001, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -461,6 +476,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -489,6 +505,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0031, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -517,6 +534,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -549,6 +567,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -578,6 +597,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -607,6 +627,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -634,6 +655,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0029, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -666,6 +688,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -693,6 +716,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057, AML.T0068]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -721,6 +745,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -748,6 +773,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -775,6 +801,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -805,6 +832,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -834,6 +862,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -863,6 +892,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -891,6 +921,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -923,6 +954,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -951,6 +983,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -980,6 +1013,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1012,6 +1046,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1039,6 +1074,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1068,6 +1104,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1095,6 +1132,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1126,6 +1164,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1151,6 +1190,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1177,6 +1217,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1209,6 +1250,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0029, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1236,6 +1278,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1268,6 +1311,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0043, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1295,6 +1339,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1323,6 +1368,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0065, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1354,6 +1400,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1382,6 +1429,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1411,6 +1459,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1440,6 +1489,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1467,6 +1517,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1496,6 +1547,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1525,6 +1577,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1553,6 +1606,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1585,6 +1639,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1611,6 +1666,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0065, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1637,6 +1693,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1667,6 +1724,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1694,6 +1752,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1722,6 +1781,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1753,6 +1813,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1780,6 +1841,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1807,6 +1869,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1835,6 +1898,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1865,6 +1929,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1892,6 +1957,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1920,6 +1986,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0050, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1950,6 +2017,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0029, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -1977,6 +2045,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07]
+    atlas_mapping: [AML.T0020, AML.T0029, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2004,6 +2073,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0029, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2035,6 +2105,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2062,6 +2133,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2093,6 +2165,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM05, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2119,6 +2192,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM05, LLM07]
+    atlas_mapping: [AML.T0010, AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2144,6 +2218,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM05, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0042, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2176,6 +2251,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07, LLM08]
+    atlas_mapping: [AML.T0000, AML.T0006, AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2204,6 +2280,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0040, AML.T0047, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2232,6 +2309,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2261,6 +2339,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM05, LLM07, LLM08]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2293,6 +2372,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2320,6 +2400,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2347,6 +2428,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM02, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2374,6 +2456,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM05, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0020, AML.T0050, AML.T0053, AML.T0054]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2403,6 +2486,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0015, AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2431,6 +2515,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2458,6 +2543,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2486,6 +2572,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0065, AML.T0072]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2513,6 +2600,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM05, LLM07]
+    atlas_mapping: [AML.T0010, AML.T0020, AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0053, AML.T0072, AML.T0109]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2541,6 +2629,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM02, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2569,6 +2658,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0050, AML.T0051, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [mcp]
     prompts:
       - template: >
@@ -2596,6 +2686,7 @@ vectors:
     references:
       - https://arxiv.org/abs/2504.03234
     owasp_mapping: [LLM05, LLM07]
+    atlas_mapping: [AML.T0020, AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0050, AML.T0053, AML.T0057]
     protocol_filter: [mcp]
     prompts:
       - template: >

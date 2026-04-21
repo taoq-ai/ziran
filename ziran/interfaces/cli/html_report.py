@@ -218,6 +218,8 @@ def build_html_report(
     attack_log_html = _build_attack_log_html(attack_results)
     # Build OWASP compliance HTML
     owasp_html = _build_owasp_html(attack_results, phases)
+    # Build ATLAS coverage HTML
+    atlas_html = _build_atlas_html(attack_results, phases)
 
     return _HTML_TEMPLATE.format(
         campaign_id=html.escape(campaign_id),
@@ -241,6 +243,7 @@ def build_html_report(
         legend_html=legend_html,
         attack_log_html=attack_log_html,
         owasp_html=owasp_html,
+        atlas_html=atlas_html,
         vis_nodes_json=json.dumps(vis_data["nodes"]),
         vis_edges_json=json.dumps(vis_data["edges"]),
         critical_paths_json=json.dumps(paths),
@@ -422,6 +425,82 @@ def _build_owasp_html(
             f"<td>{desc}</td><td>{status}</td><td>{finding_text}</td></tr>"
         )
     parts.append("</table>")
+    return "\n".join(parts)
+
+
+def _build_atlas_html(
+    attack_results: list[dict[str, Any]],
+    phases: list[dict[str, Any]],
+) -> str:
+    """Build a MITRE ATLAS coverage summary table grouped by tactic."""
+    from collections import Counter
+
+    from ziran.domain.entities.attack import (
+        AGENT_SPECIFIC_TECHNIQUES,
+        ATLAS_TACTIC_DESCRIPTIONS,
+        ATLAS_TECHNIQUE_DESCRIPTIONS,
+        ATLAS_TECHNIQUE_TO_TACTIC,
+        AtlasTactic,
+        AtlasTechnique,
+    )
+
+    findings: Counter[AtlasTechnique] = Counter()
+    tested: set[AtlasTechnique] = set()
+
+    for ar in attack_results:
+        for t_val in ar.get("atlas_mapping", []) or []:
+            try:
+                tech = AtlasTechnique(t_val)
+            except ValueError:
+                continue
+            tested.add(tech)
+            if ar.get("successful"):
+                findings[tech] += 1
+
+    for p in phases:
+        artifacts = p.get("artifacts", {})
+        vuln_ids = set(p.get("vulnerabilities_found", []))
+        for vid, art in artifacts.items():
+            for t_val in art.get("atlas_mapping", []) or []:
+                try:
+                    tech = AtlasTechnique(t_val)
+                except ValueError:
+                    continue
+                tested.add(tech)
+                if vid in vuln_ids:
+                    findings[tech] += 1
+
+    if not tested:
+        return '<p class="muted">No ATLAS mapping data available.</p>'
+
+    by_tactic: dict[AtlasTactic, list[AtlasTechnique]] = {}
+    for tech in sorted(tested, key=lambda t: t.value):
+        for tactic in ATLAS_TECHNIQUE_TO_TACTIC.get(tech, []):
+            by_tactic.setdefault(tactic, []).append(tech)
+
+    parts: list[str] = ['<table class="owasp-table">']
+    parts.append("<tr><th>Tactic</th><th>Technique</th><th>Status</th><th>Findings</th></tr>")
+    for tactic in AtlasTactic:
+        if tactic not in by_tactic:
+            continue
+        tactic_name = html.escape(ATLAS_TACTIC_DESCRIPTIONS.get(tactic, tactic.value))
+        for tech in by_tactic[tactic]:
+            desc = html.escape(ATLAS_TECHNIQUE_DESCRIPTIONS.get(tech, tech.value))
+            badge = " 🎯" if tech in AGENT_SPECIFIC_TECHNIQUES else ""
+            if tech in findings:
+                count = findings[tech]
+                status = '<span class="sev-badge sev-critical">FAIL</span>'
+                finding_text = f"{count} vuln{'s' if count != 1 else ''}"
+            else:
+                status = '<span class="sev-badge sev-ok">PASS</span>'
+                finding_text = "—"
+            parts.append(
+                f"<tr><td><strong>{tactic.value}</strong><br/><small>{tactic_name}</small></td>"
+                f"<td>{tech.value} — {desc}{badge}</td>"
+                f"<td>{status}</td><td>{finding_text}</td></tr>"
+            )
+    parts.append("</table>")
+    parts.append('<p class="muted">🎯 = agent-specific ATLAS technique (Oct 2025 release).</p>')
     return "\n".join(parts)
 
 
@@ -1020,6 +1099,12 @@ _HTML_TEMPLATE = """\
   <div class="section">
     <div class="section-title">OWASP LLM Top 10</div>
     {owasp_html}
+  </div>
+
+  <!-- MITRE ATLAS Coverage -->
+  <div class="section">
+    <div class="section-title">MITRE ATLAS Coverage</div>
+    {atlas_html}
   </div>
 
   <!-- Attack Paths -->

@@ -21,7 +21,7 @@ from ziran import __version__
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
-from ziran.domain.entities.attack import OwaspLlmCategory
+from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
@@ -628,12 +628,20 @@ def discover(
     default=None,
     help="Filter vectors by OWASP LLM Top 10 category (e.g., LLM01).",
 )
+@click.option(
+    "--atlas",
+    "atlas_filter",
+    type=str,
+    default=None,
+    help="Filter vectors by MITRE ATLAS technique ID (e.g., AML.T0051).",
+)
 def library(
     list_all: bool,
     category: str | None,
     phase: str | None,
     custom_attacks: str | None,
     owasp_filter: str | None,
+    atlas_filter: str | None,
 ) -> None:
     """Browse the attack vector library.
 
@@ -643,6 +651,7 @@ def library(
         ziran library --category prompt_injection
         ziran library --phase reconnaissance
         ziran library --owasp LLM01
+        ziran library --atlas AML.T0051
     """
     custom_dirs = [Path(custom_attacks)] if custom_attacks else None
     lib = AttackLibrary(custom_dirs=custom_dirs)
@@ -656,6 +665,20 @@ def library(
     if owasp_filter:
         owasp_cat = OwaspLlmCategory(owasp_filter)
         vectors = [v for v in vectors if owasp_cat in v.owasp_mapping]
+    if atlas_filter:
+        try:
+            atlas_tech = AtlasTechnique(atlas_filter)
+        except ValueError:
+            import difflib
+
+            valid = [t.value for t in AtlasTechnique]
+            suggestions = difflib.get_close_matches(atlas_filter, valid, n=3)
+            hint = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+            raise click.BadParameter(
+                f"Unknown ATLAS technique '{atlas_filter}'.{hint}",
+                param_hint="--atlas",
+            ) from None
+        vectors = [v for v in vectors if atlas_tech in v.atlas_mapping]
 
     if not vectors:
         console.print("[yellow]No matching attack vectors found.[/yellow]")
@@ -668,6 +691,7 @@ def library(
     table.add_column("Phase", style="blue")
     table.add_column("Severity", style="red")
     table.add_column("OWASP", style="yellow")
+    table.add_column("ATLAS", style="bright_cyan")
     table.add_column("Prompts", style="green", justify="right")
 
     for v in vectors:
@@ -679,6 +703,7 @@ def library(
         }.get(v.severity, "white")
 
         owasp_str = ", ".join(c.value for c in v.owasp_mapping) if v.owasp_mapping else "—"
+        atlas_str = ", ".join(t.value for t in v.atlas_mapping) if v.atlas_mapping else "—"
 
         table.add_row(
             v.id,
@@ -687,6 +712,7 @@ def library(
             v.target_phase.value,
             f"[{severity_style}]{v.severity}[/{severity_style}]",
             owasp_str,
+            atlas_str,
             str(v.prompt_count),
         )
 

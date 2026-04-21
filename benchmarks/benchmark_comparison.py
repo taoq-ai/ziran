@@ -15,12 +15,52 @@ from pathlib import Path
 
 from benchmarks.gap_status import GAPS
 from ziran.application.attacks.library import AttackLibrary, get_attack_library
-from ziran.domain.entities.attack import OwaspLlmCategory  # noqa: TC001
+from ziran.domain.entities.attack import (
+    AGENT_SPECIFIC_TECHNIQUES,
+    AtlasTactic,
+    AtlasTechnique,
+    OwaspLlmCategory,
+)
 
 try:
     from ziran.domain.entities.attack import HarmCategory
 except ImportError:
     HarmCategory = None  # type: ignore[assignment,misc]
+
+
+def _atlas_metrics(lib: AttackLibrary) -> list[dict]:
+    """Derive benchmark-comparison rows for the MITRE ATLAS row.
+
+    Counts distinct ATLAS tactics and techniques that appear in the library
+    via ``atlas_mapping`` on each vector.
+    """
+    tactics_covered: set[AtlasTactic] = set()
+    techniques_covered: set[AtlasTechnique] = set()
+    for v in lib.vectors:
+        from ziran.domain.entities.attack import ATLAS_TECHNIQUE_TO_TACTIC
+
+        for technique in v.atlas_mapping:
+            techniques_covered.add(technique)
+            tactics_covered.update(ATLAS_TECHNIQUE_TO_TACTIC.get(technique, []))
+    agent_specific_covered = techniques_covered & AGENT_SPECIFIC_TECHNIQUES
+
+    return [
+        {
+            "dimension": "ATLAS tactics covered",
+            "target": len(list(AtlasTactic)),
+            "implemented": len(tactics_covered),
+        },
+        {
+            "dimension": "ATLAS techniques mapped",
+            "target": len(list(AtlasTechnique)),
+            "implemented": len(techniques_covered),
+        },
+        {
+            "dimension": "Agent-specific techniques covered",
+            "target": len(AGENT_SPECIFIC_TECHNIQUES),
+            "implemented": len(agent_specific_covered),
+        },
+    ]
 
 
 def _count_vectors_by_tag(library: AttackLibrary, tag: str) -> int:
@@ -453,22 +493,10 @@ BENCHMARKS = [
         "url": "https://atlas.mitre.org/",
         "focus": "Adversarial ML threat taxonomy (TTPs)",
         "test_cases": None,
-        "key_dimensions": ["15 tactics", "66 techniques", "14 AI agent techniques"],
+        "key_dimensions": ["16 tactics", "81 techniques", "14 AI agent techniques"],
         "gap_id": "GAP-22",
         "gap_issue": "#61",
-        "coverage_fn": lambda lib: [
-            {
-                "dimension": "Attack categories vs tactics",
-                "target": 15,
-                "implemented": len(set(v.category.value for v in lib.vectors)),
-            },
-            {
-                "dimension": "ATLAS technique mapping",
-                "target": None,
-                "implemented": 0,
-                "note": "No atlas_mapping field yet — mapping planned",
-            },
-        ],
+        "coverage_fn": _atlas_metrics,
     },
 ]
 

@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from benchmarks.accuracy_metrics import collect_accuracy_metrics
+from benchmarks.atlas_coverage import collect_atlas_coverage
 from benchmarks.benchmark_comparison import collect_benchmark_comparison
 from benchmarks.gap_status import collect_gap_status
 from benchmarks.inventory import collect_inventory
@@ -48,6 +49,7 @@ def generate_markdown(
     owasp: dict,
     benchmarks: dict,
     gaps: dict,
+    atlas: dict,
 ) -> str:
     """Generate the coverage comparison markdown report."""
     lines: list[str] = []
@@ -106,6 +108,40 @@ def generate_markdown(
     if owasp["not_covered"]:
         lines.append(f"**Not covered:** {', '.join(owasp['not_covered'])}")
         lines.append("")
+
+    # -- MITRE ATLAS Coverage
+    lines.append("## MITRE ATLAS Coverage")
+    lines.append("")
+    lines.append(
+        f"Technique mapping snapshot date: **{atlas['snapshot_date']}** "
+        f"(see [atlas-mapping.md](atlas-mapping.md) for methodology)."
+    )
+    lines.append("")
+    totals = atlas["totals"]
+    lines.append(
+        f"- **{totals['techniques_covered']}/{totals['techniques_total_in_enum']}** "
+        f"ATLAS techniques represented in the library"
+    )
+    lines.append(
+        f"- **{totals['agent_specific_covered']}/{totals['agent_specific_total']}** "
+        f"agent-specific techniques covered "
+        f"(from the October 2025 ATLAS release)"
+    )
+    lines.append(
+        f"- **{totals['vectors_with_atlas_mapping']}/{totals['vectors_total']}** "
+        f"vectors carry an ATLAS mapping"
+    )
+    lines.append("")
+    lines.append("### Coverage by Tactic")
+    lines.append("")
+    lines.append("| Tactic | Name | Techniques | Vectors |")
+    lines.append("|--------|------|-----------:|--------:|")
+    for tactic_id, info in atlas["per_tactic"].items():
+        tech_frac = f"{info['techniques_covered']}/{info['techniques_total']}"
+        lines.append(
+            f"| **{tactic_id}** | {info['tactic_name']} | {tech_frac} | {info['vector_count']} |"
+        )
+    lines.append("")
 
     # -- Benchmark Comparison (with progress bars)
     lines.append("## Benchmark Comparison")
@@ -203,6 +239,7 @@ def generate_readme(
     owasp: dict,
     benchmarks: dict,
     gaps: dict,
+    atlas: dict,
 ) -> str:
     """Generate the benchmarks/README.md for GitHub visibility."""
     lines: list[str] = []
@@ -229,6 +266,12 @@ def generate_readme(
     lines.append(f"| Multi-turn tactics | **{n_tactics}** |")
     lines.append(f"| Encoding types | **{inventory['encoding_types']}** |")
     lines.append(f"| Benchmarks analyzed | **{benchmarks['total_benchmarks']}** |")
+    atlas_totals = atlas["totals"]
+    lines.append(
+        f"| MITRE ATLAS techniques covered | **{atlas_totals['techniques_covered']}/"
+        f"{atlas_totals['techniques_total_in_enum']}** "
+        f"({atlas_totals['agent_specific_covered']}/{atlas_totals['agent_specific_total']} agent-specific) |"
+    )
     gap_summary = gaps["summary"]
     closed = gap_summary["by_status"].get("closed", 0)
     total = gap_summary["total"]
@@ -377,6 +420,10 @@ def main() -> None:
     owasp = collect_owasp_coverage()
     write_json(owasp, RESULTS_DIR / "owasp_coverage.json")
 
+    print("Analyzing MITRE ATLAS coverage...")
+    atlas = collect_atlas_coverage()
+    write_json(atlas, RESULTS_DIR / "atlas_coverage.json")
+
     print("Comparing against benchmarks...")
     benchmarks = collect_benchmark_comparison()
     write_json(benchmarks, RESULTS_DIR / "benchmark_comparison.json")
@@ -398,13 +445,13 @@ def main() -> None:
     write_json(utility, RESULTS_DIR / "utility_metrics.json")
 
     print("Generating markdown report...")
-    md = generate_markdown(inventory, owasp, benchmarks, gaps)
+    md = generate_markdown(inventory, owasp, benchmarks, gaps, atlas)
     report_path = DOCS_DIR / "coverage-comparison.md"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(md)
 
     print("Generating README...")
-    readme = generate_readme(inventory, owasp, benchmarks, gaps)
+    readme = generate_readme(inventory, owasp, benchmarks, gaps, atlas)
     README_PATH.write_text(readme)
 
     print(f"\nResults written to {RESULTS_DIR}/")
@@ -413,6 +460,10 @@ def main() -> None:
     print("\nSummary:")
     print(f"  Vectors: {inventory['total_vectors']}")
     print(f"  OWASP coverage: {owasp['coverage_pct']}%")
+    print(
+        f"  ATLAS techniques: {atlas['totals']['techniques_covered']}/"
+        f"{atlas['totals']['techniques_total_in_enum']}"
+    )
     print(f"  Benchmarks: {benchmarks['total_benchmarks']}")
     print(
         f"  Gaps closed: {gaps['summary']['by_status'].get('closed', 0)}/{gaps['summary']['total']}"

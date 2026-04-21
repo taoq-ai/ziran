@@ -412,6 +412,7 @@ class AttackLibrary:
             tags=data.get("tags", []),
             references=data.get("references", []),
             owasp_mapping=[OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])],
+            atlas_mapping=[AtlasTechnique(t) for t in data.get("atlas_mapping", [])],
             protocol_filter=data.get("protocol_filter", []),
             tactic=data.get("tactic", "single"),
             harm_category=HarmCategory(data["harm_category"])
