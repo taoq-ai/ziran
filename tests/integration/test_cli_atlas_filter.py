@@ -45,9 +45,7 @@ def test_invalid_atlas_technique_errors_with_suggestion() -> None:
 def test_atlas_and_owasp_filters_compose_as_and() -> None:
     runner = CliRunner()
     atlas_only = runner.invoke(cli, ["library", "--atlas", "AML.T0051.000"])
-    combined = runner.invoke(
-        cli, ["library", "--atlas", "AML.T0051.000", "--owasp", "LLM01"]
-    )
+    combined = runner.invoke(cli, ["library", "--atlas", "AML.T0051.000", "--owasp", "LLM01"])
     assert atlas_only.exit_code == 0
     assert combined.exit_code == 0
     # AND semantics: combined count must not exceed the single-filter count.
