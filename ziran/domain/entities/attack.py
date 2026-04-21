@@ -182,6 +182,7 @@ class AtlasTechnique(StrEnum):
     EVADE_AI_MODEL = "AML.T0015"
     EXPLOIT_PUBLIC_FACING_APPLICATION = "AML.T0049"
     PHISHING = "AML.T0052"
+    PHISHING_SPEARPHISHING_LLM = "AML.T0052.000"
 
     # ── AI Model Access (AML.TA0000) ─────────────────────────────────
     AI_MODEL_INFERENCE_API_ACCESS = "AML.T0040"
@@ -199,6 +200,9 @@ class AtlasTechnique(StrEnum):
 
     # ── Persistence (AML.TA0006) ─────────────────────────────────────
     MANIPULATE_AI_MODEL = "AML.T0018"
+    MANIPULATE_AI_MODEL_POISON = "AML.T0018.000"
+    MANIPULATE_AI_MODEL_ARCHITECTURE = "AML.T0018.001"
+    MANIPULATE_AI_MODEL_EMBED_MALWARE = "AML.T0018.002"
     POISON_TRAINING_DATA = "AML.T0020"
     LLM_PROMPT_SELF_REPLICATION = "AML.T0061"
     RAG_POISONING = "AML.T0070"
@@ -253,6 +257,10 @@ class AtlasTechnique(StrEnum):
     COST_HARVESTING = "AML.T0034"
     SPAMMING_AI_SYSTEM_WITH_CHAFF_DATA = "AML.T0046"
     EXTERNAL_HARMS = "AML.T0048"
+    EXTERNAL_HARMS_FINANCIAL = "AML.T0048.000"
+    EXTERNAL_HARMS_REPUTATIONAL = "AML.T0048.001"
+    EXTERNAL_HARMS_SOCIETAL = "AML.T0048.002"
+    EXTERNAL_HARMS_USER = "AML.T0048.003"
     EXTERNAL_HARMS_AI_IP_THEFT = "AML.T0048.004"
     ERODE_DATASET_INTEGRITY = "AML.T0059"
     GENERATE_DEEPFAKES = "AML.T0088"
@@ -283,6 +291,7 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.EVADE_AI_MODEL: "Evade AI Model",
     AtlasTechnique.EXPLOIT_PUBLIC_FACING_APPLICATION: "Exploit Public-Facing Application",
     AtlasTechnique.PHISHING: "Phishing",
+    AtlasTechnique.PHISHING_SPEARPHISHING_LLM: "Spearphishing via Social Engineering LLM",
     AtlasTechnique.AI_MODEL_INFERENCE_API_ACCESS: "AI Model Inference API Access",
     AtlasTechnique.PHYSICAL_ENVIRONMENT_ACCESS: "Physical Environment Access",
     AtlasTechnique.FULL_AI_MODEL_ACCESS: "Full AI Model Access",
@@ -294,6 +303,9 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.LLM_PROMPT_INJECTION_INDIRECT: "LLM Prompt Injection: Indirect",
     AtlasTechnique.AI_AGENT_TOOL_INVOCATION: "AI Agent Tool Invocation",
     AtlasTechnique.MANIPULATE_AI_MODEL: "Manipulate AI Model",
+    AtlasTechnique.MANIPULATE_AI_MODEL_POISON: "Manipulate AI Model: Poison AI Model",
+    AtlasTechnique.MANIPULATE_AI_MODEL_ARCHITECTURE: "Manipulate AI Model: Modify Architecture",
+    AtlasTechnique.MANIPULATE_AI_MODEL_EMBED_MALWARE: "Manipulate AI Model: Embed Malware",
     AtlasTechnique.POISON_TRAINING_DATA: "Poison Training Data",
     AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: "LLM Prompt Self-Replication",
     AtlasTechnique.RAG_POISONING: "RAG Poisoning",
@@ -332,6 +344,10 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.COST_HARVESTING: "Cost Harvesting",
     AtlasTechnique.SPAMMING_AI_SYSTEM_WITH_CHAFF_DATA: "Spamming AI System with Chaff Data",
     AtlasTechnique.EXTERNAL_HARMS: "External Harms",
+    AtlasTechnique.EXTERNAL_HARMS_FINANCIAL: "External Harms: Financial Harm",
+    AtlasTechnique.EXTERNAL_HARMS_REPUTATIONAL: "External Harms: Reputational Harm",
+    AtlasTechnique.EXTERNAL_HARMS_SOCIETAL: "External Harms: Societal Harm",
+    AtlasTechnique.EXTERNAL_HARMS_USER: "External Harms: User Harm",
     AtlasTechnique.EXTERNAL_HARMS_AI_IP_THEFT: "External Harms: AI Intellectual Property Theft",
     AtlasTechnique.ERODE_DATASET_INTEGRITY: "Erode Dataset Integrity",
     AtlasTechnique.GENERATE_DEEPFAKES: "Generate Deepfakes",
@@ -369,6 +385,10 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     ],
     AtlasTechnique.EXPLOIT_PUBLIC_FACING_APPLICATION: [AtlasTactic.INITIAL_ACCESS],
     AtlasTechnique.PHISHING: [AtlasTactic.INITIAL_ACCESS, AtlasTactic.LATERAL_MOVEMENT],
+    AtlasTechnique.PHISHING_SPEARPHISHING_LLM: [
+        AtlasTactic.INITIAL_ACCESS,
+        AtlasTactic.LATERAL_MOVEMENT,
+    ],
     AtlasTechnique.AI_MODEL_INFERENCE_API_ACCESS: [AtlasTactic.AI_MODEL_ACCESS],
     AtlasTechnique.PHYSICAL_ENVIRONMENT_ACCESS: [AtlasTactic.AI_MODEL_ACCESS],
     AtlasTechnique.FULL_AI_MODEL_ACCESS: [AtlasTactic.AI_MODEL_ACCESS],
@@ -383,6 +403,18 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
         AtlasTactic.PRIVILEGE_ESCALATION,
     ],
     AtlasTechnique.MANIPULATE_AI_MODEL: [AtlasTactic.PERSISTENCE, AtlasTactic.AI_ATTACK_STAGING],
+    AtlasTechnique.MANIPULATE_AI_MODEL_POISON: [
+        AtlasTactic.PERSISTENCE,
+        AtlasTactic.AI_ATTACK_STAGING,
+    ],
+    AtlasTechnique.MANIPULATE_AI_MODEL_ARCHITECTURE: [
+        AtlasTactic.PERSISTENCE,
+        AtlasTactic.AI_ATTACK_STAGING,
+    ],
+    AtlasTechnique.MANIPULATE_AI_MODEL_EMBED_MALWARE: [
+        AtlasTactic.PERSISTENCE,
+        AtlasTactic.AI_ATTACK_STAGING,
+    ],
     AtlasTechnique.POISON_TRAINING_DATA: [
         AtlasTactic.PERSISTENCE,
         AtlasTactic.RESOURCE_DEVELOPMENT,
@@ -425,6 +457,10 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     AtlasTechnique.COST_HARVESTING: [AtlasTactic.IMPACT],
     AtlasTechnique.SPAMMING_AI_SYSTEM_WITH_CHAFF_DATA: [AtlasTactic.IMPACT],
     AtlasTechnique.EXTERNAL_HARMS: [AtlasTactic.IMPACT],
+    AtlasTechnique.EXTERNAL_HARMS_FINANCIAL: [AtlasTactic.IMPACT],
+    AtlasTechnique.EXTERNAL_HARMS_REPUTATIONAL: [AtlasTactic.IMPACT],
+    AtlasTechnique.EXTERNAL_HARMS_SOCIETAL: [AtlasTactic.IMPACT],
+    AtlasTechnique.EXTERNAL_HARMS_USER: [AtlasTactic.IMPACT],
     AtlasTechnique.EXTERNAL_HARMS_AI_IP_THEFT: [AtlasTactic.IMPACT],
     AtlasTechnique.ERODE_DATASET_INTEGRITY: [AtlasTactic.IMPACT],
     AtlasTechnique.GENERATE_DEEPFAKES: [AtlasTactic.IMPACT],

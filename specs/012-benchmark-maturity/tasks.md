@@ -80,41 +80,41 @@ description: "Tasks for Benchmark Maturity release (012)"
 
 ### ATLAS enum expansion to cover existing library (iterative — grows with annotation)
 
-- [ ] T014 [US1] Enumerate every MITRE ATLAS technique that will be referenced during annotation, expanding `AtlasTechnique`, `ATLAS_TECHNIQUE_DESCRIPTIONS`, and `ATLAS_TECHNIQUE_TO_TACTIC` until the enum covers ≥ 60 techniques. Source the IDs and names from the October 2025 ATLAS release notes and matrix
+- [X] T014 [US1] Enumerate every MITRE ATLAS technique that will be referenced during annotation, expanding `AtlasTechnique`, `ATLAS_TECHNIQUE_DESCRIPTIONS`, and `ATLAS_TECHNIQUE_TO_TACTIC` until the enum covers ≥ 60 techniques. Source the IDs and names from the October 2025 ATLAS release notes and matrix
 
 ### Retro-mapping pass — annotate `atlas_mapping` on every existing vector
 
 Each task below touches one file (or a tight family of closely-related files) and can run in parallel with the others.
 
-- [ ] T015 [P] [US1] Annotate `ziran/application/attacks/vectors/prompt_injection.yaml` — every vector gets one or more ATLAS technique IDs
-- [ ] T016 [P] [US1] Annotate prompt-injection family in `ziran/application/attacks/vectors/jailbreakbench.yaml`, `multi_turn_tactics.yaml`, and `expanded_tactics.yaml`
-- [ ] T017 [P] [US1] Annotate `ziran/application/attacks/vectors/chain_of_thought_manipulation.yaml` and `memory_poisoning.yaml`
-- [ ] T018 [P] [US1] Annotate indirect-injection family: `ziran/application/attacks/vectors/indirect_injection.yaml`, `indirect_injection_escalation.yaml`, `indirect_injection_exfiltration.yaml`, `indirect_injection_tool_abuse.yaml`
-- [ ] T019 [P] [US1] Annotate `ziran/application/attacks/vectors/mcp_attacks.yaml`, `mcp_attacks_expanded.yaml`, and `model_dos.yaml`
-- [ ] T020 [P] [US1] Annotate `ziran/application/attacks/vectors/data_exfiltration.yaml` and `system_prompt_extraction.yaml`
-- [ ] T021 [P] [US1] Annotate `ziran/application/attacks/vectors/authorization.yaml` and `privilege_escalation.yaml`
-- [ ] T022 [P] [US1] Annotate `ziran/application/attacks/vectors/multi_agent.yaml`, `a2a_attacks.yaml`, and `rjudge.yaml`
-- [ ] T023 [P] [US1] Annotate `ziran/application/attacks/vectors/harmful_tasks.yaml`, `harmful_tasks_expanded.yaml`, and `alert_coverage.yaml`
+- [X] T015 [P] [US1] Annotate `ziran/application/attacks/vectors/prompt_injection.yaml` — every vector gets one or more ATLAS technique IDs
+- [X] T016 [P] [US1] Annotate prompt-injection family in `ziran/application/attacks/vectors/jailbreakbench.yaml`, `multi_turn_tactics.yaml`, and `expanded_tactics.yaml`
+- [X] T017 [P] [US1] Annotate `ziran/application/attacks/vectors/chain_of_thought_manipulation.yaml` and `memory_poisoning.yaml`
+- [X] T018 [P] [US1] Annotate indirect-injection family: `ziran/application/attacks/vectors/indirect_injection.yaml`, `indirect_injection_escalation.yaml`, `indirect_injection_exfiltration.yaml`, `indirect_injection_tool_abuse.yaml`
+- [X] T019 [P] [US1] Annotate `ziran/application/attacks/vectors/mcp_attacks.yaml`, `mcp_attacks_expanded.yaml`, and `model_dos.yaml`
+- [X] T020 [P] [US1] Annotate `ziran/application/attacks/vectors/data_exfiltration.yaml` and `system_prompt_extraction.yaml`
+- [X] T021 [P] [US1] Annotate `ziran/application/attacks/vectors/authorization.yaml` and `privilege_escalation.yaml`
+- [X] T022 [P] [US1] Annotate `ziran/application/attacks/vectors/multi_agent.yaml`, `a2a_attacks.yaml`, and `rjudge.yaml`
+- [X] T023 [P] [US1] Annotate `ziran/application/attacks/vectors/harmful_tasks.yaml`, `harmful_tasks_expanded.yaml`, and `alert_coverage.yaml`
 
 ### Benchmark script and dashboard
 
-- [ ] T024 [US1] Create `benchmarks/atlas_coverage.py` implementing the JSON schema and stdout table defined in `contracts/benchmark-reports.md` (uses `ATLAS_TECHNIQUE_TO_TACTIC` and `AGENT_SPECIFIC_TECHNIQUES`; exit code 0 on full coverage, 1 on empty mappings or missing agent-specific techniques)
-- [ ] T025 [US1] Add `benchmarks/atlas_coverage.py` to the regeneration list in `benchmarks/generate_all.py`
-- [ ] T026 [US1] Extend `benchmarks/benchmark_comparison.py` with a MITRE ATLAS row whose numerator is the count of covered techniques (from `atlas_coverage.py`) and denominator is `len(AtlasTechnique)`
+- [X] T024 [US1] Create `benchmarks/atlas_coverage.py` implementing the JSON schema and stdout table defined in `contracts/benchmark-reports.md` (uses `ATLAS_TECHNIQUE_TO_TACTIC` and `AGENT_SPECIFIC_TECHNIQUES`; exit code 0 on full coverage, 1 on empty mappings or missing agent-specific techniques)
+- [X] T025 [US1] Add `benchmarks/atlas_coverage.py` to the regeneration list in `benchmarks/generate_all.py`
+- [X] T026 [US1] Extend `benchmarks/benchmark_comparison.py` with a MITRE ATLAS row whose numerator is the count of covered techniques (from `atlas_coverage.py`) and denominator is `len(AtlasTechnique)`
 
 ### CLI and report surface
 
-- [ ] T027 [US1] Add `--atlas` option to the `library` subcommand in `ziran/interfaces/cli/main.py` (Click choice derived from `AtlasTechnique`; include `difflib.get_close_matches` suggestion on invalid values; compose with existing `--owasp`, `--category`, `--severity`, `--tag` as AND)
-- [ ] T028 [US1] Add an `ATLAS` column to the `library` subcommand's Rich table output in `ziran/interfaces/cli/main.py` (mirror the existing `OWASP` column rendering)
-- [ ] T029 [US1] Add an "ATLAS" section to the Markdown report template in `ziran/interfaces/cli/reports.py` — per-finding technique list and a tactic-level coverage summary, with agent-specific techniques highlighted
-- [ ] T030 [US1] Add the equivalent "ATLAS" section to the HTML report template (same file or adjacent — whichever holds the current OWASP compliance table)
-- [ ] T031 [US1] Regenerate `docs/reference/benchmarks/coverage-comparison.md` by running `uv run python benchmarks/generate_all.py` and committing the output
+- [X] T027 [US1] Add `--atlas` option to the `library` subcommand in `ziran/interfaces/cli/main.py` (Click choice derived from `AtlasTechnique`; include `difflib.get_close_matches` suggestion on invalid values; compose with existing `--owasp`, `--category`, `--severity`, `--tag` as AND)
+- [X] T028 [US1] Add an `ATLAS` column to the `library` subcommand's Rich table output in `ziran/interfaces/cli/main.py` (mirror the existing `OWASP` column rendering)
+- [X] T029 [US1] Add an "ATLAS" section to the Markdown report template in `ziran/interfaces/cli/reports.py` — per-finding technique list and a tactic-level coverage summary, with agent-specific techniques highlighted
+- [X] T030 [US1] Add the equivalent "ATLAS" section to the HTML report template (same file or adjacent — whichever holds the current OWASP compliance table)
+- [X] T031 [US1] Regenerate `docs/reference/benchmarks/coverage-comparison.md` by running `uv run python benchmarks/generate_all.py` and committing the output
 
 ### Tests (US1)
 
-- [ ] T032 [P] [US1] Integration test `tests/integration/test_atlas_coverage_script.py` — runs `atlas_coverage.py`, asserts JSON matches schema, asserts byte-identical output on two runs (determinism), asserts exit 0 when all mapped
-- [ ] T033 [P] [US1] Integration test `tests/integration/test_cli_atlas_filter.py` — valid technique → non-empty; invalid technique → exit 2 with suggestion; combined `--atlas X --owasp Y` AND semantics
-- [ ] T034 [P] [US1] Integration test `tests/integration/test_report_atlas_section.py` — run a synthetic campaign, assert Markdown and HTML reports include per-finding ATLAS ID and the ATLAS coverage section
+- [X] T032 [P] [US1] Integration test `tests/integration/test_atlas_coverage_script.py` — runs `atlas_coverage.py`, asserts JSON matches schema, asserts byte-identical output on two runs (determinism), asserts exit 0 when all mapped
+- [X] T033 [P] [US1] Integration test `tests/integration/test_cli_atlas_filter.py` — valid technique → non-empty; invalid technique → exit 2 with suggestion; combined `--atlas X --owasp Y` AND semantics
+- [X] T034 [P] [US1] Integration test `tests/integration/test_report_atlas_section.py` — run a synthetic campaign, assert Markdown and HTML reports include per-finding ATLAS ID and the ATLAS coverage section
 - [ ] T035 [US1] Unit test extension in `tests/unit/test_library_atlas_filter.py` — assert `lint_atlas_coverage()` returns empty list after retro-mapping
 
 **Checkpoint**: US1 fully deliverable. Every vector has an ATLAS mapping, `atlas_coverage.py` passes, CLI filter works, reports surface the mapping, benchmark comparison table shows the new row.

@@ -20,6 +20,7 @@ vectors:
     references:
       - https://google.github.io/A2A/specification/
     owasp_mapping: [LLM06]
+    atlas_mapping: [AML.T0006, AML.T0007, AML.T0013, AML.T0014, AML.T0035, AML.T0052, AML.T0053, AML.T0056, AML.T0063, AML.T0069.002]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -49,6 +50,7 @@ vectors:
       internal tool schemas, authentication flows, or model details.
     tags: [a2a, agent_card, extended, information_disclosure, protocol]
     owasp_mapping: [LLM06]
+    atlas_mapping: [AML.T0007, AML.T0013, AML.T0014, AML.T0035, AML.T0052, AML.T0053, AML.T0056, AML.T0063, AML.T0069.002]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -81,6 +83,7 @@ vectors:
       permissions or state from a different session.
     tags: [a2a, context, pollution, session, multi_turn, protocol]
     owasp_mapping: [LLM01]
+    atlas_mapping: [AML.T0018, AML.T0018.000, AML.T0018.001, AML.T0020, AML.T0052, AML.T0053, AML.T0059, AML.T0061]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -113,6 +116,7 @@ vectors:
       belong to other sessions.
     tags: [a2a, task, history, exfiltration, cross_session, protocol]
     owasp_mapping: [LLM02, LLM06]
+    atlas_mapping: [AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0052, AML.T0053, AML.T0057]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -145,6 +149,7 @@ vectors:
       boundaries are enforced at the protocol level.
     tags: [a2a, skill, boundary, privilege, bypass, protocol]
     owasp_mapping: [LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0040, AML.T0047, AML.T0052, AML.T0053, AML.T0054]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -177,6 +182,7 @@ vectors:
       of A2A agent skills.
     tags: [a2a, skill, chaining, escalation, composition, protocol]
     owasp_mapping: [LLM07, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0040, AML.T0047, AML.T0052, AML.T0053, AML.T0054]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -212,6 +218,7 @@ vectors:
       tasks/get) via prompt injection instead of proper API calls.
     tags: [a2a, jsonrpc, injection, protocol_abuse, protocol]
     owasp_mapping: [LLM01, LLM02]
+    atlas_mapping: [AML.T0040, AML.T0042, AML.T0043, AML.T0047, AML.T0051, AML.T0052, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -243,6 +250,7 @@ vectors:
       (e.g., file downloads) that bypass content filtering.
     tags: [a2a, artifact, exfiltration, data_leak, protocol]
     owasp_mapping: [LLM06, LLM02]
+    atlas_mapping: [AML.T0024, AML.T0024.000, AML.T0024.001, AML.T0024.002, AML.T0025, AML.T0036, AML.T0040, AML.T0047, AML.T0052, AML.T0053, AML.T0057]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -275,6 +283,7 @@ vectors:
       operations after auth has been invalidated or expired.
     tags: [a2a, auth, state, session, lifecycle, protocol]
     owasp_mapping: [LLM07, LLM08]
+    atlas_mapping: [AML.T0012, AML.T0015, AML.T0040, AML.T0047, AML.T0052, AML.T0053, AML.T0054]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -306,6 +315,7 @@ vectors:
       metadata services, internal APIs, or cloud provider endpoints.
     tags: [a2a, push_notification, ssrf, protocol]
     owasp_mapping: [LLM07, LLM02]
+    atlas_mapping: [AML.T0040, AML.T0042, AML.T0047, AML.T0050, AML.T0052, AML.T0053, AML.T0072]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -338,6 +348,7 @@ vectors:
       in a multi-agent A2A environment.
     tags: [a2a, agent_card, forgery, impersonation, trust, protocol]
     owasp_mapping: [LLM01, LLM07]
+    atlas_mapping: [AML.T0042, AML.T0043, AML.T0051, AML.T0052, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [a2a]
     prompts:
       - template: >

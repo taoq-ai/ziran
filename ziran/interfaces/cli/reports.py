@@ -12,9 +12,15 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from ziran.domain.entities.attack import (
+    AGENT_SPECIFIC_TECHNIQUES,
+    ATLAS_TACTIC_DESCRIPTIONS,
+    ATLAS_TECHNIQUE_DESCRIPTIONS,
+    ATLAS_TECHNIQUE_TO_TACTIC,
     BUSINESS_IMPACT_DESCRIPTIONS,
     HARM_CATEGORY_DESCRIPTIONS,
     OWASP_LLM_DESCRIPTIONS,
+    AtlasTactic,
+    AtlasTechnique,
     AttackCategory,
     BusinessImpact,
     HarmCategory,
@@ -240,6 +246,60 @@ class ReportGenerator:
                     status = "⚪ Not tested"
                     findings = "—"
                 lines.append(f"| {cat.value} | {desc} | {status} | {findings} |")
+            lines.append("")
+
+        # MITRE ATLAS Coverage Summary — mirrors OWASP structure, grouped by tactic.
+        atlas_findings: Counter[AtlasTechnique] = Counter()
+        atlas_tested: set[AtlasTechnique] = set()
+        for phase_result in result.phases_executed:
+            for _vid, artifact in phase_result.artifacts.items():
+                for t_val in artifact.get("atlas_mapping", []) or []:
+                    try:
+                        tech = AtlasTechnique(t_val)
+                    except ValueError:
+                        continue
+                    atlas_tested.add(tech)
+                    if _vid in phase_result.vulnerabilities_found:
+                        atlas_findings[tech] += 1
+        for ar in getattr(result, "attack_results", []):
+            for t_val in getattr(ar, "atlas_mapping", []) or []:
+                try:
+                    tech = AtlasTechnique(t_val)
+                except ValueError:
+                    continue
+                atlas_tested.add(tech)
+                if ar.successful:
+                    atlas_findings[tech] += 1
+
+        if atlas_tested:
+            lines.append("## MITRE ATLAS Coverage")
+            lines.append("")
+            by_tactic: dict[AtlasTactic, list[AtlasTechnique]] = {}
+            for tech in sorted(atlas_tested, key=lambda t: t.value):
+                for tactic in ATLAS_TECHNIQUE_TO_TACTIC.get(tech, []):
+                    by_tactic.setdefault(tactic, []).append(tech)
+            lines.append("| Tactic | Technique | Status | Findings |")
+            lines.append("|--------|-----------|--------|----------|")
+            for tactic in AtlasTactic:
+                if tactic not in by_tactic:
+                    continue
+                tactic_name = ATLAS_TACTIC_DESCRIPTIONS.get(tactic, tactic.value)
+                for tech in by_tactic[tactic]:
+                    desc = ATLAS_TECHNIQUE_DESCRIPTIONS.get(tech, tech.value)
+                    badge = " 🎯" if tech in AGENT_SPECIFIC_TECHNIQUES else ""
+                    if tech in atlas_findings:
+                        count = atlas_findings[tech]
+                        status = "🔴 FAIL"
+                        findings = f"{count} vulnerabilit{'y' if count == 1 else 'ies'}"
+                    else:
+                        status = "✅ PASS"
+                        findings = "—"
+                    lines.append(
+                        f"| {tactic.value} ({tactic_name}) | {tech.value} — {desc}{badge} "
+                        f"| {status} | {findings} |"
+                    )
+            lines.append("")
+            lines.append("_🎯 = AI-agent-specific ATLAS technique (October 2025 release)._")
             lines.append("")
 
         # Business Impact Summary (successful findings only)

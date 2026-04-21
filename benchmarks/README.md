@@ -12,7 +12,8 @@ How ZIRAN's attack vector library compares against published AI agent security b
 | Multi-turn tactics | **10** |
 | Encoding types | **12** |
 | Benchmarks analyzed | **20** |
-| Gap closure | **34.8%** (8/23) |
+| MITRE ATLAS techniques covered | **62/81** (14/14 agent-specific) |
+| Gap closure | **39.1%** (9/23) |
 
 ## OWASP LLM Top 10 Coverage
 
@@ -62,8 +63,9 @@ How ZIRAN's attack vector library compares against published AI agent security b
 |  |  | Under-attack performance measurement | 1 | 1 | `███████████████` 100.0% |  |  |
 | **ALERT** | 2024 | ALERT micro categories (32) | 32 | 32 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-21](https://github.com/taoq-ai/ziran/issues/60) |
 |  |  | Harm categories | — | 11 | _N/A_ |  |  |
-| **MITRE ATLAS** | MITRE, 2025 | Attack categories vs tactics | 15 | 11 | `███████████░░░░` 73.3% | :construction: open | [GAP-22](https://github.com/taoq-ai/ziran/issues/61) |
-|  |  | ATLAS technique mapping | — | 0 | _No atlas_mapping field yet — mapping planned_ |  |  |
+| **MITRE ATLAS** | MITRE, 2025 | ATLAS tactics covered | 16 | 16 | `███████████████` 100.0% | :construction: open | [GAP-22](https://github.com/taoq-ai/ziran/issues/61) |
+|  |  | ATLAS techniques mapped | 81 | 62 | `███████████░░░░` 76.5% |  |  |
+|  |  | Agent-specific techniques covered | 14 | 14 | `███████████████` 100.0% |  |  |
 
 ## Gap Status
 
