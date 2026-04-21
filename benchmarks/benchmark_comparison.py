@@ -496,7 +496,7 @@ BENCHMARKS = [
         "key_dimensions": ["16 tactics", "81 techniques", "14 AI agent techniques"],
         "gap_id": "GAP-22",
         "gap_issue": "#61",
-        "coverage_fn": lambda lib: _atlas_metrics(lib),
+        "coverage_fn": _atlas_metrics,
     },
 ]
 
