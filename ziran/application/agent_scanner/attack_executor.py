@@ -111,6 +111,7 @@ class AttackExecutor:
                 successful=False,
                 error="No prompts defined for this attack vector",
                 owasp_mapping=attack.owasp_mapping,
+                atlas_mapping=attack.atlas_mapping,
                 business_impact=get_business_impacts(attack.category, attack.severity),
                 harm_category=attack.harm_category,
             )
@@ -242,6 +243,7 @@ class AttackExecutor:
             agent_response=last_response_content,
             prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,
+            atlas_mapping=attack.atlas_mapping,
             business_impact=get_business_impacts(attack.category, attack.severity),
             harm_category=attack.harm_category,
             token_usage=attack_tokens,

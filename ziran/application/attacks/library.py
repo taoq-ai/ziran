@@ -35,6 +35,7 @@ import yaml
 from pydantic import ValidationError
 
 from ziran.domain.entities.attack import (
+    AtlasTechnique,
     AttackCategory,
     AttackPrompt,
     AttackVector,
@@ -228,6 +229,29 @@ class AttackLibrary:
             List of vectors mapped to this OWASP category.
         """
         return [v for v in self._vectors.values() if owasp_id in v.owasp_mapping]
+
+    def get_attacks_by_atlas(self, technique: AtlasTechnique) -> list[AttackVector]:
+        """Get all attack vectors mapped to a specific MITRE ATLAS technique.
+
+        Args:
+            technique: The ATLAS technique to filter by.
+
+        Returns:
+            List of vectors that exercise this technique.
+        """
+        return [v for v in self._vectors.values() if technique in v.atlas_mapping]
+
+    def lint_atlas_coverage(self) -> list[str]:
+        """Report attack vector IDs whose ``atlas_mapping`` is empty.
+
+        Used by the benchmark coverage script as a lint gate — after the
+        retro-mapping pass lands (spec 012, Phase 3), this list must be empty
+        in ``main``. Returns IDs in deterministic (sorted) order.
+
+        Returns:
+            Sorted list of vector IDs that lack an ATLAS mapping.
+        """
+        return sorted(v.id for v in self._vectors.values() if not v.atlas_mapping)
 
     def get_attacks_by_protocol(self, protocol: str) -> list[AttackVector]:
         """Get attack vectors applicable to a specific protocol.
