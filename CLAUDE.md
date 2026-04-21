@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-09
+Auto-generated from all feature plans. Last updated: 2026-04-21
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -15,6 +15,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-09
 - Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 (backend); React 18, Vite, TanStack Query/Table, shadcn/ui, Tailwind CSS, vis-network (frontend) (010-ui-polish-pages)
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI), httpx (async HTTP), pydantic (models), networkx (graph), pyyaml (config), rich (output), mdutils (reports). New optional: `langfuse` (trace pull). (011-runtime-bridge-v0-8)
 - Local JSON files for registry snapshots (`.ziran/snapshots/`); no database. (011-runtime-bridge-v0-8)
+- Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + pydantic (models), PyYAML (vector loader), click (CLI), rich (reports), networkx (graph — unchanged). No new dependencies. (012-benchmark-maturity)
+- YAML vector files under `ziran/application/attacks/vectors/`; benchmark result JSON under `benchmarks/results/`; docs under `docs/reference/benchmarks/`. (012-benchmark-maturity)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -34,9 +36,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 012-benchmark-maturity: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + pydantic (models), PyYAML (vector loader), click (CLI), rich (reports), networkx (graph — unchanged). No new dependencies.
 - 011-runtime-bridge-v0-8: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI), httpx (async HTTP), pydantic (models), networkx (graph), pyyaml (config), rich (output), mdutils (reports). New optional: `langfuse` (trace pull).
 - 010-ui-polish-pages: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 (backend); React 18, Vite, TanStack Query/Table, shadcn/ui, Tailwind CSS, vis-network (frontend)
-- 009-ui-findings-compliance: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2 (backend); React 18, Vite, TanStack Query, TanStack Table, shadcn/ui, Tailwind CSS (frontend)
 
 
 <!-- MANUAL ADDITIONS START -->

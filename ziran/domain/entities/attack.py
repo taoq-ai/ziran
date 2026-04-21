@@ -98,6 +98,363 @@ OWASP_LLM_DESCRIPTIONS: dict[OwaspLlmCategory, str] = {
 }
 
 
+class AtlasTactic(StrEnum):
+    """MITRE ATLAS tactics (adversary goals against AI systems).
+
+    Taxonomy for adversarial AI threats, parallel to MITRE ATT&CK for traditional
+    enterprise systems. Snapshot pinned to the October 2025 ATLAS release
+    (16 tactics).
+    See: https://atlas.mitre.org/
+    """
+
+    AI_MODEL_ACCESS = "AML.TA0000"
+    AI_ATTACK_STAGING = "AML.TA0001"
+    RECONNAISSANCE = "AML.TA0002"
+    RESOURCE_DEVELOPMENT = "AML.TA0003"
+    INITIAL_ACCESS = "AML.TA0004"
+    EXECUTION = "AML.TA0005"
+    PERSISTENCE = "AML.TA0006"
+    DEFENSE_EVASION = "AML.TA0007"
+    DISCOVERY = "AML.TA0008"
+    COLLECTION = "AML.TA0009"
+    EXFILTRATION = "AML.TA0010"
+    IMPACT = "AML.TA0011"
+    PRIVILEGE_ESCALATION = "AML.TA0012"
+    CREDENTIAL_ACCESS = "AML.TA0013"
+    COMMAND_AND_CONTROL = "AML.TA0014"
+    LATERAL_MOVEMENT = "AML.TA0015"
+
+
+#: Human-readable names for each ATLAS tactic.
+ATLAS_TACTIC_DESCRIPTIONS: dict[AtlasTactic, str] = {
+    AtlasTactic.AI_MODEL_ACCESS: "AI Model Access",
+    AtlasTactic.AI_ATTACK_STAGING: "AI Attack Staging",
+    AtlasTactic.RECONNAISSANCE: "Reconnaissance",
+    AtlasTactic.RESOURCE_DEVELOPMENT: "Resource Development",
+    AtlasTactic.INITIAL_ACCESS: "Initial Access",
+    AtlasTactic.EXECUTION: "Execution",
+    AtlasTactic.PERSISTENCE: "Persistence",
+    AtlasTactic.DEFENSE_EVASION: "Defense Evasion",
+    AtlasTactic.DISCOVERY: "Discovery",
+    AtlasTactic.COLLECTION: "Collection",
+    AtlasTactic.EXFILTRATION: "Exfiltration",
+    AtlasTactic.IMPACT: "Impact",
+    AtlasTactic.PRIVILEGE_ESCALATION: "Privilege Escalation",
+    AtlasTactic.CREDENTIAL_ACCESS: "Credential Access",
+    AtlasTactic.COMMAND_AND_CONTROL: "Command and Control",
+    AtlasTactic.LATERAL_MOVEMENT: "Lateral Movement",
+}
+
+
+class AtlasTechnique(StrEnum):
+    """MITRE ATLAS techniques — how an adversary achieves a tactical goal.
+
+    Snapshot pinned to the October 2025 ATLAS release. This enum includes
+    the techniques referenced by at least one ZIRAN attack vector, plus all
+    agent-specific techniques (see AGENT_SPECIFIC_TECHNIQUES).
+    See: https://atlas.mitre.org/techniques/
+    """
+
+    # ── Reconnaissance (AML.TA0002) ──────────────────────────────────
+    SEARCH_OPEN_TECHNICAL_DATABASES = "AML.T0000"
+    SEARCH_OPEN_AI_VULNERABILITY_ANALYSIS = "AML.T0001"
+    SEARCH_VICTIM_OWNED_WEBSITES = "AML.T0003"
+    SEARCH_APPLICATION_REPOSITORIES = "AML.T0004"
+    ACTIVE_SCANNING = "AML.T0006"
+    GATHER_RAG_INDEXED_TARGETS = "AML.T0064"
+
+    # ── Resource Development (AML.TA0003) ────────────────────────────
+    ACQUIRE_PUBLIC_AI_ARTIFACTS = "AML.T0002"
+    ACQUIRE_INFRASTRUCTURE = "AML.T0008"
+    OBTAIN_CAPABILITIES = "AML.T0016"
+    DEVELOP_CAPABILITIES = "AML.T0017"
+    PUBLISH_POISONED_DATASETS = "AML.T0019"
+    ESTABLISH_ACCOUNTS = "AML.T0021"
+    PUBLISH_POISONED_MODELS = "AML.T0058"
+    PUBLISH_HALLUCINATED_ENTITIES = "AML.T0060"
+    LLM_PROMPT_CRAFTING = "AML.T0065"
+    RETRIEVAL_CONTENT_CRAFTING = "AML.T0066"
+    AI_SUPPLY_CHAIN_RUG_PULL = "AML.T0109"
+
+    # ── Initial Access (AML.TA0004) ──────────────────────────────────
+    AI_SUPPLY_CHAIN_COMPROMISE = "AML.T0010"
+    VALID_ACCOUNTS = "AML.T0012"
+    EVADE_AI_MODEL = "AML.T0015"
+    EXPLOIT_PUBLIC_FACING_APPLICATION = "AML.T0049"
+    PHISHING = "AML.T0052"
+
+    # ── AI Model Access (AML.TA0000) ─────────────────────────────────
+    AI_MODEL_INFERENCE_API_ACCESS = "AML.T0040"
+    PHYSICAL_ENVIRONMENT_ACCESS = "AML.T0041"
+    FULL_AI_MODEL_ACCESS = "AML.T0044"
+    AI_ENABLED_PRODUCT_OR_SERVICE = "AML.T0047"
+
+    # ── Execution (AML.TA0005) ───────────────────────────────────────
+    USER_EXECUTION = "AML.T0011"
+    COMMAND_AND_SCRIPTING_INTERPRETER = "AML.T0050"
+    LLM_PROMPT_INJECTION = "AML.T0051"
+    LLM_PROMPT_INJECTION_DIRECT = "AML.T0051.000"
+    LLM_PROMPT_INJECTION_INDIRECT = "AML.T0051.001"
+    AI_AGENT_TOOL_INVOCATION = "AML.T0053"
+
+    # ── Persistence (AML.TA0006) ─────────────────────────────────────
+    MANIPULATE_AI_MODEL = "AML.T0018"
+    POISON_TRAINING_DATA = "AML.T0020"
+    LLM_PROMPT_SELF_REPLICATION = "AML.T0061"
+    RAG_POISONING = "AML.T0070"
+
+    # ── Privilege Escalation (AML.TA0012) ────────────────────────────
+    LLM_JAILBREAK = "AML.T0054"
+
+    # ── Defense Evasion (AML.TA0007) ─────────────────────────────────
+    LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION = "AML.T0067"
+    LLM_TRUSTED_OUTPUT_CITATIONS = "AML.T0067.000"
+    LLM_PROMPT_OBFUSCATION = "AML.T0068"
+    FALSE_RAG_ENTRY_INJECTION = "AML.T0071"
+
+    # ── Credential Access (AML.TA0013) ───────────────────────────────
+    UNSECURED_CREDENTIALS = "AML.T0055"
+
+    # ── Discovery (AML.TA0008) ───────────────────────────────────────
+    DISCOVER_AI_ARTIFACTS = "AML.T0007"
+    DISCOVER_AI_MODEL_ONTOLOGY = "AML.T0013"
+    DISCOVER_AI_MODEL_FAMILY = "AML.T0014"
+    DISCOVER_LLM_HALLUCINATIONS = "AML.T0062"
+    DISCOVER_AI_MODEL_OUTPUTS = "AML.T0063"
+    DISCOVER_LLM_SYSTEM_INFORMATION = "AML.T0069"
+    DISCOVER_LLM_SYSTEM_PROMPT = "AML.T0069.002"
+
+    # ── Collection (AML.TA0009) ──────────────────────────────────────
+    COLLECTION = "AML.T0009"
+    AI_ARTIFACT_COLLECTION = "AML.T0035"
+    DATA_FROM_INFORMATION_REPOSITORIES = "AML.T0036"
+    DATA_FROM_LOCAL_SYSTEM = "AML.T0037"
+
+    # ── AI Attack Staging (AML.TA0001) ───────────────────────────────
+    CREATE_PROXY_AI_MODEL = "AML.T0005"
+    VERIFY_ATTACK = "AML.T0042"
+    CRAFT_ADVERSARIAL_DATA = "AML.T0043"
+
+    # ── Command and Control (AML.TA0014) ─────────────────────────────
+    REVERSE_SHELL = "AML.T0072"
+
+    # ── Exfiltration (AML.TA0010) ────────────────────────────────────
+    EXFILTRATION_VIA_AI_INFERENCE_API = "AML.T0024"
+    INFER_TRAINING_DATA_MEMBERSHIP = "AML.T0024.000"
+    INVERT_AI_MODEL = "AML.T0024.001"
+    EXTRACT_AI_MODEL = "AML.T0024.002"
+    EXFILTRATION_VIA_CYBER_MEANS = "AML.T0025"
+    EXTRACT_LLM_SYSTEM_PROMPT = "AML.T0056"
+    LLM_DATA_LEAKAGE = "AML.T0057"
+
+    # ── Impact (AML.TA0011) ──────────────────────────────────────────
+    DENIAL_OF_AI_SERVICE = "AML.T0029"
+    ERODE_AI_MODEL_INTEGRITY = "AML.T0031"
+    COST_HARVESTING = "AML.T0034"
+    SPAMMING_AI_SYSTEM_WITH_CHAFF_DATA = "AML.T0046"
+    EXTERNAL_HARMS = "AML.T0048"
+    EXTERNAL_HARMS_AI_IP_THEFT = "AML.T0048.004"
+    ERODE_DATASET_INTEGRITY = "AML.T0059"
+    GENERATE_DEEPFAKES = "AML.T0088"
+    GENERATE_MALICIOUS_COMMANDS = "AML.T0102"
+
+
+#: Human-readable name for each ATLAS technique.
+ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
+    AtlasTechnique.SEARCH_OPEN_TECHNICAL_DATABASES: "Search Open Technical Databases",
+    AtlasTechnique.SEARCH_OPEN_AI_VULNERABILITY_ANALYSIS: "Search Open AI Vulnerability Analysis",
+    AtlasTechnique.SEARCH_VICTIM_OWNED_WEBSITES: "Search Victim-Owned Websites",
+    AtlasTechnique.SEARCH_APPLICATION_REPOSITORIES: "Search Application Repositories",
+    AtlasTechnique.ACTIVE_SCANNING: "Active Scanning",
+    AtlasTechnique.GATHER_RAG_INDEXED_TARGETS: "Gather RAG-Indexed Targets",
+    AtlasTechnique.ACQUIRE_PUBLIC_AI_ARTIFACTS: "Acquire Public AI Artifacts",
+    AtlasTechnique.ACQUIRE_INFRASTRUCTURE: "Acquire Infrastructure",
+    AtlasTechnique.OBTAIN_CAPABILITIES: "Obtain Capabilities",
+    AtlasTechnique.DEVELOP_CAPABILITIES: "Develop Capabilities",
+    AtlasTechnique.PUBLISH_POISONED_DATASETS: "Publish Poisoned Datasets",
+    AtlasTechnique.ESTABLISH_ACCOUNTS: "Establish Accounts",
+    AtlasTechnique.PUBLISH_POISONED_MODELS: "Publish Poisoned Models",
+    AtlasTechnique.PUBLISH_HALLUCINATED_ENTITIES: "Publish Hallucinated Entities",
+    AtlasTechnique.LLM_PROMPT_CRAFTING: "LLM Prompt Crafting",
+    AtlasTechnique.RETRIEVAL_CONTENT_CRAFTING: "Retrieval Content Crafting",
+    AtlasTechnique.AI_SUPPLY_CHAIN_RUG_PULL: "AI Supply Chain Rug Pull",
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE: "AI Supply Chain Compromise",
+    AtlasTechnique.VALID_ACCOUNTS: "Valid Accounts",
+    AtlasTechnique.EVADE_AI_MODEL: "Evade AI Model",
+    AtlasTechnique.EXPLOIT_PUBLIC_FACING_APPLICATION: "Exploit Public-Facing Application",
+    AtlasTechnique.PHISHING: "Phishing",
+    AtlasTechnique.AI_MODEL_INFERENCE_API_ACCESS: "AI Model Inference API Access",
+    AtlasTechnique.PHYSICAL_ENVIRONMENT_ACCESS: "Physical Environment Access",
+    AtlasTechnique.FULL_AI_MODEL_ACCESS: "Full AI Model Access",
+    AtlasTechnique.AI_ENABLED_PRODUCT_OR_SERVICE: "AI-Enabled Product or Service",
+    AtlasTechnique.USER_EXECUTION: "User Execution",
+    AtlasTechnique.COMMAND_AND_SCRIPTING_INTERPRETER: "Command and Scripting Interpreter",
+    AtlasTechnique.LLM_PROMPT_INJECTION: "LLM Prompt Injection",
+    AtlasTechnique.LLM_PROMPT_INJECTION_DIRECT: "LLM Prompt Injection: Direct",
+    AtlasTechnique.LLM_PROMPT_INJECTION_INDIRECT: "LLM Prompt Injection: Indirect",
+    AtlasTechnique.AI_AGENT_TOOL_INVOCATION: "AI Agent Tool Invocation",
+    AtlasTechnique.MANIPULATE_AI_MODEL: "Manipulate AI Model",
+    AtlasTechnique.POISON_TRAINING_DATA: "Poison Training Data",
+    AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: "LLM Prompt Self-Replication",
+    AtlasTechnique.RAG_POISONING: "RAG Poisoning",
+    AtlasTechnique.LLM_JAILBREAK: "LLM Jailbreak",
+    AtlasTechnique.LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION: (
+        "LLM Trusted Output Components Manipulation"
+    ),
+    AtlasTechnique.LLM_TRUSTED_OUTPUT_CITATIONS: "LLM Trusted Output Citations",
+    AtlasTechnique.LLM_PROMPT_OBFUSCATION: "LLM Prompt Obfuscation",
+    AtlasTechnique.FALSE_RAG_ENTRY_INJECTION: "False RAG Entry Injection",
+    AtlasTechnique.UNSECURED_CREDENTIALS: "Unsecured Credentials",
+    AtlasTechnique.DISCOVER_AI_ARTIFACTS: "Discover AI Artifacts",
+    AtlasTechnique.DISCOVER_AI_MODEL_ONTOLOGY: "Discover AI Model Ontology",
+    AtlasTechnique.DISCOVER_AI_MODEL_FAMILY: "Discover AI Model Family",
+    AtlasTechnique.DISCOVER_LLM_HALLUCINATIONS: "Discover LLM Hallucinations",
+    AtlasTechnique.DISCOVER_AI_MODEL_OUTPUTS: "Discover AI Model Outputs",
+    AtlasTechnique.DISCOVER_LLM_SYSTEM_INFORMATION: "Discover LLM System Information",
+    AtlasTechnique.DISCOVER_LLM_SYSTEM_PROMPT: "Discover LLM System Prompt",
+    AtlasTechnique.COLLECTION: "Collection",
+    AtlasTechnique.AI_ARTIFACT_COLLECTION: "AI Artifact Collection",
+    AtlasTechnique.DATA_FROM_INFORMATION_REPOSITORIES: "Data from Information Repositories",
+    AtlasTechnique.DATA_FROM_LOCAL_SYSTEM: "Data from Local System",
+    AtlasTechnique.CREATE_PROXY_AI_MODEL: "Create Proxy AI Model",
+    AtlasTechnique.VERIFY_ATTACK: "Verify Attack",
+    AtlasTechnique.CRAFT_ADVERSARIAL_DATA: "Craft Adversarial Data",
+    AtlasTechnique.REVERSE_SHELL: "Reverse Shell",
+    AtlasTechnique.EXFILTRATION_VIA_AI_INFERENCE_API: "Exfiltration via AI Inference API",
+    AtlasTechnique.INFER_TRAINING_DATA_MEMBERSHIP: "Infer Training Data Membership",
+    AtlasTechnique.INVERT_AI_MODEL: "Invert AI Model",
+    AtlasTechnique.EXTRACT_AI_MODEL: "Extract AI Model",
+    AtlasTechnique.EXFILTRATION_VIA_CYBER_MEANS: "Exfiltration via Cyber Means",
+    AtlasTechnique.EXTRACT_LLM_SYSTEM_PROMPT: "Extract LLM System Prompt",
+    AtlasTechnique.LLM_DATA_LEAKAGE: "LLM Data Leakage",
+    AtlasTechnique.DENIAL_OF_AI_SERVICE: "Denial of AI Service",
+    AtlasTechnique.ERODE_AI_MODEL_INTEGRITY: "Erode AI Model Integrity",
+    AtlasTechnique.COST_HARVESTING: "Cost Harvesting",
+    AtlasTechnique.SPAMMING_AI_SYSTEM_WITH_CHAFF_DATA: "Spamming AI System with Chaff Data",
+    AtlasTechnique.EXTERNAL_HARMS: "External Harms",
+    AtlasTechnique.EXTERNAL_HARMS_AI_IP_THEFT: "External Harms: AI Intellectual Property Theft",
+    AtlasTechnique.ERODE_DATASET_INTEGRITY: "Erode Dataset Integrity",
+    AtlasTechnique.GENERATE_DEEPFAKES: "Generate Deepfakes",
+    AtlasTechnique.GENERATE_MALICIOUS_COMMANDS: "Generate Malicious Commands",
+}
+
+
+#: Canonical parent tactic(s) for each ATLAS technique. Some techniques legitimately
+#: span multiple tactics in the ATLAS data (e.g., LLM Jailbreak is both
+#: Privilege Escalation and Defense Evasion).
+ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
+    AtlasTechnique.SEARCH_OPEN_TECHNICAL_DATABASES: [AtlasTactic.RECONNAISSANCE],
+    AtlasTechnique.SEARCH_OPEN_AI_VULNERABILITY_ANALYSIS: [AtlasTactic.RECONNAISSANCE],
+    AtlasTechnique.SEARCH_VICTIM_OWNED_WEBSITES: [AtlasTactic.RECONNAISSANCE],
+    AtlasTechnique.SEARCH_APPLICATION_REPOSITORIES: [AtlasTactic.RECONNAISSANCE],
+    AtlasTechnique.ACTIVE_SCANNING: [AtlasTactic.RECONNAISSANCE],
+    AtlasTechnique.GATHER_RAG_INDEXED_TARGETS: [AtlasTactic.RECONNAISSANCE],
+    AtlasTechnique.ACQUIRE_PUBLIC_AI_ARTIFACTS: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.ACQUIRE_INFRASTRUCTURE: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.OBTAIN_CAPABILITIES: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.DEVELOP_CAPABILITIES: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.PUBLISH_POISONED_DATASETS: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.ESTABLISH_ACCOUNTS: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.PUBLISH_POISONED_MODELS: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.PUBLISH_HALLUCINATED_ENTITIES: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.LLM_PROMPT_CRAFTING: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.RETRIEVAL_CONTENT_CRAFTING: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.AI_SUPPLY_CHAIN_RUG_PULL: [AtlasTactic.RESOURCE_DEVELOPMENT],
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE: [AtlasTactic.INITIAL_ACCESS],
+    AtlasTechnique.VALID_ACCOUNTS: [AtlasTactic.INITIAL_ACCESS, AtlasTactic.PRIVILEGE_ESCALATION],
+    AtlasTechnique.EVADE_AI_MODEL: [
+        AtlasTactic.INITIAL_ACCESS,
+        AtlasTactic.DEFENSE_EVASION,
+        AtlasTactic.IMPACT,
+    ],
+    AtlasTechnique.EXPLOIT_PUBLIC_FACING_APPLICATION: [AtlasTactic.INITIAL_ACCESS],
+    AtlasTechnique.PHISHING: [AtlasTactic.INITIAL_ACCESS, AtlasTactic.LATERAL_MOVEMENT],
+    AtlasTechnique.AI_MODEL_INFERENCE_API_ACCESS: [AtlasTactic.AI_MODEL_ACCESS],
+    AtlasTechnique.PHYSICAL_ENVIRONMENT_ACCESS: [AtlasTactic.AI_MODEL_ACCESS],
+    AtlasTechnique.FULL_AI_MODEL_ACCESS: [AtlasTactic.AI_MODEL_ACCESS],
+    AtlasTechnique.AI_ENABLED_PRODUCT_OR_SERVICE: [AtlasTactic.AI_MODEL_ACCESS],
+    AtlasTechnique.USER_EXECUTION: [AtlasTactic.EXECUTION],
+    AtlasTechnique.COMMAND_AND_SCRIPTING_INTERPRETER: [AtlasTactic.EXECUTION],
+    AtlasTechnique.LLM_PROMPT_INJECTION: [AtlasTactic.EXECUTION],
+    AtlasTechnique.LLM_PROMPT_INJECTION_DIRECT: [AtlasTactic.EXECUTION],
+    AtlasTechnique.LLM_PROMPT_INJECTION_INDIRECT: [AtlasTactic.EXECUTION],
+    AtlasTechnique.AI_AGENT_TOOL_INVOCATION: [
+        AtlasTactic.EXECUTION,
+        AtlasTactic.PRIVILEGE_ESCALATION,
+    ],
+    AtlasTechnique.MANIPULATE_AI_MODEL: [AtlasTactic.PERSISTENCE, AtlasTactic.AI_ATTACK_STAGING],
+    AtlasTechnique.POISON_TRAINING_DATA: [
+        AtlasTactic.PERSISTENCE,
+        AtlasTactic.RESOURCE_DEVELOPMENT,
+    ],
+    AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.RAG_POISONING: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.LLM_JAILBREAK: [
+        AtlasTactic.PRIVILEGE_ESCALATION,
+        AtlasTactic.DEFENSE_EVASION,
+    ],
+    AtlasTechnique.LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION: [AtlasTactic.DEFENSE_EVASION],
+    AtlasTechnique.LLM_TRUSTED_OUTPUT_CITATIONS: [AtlasTactic.DEFENSE_EVASION],
+    AtlasTechnique.LLM_PROMPT_OBFUSCATION: [AtlasTactic.DEFENSE_EVASION],
+    AtlasTechnique.FALSE_RAG_ENTRY_INJECTION: [AtlasTactic.DEFENSE_EVASION],
+    AtlasTechnique.UNSECURED_CREDENTIALS: [AtlasTactic.CREDENTIAL_ACCESS],
+    AtlasTechnique.DISCOVER_AI_ARTIFACTS: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_AI_MODEL_ONTOLOGY: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_AI_MODEL_FAMILY: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_LLM_HALLUCINATIONS: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_AI_MODEL_OUTPUTS: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_LLM_SYSTEM_INFORMATION: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_LLM_SYSTEM_PROMPT: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.COLLECTION: [AtlasTactic.COLLECTION],
+    AtlasTechnique.AI_ARTIFACT_COLLECTION: [AtlasTactic.COLLECTION],
+    AtlasTechnique.DATA_FROM_INFORMATION_REPOSITORIES: [AtlasTactic.COLLECTION],
+    AtlasTechnique.DATA_FROM_LOCAL_SYSTEM: [AtlasTactic.COLLECTION],
+    AtlasTechnique.CREATE_PROXY_AI_MODEL: [AtlasTactic.AI_ATTACK_STAGING],
+    AtlasTechnique.VERIFY_ATTACK: [AtlasTactic.AI_ATTACK_STAGING],
+    AtlasTechnique.CRAFT_ADVERSARIAL_DATA: [AtlasTactic.AI_ATTACK_STAGING],
+    AtlasTechnique.REVERSE_SHELL: [AtlasTactic.COMMAND_AND_CONTROL],
+    AtlasTechnique.EXFILTRATION_VIA_AI_INFERENCE_API: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.INFER_TRAINING_DATA_MEMBERSHIP: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.INVERT_AI_MODEL: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.EXTRACT_AI_MODEL: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.EXFILTRATION_VIA_CYBER_MEANS: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.EXTRACT_LLM_SYSTEM_PROMPT: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.LLM_DATA_LEAKAGE: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.DENIAL_OF_AI_SERVICE: [AtlasTactic.IMPACT],
+    AtlasTechnique.ERODE_AI_MODEL_INTEGRITY: [AtlasTactic.IMPACT],
+    AtlasTechnique.COST_HARVESTING: [AtlasTactic.IMPACT],
+    AtlasTechnique.SPAMMING_AI_SYSTEM_WITH_CHAFF_DATA: [AtlasTactic.IMPACT],
+    AtlasTechnique.EXTERNAL_HARMS: [AtlasTactic.IMPACT],
+    AtlasTechnique.EXTERNAL_HARMS_AI_IP_THEFT: [AtlasTactic.IMPACT],
+    AtlasTechnique.ERODE_DATASET_INTEGRITY: [AtlasTactic.IMPACT],
+    AtlasTechnique.GENERATE_DEEPFAKES: [AtlasTactic.IMPACT],
+    AtlasTechnique.GENERATE_MALICIOUS_COMMANDS: [AtlasTactic.IMPACT],
+}
+
+
+#: ATLAS techniques that are specific to generative-AI agents and LLM-based systems,
+#: distinct from traditional ML attacks. Highlighted in the coverage dashboard so
+#: readers can see at a glance which agent-focused techniques ZIRAN covers.
+AGENT_SPECIFIC_TECHNIQUES: frozenset[AtlasTechnique] = frozenset(
+    {
+        AtlasTechnique.LLM_PROMPT_INJECTION,
+        AtlasTechnique.LLM_PROMPT_INJECTION_DIRECT,
+        AtlasTechnique.LLM_PROMPT_INJECTION_INDIRECT,
+        AtlasTechnique.LLM_JAILBREAK,
+        AtlasTechnique.AI_AGENT_TOOL_INVOCATION,
+        AtlasTechnique.LLM_PROMPT_SELF_REPLICATION,
+        AtlasTechnique.RAG_POISONING,
+        AtlasTechnique.FALSE_RAG_ENTRY_INJECTION,
+        AtlasTechnique.RETRIEVAL_CONTENT_CRAFTING,
+        AtlasTechnique.GATHER_RAG_INDEXED_TARGETS,
+        AtlasTechnique.LLM_PROMPT_OBFUSCATION,
+        AtlasTechnique.LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION,
+        AtlasTechnique.LLM_TRUSTED_OUTPUT_CITATIONS,
+        AtlasTechnique.DISCOVER_LLM_SYSTEM_INFORMATION,
+    }
+)
+
+
 class BusinessImpact(StrEnum):
     """Business impact categories aligned with Agent-SafetyBench taxonomy."""
 
@@ -324,6 +681,10 @@ class AttackVector(BaseModel):
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories this vector maps to",
     )
+    atlas_mapping: list[AtlasTechnique] = Field(
+        default_factory=list,
+        description="MITRE ATLAS techniques this vector exercises (October 2025 snapshot)",
+    )
     protocol_filter: list[str] = Field(
         default_factory=list,
         description="Protocols this vector applies to (empty = all). Values: rest, openai, mcp, a2a.",
@@ -378,6 +739,10 @@ class AttackResult(BaseModel):
     owasp_mapping: list[OwaspLlmCategory] = Field(
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories for this finding",
+    )
+    atlas_mapping: list[AtlasTechnique] = Field(
+        default_factory=list,
+        description="MITRE ATLAS techniques exercised by this finding (copied from vector)",
     )
     business_impact: list[BusinessImpact] = Field(
         default_factory=list,
