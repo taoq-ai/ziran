@@ -10,12 +10,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.campaign.evasion import compute_evasion_rate
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.domain.entities.phase import CampaignResult, PhaseResult, compute_resilience
 
 if TYPE_CHECKING:
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
     from ziran.domain.entities.attack import AttackResult, TokenUsage
+    from ziran.domain.entities.defence import DefenceProfile
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,7 @@ class ResultBuilder:
         post_score: float | None = None,
         post_results: list[Any] | None = None,
         utility_tasks_count: int = 0,
+        defence_profile: DefenceProfile | None = None,
     ) -> tuple[CampaignResult, list[Any]]:
         """Build the final campaign result.
 
@@ -119,6 +122,8 @@ class ResultBuilder:
             },
             coverage_level=coverage_value,
             resilience=compute_resilience(serialized_results, phase_results),
+            defence_profile=defence_profile,
+            evasion_rate=compute_evasion_rate(attack_results, defence_profile),
             metadata=metadata,
         )
 

@@ -22,6 +22,7 @@ from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
+from ziran.domain.entities.defence import DefenceProfile
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
@@ -243,6 +244,15 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     help="Validate configuration and show attack plan without executing. "
     "Loads the adapter, discovers capabilities, and counts attack vectors.",
 )
+@click.option(
+    "--defence-profile",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to a YAML file declaring active defences on the target "
+    "(spec 012 US5). When declared, the campaign report carries a "
+    "'Declared Defences' section plus an evasion-rate metric (or "
+    "'not computable' when no declared defence is evaluable).",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -266,6 +276,7 @@ def scan(
     otel: bool,
     resume: bool,
     dry_run: bool,
+    defence_profile: str | None,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -481,6 +492,7 @@ def scan(
                 utility_tasks=loaded_utility_tasks,
                 checkpoint_manager=checkpoint_mgr,
                 resume_from_checkpoint=resume,
+                defence_profile=_load_defence_profile(defence_profile),
             )
         )
 
@@ -1461,6 +1473,16 @@ def _dry_run_summary(
     console.print(summary)
     console.print()
     console.print("[green]✓ Configuration valid.[/green] Run without --dry-run to start.")
+
+
+def _load_defence_profile(path: str | None) -> DefenceProfile | None:
+    """Load a DefenceProfile from a YAML file; return None if no path given."""
+    if path is None:
+        return None
+    import yaml as _yaml
+
+    raw = _yaml.safe_load(Path(path).read_text())
+    return DefenceProfile.model_validate(raw)
 
 
 def _display_results(result: CampaignResult) -> None:

@@ -34,6 +34,25 @@ if TYPE_CHECKING:
     from ziran.domain.entities.phase import CampaignResult
 
 
+def _dump_campaign_result(result: CampaignResult) -> dict[str, Any]:
+    """Serialise a CampaignResult, stripping only the spec 012 US5 fields when unset.
+
+    Pydantic's ``exclude_none`` is recursive and would strip pre-existing
+    ``None`` fields on nested models (e.g. ``agent_response``), which would
+    break downstream consumers. We only drop the two fields introduced in
+    spec 012 US5 — ``defence_profile`` and ``evasion_rate`` — so that reports
+    for campaigns without a declared profile remain byte-identical to
+    pre-spec-012 output. Downstream signing (issue #259 asqav) depends on
+    this determinism (FR-020 / SC-005).
+    """
+    data = result.model_dump(mode="json")
+    if data.get("defence_profile") is None:
+        data.pop("defence_profile", None)
+    if data.get("evasion_rate") is None:
+        data.pop("evasion_rate", None)
+    return data
+
+
 class ReportGenerator:
     """Generates reports from campaign results.
 
@@ -67,7 +86,7 @@ class ReportGenerator:
             Path to the saved JSON file.
         """
         filepath = self.output_dir / f"{result.campaign_id}_report.json"
-        data = result.model_dump(mode="json")
+        data = _dump_campaign_result(result)
 
         with filepath.open("w") as f:
             json.dump(data, f, indent=2, default=str)
@@ -122,7 +141,7 @@ class ReportGenerator:
             if graph_state is None:
                 graph_state = {"nodes": [], "edges": [], "stats": {}}
 
-        result_data = result.model_dump(mode="json")
+        result_data = _dump_campaign_result(result)
         html_content = build_html_report(
             result_data=result_data,
             graph_state=graph_state,
@@ -300,6 +319,33 @@ class ReportGenerator:
                     )
             lines.append("")
             lines.append("_🎯 = AI-agent-specific ATLAS technique (October 2025 release)._")
+            lines.append("")
+
+        # Declared Defences + evasion rate (spec 012 US5).
+        # When no profile is declared, this section is omitted entirely so
+        # the report is byte-identical to pre-spec-012 reports for the same
+        # target (FR-017 / SC-005).
+        if result.defence_profile and not result.defence_profile.is_empty:
+            lines.append("## Declared Defences")
+            lines.append("")
+            lines.append(f"**Profile:** `{result.defence_profile.name}`")
+            lines.append("")
+            lines.append("| Kind | Identifier | Evaluable |")
+            lines.append("|------|------------|-----------|")
+            for d in result.defence_profile.defences:
+                evaluable = "yes" if d.evaluable else "no"
+                lines.append(f"| {d.kind} | `{d.identifier}` | {evaluable} |")
+            lines.append("")
+            if result.evasion_rate is not None:
+                lines.append(
+                    f"**Evasion rate:** {result.evasion_rate:.1%} "
+                    "(successful attacks that bypassed all evaluable defences)"
+                )
+            else:
+                lines.append(
+                    "**Evasion rate:** not computable — no declared defence "
+                    "is marked `evaluable: true` in this release."
+                )
             lines.append("")
 
         # Business Impact Summary (successful findings only)

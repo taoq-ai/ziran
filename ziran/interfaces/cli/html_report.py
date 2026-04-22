@@ -220,6 +220,21 @@ def build_html_report(
     owasp_html = _build_owasp_html(attack_results, phases)
     # Build ATLAS coverage HTML
     atlas_html = _build_atlas_html(attack_results, phases)
+    # Build Declared Defences HTML (empty when no profile declared).
+    # The entire section wrapper is conditional so that reports with no
+    # profile are byte-identical to pre-spec-012 output (FR-017 / SC-005).
+    defence_html = _build_defence_html(result_data)
+    defence_html_section = (
+        (
+            "  <!-- Declared Defences (spec 012 US5) -->\n"
+            '  <div class="section">\n'
+            '    <div class="section-title">Declared Defences</div>\n'
+            f"    {defence_html}\n"
+            "  </div>\n"
+        )
+        if defence_html
+        else ""
+    )
 
     return _HTML_TEMPLATE.format(
         campaign_id=html.escape(campaign_id),
@@ -244,6 +259,7 @@ def build_html_report(
         attack_log_html=attack_log_html,
         owasp_html=owasp_html,
         atlas_html=atlas_html,
+        defence_html_section=defence_html_section,
         vis_nodes_json=json.dumps(vis_data["nodes"]),
         vis_edges_json=json.dumps(vis_data["edges"]),
         critical_paths_json=json.dumps(paths),
@@ -425,6 +441,49 @@ def _build_owasp_html(
             f"<td>{desc}</td><td>{status}</td><td>{finding_text}</td></tr>"
         )
     parts.append("</table>")
+    return "\n".join(parts)
+
+
+def _build_defence_html(result_data: dict[str, Any]) -> str:
+    """Build the 'Declared Defences' section HTML for spec 012 US5.
+
+    Returns an empty string when no profile is declared or when the profile
+    has no defences — this keeps the rendered HTML byte-identical to
+    pre-spec-012 reports for the same target (FR-017 / SC-005).
+    """
+    profile = result_data.get("defence_profile")
+    if not profile:
+        return ""
+    defences = profile.get("defences") or []
+    if not defences:
+        return ""
+    evasion_rate = result_data.get("evasion_rate")
+
+    parts: list[str] = ['<table class="owasp-table">']
+    parts.append(
+        f'<caption style="caption-side:top;text-align:left;padding:6px 0;">'
+        f"<strong>Profile:</strong> {html.escape(profile.get('name', 'unknown'))}</caption>"
+    )
+    parts.append("<tr><th>Kind</th><th>Identifier</th><th>Evaluable</th></tr>")
+    for d in defences:
+        evaluable = "yes" if d.get("evaluable") else "no"
+        parts.append(
+            f"<tr><td>{html.escape(d.get('kind', ''))}</td>"
+            f"<td><code>{html.escape(d.get('identifier', ''))}</code></td>"
+            f"<td>{evaluable}</td></tr>"
+        )
+    parts.append("</table>")
+    if evasion_rate is not None:
+        parts.append(
+            f"<p><strong>Evasion rate:</strong> {evasion_rate:.1%} "
+            "(successful attacks that bypassed all evaluable defences).</p>"
+        )
+    else:
+        parts.append(
+            '<p class="muted"><strong>Evasion rate:</strong> not computable — '
+            "no declared defence is marked <code>evaluable: true</code> "
+            "in this release.</p>"
+        )
     return "\n".join(parts)
 
 
@@ -1106,6 +1165,8 @@ _HTML_TEMPLATE = """\
     <div class="section-title">MITRE ATLAS Coverage</div>
     {atlas_html}
   </div>
+
+  {defence_html_section}
 
   <!-- Attack Paths -->
   <div class="section">

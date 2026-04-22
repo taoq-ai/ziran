@@ -1,0 +1,25 @@
+# Example defence profile for `ziran scan --defence-profile`.
+#
+# Declares the defences active on a scan target so that the campaign report
+# carries a "Declared Defences" section and (if any defence is evaluable) an
+# evasion-rate metric.
+#
+# This release ships the schema and metric field. Actual evaluator adapters
+# for commercial guardrails (NeMo Guardrails, Lakera Guard, etc.) are
+# out of scope — every declaration defaults to `evaluable: false`, and the
+# report surfaces "not computable" alongside the declared defences. Future
+# releases can flip specific entries to `evaluable: true` without any
+# schema change by shipping per-product evaluators.
+
+name: prod-ingress-v1
+
+defences:
+  - kind: input_filter
+    identifier: nemo-guardrails@v0.8
+    evaluable: false
+  - kind: output_guard
+    identifier: lakera-guard@2025-09
+    evaluable: false
+  - kind: hybrid
+    identifier: custom-internal-regex
+    evaluable: false
