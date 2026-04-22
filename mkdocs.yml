@@ -83,6 +83,9 @@ nav:
     - CLI Reference: reference/cli.md
     - Python API: reference/api.md
     - Attack Library: reference/attack-library.md
+    - Benchmarks:
+      - Coverage Comparison: reference/benchmarks/coverage-comparison.md
+      - MITRE ATLAS Mapping: reference/benchmarks/atlas-mapping.md
   - Community:
     - Contributing: community/contributing.md
     - Skill CVEs: community/skill-cves.md
