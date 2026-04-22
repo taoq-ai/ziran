@@ -1,0 +1,3069 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Discover dangerous tool chain compositions in AI agents using knowledge graph analysis, multi-phase campaigns, and autonomous pentesting.">
+      
+      
+        <meta name="author" content="TaoQ AI">
+      
+      
+        <link rel="canonical" href="https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/">
+      
+      
+        <link rel="prev" href="../../attack-library/">
+      
+      
+        <link rel="next" href="../atlas-mapping/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Coverage Comparison - ZIRAN — AI Agent Security Testing</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#benchmark-coverage-comparison" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="ZIRAN — AI Agent Security Testing" class="md-header__button md-logo" aria-label="ZIRAN — AI Agent Security Testing" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ZIRAN — AI Agent Security Testing
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Coverage Comparison
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/taoq-ai/ziran" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    taoq-ai/ziran
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../concepts/romance-scan/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../guides/scanning-agents/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../community/contributing/" class="md-tabs__link">
+          
+  
+  
+  Community
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="ZIRAN — AI Agent Security Testing" class="md-nav__button md-logo" aria-label="ZIRAN — AI Agent Security Testing" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ZIRAN — AI Agent Security Testing
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/taoq-ai/ziran" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    taoq-ai/ziran
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/romance-scan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trust Exploitation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/knowledge-graph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/tool-chains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Chain Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/attack-vectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Attack Vectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/remote-scanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Scanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/a2a-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A2A Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/detection-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/owasp-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OWASP Mapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Coordination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/adaptive-campaigns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Campaigns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/pentesting-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pentesting Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/streaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/browser-scanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Scanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/agent-security-landscape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Security Landscape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/scanning-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scanning Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/remote-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/browser-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/cicd-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/ci-integrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/promptfoo-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Promptfoo Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/otel-tracing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenTelemetry Tracing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/static-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Static Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/interpreting-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting Results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/custom-attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Attacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/adapters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Framework Adapters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../attack-library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Attack Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Benchmarks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coverage Comparison
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coverage Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Executive Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#owasp-llm-top-10-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OWASP LLM Top 10 Coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mitre-atlas-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MITRE ATLAS Coverage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MITRE ATLAS Coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coverage-by-tactic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage by Tactic
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gap-status-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap Status Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vector-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vector Inventory
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Vector Inventory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#by-attack-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Attack Category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#by-tactic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Tactic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#by-severity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Severity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#by-harm-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Harm Category
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../atlas-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MITRE ATLAS Mapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Community
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../community/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../community/skill-cves/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skill CVEs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../community/roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Executive Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#owasp-llm-top-10-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OWASP LLM Top 10 Coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mitre-atlas-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MITRE ATLAS Coverage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MITRE ATLAS Coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coverage-by-tactic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage by Tactic
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gap-status-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap Status Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vector-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vector Inventory
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Vector Inventory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#by-attack-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Attack Category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#by-tactic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Tactic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#by-severity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Severity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#by-harm-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        By Harm Category
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="benchmark-coverage-comparison">Benchmark Coverage Comparison<a class="headerlink" href="#benchmark-coverage-comparison" title="Permanent link">&para;</a></h1>
+<p>Auto-generated comparison of ZIRAN's attack vector library against published AI agent security benchmarks.</p>
+<p><em>Last updated: 2026-04-22</em></p>
+<h2 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>639</strong> attack vectors across <strong>11</strong> attack categories</li>
+<li><strong>100.0%</strong> OWASP LLM Top 10 coverage (10/10 categories)</li>
+<li><strong>10</strong> multi-turn jailbreak tactics, <strong>12</strong> encoding types</li>
+<li><strong>229</strong> multi-turn vectors</li>
+<li><strong>11</strong> harm categories (AgentHarm-aligned)</li>
+<li>Gap closure: <strong>39.1%</strong> (9/23 gaps closed)</li>
+</ul>
+<h2 id="owasp-llm-top-10-coverage">OWASP LLM Top 10 Coverage<a class="headerlink" href="#owasp-llm-top-10-coverage" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Category</th>
+<th>Vectors</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LLM01</strong></td>
+<td>Prompt Injection</td>
+<td>468</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Comprehensive</td>
+</tr>
+<tr>
+<td><strong>LLM02</strong></td>
+<td>Insecure Output Handling</td>
+<td>201</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Comprehensive</td>
+</tr>
+<tr>
+<td><strong>LLM03</strong></td>
+<td>Training Data Poisoning</td>
+<td>19</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Strong</td>
+</tr>
+<tr>
+<td><strong>LLM04</strong></td>
+<td>Model Denial of Service</td>
+<td>14</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Strong</td>
+</tr>
+<tr>
+<td><strong>LLM05</strong></td>
+<td>Supply Chain Vulnerabilities</td>
+<td>18</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Strong</td>
+</tr>
+<tr>
+<td><strong>LLM06</strong></td>
+<td>Sensitive Information Disclosure</td>
+<td>110</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Comprehensive</td>
+</tr>
+<tr>
+<td><strong>LLM07</strong></td>
+<td>Insecure Plugin Design</td>
+<td>145</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Comprehensive</td>
+</tr>
+<tr>
+<td><strong>LLM08</strong></td>
+<td>Excessive Agency</td>
+<td>151</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Comprehensive</td>
+</tr>
+<tr>
+<td><strong>LLM09</strong></td>
+<td>Overreliance</td>
+<td>15</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Strong</td>
+</tr>
+<tr>
+<td><strong>LLM10</strong></td>
+<td>Unbounded Consumption</td>
+<td>10</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Strong</td>
+</tr>
+</tbody>
+</table>
+<h2 id="mitre-atlas-coverage">MITRE ATLAS Coverage<a class="headerlink" href="#mitre-atlas-coverage" title="Permanent link">&para;</a></h2>
+<p>Technique mapping snapshot date: <strong>2025-10-01</strong> (see <a href="../atlas-mapping/">atlas-mapping.md</a> for methodology).</p>
+<ul>
+<li><strong>72/86</strong> ATLAS techniques represented in the library</li>
+<li><strong>14/14</strong> agent-specific techniques covered (from the October 2025 ATLAS release)</li>
+<li><strong>639/639</strong> vectors carry an ATLAS mapping</li>
+</ul>
+<h3 id="coverage-by-tactic">Coverage by Tactic<a class="headerlink" href="#coverage-by-tactic" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tactic</th>
+<th>Name</th>
+<th style="text-align: right;">Techniques</th>
+<th style="text-align: right;">Vectors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AML.TA0000</strong></td>
+<td>AI Model Access</td>
+<td style="text-align: right;">3/4</td>
+<td style="text-align: right;">915</td>
+</tr>
+<tr>
+<td><strong>AML.TA0001</strong></td>
+<td>AI Attack Staging</td>
+<td style="text-align: right;">7/7</td>
+<td style="text-align: right;">626</td>
+</tr>
+<tr>
+<td><strong>AML.TA0002</strong></td>
+<td>Reconnaissance</td>
+<td style="text-align: right;">4/6</td>
+<td style="text-align: right;">25</td>
+</tr>
+<tr>
+<td><strong>AML.TA0003</strong></td>
+<td>Resource Development</td>
+<td style="text-align: right;">6/12</td>
+<td style="text-align: right;">421</td>
+</tr>
+<tr>
+<td><strong>AML.TA0004</strong></td>
+<td>Initial Access</td>
+<td style="text-align: right;">9/11</td>
+<td style="text-align: right;">187</td>
+</tr>
+<tr>
+<td><strong>AML.TA0005</strong></td>
+<td>Execution</td>
+<td style="text-align: right;">5/6</td>
+<td style="text-align: right;">778</td>
+</tr>
+<tr>
+<td><strong>AML.TA0006</strong></td>
+<td>Persistence</td>
+<td style="text-align: right;">7/7</td>
+<td style="text-align: right;">269</td>
+</tr>
+<tr>
+<td><strong>AML.TA0007</strong></td>
+<td>Defense Evasion</td>
+<td style="text-align: right;">6/6</td>
+<td style="text-align: right;">366</td>
+</tr>
+<tr>
+<td><strong>AML.TA0008</strong></td>
+<td>Discovery</td>
+<td style="text-align: right;">7/7</td>
+<td style="text-align: right;">173</td>
+</tr>
+<tr>
+<td><strong>AML.TA0009</strong></td>
+<td>Collection</td>
+<td style="text-align: right;">2/4</td>
+<td style="text-align: right;">74</td>
+</tr>
+<tr>
+<td><strong>AML.TA0010</strong></td>
+<td>Exfiltration</td>
+<td style="text-align: right;">7/7</td>
+<td style="text-align: right;">356</td>
+</tr>
+<tr>
+<td><strong>AML.TA0011</strong></td>
+<td>Impact</td>
+<td style="text-align: right;">14/14</td>
+<td style="text-align: right;">663</td>
+</tr>
+<tr>
+<td><strong>AML.TA0012</strong></td>
+<td>Privilege Escalation</td>
+<td style="text-align: right;">3/3</td>
+<td style="text-align: right;">563</td>
+</tr>
+<tr>
+<td><strong>AML.TA0013</strong></td>
+<td>Credential Access</td>
+<td style="text-align: right;">1/1</td>
+<td style="text-align: right;">24</td>
+</tr>
+<tr>
+<td><strong>AML.TA0014</strong></td>
+<td>Command and Control</td>
+<td style="text-align: right;">1/1</td>
+<td style="text-align: right;">163</td>
+</tr>
+<tr>
+<td><strong>AML.TA0015</strong></td>
+<td>Lateral Movement</td>
+<td style="text-align: right;">2/2</td>
+<td style="text-align: right;">36</td>
+</tr>
+</tbody>
+</table>
+<h2 id="benchmark-comparison">Benchmark Comparison<a class="headerlink" href="#benchmark-comparison" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Venue</th>
+<th>Dimension</th>
+<th style="text-align: right;">Target</th>
+<th style="text-align: right;">ZIRAN</th>
+<th>Progress</th>
+<th>Status</th>
+<th>Gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AgentHarm</strong></td>
+<td>ICLR 2025</td>
+<td>Harm categories</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">11</td>
+<td><code>███████████████</code> 100.0%</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+<td><a href="#37">GAP-06</a></td>
+</tr>
+<tr>
+<td><strong>AgentHarm</strong></td>
+<td>ICLR 2025</td>
+<td>Multi-step vectors</td>
+<td style="text-align: right;">440</td>
+<td style="text-align: right;">161</td>
+<td><code>█████░░░░░░░░░░</code> 36.6%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#131">GAP-23</a></td>
+</tr>
+<tr>
+<td><strong>InjecAgent</strong></td>
+<td>ACL 2024</td>
+<td>Indirect injection vectors</td>
+<td style="text-align: right;">1,054</td>
+<td style="text-align: right;">63</td>
+<td><code>█░░░░░░░░░░░░░░</code> 6.0%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#33">GAP-02</a></td>
+</tr>
+<tr>
+<td><strong>AgentDojo</strong></td>
+<td>NeurIPS 2024</td>
+<td>Indirect injection vectors</td>
+<td style="text-align: right;">629</td>
+<td style="text-align: right;">63</td>
+<td><code>██░░░░░░░░░░░░░</code> 10.0%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#33">GAP-02</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Utility measurement (baseline + post-attack)</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td><code>███████████████</code> 100.0%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>HarmBench</strong></td>
+<td>ICML 2024</td>
+<td>Attack tactics</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">10</td>
+<td><code>████████░░░░░░░</code> 55.6%</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+<td><a href="#39">GAP-08</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Jailbreak vectors</td>
+<td style="text-align: right;">510</td>
+<td style="text-align: right;">206</td>
+<td><code>██████░░░░░░░░░</code> 40.4%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>JailbreakBench</strong></td>
+<td>NeurIPS 2024</td>
+<td>JBB categories (10)</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">10</td>
+<td><code>███████████████</code> 100.0%</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+<td><a href="#54">GAP-15</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Prompt injection vectors</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">206</td>
+<td><code>███████████████</code> 100%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>StrongREJECT</strong></td>
+<td>2024</td>
+<td>StrongREJECT composite formula</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td><code>███████████████</code> 100.0%</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+<td><a href="#35">GAP-04</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Scoring dimensions (refusal, specificity, convincingness)</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">3</td>
+<td><code>███████████████</code> 100.0%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>MCPTox</strong></td>
+<td>2025</td>
+<td>MCP vectors</td>
+<td style="text-align: right;">1,312</td>
+<td style="text-align: right;">101</td>
+<td><code>█░░░░░░░░░░░░░░</code> 7.7%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#34">GAP-03</a></td>
+</tr>
+<tr>
+<td><strong>Agent Security Bench (ASB)</strong></td>
+<td>2024</td>
+<td>Attack categories</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">11</td>
+<td><code>███████████████</code> 100%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#32">GAP-01</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Total vectors</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">639</td>
+<td><code>███████████████</code> 100%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Utility-under-attack measurement</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td><code>███████████████</code> 100.0%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>TensorTrust</strong></td>
+<td>2024</td>
+<td>Prompt injection vectors</td>
+<td style="text-align: right;">126,000</td>
+<td style="text-align: right;">206</td>
+<td><code>░░░░░░░░░░░░░░░</code> 0.2%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#55">GAP-16</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Representative pattern families</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">11</td>
+<td><em>Distinct TensorTrust pattern families covered</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>WildJailbreak</strong></td>
+<td>2024</td>
+<td>Jailbreak tactics</td>
+<td style="text-align: right;">105,000</td>
+<td style="text-align: right;">11</td>
+<td><code>░░░░░░░░░░░░░░░</code> 0.0%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#56">GAP-17</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>WildJailbreak-inspired multi-turn vectors</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">10</td>
+<td><em>Distinct tactic families from WildJailbreak</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>LLMail-Inject / RAG Poisoning</strong></td>
+<td>2024</td>
+<td>RAG retrieval-targeted vectors</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">13</td>
+<td><em>Retrieval-ranked payloads across multiple document framings</em></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#44">GAP-13</a></td>
+</tr>
+<tr>
+<td><strong>Agent-SafetyBench</strong></td>
+<td>2024</td>
+<td>Business impact types</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">7</td>
+<td><code>█████████████░░</code> 87.5%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#38">GAP-07</a></td>
+</tr>
+<tr>
+<td><strong>BIPIA</strong></td>
+<td>2024</td>
+<td>Indirect injection vectors</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">63</td>
+<td><em>Multi-domain benchmark — no fixed target count</em></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#33">GAP-02</a></td>
+</tr>
+<tr>
+<td><strong>CyberSecEval</strong></td>
+<td>Meta, 2024</td>
+<td>Code-generation safety vectors</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">10</td>
+<td><em>Code-gen safety + cyber knowledge elicitation families</em></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#57">GAP-18</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Total library overlap</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">639</td>
+<td><em>Multi-category benchmark — partial overlap</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>ToolEmu</strong></td>
+<td>2024</td>
+<td>Tool manipulation vectors</td>
+<td style="text-align: right;">144</td>
+<td style="text-align: right;">176</td>
+<td><code>███████████████</code> 100%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#58">GAP-19</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Dedicated sandbox-evasion vectors</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">10</td>
+<td><em>Sandbox-evasion vectors distinct from generic tool manipulation</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>R-Judge</strong></td>
+<td>2024</td>
+<td>R-Judge risk types (10)</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">10</td>
+<td><code>███████████████</code> 100.0%</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+<td><a href="#59">GAP-20</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Risk scoring detectors</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">5</td>
+<td><em>5 detectors — different approach than interaction records</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>AILuminate</strong></td>
+<td>MLCommons, 2025</td>
+<td>Resilience gap metric</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td><code>███████████████</code> 100.0%</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+<td><a href="#40">GAP-09</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Baseline performance measurement</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td><code>███████████████</code> 100.0%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Under-attack performance measurement</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td><code>███████████████</code> 100.0%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>ALERT</strong></td>
+<td>2024</td>
+<td>ALERT micro categories (32)</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">32</td>
+<td><code>███████████████</code> 100.0%</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+<td><a href="#60">GAP-21</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Harm categories</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">11</td>
+<td><em>N/A</em></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>MITRE ATLAS</strong></td>
+<td>MITRE, 2025</td>
+<td>ATLAS tactics covered</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">16</td>
+<td><code>███████████████</code> 100.0%</td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+<td><a href="#61">GAP-22</a></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>ATLAS techniques mapped</td>
+<td style="text-align: right;">86</td>
+<td style="text-align: right;">72</td>
+<td><code>█████████████░░</code> 83.7%</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>Agent-specific techniques covered</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">14</td>
+<td><code>███████████████</code> 100.0%</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="gap-status-dashboard">Gap Status Dashboard<a class="headerlink" href="#gap-status-dashboard" title="Permanent link">&para;</a></h2>
+<p>See <a href="gap-analysis.md">Gap Analysis</a> for full details.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Issue</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GAP-01</td>
+<td>Benchmark harness</td>
+<td>critical</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/32">#32</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-02</td>
+<td>Indirect prompt injection scale</td>
+<td>critical</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/33">#33</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-03</td>
+<td>MCP tool poisoning</td>
+<td>critical</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/34">#34</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-04</td>
+<td>Quality-aware jailbreak scoring</td>
+<td>critical</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/35">#35</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-05</td>
+<td>Utility-under-attack measurement</td>
+<td>important</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/36">#36</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-06</td>
+<td>Harmful multi-step task testing</td>
+<td>important</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/37">#37</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-07</td>
+<td>Business impact categorization</td>
+<td>important</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/38">#38</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-08</td>
+<td>Jailbreak tactic breadth</td>
+<td>important</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/39">#39</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-09</td>
+<td>Resilience gap metric</td>
+<td>important</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/40">#40</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-10</td>
+<td>OWASP LLM04 (Model DoS)</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/41">#41</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-11</td>
+<td>OWASP LLM05 (Supply Chain)</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/42">#42</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-12</td>
+<td>OWASP LLM10 (Model Theft)</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/43">#43</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-13</td>
+<td>RAG-specific poisoning</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/44">#44</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-14</td>
+<td>Defense evasion measurement</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/45">#45</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-15</td>
+<td>JailbreakBench coverage</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/54">#54</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-16</td>
+<td>TensorTrust coverage</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/55">#55</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-17</td>
+<td>WildJailbreak coverage</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/56">#56</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-18</td>
+<td>CyberSecEval coverage</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/57">#57</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-19</td>
+<td>ToolEmu coverage</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/58">#58</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-20</td>
+<td>R-Judge coverage</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/59">#59</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-21</td>
+<td>ALERT coverage</td>
+<td>lower</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/60">#60</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> closed</td>
+</tr>
+<tr>
+<td>GAP-22</td>
+<td>MITRE ATLAS technique mapping</td>
+<td>important</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/61">#61</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+<tr>
+<td>GAP-23</td>
+<td>AgentHarm multi-step vector scale</td>
+<td>important</td>
+<td><a href="https://github.com/taoq-ai/ziran/issues/131">#131</a></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:" /> open</td>
+</tr>
+</tbody>
+</table>
+<h2 id="vector-inventory">Vector Inventory<a class="headerlink" href="#vector-inventory" title="Permanent link">&para;</a></h2>
+<h3 id="by-attack-category">By Attack Category<a class="headerlink" href="#by-attack-category" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Vectors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>prompt_injection</td>
+<td>206</td>
+</tr>
+<tr>
+<td>tool_manipulation</td>
+<td>176</td>
+</tr>
+<tr>
+<td>indirect_injection</td>
+<td>63</td>
+</tr>
+<tr>
+<td>data_exfiltration</td>
+<td>56</td>
+</tr>
+<tr>
+<td>privilege_escalation</td>
+<td>35</td>
+</tr>
+<tr>
+<td>system_prompt_extraction</td>
+<td>27</td>
+</tr>
+<tr>
+<td>memory_poisoning</td>
+<td>20</td>
+</tr>
+<tr>
+<td>authorization_bypass</td>
+<td>17</td>
+</tr>
+<tr>
+<td>chain_of_thought_manipulation</td>
+<td>15</td>
+</tr>
+<tr>
+<td>model_dos</td>
+<td>13</td>
+</tr>
+<tr>
+<td>multi_agent</td>
+<td>11</td>
+</tr>
+</tbody>
+</table>
+<h3 id="by-tactic">By Tactic<a class="headerlink" href="#by-tactic" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tactic</th>
+<th>Vectors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>single</td>
+<td>410</td>
+</tr>
+<tr>
+<td>context_buildup</td>
+<td>63</td>
+</tr>
+<tr>
+<td>crescendo</td>
+<td>38</td>
+</tr>
+<tr>
+<td>persona_shift</td>
+<td>23</td>
+</tr>
+<tr>
+<td>hypothetical</td>
+<td>17</td>
+</tr>
+<tr>
+<td>role_play</td>
+<td>16</td>
+</tr>
+<tr>
+<td>distraction</td>
+<td>15</td>
+</tr>
+<tr>
+<td>refusal_suppression</td>
+<td>15</td>
+</tr>
+<tr>
+<td>code_mode</td>
+<td>14</td>
+</tr>
+<tr>
+<td>few_shot</td>
+<td>14</td>
+</tr>
+<tr>
+<td>language_switch</td>
+<td>14</td>
+</tr>
+</tbody>
+</table>
+<h3 id="by-severity">By Severity<a class="headerlink" href="#by-severity" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Severity</th>
+<th>Vectors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>critical</td>
+<td>367</td>
+</tr>
+<tr>
+<td>high</td>
+<td>201</td>
+</tr>
+<tr>
+<td>low</td>
+<td>1</td>
+</tr>
+<tr>
+<td>medium</td>
+<td>70</td>
+</tr>
+</tbody>
+</table>
+<h3 id="by-harm-category">By Harm Category<a class="headerlink" href="#by-harm-category" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Harm Category</th>
+<th>Vectors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>child_exploitation</td>
+<td>13</td>
+</tr>
+<tr>
+<td>cybercrime</td>
+<td>13</td>
+</tr>
+<tr>
+<td>disinformation</td>
+<td>13</td>
+</tr>
+<tr>
+<td>fraud</td>
+<td>14</td>
+</tr>
+<tr>
+<td>harassment</td>
+<td>21</td>
+</tr>
+<tr>
+<td>illegal_services</td>
+<td>13</td>
+</tr>
+<tr>
+<td>self_harm</td>
+<td>14</td>
+</tr>
+<tr>
+<td>sexual_content</td>
+<td>14</td>
+</tr>
+<tr>
+<td>substance_abuse</td>
+<td>17</td>
+</tr>
+<tr>
+<td>terrorism</td>
+<td>14</td>
+</tr>
+<tr>
+<td>weapons</td>
+<td>15</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Generated by <code>benchmarks/generate_all.py</code> on 2026-04-22.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2651 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Discover dangerous tool chain compositions in AI agents using knowledge graph analysis, multi-phase campaigns, and autonomous pentesting.">
+      
+      
+        <meta name="author" content="TaoQ AI">
+      
+      
+        <link rel="canonical" href="https://taoq-ai.github.io/ziran/community/roadmap/">
+      
+      
+        <link rel="prev" href="../skill-cves/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Roadmap - ZIRAN — AI Agent Security Testing</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ZIRAN — AI Agent Security Testing" class="md-header__button md-logo" aria-label="ZIRAN — AI Agent Security Testing" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ZIRAN — AI Agent Security Testing
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Roadmap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/taoq-ai/ziran" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    taoq-ai/ziran
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/romance-scan/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/scanning-agents/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../contributing/" class="md-tabs__link">
+          
+  
+  
+  Community
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ZIRAN — AI Agent Security Testing" class="md-nav__button md-logo" aria-label="ZIRAN — AI Agent Security Testing" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ZIRAN — AI Agent Security Testing
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/taoq-ai/ziran" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    taoq-ai/ziran
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/romance-scan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trust Exploitation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/knowledge-graph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/tool-chains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Chain Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/attack-vectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Attack Vectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/remote-scanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Scanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/a2a-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A2A Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/detection-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/owasp-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OWASP Mapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Coordination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/adaptive-campaigns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Campaigns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/pentesting-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pentesting Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/streaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/browser-scanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Scanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/agent-security-landscape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Security Landscape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/scanning-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scanning Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/remote-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/browser-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cicd-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ci-integrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/promptfoo-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Promptfoo Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/otel-tracing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenTelemetry Tracing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/static-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Static Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/interpreting-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting Results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/custom-attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Attacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/adapters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Framework Adapters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/attack-library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Attack Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Benchmarks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/benchmarks/coverage-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coverage Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/benchmarks/atlas-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MITRE ATLAS Mapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Community
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skill-cves/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skill CVEs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#recently-delivered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recently Delivered
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recently Delivered">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v01-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.1 — Foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v02-intelligence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.2 — Intelligence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v03-remote-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.3 — Remote Scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v04-multi-vendor-llm-backbone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.4 — Multi-Vendor &amp; LLM Backbone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v05-adaptive-intelligence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.5 — Adaptive Intelligence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v06-autonomous-pentesting-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.6 — Autonomous Pentesting Agent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v07-browser-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.7 — Browser Scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v08-depth-ecosystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.8 — Depth &amp; Ecosystem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v09-business-impact-resilience-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 — Business Impact &amp; Resilience Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v010-benchmark-breadth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.10 — Benchmark Breadth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v011-detection-accuracy-quality-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.11 — Detection Accuracy &amp; Quality Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v012-performance-reliability-hardening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.12 — Performance &amp; Reliability Hardening
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v013-web-ui-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.13 — Web UI Foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v014-runtime-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.14 — Runtime Bridge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v015-benchmark-maturity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.15 — Benchmark Maturity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-flight-next-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Flight &amp; Next Up
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="In Flight &amp; Next Up">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#theme-runtime-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Runtime Loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#theme-detection-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Detection Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#theme-production-scale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Production Scale
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#theme-ecosystem-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Ecosystem + Enterprise
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opportunistic-not-in-a-theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opportunistic — Not in a theme
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ui-hardening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UI Hardening
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#longer-term" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Longer Term
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ziran-cloud" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ZIRAN Cloud
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-influence-the-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Influence the Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#recently-delivered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recently Delivered
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recently Delivered">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v01-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.1 — Foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v02-intelligence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.2 — Intelligence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v03-remote-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.3 — Remote Scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v04-multi-vendor-llm-backbone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.4 — Multi-Vendor &amp; LLM Backbone
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v05-adaptive-intelligence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.5 — Adaptive Intelligence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v06-autonomous-pentesting-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.6 — Autonomous Pentesting Agent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v07-browser-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.7 — Browser Scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v08-depth-ecosystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.8 — Depth &amp; Ecosystem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v09-business-impact-resilience-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 — Business Impact &amp; Resilience Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v010-benchmark-breadth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.10 — Benchmark Breadth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v011-detection-accuracy-quality-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.11 — Detection Accuracy &amp; Quality Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v012-performance-reliability-hardening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.12 — Performance &amp; Reliability Hardening
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v013-web-ui-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.13 — Web UI Foundation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v014-runtime-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.14 — Runtime Bridge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v015-benchmark-maturity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.15 — Benchmark Maturity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-flight-next-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In Flight &amp; Next Up
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="In Flight &amp; Next Up">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#theme-runtime-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Runtime Loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#theme-detection-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Detection Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#theme-production-scale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Production Scale
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#theme-ecosystem-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme: Ecosystem + Enterprise
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opportunistic-not-in-a-theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opportunistic — Not in a theme
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ui-hardening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UI Hardening
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#longer-term" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Longer Term
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ziran-cloud" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ZIRAN Cloud
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-influence-the-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Influence the Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h1>
+<p>Priorities shift as the landscape changes. This page tracks <strong>themes</strong> we're actively investing in — not fixed version schedules. For what's currently in flight, see the <a href="https://github.com/taoq-ai/ziran/milestones">active milestones on GitHub</a>. For commercial / hosted-platform work, see the <a href="#ziran-cloud">ZIRAN Cloud planning notes</a>.</p>
+<hr />
+<h2 id="recently-delivered">Recently Delivered<a class="headerlink" href="#recently-delivered" title="Permanent link">&para;</a></h2>
+<h3 id="v01-foundation">v0.1 — Foundation<a class="headerlink" href="#v01-foundation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Multi-Phase Trust Exploitation methodology (8 phases)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> NetworkX-based attack knowledge graph</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Attack library with YAML-defined vectors</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> LangChain and CrewAI adapters</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Rich CLI with HTML/Markdown/JSON reports</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Tool chain analysis (30+ dangerous patterns)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Skill CVE database (15 seed CVEs)</li>
+</ul>
+<h3 id="v02-intelligence">v0.2 — Intelligence<a class="headerlink" href="#v02-intelligence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> LLM-powered dynamic attack vector generation</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Static analysis engine (10 offline checks, SA001–SA010)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> PoC exploit generator (Python, cURL, Markdown)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Policy engine with configurable rules</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> CI/CD quality gate with SARIF output</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Amazon Bedrock adapter</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Expanded attack library with OWASP LLM Top 10 mapping</li>
+</ul>
+<h3 id="v03-remote-scanning">v0.3 — Remote Scanning<a class="headerlink" href="#v03-remote-scanning" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Remote agent scanning over HTTPS (REST, OpenAI, MCP, A2A handlers with auto-detection)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Target YAML configuration with auth, TLS, retry</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> GitHub Action (<code>taoq-ai/ziran@v0</code>)</li>
+</ul>
+<h3 id="v04-multi-vendor-llm-backbone">v0.4 — Multi-Vendor &amp; LLM Backbone<a class="headerlink" href="#v04-multi-vendor-llm-backbone" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Multi-vendor LLM support via LiteLLM (OpenAI, Anthropic, AWS Bedrock, Google, and more)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> LLM-as-a-Judge detection for nuanced semantic analysis</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Amazon Bedrock Agent and AgentCore adapters</li>
+</ul>
+<h3 id="v05-adaptive-intelligence">v0.5 — Adaptive Intelligence<a class="headerlink" href="#v05-adaptive-intelligence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Streaming support (SSE, WebSocket)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Multi-agent coordination — topology discovery, cross-agent scanning</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Adaptive campaign strategies — fixed, rule-based, and LLM-driven phase orchestration</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> 327 multi-agent attack vectors covering cross-agent injection, delegation-chain manipulation, shared-memory poisoning</li>
+</ul>
+<h3 id="v06-autonomous-pentesting-agent">v0.6 — Autonomous Pentesting Agent<a class="headerlink" href="#v06-autonomous-pentesting-agent" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> LangGraph-based pentesting agent (planner, executor, reasoner, reporter)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Attack-chain reasoning across multi-step exploits</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Interactive red-team mode</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Finding deduplication across automated and agent-driven scans</li>
+</ul>
+<h3 id="v07-browser-scanning">v0.7 — Browser Scanning<a class="headerlink" href="#v07-browser-scanning" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Headless Playwright adapter for agents behind web chat UIs</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Network interception + DOM-fallback extraction</li>
+</ul>
+<h3 id="v08-depth-ecosystem">v0.8 — Depth &amp; Ecosystem<a class="headerlink" href="#v08-depth-ecosystem" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Expanded tool chain patterns — grew from 32 to 102 dangerous patterns across 15 categories (cloud services, MCP, A2A, CI/CD, browser, crypto, and more)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Encoding / obfuscation engine — 12 encoding types (Base64, ROT13, leetspeak, homoglyph, hex, whitespace, mixed case, payload split, pig latin, reverse, word shuffle, token boundary)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Multi-turn jailbreak tactics — crescendo, context buildup, persona shift, distraction tactics for progressive escalation</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> BOLA / BFLA authorization testing — 20 attack vectors for Broken Object / Function Level Authorization</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Promptfoo provider bridge — use ZIRAN as a custom Python provider in Promptfoo YAML test cases</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> OpenTelemetry tracing — opt-in distributed tracing for campaigns, phases, attacks, and detection</li>
+</ul>
+<h3 id="v09-business-impact-resilience-metrics">v0.9 — Business Impact &amp; Resilience Metrics<a class="headerlink" href="#v09-business-impact-resilience-metrics" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Business impact categorisation</strong> — findings tagged with 7 categories (financial loss, reputation damage, privacy violation, unauthorised actions, system compromise, misinformation, property loss)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>AILuminate-style resilience gap metric</strong> — baseline vs under-attack performance delta</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Utility-under-attack measurement</strong> — legitimate-task performance degradation during campaigns</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Closed three critical benchmark gaps surfaced by early external review</li>
+</ul>
+<h3 id="v010-benchmark-breadth">v0.10 — Benchmark Breadth<a class="headerlink" href="#v010-benchmark-breadth" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>100% ALERT benchmark coverage</strong> (32 micro categories)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>100% JailbreakBench coverage</strong> (all 10 JBB categories)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>R-Judge risk scenario coverage</strong> (10 risk types)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Harmful multi-step task scenarios</strong> — AgentHarm-aligned</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>OWASP LLM04 (Model DoS)</strong> — dedicated attack vectors</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Expanded jailbreak tactic library + benchmark coverage comparison report generator</li>
+</ul>
+<h3 id="v011-detection-accuracy-quality-metrics">v0.11 — Detection Accuracy &amp; Quality Metrics<a class="headerlink" href="#v011-detection-accuracy-quality-metrics" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Precision / recall / F1</strong> metrics for detection accuracy on labelled datasets</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>StrongREJECT-style quality-aware jailbreak scoring</strong> (refusal + specificity + convincingness composite)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>MCPTox tool-poisoning coverage</strong> expanded to 100+ vectors</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>AgentHarm multi-step vector coverage</strong> expanded to 161 vectors</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Historical benchmark tracking + trend analysis</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> Comparative analysis against Promptfoo, Garak, and other tools</li>
+</ul>
+<h3 id="v012-performance-reliability-hardening">v0.12 — Performance &amp; Reliability Hardening<a class="headerlink" href="#v012-performance-reliability-hardening" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Test suite 4.7× speedup</strong> (7 min → 1.5 min)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>HTTP 429 rate-limit handling</strong> with Retry-After header support</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Memory-bounded campaigns</strong> — attack-result growth capped</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Combined refusal patterns into a single mega-regex</strong> (significant detector speedup)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Cached betweenness centrality</strong> in chain analyzer</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Parallelised protocol auto-detection</strong> and multi-agent scans</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Campaign checkpoint / resume</strong> for long-running scans</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Circuit breaker pattern</strong> for failing remote agents</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>CLI <code>--dry-run</code> + <code>validate</code> command</strong> for configuration sanity checks</li>
+</ul>
+<h3 id="v013-web-ui-foundation">v0.13 — Web UI Foundation<a class="headerlink" href="#v013-web-ui-foundation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Web UI</strong> — React + Vite frontend, FastAPI + SQLAlchemy backend, PostgreSQL</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Findings management</strong> — filtering, triage, OWASP compliance view</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Attack library browser</strong> — filter by category, severity, OWASP, tags</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Knowledge graph visualisation</strong> — interactive vis-network rendering</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Settings page</strong> — agent configuration + scan preferences</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>TaoQ design system</strong> — shadcn/ui + Tailwind, dark-mode-ready</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Docker multi-stage build</strong> + Playwright E2E tests</li>
+</ul>
+<h3 id="v014-runtime-bridge">v0.14 — Runtime Bridge<a class="headerlink" href="#v014-runtime-bridge" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Policy export</strong> — OPA/Rego, Cedar, NeMo Colang, Invariant Labs DSL bundles</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Trace analysis</strong> — ingest OTel / Langfuse production traces, match against dangerous chains</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>MCP registry watcher</strong> — poll manifests, detect drift, flag typosquats</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>CI/CD templates</strong> for GitHub, GitLab, Jenkins, CircleCI, Azure Pipelines</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Agent Security Landscape</strong> concept page — where ZIRAN fits in the pre-deploy / runtime / observability stack</li>
+</ul>
+<h3 id="v015-benchmark-maturity">v0.15 — Benchmark Maturity<a class="headerlink" href="#v015-benchmark-maturity" title="Permanent link">&para;</a></h3>
+<ul>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>100% OWASP LLM Top 10 coverage</strong> (10/10 categories, all strong+)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>MITRE ATLAS mapping</strong> on every vector (72/86 techniques, 14/14 agent-specific)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Defence profile schema + evasion-rate metric</strong> (schema + metric field; evaluator adapters follow in the next cycle)</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>RAG-poisoning attack category</strong> — retrieval-aware indirect injection vectors</li>
+<li><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:" /> <strong>Benchmark expansion</strong> — TensorTrust, WildJailbreak, ToolEmu, CyberSecEval coverage lifts</li>
+</ul>
+<p>See the <a href="../../reference/benchmarks/coverage-comparison/">benchmark coverage comparison</a> for the full dashboard.</p>
+<hr />
+<h2 id="in-flight-next-up">In Flight &amp; Next Up<a class="headerlink" href="#in-flight-next-up" title="Permanent link">&para;</a></h2>
+<p>Work is organised into <strong>themes</strong>, each tracked by an open GitHub milestone. The themes are the stable commitment; which release tag they end up shipping under is whatever <code>release-please</code> decides when the work lands — that's intentionally not pinned here because priorities shift.</p>
+<h3 id="theme-runtime-loop">Theme: Runtime Loop<a class="headerlink" href="#theme-runtime-loop" title="Permanent link">&para;</a></h3>
+<p>Close the <strong>pre-deploy → runtime → observability</strong> loop that v0.8 sketched. Today the runtime-bridge commands (<code>export-policy</code>, <code>analyze-traces</code>, <code>watch-registry</code>) ship infrastructure but leave the integration endpoints to humans. This theme wires them through to real systems.</p>
+<ul>
+<li>[ ] <strong>NeMo Guardrails evaluator adapter</strong> — makes <code>evasion_rate</code> computable for the first concrete guardrail; unblocks Lakera and Invariant follow-ups (<a href="https://github.com/taoq-ai/ziran/issues/271">#271</a>)</li>
+<li>[ ] <strong>Registry-watcher alerting</strong> — Slack + GitHub issue output adapters when MCP drift is detected (<a href="https://github.com/taoq-ai/ziran/issues/272">#272</a>)</li>
+<li>[ ] <strong>Policy auto-refresh GitHub Action</strong> — PR-based refresh of exported policies when the library or target config changes (<a href="https://github.com/taoq-ai/ziran/issues/273">#273</a>)</li>
+<li>[ ] <strong>Trace-analysis → GitHub issues</strong> — auto-file issues when production traces match dangerous chains (<a href="https://github.com/taoq-ai/ziran/issues/274">#274</a>)</li>
+</ul>
+<h3 id="theme-detection-depth">Theme: Detection Depth<a class="headerlink" href="#theme-detection-depth" title="Permanent link">&para;</a></h3>
+<p>Close frontier attack gaps (gradient-based attacks, many-shot jailbreaks, tool-schema confusion) and detection-quality gaps (multilingual refusal, untuned thresholds, no precision/recall baseline). Benchmark what ZIRAN claims against labelled ground truth.</p>
+<ul>
+<li>[ ] <strong>Gradient-based adversarial attacks (GCG / PAIR)</strong> — new <code>AdvancedAttackGenerator</code> subsystem for optimiser-based attacks (<a href="https://github.com/taoq-ai/ziran/issues/275">#275</a>)</li>
+<li>[ ] <strong>Many-shot jailbreaking category</strong> — exploits long-context windows with hundreds of shots (<a href="https://github.com/taoq-ai/ziran/issues/276">#276</a>)</li>
+<li>[ ] <strong>Tool-schema confusion category</strong> — malformed schemas, parameter type confusion, enum injection (<a href="https://github.com/taoq-ai/ziran/issues/277">#277</a>)</li>
+<li>[ ] <strong>Multilingual refusal detection</strong> — extend the refusal detector beyond English (Chinese, Spanish, German, French, Japanese) (<a href="https://github.com/taoq-ai/ziran/issues/278">#278</a>)</li>
+<li>[ ] <strong>Precision/recall/F1 benchmark per detector</strong> — labelled ground-truth eval, threshold tuning methodology (<a href="https://github.com/taoq-ai/ziran/issues/279">#279</a>)</li>
+<li>[ ] <strong>Pentesting-agent ground-truth evaluation</strong> — does the autonomous agent find vulnerabilities the rule-based scanner misses? (<a href="https://github.com/taoq-ai/ziran/issues/280">#280</a>)</li>
+</ul>
+<h3 id="theme-production-scale">Theme: Production Scale<a class="headerlink" href="#theme-production-scale" title="Permanent link">&para;</a></h3>
+<p>Harden the runtime for enterprise production use — rate-limiting, structured logging, resumable checkpoints, proper metrics.</p>
+<ul>
+<li>[ ] <strong>Rate-limiting + retry with backoff</strong> — per-provider token bucket, exponential retry on 429s, scale beyond the current 5-concurrent default (<a href="https://github.com/taoq-ai/ziran/issues/281">#281</a>)</li>
+<li>[ ] <strong>Structured JSON logging (structlog)</strong> — machine-queryable audit trail for ELK / Datadog / Splunk ingestion (<a href="https://github.com/taoq-ai/ziran/issues/282">#282</a>)</li>
+<li>[ ] <strong>Partial-phase checkpoint resume</strong> — save progress within a phase; don't lose 30 min of work on a crash (<a href="https://github.com/taoq-ai/ziran/issues/283">#283</a>)</li>
+<li>[ ] <strong>OTel metrics export (Prometheus-compatible)</strong> — counters, gauges, histograms beyond the existing span export (<a href="https://github.com/taoq-ai/ziran/issues/284">#284</a>)</li>
+</ul>
+<h3 id="theme-ecosystem-enterprise">Theme: Ecosystem + Enterprise<a class="headerlink" href="#theme-ecosystem-enterprise" title="Permanent link">&para;</a></h3>
+<p>Expand framework reach and unlock enterprise-facing positioning: incremental scanning for dev-loop speed, compliance evidence bundles for procurement.</p>
+<ul>
+<li>[ ] <strong>AutoGen adapter</strong> — Microsoft's multi-agent framework (<a href="https://github.com/taoq-ai/ziran/issues/285">#285</a>)</li>
+<li>[ ] <strong>Anthropic SDK native adapter</strong> — direct path, no LangChain wrapping (<a href="https://github.com/taoq-ai/ziran/issues/286">#286</a>)</li>
+<li>[ ] <strong>Langfuse API trace ingestor</strong> — live pulls, not file exports (<a href="https://github.com/taoq-ai/ziran/issues/287">#287</a>)</li>
+<li>[ ] <strong>Incremental / diff scanning</strong> — only re-test changed vectors; unlock pre-commit-hook and fast-CI-gate use (<a href="https://github.com/taoq-ai/ziran/issues/288">#288</a>)</li>
+<li>[ ] <strong>Compliance evidence bundles</strong> — EU AI Act / NIST AI RMF / ISO 42001 mapping + export (<a href="https://github.com/taoq-ai/ziran/issues/289">#289</a>)</li>
+</ul>
+<h3 id="opportunistic-not-in-a-theme">Opportunistic — Not in a theme<a class="headerlink" href="#opportunistic-not-in-a-theme" title="Permanent link">&para;</a></h3>
+<p>These don't block a milestone but are worth landing when someone has a slot:</p>
+<ul>
+<li>[ ] <strong>Attack library community submission workflow</strong> — clear contributor path, PR template, CI schema linter (<a href="https://github.com/taoq-ai/ziran/issues/290">#290</a>) — <code>good first issue</code></li>
+<li>[ ] <strong>Supply-chain signing</strong> — cosign signatures on releases, CycloneDX SBOM, SLSA provenance (<a href="https://github.com/taoq-ai/ziran/issues/291">#291</a>)</li>
+<li>[ ] <strong><code>ziran init</code> scaffolding command</strong> — one-liner onboarding (<a href="https://github.com/taoq-ai/ziran/issues/292">#292</a>) — <code>good first issue</code></li>
+<li>[ ] <strong>Expand ATLAS coverage to remaining tactics</strong> — AI Model Access, AI Attack Staging (<a href="https://github.com/taoq-ai/ziran/issues/264">#264</a>)</li>
+<li>[ ] <strong>asqav signing integration sketch</strong> — downstream signing of ZIRAN outputs (<a href="https://github.com/taoq-ai/ziran/issues/259">#259</a>)</li>
+<li>[ ] <strong>HTML report graph pagination</strong> — perf improvement for large campaigns (<a href="https://github.com/taoq-ai/ziran/issues/217">#217</a>)</li>
+</ul>
+<h3 id="ui-hardening">UI Hardening<a class="headerlink" href="#ui-hardening" title="Permanent link">&para;</a></h3>
+<p>Tracked as a parallel stream. See <a href="https://github.com/taoq-ai/ziran/labels/ui">UI-labelled issues</a>.</p>
+<hr />
+<h2 id="longer-term">Longer Term<a class="headerlink" href="#longer-term" title="Permanent link">&para;</a></h2>
+<p>Directions we're watching but not yet committed to a milestone on. These are the places where the shape of the work isn't settled yet — what ships depends on signal from users and on what the surrounding ecosystem does.</p>
+<ul>
+<li><strong>Multimodal prompt injection</strong> — image / document / audio attack surface, once multimodal agents are common production targets</li>
+<li><strong>Custom chain rule language</strong> — user-defined tool chain patterns complementing auto-discovery</li>
+<li><strong>AgentSecBench</strong> — purpose-built benchmark of deliberately-vulnerable agents with known tool-chain vulnerabilities; demonstrates what ZIRAN catches that other tools miss</li>
+<li><strong>Tool chain methodology paper</strong> — publish the discovery-based approach as research</li>
+<li><strong>Red-team / blue-team split mode</strong> — meaningful once the DefenceProfile evaluator ecosystem has multiple implementations (waits for #271 and the next evaluator)</li>
+<li><strong>Federated agent trust boundary modelling</strong> — cross-org / cross-network agent topologies</li>
+</ul>
+<hr />
+<h2 id="ziran-cloud">ZIRAN Cloud<a class="headerlink" href="#ziran-cloud" title="Permanent link">&para;</a></h2>
+<p>A hosted platform layer is planned for commercial / enterprise use cases. OSS ZIRAN remains the foundation — Cloud builds on top rather than replacing anything. Current direction is tracked privately but the capabilities under consideration include:</p>
+<ul>
+<li><strong>Managed parallel scanning</strong> — campaigns fan out across worker pools with global rate-limiting; no self-hosted Ray/Celery required</li>
+<li><strong>Curated premium threat-intel feed</strong> — continuously updated vector library with researcher provenance, SLA-backed, complementing the open community-submission path</li>
+<li><strong>Multi-tenant RBAC</strong> — red-team / blue-team role dashboards, audit logs, team-based compliance workflows</li>
+</ul>
+<p>These are deliberately not in the OSS roadmap because they either require hosted infrastructure to be useful or would conflict with the partner ecosystem (NeMo, Lakera, Invariant, Langfuse) that OSS ZIRAN works <strong>with</strong>, not against.</p>
+<hr />
+<h2 id="how-to-influence-the-roadmap">How to Influence the Roadmap<a class="headerlink" href="#how-to-influence-the-roadmap" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Vote on issues</strong> — <img alt="👍" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f44d.svg" title=":thumbsup:" /> issues that matter to you; we read the vote counts when prioritising</li>
+<li><strong>Open feature requests</strong> — <a href="https://github.com/taoq-ai/ziran/issues/new?template=feature_request.md">feature request template</a></li>
+<li><strong>Contribute code</strong> — PRs for any of the themed issues above are very welcome; look for <code>good first issue</code> labels</li>
+<li><strong>Share feedback</strong> — <a href="https://github.com/taoq-ai/ziran/discussions">Discussions</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
