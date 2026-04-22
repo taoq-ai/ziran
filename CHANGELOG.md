@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/taoq-ai/ziran/compare/v0.28.0...v0.29.0) (2026-04-22)
+
+
+### Features
+
+* **benchmarks:** close OWASP 10/10 + expand 4 benchmarks + RAG poisoning ([#266](https://github.com/taoq-ai/ziran/issues/266)) ([b910721](https://github.com/taoq-ai/ziran/commit/b9107217187c08b0d9d5444ffc341d8ea325e3bc))
+
 ## [0.28.0](https://github.com/taoq-ai/ziran/compare/v0.27.0...v0.28.0) (2026-04-21)
 
 
