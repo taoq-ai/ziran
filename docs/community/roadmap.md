@@ -57,20 +57,77 @@ Priorities shift as the landscape changes. This page tracks **themes** we're act
 - :white_check_mark: Headless Playwright adapter for agents behind web chat UIs
 - :white_check_mark: Network interception + DOM-fallback extraction
 
-### v0.8 — Runtime Bridge
+### v0.8 — Depth & Ecosystem
 
-- :white_check_mark: Policy export — OPA/Rego, Cedar, NeMo Colang, Invariant Labs DSL bundles
-- :white_check_mark: Trace analysis — ingest OTel / Langfuse production traces, match against dangerous chains
-- :white_check_mark: MCP registry watcher — poll manifests, detect drift, flag typosquats
-- :white_check_mark: CI/CD templates for GitHub, GitLab, Jenkins, CircleCI, Azure Pipelines
+- :white_check_mark: Expanded tool chain patterns — grew from 32 to 102 dangerous patterns across 15 categories (cloud services, MCP, A2A, CI/CD, browser, crypto, and more)
+- :white_check_mark: Encoding / obfuscation engine — 12 encoding types (Base64, ROT13, leetspeak, homoglyph, hex, whitespace, mixed case, payload split, pig latin, reverse, word shuffle, token boundary)
+- :white_check_mark: Multi-turn jailbreak tactics — crescendo, context buildup, persona shift, distraction tactics for progressive escalation
+- :white_check_mark: BOLA / BFLA authorization testing — 20 attack vectors for Broken Object / Function Level Authorization
+- :white_check_mark: Promptfoo provider bridge — use ZIRAN as a custom Python provider in Promptfoo YAML test cases
+- :white_check_mark: OpenTelemetry tracing — opt-in distributed tracing for campaigns, phases, attacks, and detection
 
-### v0.13 — Benchmark Maturity
+### v0.9 — Business Impact & Resilience Metrics
+
+- :white_check_mark: **Business impact categorisation** — findings tagged with 7 categories (financial loss, reputation damage, privacy violation, unauthorised actions, system compromise, misinformation, property loss)
+- :white_check_mark: **AILuminate-style resilience gap metric** — baseline vs under-attack performance delta
+- :white_check_mark: **Utility-under-attack measurement** — legitimate-task performance degradation during campaigns
+- :white_check_mark: Closed three critical benchmark gaps surfaced by early external review
+
+### v0.10 — Benchmark Breadth
+
+- :white_check_mark: **100% ALERT benchmark coverage** (32 micro categories)
+- :white_check_mark: **100% JailbreakBench coverage** (all 10 JBB categories)
+- :white_check_mark: **R-Judge risk scenario coverage** (10 risk types)
+- :white_check_mark: **Harmful multi-step task scenarios** — AgentHarm-aligned
+- :white_check_mark: **OWASP LLM04 (Model DoS)** — dedicated attack vectors
+- :white_check_mark: Expanded jailbreak tactic library + benchmark coverage comparison report generator
+
+### v0.11 — Detection Accuracy & Quality Metrics
+
+- :white_check_mark: **Precision / recall / F1** metrics for detection accuracy on labelled datasets
+- :white_check_mark: **StrongREJECT-style quality-aware jailbreak scoring** (refusal + specificity + convincingness composite)
+- :white_check_mark: **MCPTox tool-poisoning coverage** expanded to 100+ vectors
+- :white_check_mark: **AgentHarm multi-step vector coverage** expanded to 161 vectors
+- :white_check_mark: Historical benchmark tracking + trend analysis
+- :white_check_mark: Comparative analysis against Promptfoo, Garak, and other tools
+
+### v0.12 — Performance & Reliability Hardening
+
+- :white_check_mark: **Test suite 4.7× speedup** (7 min → 1.5 min)
+- :white_check_mark: **HTTP 429 rate-limit handling** with Retry-After header support
+- :white_check_mark: **Memory-bounded campaigns** — attack-result growth capped
+- :white_check_mark: **Combined refusal patterns into a single mega-regex** (significant detector speedup)
+- :white_check_mark: **Cached betweenness centrality** in chain analyzer
+- :white_check_mark: **Parallelised protocol auto-detection** and multi-agent scans
+- :white_check_mark: **Campaign checkpoint / resume** for long-running scans
+- :white_check_mark: **Circuit breaker pattern** for failing remote agents
+- :white_check_mark: **CLI `--dry-run` + `validate` command** for configuration sanity checks
+
+### v0.13 — Web UI Foundation
+
+- :white_check_mark: **Web UI** — React + Vite frontend, FastAPI + SQLAlchemy backend, PostgreSQL
+- :white_check_mark: **Findings management** — filtering, triage, OWASP compliance view
+- :white_check_mark: **Attack library browser** — filter by category, severity, OWASP, tags
+- :white_check_mark: **Knowledge graph visualisation** — interactive vis-network rendering
+- :white_check_mark: **Settings page** — agent configuration + scan preferences
+- :white_check_mark: **TaoQ design system** — shadcn/ui + Tailwind, dark-mode-ready
+- :white_check_mark: **Docker multi-stage build** + Playwright E2E tests
+
+### v0.14 — Runtime Bridge
+
+- :white_check_mark: **Policy export** — OPA/Rego, Cedar, NeMo Colang, Invariant Labs DSL bundles
+- :white_check_mark: **Trace analysis** — ingest OTel / Langfuse production traces, match against dangerous chains
+- :white_check_mark: **MCP registry watcher** — poll manifests, detect drift, flag typosquats
+- :white_check_mark: **CI/CD templates** for GitHub, GitLab, Jenkins, CircleCI, Azure Pipelines
+- :white_check_mark: **Agent Security Landscape** concept page — where ZIRAN fits in the pre-deploy / runtime / observability stack
+
+### v0.15 — Benchmark Maturity
 
 - :white_check_mark: **100% OWASP LLM Top 10 coverage** (10/10 categories, all strong+)
 - :white_check_mark: **MITRE ATLAS mapping** on every vector (72/86 techniques, 14/14 agent-specific)
-- :white_check_mark: Defence profile schema + evasion-rate metric
-- :white_check_mark: RAG-poisoning attack category
-- :white_check_mark: Benchmark expansion against TensorTrust, WildJailbreak, ToolEmu, CyberSecEval
+- :white_check_mark: **Defence profile schema + evasion-rate metric** (schema + metric field; evaluator adapters follow in the next cycle)
+- :white_check_mark: **RAG-poisoning attack category** — retrieval-aware indirect injection vectors
+- :white_check_mark: **Benchmark expansion** — TensorTrust, WildJailbreak, ToolEmu, CyberSecEval coverage lifts
 
 See the [benchmark coverage comparison](../reference/benchmarks/coverage-comparison.md) for the full dashboard.
 
@@ -78,7 +135,7 @@ See the [benchmark coverage comparison](../reference/benchmarks/coverage-compari
 
 ## In Flight & Next Up
 
-Work is organised into **themes**, each tracked by an open GitHub milestone. Version numbers aren't published here because priorities shift as the landscape does — the themes are the stable commitment.
+Work is organised into **themes**, each tracked by an open GitHub milestone. The themes are the stable commitment; which release tag they end up shipping under is whatever `release-please` decides when the work lands — that's intentionally not pinned here because priorities shift.
 
 ### Theme: Runtime Loop
 
