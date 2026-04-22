@@ -57,6 +57,7 @@ from ziran.domain.entities.attack import (
     AttackResult,
     TokenUsage,
 )
+from ziran.domain.entities.defence import DefenceProfile  # noqa: TC001 — runtime arg type
 from ziran.domain.entities.phase import (
     CORE_PHASES,
     CampaignResult,
@@ -175,6 +176,7 @@ class AgentScanner:
         utility_tasks: list[UtilityTask] | None = None,
         checkpoint_manager: CheckpointManager | None = None,
         resume_from_checkpoint: bool = False,
+        defence_profile: DefenceProfile | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
 
@@ -476,6 +478,7 @@ class AgentScanner:
             post_score=_post_score,
             post_results=_post_results,
             utility_tasks_count=len(utility_tasks or []),
+            defence_profile=defence_profile,
         )
         self._discovered_chains = dangerous_chains
 

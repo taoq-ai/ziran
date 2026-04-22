@@ -12,6 +12,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from ziran.domain.entities.defence import DefenceProfile  # noqa: TC001 — Pydantic field type
+
 
 class CoverageLevel(StrEnum):
     """Controls how many attack vectors are used per phase.
@@ -216,6 +218,24 @@ class CampaignResult(BaseModel):
     resilience: ResilienceMetrics | None = Field(
         default=None,
         description="AILuminate-style resilience metrics computed from campaign data",
+    )
+    defence_profile: DefenceProfile | None = Field(
+        default=None,
+        description=(
+            "Defence profile declared for this campaign (spec 012 US5). "
+            "When None, the field is omitted from JSON output via exclude_none, "
+            "preserving byte-identity with pre-spec-012 reports."
+        ),
+    )
+    evasion_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Proportion of attacks that succeeded despite evaluable declared "
+            "defences (spec 012 US5). None when no profile, empty profile, "
+            "or no evaluable defences; omitted from JSON via exclude_none."
+        ),
     )
     metadata: dict[str, Any] = Field(default_factory=dict)
     source: str = Field(default="scan", description="Result source: 'scan' or 'trace-analysis'")
