@@ -23,17 +23,20 @@
 
 ## Benchmarks
 
-> **565** attack vectors · **11** categories · **90%** OWASP LLM Top 10 · **20** benchmarks analyzed
+> **639** attack vectors · **11** categories · **100%** OWASP LLM Top 10 · **72/86** MITRE ATLAS techniques · **20** benchmarks analyzed
 
 | Benchmark | Coverage |
 |-----------|----------|
+| OWASP LLM Top 10 | **10/10** categories (strong or comprehensive) |
+| MITRE ATLAS (Oct 2025) | 72/86 techniques, 14/14 agent-specific |
 | AgentHarm (ICLR 2025) | 100% harm categories |
 | JailbreakBench (NeurIPS 2024) | 100% categories, 175 vectors |
-| Agent Security Bench | 100% vectors (565/400) |
+| Agent Security Bench | 100% vectors (639/400) |
 | HarmBench (ICML 2024) | 55.6% tactics, 175 jailbreak vectors |
 | R-Judge | 100% risk types |
 | ALERT | 100% micro categories (32/32) |
-| MITRE ATLAS | 73.3% attack categories |
+| TensorTrust / WildJailbreak / ToolEmu / CyberSecEval | Representative pattern families |
+| LLMail-Inject / RAG Poisoning | Retrieval-ranked vectors across 4 document framings |
 
 Full results: [benchmarks/](benchmarks/) · [docs](https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/)
 
@@ -140,7 +143,7 @@ docker compose up
 # Dashboard: http://localhost:8484
 ```
 
-### Attack Library -- 565 vectors across 11 categories
+### Attack Library -- 639 vectors across 11 categories
 
 ![Attack Library](docs/assets/ui-library.png)
 

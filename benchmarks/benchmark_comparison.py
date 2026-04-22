@@ -293,6 +293,12 @@ BENCHMARKS = [
                 "target": 126000,
                 "implemented": _count_vectors_by_category(lib, "prompt_injection"),
             },
+            {
+                "dimension": "Representative pattern families",
+                "target": None,
+                "implemented": _count_vectors_by_tag(lib, "tensortrust"),
+                "note": "Distinct TensorTrust pattern families covered",
+            },
         ],
     },
     {
@@ -310,23 +316,29 @@ BENCHMARKS = [
                 "target": 105000,
                 "implemented": len(set(v.tactic or "single" for v in lib.vectors)),
             },
+            {
+                "dimension": "WildJailbreak-inspired multi-turn vectors",
+                "target": None,
+                "implemented": _count_vectors_by_tag(lib, "wildjailbreak"),
+                "note": "Distinct tactic families from WildJailbreak",
+            },
         ],
     },
     {
-        "name": "LLMail-Inject",
+        "name": "LLMail-Inject / RAG Poisoning",
         "venue": "2024",
-        "url": None,
-        "focus": "RAG injection + defense evasion",
+        "url": "https://microsoft.github.io/llmail-inject/",
+        "focus": "RAG retrieval-targeted injection + defense evasion",
         "test_cases": None,
-        "key_dimensions": ["RAG-specific", "defense evasion testing"],
+        "key_dimensions": ["RAG-specific", "retrieval-ranked payloads", "defense evasion"],
         "gap_id": "GAP-13",
         "gap_issue": "#44",
-        "coverage_fn": lambda _lib: [
+        "coverage_fn": lambda lib: [
             {
-                "dimension": "RAG injection vectors",
+                "dimension": "RAG retrieval-targeted vectors",
                 "target": None,
-                "implemented": 0,
-                "note": "Not yet implemented",
+                "implemented": _count_vectors_by_tag(lib, "rag-poisoning"),
+                "note": "Retrieval-ranked payloads across multiple document framings",
             },
         ],
     },
@@ -368,7 +380,7 @@ BENCHMARKS = [
     {
         "name": "CyberSecEval",
         "venue": "Meta, 2024",
-        "url": None,
+        "url": "https://ai.meta.com/research/publications/cyberseceval/",
         "focus": "Cybersecurity-focused LLM evaluation",
         "test_cases": None,
         "key_dimensions": ["code generation safety", "cybersecurity knowledge"],
@@ -376,7 +388,13 @@ BENCHMARKS = [
         "gap_issue": "#57",
         "coverage_fn": lambda lib: [
             {
-                "dimension": "Total vectors",
+                "dimension": "Code-generation safety vectors",
+                "target": None,
+                "implemented": _count_vectors_by_tag(lib, "cyberseceval"),
+                "note": "Code-gen safety + cyber knowledge elicitation families",
+            },
+            {
+                "dimension": "Total library overlap",
                 "target": None,
                 "implemented": len(lib.vectors),
                 "note": "Multi-category benchmark — partial overlap",
@@ -397,6 +415,12 @@ BENCHMARKS = [
                 "dimension": "Tool manipulation vectors",
                 "target": 144,
                 "implemented": _count_vectors_by_category(lib, "tool_manipulation"),
+            },
+            {
+                "dimension": "Dedicated sandbox-evasion vectors",
+                "target": None,
+                "implemented": _count_vectors_by_tag(lib, "toolemu"),
+                "note": "Sandbox-evasion vectors distinct from generic tool manipulation",
             },
         ],
     },

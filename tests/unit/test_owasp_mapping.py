@@ -156,21 +156,49 @@ class TestAttackLibraryOwasp:
         for attack in lmm07_attacks:
             assert OwaspLlmCategory.LLM07 in attack.owasp_mapping
 
-    def test_prompt_injection_maps_to_lmm01(self, library: AttackLibrary) -> None:
+    def test_prompt_injection_vectors_have_relevant_owasp_mapping(
+        self, library: AttackLibrary
+    ) -> None:
+        """Prompt-injection vectors must carry at least one OWASP category.
+
+        The dominant category is LLM01, but some vectors legitimately map
+        to LLM02 (Insecure Output Handling — e.g., unsafe-code-generation
+        vectors under the prompt_injection category after spec 012). The
+        invariant is that every vector in the prompt_injection category
+        carries at least one relevant OWASP mapping.
+        """
+        relevant = {
+            OwaspLlmCategory.LLM01,
+            OwaspLlmCategory.LLM02,
+            OwaspLlmCategory.LLM06,
+        }
         pi_attacks = library.get_attacks_by_category(AttackCategory.PROMPT_INJECTION)
         for attack in pi_attacks:
-            assert OwaspLlmCategory.LLM01 in attack.owasp_mapping
+            assert relevant.intersection(attack.owasp_mapping), (
+                f"Vector '{attack.id}' missing any of {sorted(c.value for c in relevant)} "
+                f"in owasp_mapping: {attack.owasp_mapping}"
+            )
 
-    def test_data_exfiltration_maps_to_lmm02_or_lmm07(self, library: AttackLibrary) -> None:
-        """Data exfiltration vectors should map to LLM02 or LLM07 (or both)."""
+    def test_data_exfiltration_has_relevant_owasp_mapping(self, library: AttackLibrary) -> None:
+        """Data-exfiltration vectors should map to a relevant OWASP category.
+
+        Typical mappings are LLM02 (Insecure Output Handling) or LLM07
+        (Insecure Plugin Design). After spec 012, model-theft vectors
+        under the data_exfiltration category also legitimately carry
+        LLM10 (Unbounded Consumption) and LLM06 (Sensitive Information
+        Disclosure).
+        """
+        relevant = {
+            OwaspLlmCategory.LLM02,
+            OwaspLlmCategory.LLM06,
+            OwaspLlmCategory.LLM07,
+            OwaspLlmCategory.LLM10,
+        }
         de_attacks = library.get_attacks_by_category(AttackCategory.DATA_EXFILTRATION)
         for attack in de_attacks:
-            has_relevant_mapping = (
-                OwaspLlmCategory.LLM02 in attack.owasp_mapping
-                or OwaspLlmCategory.LLM07 in attack.owasp_mapping
-            )
-            assert has_relevant_mapping, (
-                f"Vector '{attack.id}' missing LLM02 or LLM07 in owasp_mapping: "
+            assert relevant.intersection(attack.owasp_mapping), (
+                f"Vector '{attack.id}' missing any of "
+                f"{sorted(c.value for c in relevant)} in owasp_mapping: "
                 f"{attack.owasp_mapping}"
             )
 

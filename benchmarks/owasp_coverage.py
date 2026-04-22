@@ -19,11 +19,11 @@ from ziran.domain.entities.attack import (
     OwaspLlmCategory,
 )
 
-# Issues tracking uncovered OWASP categories
-_PLANNED_ISSUES: dict[str, str] = {
-    "LLM05": "#42",
-    "LLM10": "#43",
-}
+# Issues tracking uncovered OWASP categories. Both #42 (LLM05) and #43 (LLM10)
+# were closed in spec 012 (Benchmark Maturity) — supply_chain.yaml and
+# model_theft.yaml brought both categories to "strong". This dict is kept as
+# a forward-compatible placeholder for any future OWASP gap.
+_PLANNED_ISSUES: dict[str, str] = {}
 
 # Coverage thresholds
 _COMPREHENSIVE = 40
@@ -105,6 +105,29 @@ def print_summary(data: dict) -> None:
         print(f"\nNot covered: {', '.join(data['not_covered'])}")
 
 
+def _validate(data: dict) -> int:
+    """Return non-zero exit if any OWASP category is below the strong floor.
+
+    Spec 012 (Benchmark Maturity) set the release-gate expectation: after
+    that release every category must report at least "strong" (>= _STRONG
+    vectors) or "comprehensive" — no "moderate", "planned", or "not covered".
+    """
+    under_floor = [
+        (cat, info)
+        for cat, info in data["per_category"].items()
+        if info["status"] not in {"strong", "comprehensive"}
+    ]
+    if under_floor:
+        for cat, info in under_floor:
+            print(
+                f"FAIL: OWASP {cat} is '{info['status']}' with {info['vectors']} vectors "
+                f"(floor: 'strong', >= {_STRONG} vectors).",
+                file=sys.stderr,
+            )
+        return 1
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="OWASP LLM Top 10 coverage")
     parser.add_argument("--json", type=Path, help="Write JSON output to file")
@@ -118,6 +141,8 @@ def main() -> None:
         print(f"Wrote {args.json}", file=sys.stderr)
     else:
         print_summary(data)
+
+    sys.exit(_validate(data))
 
 
 if __name__ == "__main__":
