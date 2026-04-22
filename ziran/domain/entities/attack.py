@@ -178,6 +178,11 @@ class AtlasTechnique(StrEnum):
 
     # ── Initial Access (AML.TA0004) ──────────────────────────────────
     AI_SUPPLY_CHAIN_COMPROMISE = "AML.T0010"
+    AI_SUPPLY_CHAIN_COMPROMISE_HARDWARE = "AML.T0010.000"
+    AI_SUPPLY_CHAIN_COMPROMISE_SOFTWARE = "AML.T0010.001"
+    AI_SUPPLY_CHAIN_COMPROMISE_DATA = "AML.T0010.002"
+    AI_SUPPLY_CHAIN_COMPROMISE_MODEL = "AML.T0010.003"
+    AI_SUPPLY_CHAIN_COMPROMISE_CONTAINER = "AML.T0010.004"
     VALID_ACCOUNTS = "AML.T0012"
     EVADE_AI_MODEL = "AML.T0015"
     EXPLOIT_PUBLIC_FACING_APPLICATION = "AML.T0049"
@@ -287,6 +292,11 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.RETRIEVAL_CONTENT_CRAFTING: "Retrieval Content Crafting",
     AtlasTechnique.AI_SUPPLY_CHAIN_RUG_PULL: "AI Supply Chain Rug Pull",
     AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE: "AI Supply Chain Compromise",
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_HARDWARE: "AI Supply Chain Compromise: Hardware",
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_SOFTWARE: "AI Supply Chain Compromise: AI Software",
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_DATA: "AI Supply Chain Compromise: Data",
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_MODEL: "AI Supply Chain Compromise: Model",
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_CONTAINER: "AI Supply Chain Compromise: Container Registry",
     AtlasTechnique.VALID_ACCOUNTS: "Valid Accounts",
     AtlasTechnique.EVADE_AI_MODEL: "Evade AI Model",
     AtlasTechnique.EXPLOIT_PUBLIC_FACING_APPLICATION: "Exploit Public-Facing Application",
@@ -377,6 +387,11 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     AtlasTechnique.RETRIEVAL_CONTENT_CRAFTING: [AtlasTactic.RESOURCE_DEVELOPMENT],
     AtlasTechnique.AI_SUPPLY_CHAIN_RUG_PULL: [AtlasTactic.RESOURCE_DEVELOPMENT],
     AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE: [AtlasTactic.INITIAL_ACCESS],
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_HARDWARE: [AtlasTactic.INITIAL_ACCESS],
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_SOFTWARE: [AtlasTactic.INITIAL_ACCESS],
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_DATA: [AtlasTactic.INITIAL_ACCESS],
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_MODEL: [AtlasTactic.INITIAL_ACCESS],
+    AtlasTechnique.AI_SUPPLY_CHAIN_COMPROMISE_CONTAINER: [AtlasTactic.INITIAL_ACCESS],
     AtlasTechnique.VALID_ACCOUNTS: [AtlasTactic.INITIAL_ACCESS, AtlasTactic.PRIVILEGE_ESCALATION],
     AtlasTechnique.EVADE_AI_MODEL: [
         AtlasTactic.INITIAL_ACCESS,

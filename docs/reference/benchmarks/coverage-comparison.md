@@ -2,14 +2,14 @@
 
 Auto-generated comparison of ZIRAN's attack vector library against published AI agent security benchmarks.
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-22*
 
 ## Executive Summary
 
-- **565** attack vectors across **11** attack categories
-- **90.0%** OWASP LLM Top 10 coverage (9/10 categories)
+- **639** attack vectors across **11** attack categories
+- **100.0%** OWASP LLM Top 10 coverage (10/10 categories)
 - **10** multi-turn jailbreak tactics, **12** encoding types
-- **219** multi-turn vectors
+- **229** multi-turn vectors
 - **11** harm categories (AgentHarm-aligned)
 - Gap closure: **39.1%** (9/23 gaps closed)
 
@@ -17,47 +17,45 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 
 | Code | Category | Vectors | Status |
 |------|----------|---------|--------|
-| **LLM01** | Prompt Injection | 434 | :white_check_mark: Comprehensive |
-| **LLM02** | Insecure Output Handling | 194 | :white_check_mark: Comprehensive |
-| **LLM03** | Training Data Poisoning | 15 | :white_check_mark: Strong |
-| **LLM04** | Model Denial of Service | 12 | :white_check_mark: Strong |
-| **LLM05** | Supply Chain Vulnerabilities | 7 | :large_orange_diamond: Moderate |
-| **LLM06** | Sensitive Information Disclosure | 95 | :white_check_mark: Comprehensive |
-| **LLM07** | Insecure Plugin Design | 136 | :white_check_mark: Comprehensive |
-| **LLM08** | Excessive Agency | 139 | :white_check_mark: Comprehensive |
+| **LLM01** | Prompt Injection | 468 | :white_check_mark: Comprehensive |
+| **LLM02** | Insecure Output Handling | 201 | :white_check_mark: Comprehensive |
+| **LLM03** | Training Data Poisoning | 19 | :white_check_mark: Strong |
+| **LLM04** | Model Denial of Service | 14 | :white_check_mark: Strong |
+| **LLM05** | Supply Chain Vulnerabilities | 18 | :white_check_mark: Strong |
+| **LLM06** | Sensitive Information Disclosure | 110 | :white_check_mark: Comprehensive |
+| **LLM07** | Insecure Plugin Design | 145 | :white_check_mark: Comprehensive |
+| **LLM08** | Excessive Agency | 151 | :white_check_mark: Comprehensive |
 | **LLM09** | Overreliance | 15 | :white_check_mark: Strong |
-| **LLM10** | Unbounded Consumption | — | :construction: Planned |
-
-**Not covered:** LLM10
+| **LLM10** | Unbounded Consumption | 10 | :white_check_mark: Strong |
 
 ## MITRE ATLAS Coverage
 
 Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-mapping.md) for methodology).
 
-- **62/81** ATLAS techniques represented in the library
+- **72/86** ATLAS techniques represented in the library
 - **14/14** agent-specific techniques covered (from the October 2025 ATLAS release)
-- **565/565** vectors carry an ATLAS mapping
+- **639/639** vectors carry an ATLAS mapping
 
 ### Coverage by Tactic
 
 | Tactic | Name | Techniques | Vectors |
 |--------|------|-----------:|--------:|
-| **AML.TA0000** | AI Model Access | 2/4 | 910 |
-| **AML.TA0001** | AI Attack Staging | 6/7 | 621 |
-| **AML.TA0002** | Reconnaissance | 3/6 | 9 |
-| **AML.TA0003** | Resource Development | 4/12 | 370 |
-| **AML.TA0004** | Initial Access | 5/6 | 163 |
-| **AML.TA0005** | Execution | 5/6 | 716 |
-| **AML.TA0006** | Persistence | 7/7 | 250 |
-| **AML.TA0007** | Defense Evasion | 6/6 | 336 |
-| **AML.TA0008** | Discovery | 7/7 | 158 |
+| **AML.TA0000** | AI Model Access | 3/4 | 915 |
+| **AML.TA0001** | AI Attack Staging | 7/7 | 626 |
+| **AML.TA0002** | Reconnaissance | 4/6 | 25 |
+| **AML.TA0003** | Resource Development | 6/12 | 421 |
+| **AML.TA0004** | Initial Access | 9/11 | 187 |
+| **AML.TA0005** | Execution | 5/6 | 778 |
+| **AML.TA0006** | Persistence | 7/7 | 269 |
+| **AML.TA0007** | Defense Evasion | 6/6 | 366 |
+| **AML.TA0008** | Discovery | 7/7 | 173 |
 | **AML.TA0009** | Collection | 2/4 | 74 |
-| **AML.TA0010** | Exfiltration | 7/7 | 331 |
-| **AML.TA0011** | Impact | 13/14 | 648 |
-| **AML.TA0012** | Privilege Escalation | 3/3 | 531 |
-| **AML.TA0013** | Credential Access | 1/1 | 19 |
-| **AML.TA0014** | Command and Control | 1/1 | 159 |
-| **AML.TA0015** | Lateral Movement | 2/2 | 33 |
+| **AML.TA0010** | Exfiltration | 7/7 | 356 |
+| **AML.TA0011** | Impact | 14/14 | 663 |
+| **AML.TA0012** | Privilege Escalation | 3/3 | 563 |
+| **AML.TA0013** | Credential Access | 1/1 | 24 |
+| **AML.TA0014** | Command and Control | 1/1 | 163 |
+| **AML.TA0015** | Lateral Movement | 2/2 | 36 |
 
 ## Benchmark Comparison
 
@@ -65,26 +63,30 @@ Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-ma
 |-----------|-------|-----------|-------:|------:|----------|--------|-----|
 | **AgentHarm** | ICLR 2025 | Harm categories | 11 | 11 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-06](#37) |
 | **AgentHarm** | ICLR 2025 | Multi-step vectors | 440 | 161 | `█████░░░░░░░░░░` 36.6% | :construction: open | [GAP-23](#131) |
-| **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 50 | `█░░░░░░░░░░░░░░` 4.7% | :construction: open | [GAP-02](#33) |
-| **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 50 | `█░░░░░░░░░░░░░░` 7.9% | :construction: open | [GAP-02](#33) |
+| **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 63 | `█░░░░░░░░░░░░░░` 6.0% | :construction: open | [GAP-02](#33) |
+| **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 63 | `██░░░░░░░░░░░░░` 10.0% | :construction: open | [GAP-02](#33) |
 |  |  | Utility measurement (baseline + post-attack) | 1 | 1 | `███████████████` 100.0% |  |  |
 | **HarmBench** | ICML 2024 | Attack tactics | 18 | 10 | `████████░░░░░░░` 55.6% | :white_check_mark: closed | [GAP-08](#39) |
-|  |  | Jailbreak vectors | 510 | 175 | `█████░░░░░░░░░░` 34.3% |  |  |
+|  |  | Jailbreak vectors | 510 | 206 | `██████░░░░░░░░░` 40.4% |  |  |
 | **JailbreakBench** | NeurIPS 2024 | JBB categories (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-15](#54) |
-|  |  | Prompt injection vectors | 100 | 175 | `███████████████` 100% |  |  |
+|  |  | Prompt injection vectors | 100 | 206 | `███████████████` 100% |  |  |
 | **StrongREJECT** | 2024 | StrongREJECT composite formula | 1 | 1 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-04](#35) |
 |  |  | Scoring dimensions (refusal, specificity, convincingness) | 3 | 3 | `███████████████` 100.0% |  |  |
 | **MCPTox** | 2025 | MCP vectors | 1,312 | 101 | `█░░░░░░░░░░░░░░` 7.7% | :construction: open | [GAP-03](#34) |
 | **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 11 | `███████████████` 100% | :construction: open | [GAP-01](#32) |
-|  |  | Total vectors | 400 | 565 | `███████████████` 100% |  |  |
+|  |  | Total vectors | 400 | 639 | `███████████████` 100% |  |  |
 |  |  | Utility-under-attack measurement | 1 | 1 | `███████████████` 100.0% |  |  |
-| **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 175 | `░░░░░░░░░░░░░░░` 0.1% | :construction: open | [GAP-16](#55) |
+| **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 206 | `░░░░░░░░░░░░░░░` 0.2% | :construction: open | [GAP-16](#55) |
+|  |  | Representative pattern families | — | 11 | _Distinct TensorTrust pattern families covered_ |  |  |
 | **WildJailbreak** | 2024 | Jailbreak tactics | 105,000 | 11 | `░░░░░░░░░░░░░░░` 0.0% | :construction: open | [GAP-17](#56) |
-| **LLMail-Inject** | 2024 | RAG injection vectors | — | 0 | _Not yet implemented_ | :construction: open | [GAP-13](#44) |
+|  |  | WildJailbreak-inspired multi-turn vectors | — | 10 | _Distinct tactic families from WildJailbreak_ |  |  |
+| **LLMail-Inject / RAG Poisoning** | 2024 | RAG retrieval-targeted vectors | — | 13 | _Retrieval-ranked payloads across multiple document framings_ | :construction: open | [GAP-13](#44) |
 | **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :construction: open | [GAP-07](#38) |
-| **BIPIA** | 2024 | Indirect injection vectors | — | 50 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](#33) |
-| **CyberSecEval** | Meta, 2024 | Total vectors | — | 565 | _Multi-category benchmark — partial overlap_ | :construction: open | [GAP-18](#57) |
-| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 159 | `███████████████` 100% | :construction: open | [GAP-19](#58) |
+| **BIPIA** | 2024 | Indirect injection vectors | — | 63 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](#33) |
+| **CyberSecEval** | Meta, 2024 | Code-generation safety vectors | — | 10 | _Code-gen safety + cyber knowledge elicitation families_ | :construction: open | [GAP-18](#57) |
+|  |  | Total library overlap | — | 639 | _Multi-category benchmark — partial overlap_ |  |  |
+| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 176 | `███████████████` 100% | :construction: open | [GAP-19](#58) |
+|  |  | Dedicated sandbox-evasion vectors | — | 10 | _Sandbox-evasion vectors distinct from generic tool manipulation_ |  |  |
 | **R-Judge** | 2024 | R-Judge risk types (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-20](#59) |
 |  |  | Risk scoring detectors | — | 5 | _5 detectors — different approach than interaction records_ |  |  |
 | **AILuminate** | MLCommons, 2025 | Resilience gap metric | 1 | 1 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-09](#40) |
@@ -93,7 +95,7 @@ Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-ma
 | **ALERT** | 2024 | ALERT micro categories (32) | 32 | 32 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-21](#60) |
 |  |  | Harm categories | — | 11 | _N/A_ |  |  |
 | **MITRE ATLAS** | MITRE, 2025 | ATLAS tactics covered | 16 | 16 | `███████████████` 100.0% | :construction: open | [GAP-22](#61) |
-|  |  | ATLAS techniques mapped | 81 | 62 | `███████████░░░░` 76.5% |  |  |
+|  |  | ATLAS techniques mapped | 86 | 72 | `█████████████░░` 83.7% |  |  |
 |  |  | Agent-specific techniques covered | 14 | 14 | `███████████████` 100.0% |  |  |
 
 ## Gap Status Dashboard
@@ -132,41 +134,42 @@ See [Gap Analysis](gap-analysis.md) for full details.
 
 | Category | Vectors |
 |----------|---------|
-| prompt_injection | 175 |
-| tool_manipulation | 159 |
-| indirect_injection | 50 |
-| data_exfiltration | 49 |
+| prompt_injection | 206 |
+| tool_manipulation | 176 |
+| indirect_injection | 63 |
+| data_exfiltration | 56 |
 | privilege_escalation | 35 |
-| system_prompt_extraction | 25 |
+| system_prompt_extraction | 27 |
+| memory_poisoning | 20 |
 | authorization_bypass | 17 |
-| memory_poisoning | 17 |
 | chain_of_thought_manipulation | 15 |
-| model_dos | 12 |
+| model_dos | 13 |
 | multi_agent | 11 |
 
 ### By Tactic
 
 | Tactic | Vectors |
 |--------|---------|
-| single | 346 |
-| context_buildup | 62 |
-| crescendo | 36 |
-| persona_shift | 20 |
-| hypothetical | 16 |
+| single | 410 |
+| context_buildup | 63 |
+| crescendo | 38 |
+| persona_shift | 23 |
+| hypothetical | 17 |
+| role_play | 16 |
 | distraction | 15 |
+| refusal_suppression | 15 |
 | code_mode | 14 |
 | few_shot | 14 |
 | language_switch | 14 |
-| refusal_suppression | 14 |
-| role_play | 14 |
 
 ### By Severity
 
 | Severity | Vectors |
 |----------|---------|
-| critical | 358 |
-| high | 159 |
-| medium | 48 |
+| critical | 367 |
+| high | 201 |
+| low | 1 |
+| medium | 70 |
 
 ### By Harm Category
 
@@ -186,4 +189,4 @@ See [Gap Analysis](gap-analysis.md) for full details.
 
 ---
 
-*Generated by `benchmarks/generate_all.py` on 2026-04-21.*
+*Generated by `benchmarks/generate_all.py` on 2026-04-22.*
