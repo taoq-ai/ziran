@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/taoq-ai/ziran/compare/v0.29.0...v0.30.0) (2026-04-22)
+
+
+### Features
+
+* **defence:** defence profile schema + evasion-rate metric ([#268](https://github.com/taoq-ai/ziran/issues/268)) ([da39cd8](https://github.com/taoq-ai/ziran/commit/da39cd820a9ee5fde75e7fd0681e807414103adf)), closes [#45](https://github.com/taoq-ai/ziran/issues/45)
+
 ## [0.29.0](https://github.com/taoq-ai/ziran/compare/v0.28.0...v0.29.0) (2026-04-22)
 
 
