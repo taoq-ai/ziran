@@ -2,7 +2,8 @@
 
 **Feature Branch**: `012-benchmark-maturity`
 **Created**: 2026-04-21
-**Status**: Draft
+**Last Updated**: 2026-04-22
+**Status**: Accepted
 **Input**: Close out the v0.13.0 "Benchmark Maturity" milestone by expanding ZIRAN's coverage against published AI agent security benchmarks and adding a structured MITRE ATLAS threat-framework mapping. Covers issues #61, #57, #58, #56, #55, #45, #44, #43, #42.
 
 ## User Scenarios & Testing *(mandatory)*

@@ -115,7 +115,7 @@ Each task below touches one file (or a tight family of closely-related files) an
 - [X] T032 [P] [US1] Integration test `tests/integration/test_atlas_coverage_script.py` — runs `atlas_coverage.py`, asserts JSON matches schema, asserts byte-identical output on two runs (determinism), asserts exit 0 when all mapped
 - [X] T033 [P] [US1] Integration test `tests/integration/test_cli_atlas_filter.py` — valid technique → non-empty; invalid technique → exit 2 with suggestion; combined `--atlas X --owasp Y` AND semantics
 - [X] T034 [P] [US1] Integration test `tests/integration/test_report_atlas_section.py` — run a synthetic campaign, assert Markdown and HTML reports include per-finding ATLAS ID and the ATLAS coverage section
-- [ ] T035 [US1] Unit test extension in `tests/unit/test_library_atlas_filter.py` — assert `lint_atlas_coverage()` returns empty list after retro-mapping
+- [X] T035 [US1] Unit test extension in `tests/unit/test_library_atlas_filter.py` — assert `lint_atlas_coverage()` returns empty list after retro-mapping
 
 **Checkpoint**: US1 fully deliverable. Every vector has an ATLAS mapping, `atlas_coverage.py` passes, CLI filter works, reports surface the mapping, benchmark comparison table shows the new row.
 
@@ -129,18 +129,18 @@ Each task below touches one file (or a tight family of closely-related files) an
 
 ### New attack vector YAML files
 
-- [ ] T036 [P] [US2] Create `ziran/application/attacks/vectors/supply_chain.yaml` with ≥ 10 vectors covering malicious tool/plugin manifests, typosquatted tool names, compromised dependency framings, RAG connector poisoning, and fine-tuning data exfiltration. Each vector carries `owasp_mapping: [LLM05]` and `atlas_mapping:` with one or more techniques from the supply-chain family
-- [ ] T037 [P] [US2] Create `ziran/application/attacks/vectors/model_theft.yaml` with ≥ 10 vectors covering systematic API querying for model extraction, weight approximation probes, fine-tuning data extraction (memorisation probes), model fingerprinting, and fine-tuning inversion prompts. Each vector carries `owasp_mapping: [LLM10]` and `atlas_mapping:` with exfiltration/reconnaissance techniques
+- [X] T036 [P] [US2] Create `ziran/application/attacks/vectors/supply_chain.yaml` with ≥ 10 vectors covering malicious tool/plugin manifests, typosquatted tool names, compromised dependency framings, RAG connector poisoning, and fine-tuning data exfiltration. Each vector carries `owasp_mapping: [LLM05]` and `atlas_mapping:` with one or more techniques from the supply-chain family
+- [X] T037 [P] [US2] Create `ziran/application/attacks/vectors/model_theft.yaml` with ≥ 10 vectors covering systematic API querying for model extraction, weight approximation probes, fine-tuning data extraction (memorisation probes), model fingerprinting, and fine-tuning inversion prompts. Each vector carries `owasp_mapping: [LLM10]` and `atlas_mapping:` with exfiltration/reconnaissance techniques
 
 ### Benchmark script updates
 
-- [ ] T038 [US2] Update `benchmarks/owasp_coverage.py`: remove entries for `"LLM05"` and `"LLM10"` from `_PLANNED_ISSUES`; add a strict floor check that every category is at `_STRONG` or better, emitting exit 1 on violation
-- [ ] T039 [US2] Regenerate `docs/reference/benchmarks/coverage-comparison.md` and `benchmarks/results/owasp_coverage.json` (via `benchmarks/generate_all.py`)
+- [X] T038 [US2] Update `benchmarks/owasp_coverage.py`: remove entries for `"LLM05"` and `"LLM10"` from `_PLANNED_ISSUES`; add a strict floor check that every category is at `_STRONG` or better, emitting exit 1 on violation
+- [X] T039 [US2] Regenerate `docs/reference/benchmarks/coverage-comparison.md` and `benchmarks/results/owasp_coverage.json` (via `benchmarks/generate_all.py`)
 
 ### Tests (US2)
 
-- [ ] T040 [P] [US2] Unit test extension in `tests/unit/test_owasp_coverage.py` asserting LLM05 count ≥ 10, LLM10 count ≥ 10, and strict floor across all 10 categories (add the test file if it does not yet exist — parallel to `benchmarks/owasp_coverage.py` coverage logic)
-- [ ] T041 [P] [US2] Integration test `tests/integration/test_owasp_full_coverage.py` asserting `ziran library --owasp LLM05` and `--owasp LLM10` both return ≥ 10 vectors and every one carries a non-empty `atlas_mapping`
+- [X] T040 [P] [US2] Unit test extension in `tests/unit/test_owasp_coverage.py` asserting LLM05 count ≥ 10, LLM10 count ≥ 10, and strict floor across all 10 categories (add the test file if it does not yet exist — parallel to `benchmarks/owasp_coverage.py` coverage logic)
+- [X] T041 [P] [US2] Integration test `tests/integration/test_owasp_full_coverage.py` asserting `ziran library --owasp LLM05` and `--owasp LLM10` both return ≥ 10 vectors and every one carries a non-empty `atlas_mapping`
 
 **Checkpoint**: OWASP coverage is 10/10. US2 deliverable independent of US3, US4, US5.
 
@@ -154,19 +154,19 @@ Each task below touches one file (or a tight family of closely-related files) an
 
 ### New attack vector YAML files
 
-- [ ] T042 [P] [US3] Create `ziran/application/attacks/vectors/tensortrust_patterns.yaml` with ~25 vectors spanning system-prompt override, credential extraction, tool-output substitution, fake-rulebook framings, and multi-language injection. Each carries `owasp_mapping: [LLM01]`, `atlas_mapping:` with prompt-injection techniques, and `tags: [tensortrust]`
-- [ ] T043 [P] [US3] Create `ziran/application/attacks/vectors/wildjailbreak_tactics.yaml` with ~10 new multi-turn tactics (progressive hypothetical escalation, persona rewind, compliance weaponisation, moral inversion, Socratic induction). Each carries `owasp_mapping: [LLM01]` and appropriate ATLAS techniques; tag `wildjailbreak`
-- [ ] T044 [P] [US3] Create `ziran/application/attacks/vectors/toolemu_sandbox.yaml` with ~15 sandbox-evasion vectors (filesystem-path tricks, process spawn, network-egress probes, sandbox-fingerprinting). Distinct from generic tool-manipulation; tag `toolemu`
-- [ ] T045 [P] [US3] Create `ziran/application/attacks/vectors/cyberseceval_codegen.yaml` with ~20 vectors split between code-generation safety (unsafe code requests, insecure-pattern solicitation) and cybersecurity knowledge (CVE elicitation, exploit-detail probing); tag `cyberseceval`
+- [X] T042 [P] [US3] Create `ziran/application/attacks/vectors/tensortrust_patterns.yaml` with ~25 vectors spanning system-prompt override, credential extraction, tool-output substitution, fake-rulebook framings, and multi-language injection. Each carries `owasp_mapping: [LLM01]`, `atlas_mapping:` with prompt-injection techniques, and `tags: [tensortrust]`
+- [X] T043 [P] [US3] Create `ziran/application/attacks/vectors/wildjailbreak_tactics.yaml` with ~10 new multi-turn tactics (progressive hypothetical escalation, persona rewind, compliance weaponisation, moral inversion, Socratic induction). Each carries `owasp_mapping: [LLM01]` and appropriate ATLAS techniques; tag `wildjailbreak`
+- [X] T044 [P] [US3] Create `ziran/application/attacks/vectors/toolemu_sandbox.yaml` with ~15 sandbox-evasion vectors (filesystem-path tricks, process spawn, network-egress probes, sandbox-fingerprinting). Distinct from generic tool-manipulation; tag `toolemu`
+- [X] T045 [P] [US3] Create `ziran/application/attacks/vectors/cyberseceval_codegen.yaml` with ~20 vectors split between code-generation safety (unsafe code requests, insecure-pattern solicitation) and cybersecurity knowledge (CVE elicitation, exploit-detail probing); tag `cyberseceval`
 
 ### Benchmark script updates
 
-- [ ] T046 [US3] Update `benchmarks/benchmark_comparison.py` to reflect new vector counts for TensorTrust, WildJailbreak, ToolEmu, and CyberSecEval rows. Replace the "Not yet implemented" LLMail-Inject row with a RAG injection row pointing to the new `rag_poisoning.yaml` (deliverable completed in US4 — tolerate zero when US4 has not landed yet via a late-binding count)
-- [ ] T047 [US3] Regenerate `docs/reference/benchmarks/coverage-comparison.md` via `benchmarks/generate_all.py`
+- [X] T046 [US3] Update `benchmarks/benchmark_comparison.py` to reflect new vector counts for TensorTrust, WildJailbreak, ToolEmu, and CyberSecEval rows. Replace the "Not yet implemented" LLMail-Inject row with a RAG injection row pointing to the new `rag_poisoning.yaml` (deliverable completed in US4 — tolerate zero when US4 has not landed yet via a late-binding count)
+- [X] T047 [US3] Regenerate `docs/reference/benchmarks/coverage-comparison.md` via `benchmarks/generate_all.py`
 
 ### Tests (US3)
 
-- [ ] T048 [P] [US3] Integration test `tests/integration/test_benchmark_tag_filters.py` asserting `ziran library --tag tensortrust`, `--tag wildjailbreak`, `--tag toolemu`, and `--tag cyberseceval` each return the expected vector counts and all vectors in each subset carry ATLAS and OWASP mappings
+- [X] T048 [P] [US3] Integration test `tests/integration/test_benchmark_tag_filters.py` asserting `ziran library --tag tensortrust`, `--tag wildjailbreak`, `--tag toolemu`, and `--tag cyberseceval` each return the expected vector counts and all vectors in each subset carry ATLAS and OWASP mappings
 
 **Checkpoint**: US3 deliverable. Benchmark comparison table shows measurable lifts.
 
@@ -178,9 +178,9 @@ Each task below touches one file (or a tight family of closely-related files) an
 
 **Independent Test**: `ziran library --tag rag-poisoning` returns the new vectors. Every vector carries `category: indirect_injection`, `owasp_mapping: [LLM01]`, and an ATLAS indirect-injection technique mapping. Sample payloads are keyword-dense and framed for multiple document types (email / web page / database record).
 
-- [ ] T049 [US4] Create `ziran/application/attacks/vectors/rag_poisoning.yaml` with ~12 vectors. Each uses `category: indirect_injection`, `tags: [rag-poisoning]`, `owasp_mapping: [LLM01]`, and an ATLAS indirect-injection technique. Include three vectors per document framing: email, web page, database record, knowledge-base article
-- [ ] T050 [US4] Update `benchmarks/benchmark_comparison.py` to populate the RAG-injection row's numerator from the new file (late-binding via library query, not hardcoded count)
-- [ ] T051 [P] [US4] Integration test `tests/integration/test_rag_poisoning_filter.py` asserting `--tag rag-poisoning` returns the expected vectors, every vector carries the OWASP + ATLAS mappings declared in the spec, and each of the four document framings is represented at least once
+- [X] T049 [US4] Create `ziran/application/attacks/vectors/rag_poisoning.yaml` with ~12 vectors. Each uses `category: indirect_injection`, `tags: [rag-poisoning]`, `owasp_mapping: [LLM01]`, and an ATLAS indirect-injection technique. Include three vectors per document framing: email, web page, database record, knowledge-base article
+- [X] T050 [US4] Update `benchmarks/benchmark_comparison.py` to populate the RAG-injection row's numerator from the new file (late-binding via library query, not hardcoded count)
+- [X] T051 [P] [US4] Integration test `tests/integration/test_rag_poisoning_filter.py` asserting `--tag rag-poisoning` returns the expected vectors, every vector carries the OWASP + ATLAS mappings declared in the spec, and each of the four document framings is represented at least once
 
 **Checkpoint**: US4 deliverable independently. RAG poisoning vectors discoverable and runnable via existing CLI.
 
@@ -194,26 +194,26 @@ Each task below touches one file (or a tight family of closely-related files) an
 
 ### Domain additions
 
-- [ ] T052 [US5] Create `ziran/domain/entities/defence.py` containing `DefenceProfile` (name, defences list) and `DefenceDeclaration` (kind literal, identifier, evaluable=False default) Pydantic models per `contracts/defence-profile-yaml.md`
-- [ ] T053 [US5] Extend `CampaignResult` (locate in existing domain/entities — the campaign/phase module) with `defence_profile: DefenceProfile | None = None` and `evasion_rate: float | None = None`. Ensure the model's serialisation excludes `None` fields (use `model_config` with `ConfigDict(exclude_none=True)` at JSON-dump time, or call `model_dump(exclude_none=True)` in the report pipeline)
+- [X] T052 [US5] Create `ziran/domain/entities/defence.py` containing `DefenceProfile` (name, defences list) and `DefenceDeclaration` (kind literal, identifier, evaluable=False default) Pydantic models per `contracts/defence-profile-yaml.md`
+- [X] T053 [US5] Extend `CampaignResult` (locate in existing domain/entities — the campaign/phase module) with `defence_profile: DefenceProfile | None = None` and `evasion_rate: float | None = None`. Ensure the model's serialisation excludes `None` fields (use `model_config` with `ConfigDict(exclude_none=True)` at JSON-dump time, or call `model_dump(exclude_none=True)` in the report pipeline)
 
 ### Application layer
 
-- [ ] T054 [US5] Create `ziran/application/campaign/__init__.py` (if absent) and `ziran/application/campaign/evasion.py` implementing `compute_evasion_rate(findings, profile) -> float | None` with the 4-case logic documented in `data-model.md` (None profile, empty profile, no evaluable defences, evaluable defences)
-- [ ] T055 [US5] Wire defence-profile loading in the scan CLI: add `--defence-profile <path>` option to `ziran/interfaces/cli/main.py` scan subcommand; accept inline `defence_profile:` key in scan config YAML; flag wins on conflict (log warning). Load via `DefenceProfile.model_validate(yaml.safe_load(path))`
-- [ ] T056 [US5] Wire `compute_evasion_rate` into the campaign finalisation step. Locate where `CampaignResult` is built at end-of-campaign and call the helper to populate `evasion_rate` and echo the loaded `defence_profile`
+- [X] T054 [US5] Create `ziran/application/campaign/__init__.py` (if absent) and `ziran/application/campaign/evasion.py` implementing `compute_evasion_rate(findings, profile) -> float | None` with the 4-case logic documented in `data-model.md` (None profile, empty profile, no evaluable defences, evaluable defences)
+- [X] T055 [US5] Wire defence-profile loading in the scan CLI: add `--defence-profile <path>` option to `ziran/interfaces/cli/main.py` scan subcommand; accept inline `defence_profile:` key in scan config YAML; flag wins on conflict (log warning). Load via `DefenceProfile.model_validate(yaml.safe_load(path))`
+- [X] T056 [US5] Wire `compute_evasion_rate` into the campaign finalisation step. Locate where `CampaignResult` is built at end-of-campaign and call the helper to populate `evasion_rate` and echo the loaded `defence_profile`
 
 ### Report surface
 
-- [ ] T057 [US5] Extend Markdown report template in `ziran/interfaces/cli/reports.py` with a conditional "Declared Defences" section (table: kind / identifier / evaluable) and an Evasion-rate row. When no profile is declared, emit nothing (preserve byte-identity with pre-release reports)
-- [ ] T058 [US5] Mirror T057 in the HTML report template
+- [X] T057 [US5] Extend Markdown report template in `ziran/interfaces/cli/reports.py` with a conditional "Declared Defences" section (table: kind / identifier / evaluable) and an Evasion-rate row. When no profile is declared, emit nothing (preserve byte-identity with pre-release reports)
+- [X] T058 [US5] Mirror T057 in the HTML report template
 
 ### Tests (US5)
 
-- [ ] T059 [P] [US5] Unit test `tests/unit/test_defence_profile.py` — Pydantic validation of `DefenceProfile` / `DefenceDeclaration` (required fields, literal constraint on `kind`, default `evaluable=False`)
-- [ ] T060 [P] [US5] Unit test `tests/unit/test_evasion_metric.py` — four cases (None profile, empty profile, profile with no evaluable defences, profile with evaluable defences using a mock count)
-- [ ] T061 [P] [US5] Integration test `tests/integration/test_campaign_with_defence.py` — run a synthetic campaign with a sample profile; assert declared-defences section appears in MD and JSON; assert `evasion_rate` is omitted from JSON but the report explains "not computable"
-- [ ] T062 [P] [US5] Integration test `tests/integration/test_campaign_without_defence.py` — run the same campaign without `--defence-profile`; assert the JSON output contains no `defence_profile` or `evasion_rate` keys (byte-identity preserved)
+- [X] T059 [P] [US5] Unit test `tests/unit/test_defence_profile.py` — Pydantic validation of `DefenceProfile` / `DefenceDeclaration` (required fields, literal constraint on `kind`, default `evaluable=False`)
+- [X] T060 [P] [US5] Unit test `tests/unit/test_evasion_metric.py` — four cases (None profile, empty profile, profile with no evaluable defences, profile with evaluable defences using a mock count)
+- [X] T061 [P] [US5] Integration test `tests/integration/test_campaign_with_defence.py` — run a synthetic campaign with a sample profile; assert declared-defences section appears in MD and JSON; assert `evasion_rate` is omitted from JSON but the report explains "not computable"
+- [X] T062 [P] [US5] Integration test `tests/integration/test_campaign_without_defence.py` — run the same campaign without `--defence-profile`; assert the JSON output contains no `defence_profile` or `evasion_rate` keys (byte-identity preserved)
 
 **Checkpoint**: US5 deliverable. Defence profile schema + evasion-rate metric field is in place and report-facing. Future releases can add real evaluators without schema change.
 
@@ -225,25 +225,25 @@ Each task below touches one file (or a tight family of closely-related files) an
 
 ### Documentation
 
-- [ ] T063 Create `docs/reference/benchmarks/atlas-mapping.md` explaining how ATLAS mapping is structured, the snapshot date (October 2025), how to interpret the coverage dashboard, and links to the MITRE ATLAS website. Register the page in `mkdocs.yml`
-- [ ] T064 [P] Update `README.md` "Benchmark Coverage" or equivalent section to mention ATLAS coverage alongside OWASP (one short paragraph + link to the atlas-mapping.md doc)
-- [ ] T065 [P] Add a release-notes entry in `CHANGELOG.md` (release-please will regenerate this — manual edit if needed to record: ATLAS mapping added, OWASP coverage 10/10, benchmark expansion, RAG poisoning category, defence-profile schema)
+- [X] T063 Create `docs/reference/benchmarks/atlas-mapping.md` explaining how ATLAS mapping is structured, the snapshot date (October 2025), how to interpret the coverage dashboard, and links to the MITRE ATLAS website. Register the page in `mkdocs.yml`
+- [X] T064 [P] Update `README.md` "Benchmark Coverage" or equivalent section to mention ATLAS coverage alongside OWASP (one short paragraph + link to the atlas-mapping.md doc)
+- [X] T065 [P] Add a release-notes entry in `CHANGELOG.md` (release-please will regenerate this — manual edit if needed to record: ATLAS mapping added, OWASP coverage 10/10, benchmark expansion, RAG poisoning category, defence-profile schema)
 
 ### Regeneration and determinism
 
-- [ ] T066 Run `uv run python benchmarks/generate_all.py` to regenerate `benchmarks/results/*.json` and `docs/reference/benchmarks/coverage-comparison.md` in a clean state; commit the updated artefacts
-- [ ] T067 Manually verify determinism: hash `benchmarks/results/*.json` with `sha256sum`, run `benchmarks/generate_all.py` a second time, re-hash, confirm the hashes match byte-for-byte. Fix any non-determinism discovered (most likely: dict iteration order in `atlas_coverage.py` or similar) before proceeding
+- [X] T066 Run `uv run python benchmarks/generate_all.py` to regenerate `benchmarks/results/*.json` and `docs/reference/benchmarks/coverage-comparison.md` in a clean state; commit the updated artefacts
+- [X] T067 Manually verify determinism: hash `benchmarks/results/*.json` with `sha256sum`, run `benchmarks/generate_all.py` a second time, re-hash, confirm the hashes match byte-for-byte. Fix any non-determinism discovered (most likely: dict iteration order in `atlas_coverage.py` or similar) before proceeding
 
 ### Quality gates
 
-- [ ] T068 Run `uv run ruff check .` and fix any new violations
-- [ ] T069 Run `uv run ruff format --check .` and re-format if drift detected
-- [ ] T070 Run `uv run mypy ziran/` and fix any strict-mode errors introduced
-- [ ] T071 Run `uv run pytest --cov=ziran` and confirm total coverage ≥ 85%. Investigate any module that regressed below 85% and add tests to close the gap
+- [X] T068 Run `uv run ruff check .` and fix any new violations
+- [X] T069 Run `uv run ruff format --check .` and re-format if drift detected
+- [X] T070 Run `uv run mypy ziran/` and fix any strict-mode errors introduced
+- [X] T071 Run `uv run pytest --cov=ziran` and confirm total coverage ≥ 85%. Investigate any module that regressed below 85% and add tests to close the gap
 
 ### Acceptance validation
 
-- [ ] T072 Walk through every numbered section in `specs/012-benchmark-maturity/quickstart.md` end-to-end (manual QA). Any step that doesn't produce the documented output is a bug — fix and re-walk
+- [X] T072 Walk through every numbered section in `specs/012-benchmark-maturity/quickstart.md` end-to-end (manual QA). Any step that doesn't produce the documented output is a bug — fix and re-walk
 
 **Checkpoint**: Release-ready. Ready to open PRs per the packaging strategy in `plan.md` (5-PR split).
 
