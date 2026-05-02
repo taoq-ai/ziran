@@ -1,0 +1,268 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" role="img" aria-labelledby="ad-title ad-desc" preserveAspectRatio="xMidYMid meet">
+  <title id="ad-title">ZIRAN adaptive campaign: knowledge graph drives next phase</title>
+  <desc id="ad-desc">A live demonstration of ZIRAN's 8-phase campaign. Center: a knowledge graph that grows phase by phase. Reconnaissance discovers 3 capabilities (tools, memory, permissions). Capability Mapping reveals 3 individual tools (read_file, http_request, sql_query). Vulnerability Discovery surfaces a critical edge — read_file → http_request — labelled "data_exfil". Exploit Setup attaches an attack plan to that edge. Execute fires it. The right panel shows how each new graph state picks the next phase: Trust Building is skipped (no auth surface), and Persistence is skipped (ephemeral target). Two of the eight phases are bypassed entirely because the graph state makes them irrelevant. Keywords: adaptive campaign, live knowledge graph, non-linear pipeline, agent red team, multi-phase exploitation, ZIRAN, capability discovery, dangerous tool chain.</desc>
+
+  <rect width="1200" height="380" fill="#0f172a" rx="16"/>
+  <rect x="0.5" y="0.5" width="1199" height="379" fill="none" stroke="#1e293b" rx="16"/>
+
+  <text x="600" y="34" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" letter-spacing="3">ADAPTIVE 8-PHASE CAMPAIGN  ·  GRAPH-DRIVEN</text>
+
+  <!-- ============================================ -->
+  <!-- LEFT PANEL: CURRENT PHASE                     -->
+  <!-- ============================================ -->
+  <g transform="translate(40, 60)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="200" height="300" rx="14" fill="#1e293b" stroke="#334155"/>
+    <text x="100" y="26" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600" letter-spacing="2">RUNNING</text>
+
+    <g text-anchor="middle">
+      <!-- Recon (T 0.00-0.15) -->
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.005;0.149;0.155" dur="10s" repeatCount="indefinite"/>
+        <text x="100" y="116" font-size="40">🔍</text>
+        <text x="100" y="160" fill="#0ea5e9" font-size="15" font-weight="700">Reconnaissance</text>
+        <text x="100" y="184" fill="#94a3b8" font-size="11">probe agent surface</text>
+      </g>
+
+      <!-- Capability Map (T 0.15-0.30) -->
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.149;0.155;0.299;0.305" dur="10s" repeatCount="indefinite"/>
+        <text x="100" y="116" font-size="40">🗺️</text>
+        <text x="100" y="160" fill="#0ea5e9" font-size="15" font-weight="700">Capability Map</text>
+        <text x="100" y="184" fill="#94a3b8" font-size="11">enumerate tools</text>
+      </g>
+
+      <!-- Vuln Disc (T 0.30-0.45) -->
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.299;0.305;0.449;0.455" dur="10s" repeatCount="indefinite"/>
+        <text x="100" y="116" font-size="40">⚡</text>
+        <text x="100" y="160" fill="#0ea5e9" font-size="15" font-weight="700">Vuln Discovery</text>
+        <text x="100" y="184" fill="#94a3b8" font-size="11">walk for chains</text>
+      </g>
+
+      <!-- Exploit (T 0.45-0.60) -->
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.449;0.455;0.599;0.605" dur="10s" repeatCount="indefinite"/>
+        <text x="100" y="116" font-size="40">🎯</text>
+        <text x="100" y="160" fill="#e94560" font-size="15" font-weight="700">Exploit Setup</text>
+        <text x="100" y="184" fill="#94a3b8" font-size="11">prime the chain</text>
+      </g>
+
+      <!-- Execute (T 0.60-0.75) -->
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.599;0.605;0.749;0.755" dur="10s" repeatCount="indefinite"/>
+        <text x="100" y="116" font-size="40">💥</text>
+        <text x="100" y="160" fill="#e94560" font-size="15" font-weight="700">Execute</text>
+        <text x="100" y="184" fill="#94a3b8" font-size="11">fire exploit</text>
+      </g>
+
+      <!-- Exfiltrate (T 0.75-0.90) -->
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.749;0.755;0.899;0.905" dur="10s" repeatCount="indefinite"/>
+        <text x="100" y="116" font-size="40">📤</text>
+        <text x="100" y="160" fill="#e94560" font-size="15" font-weight="700">Exfiltrate</text>
+        <text x="100" y="184" fill="#94a3b8" font-size="11">extract findings</text>
+      </g>
+
+      <!-- Done (T 0.90-1.00) -->
+      <g opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.899;0.905;1" dur="10s" repeatCount="indefinite"/>
+        <text x="100" y="116" font-size="40">✓</text>
+        <text x="100" y="160" fill="#10b981" font-size="15" font-weight="700">Complete</text>
+        <text x="100" y="184" fill="#94a3b8" font-size="11">1 critical · 0 high</text>
+      </g>
+    </g>
+
+    <text x="100" y="270" text-anchor="middle" fill="#fbbf24" font-size="10" font-style="italic">graph-driven · non-linear</text>
+  </g>
+
+  <!-- ============================================ -->
+  <!-- CENTER: LIVE KNOWLEDGE GRAPH                  -->
+  <!-- ============================================ -->
+  <g transform="translate(260, 60)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="660" height="300" rx="14" fill="#1e293b" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="330" y="26" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600" letter-spacing="2">LIVE KNOWLEDGE GRAPH</text>
+
+    <!-- ===== Agent root (always visible after T=0.02) ===== -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.02;0.99;1" dur="10s" repeatCount="indefinite"/>
+      <circle cx="330" cy="78" r="28" fill="#0f172a" stroke="#0ea5e9" stroke-width="2"/>
+      <text x="330" y="83" text-anchor="middle" fill="#0ea5e9" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11" font-weight="700">agent</text>
+    </g>
+
+    <!-- ===== Capability layer (T=0.15): tools, memory, perms ===== -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.149;0.16;0.99;1" dur="10s" repeatCount="indefinite"/>
+      <!-- edges from agent -->
+      <line x1="312" y1="100" x2="180" y2="135" stroke="#475569" stroke-width="1.5"/>
+      <line x1="330" y1="106" x2="330" y2="133" stroke="#475569" stroke-width="1.5"/>
+      <line x1="348" y1="100" x2="480" y2="135" stroke="#475569" stroke-width="1.5"/>
+      <!-- nodes -->
+      <circle cx="180" cy="148" r="22" fill="#0f172a" stroke="#0ea5e9" stroke-width="1.5"/>
+      <text x="180" y="152" text-anchor="middle" fill="#cbd5e1" font-size="10">tools</text>
+      <circle cx="330" cy="148" r="22" fill="#0f172a" stroke="#0ea5e9" stroke-width="1.5"/>
+      <text x="330" y="152" text-anchor="middle" fill="#cbd5e1" font-size="10">memory</text>
+      <circle cx="480" cy="148" r="22" fill="#0f172a" stroke="#0ea5e9" stroke-width="1.5"/>
+      <text x="480" y="152" text-anchor="middle" fill="#cbd5e1" font-size="10">perms</text>
+      <!-- "+ 3 nodes" pulse -->
+      <text x="580" y="148" fill="#10b981" font-size="11" font-weight="600" opacity="0">
+        <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.155;0.20;0.22;1" dur="10s" repeatCount="indefinite"/>+3</text>
+    </g>
+
+    <!-- ===== Tool layer (T=0.30): read_file, http_req, sql_query under "tools" ===== -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.299;0.31;0.99;1" dur="10s" repeatCount="indefinite"/>
+      <!-- edges from "tools" (180, 148) -->
+      <line x1="170" y1="168" x2="100" y2="208" stroke="#475569" stroke-width="1.5"/>
+      <line x1="180" y1="170" x2="190" y2="208" stroke="#475569" stroke-width="1.5"/>
+      <line x1="195" y1="166" x2="280" y2="208" stroke="#475569" stroke-width="1.5"/>
+      <!-- nodes -->
+      <circle cx="100" cy="222" r="22" fill="#0f172a" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="100" y="226" text-anchor="middle" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9">read_file</text>
+      <circle cx="190" cy="222" r="22" fill="#0f172a" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="190" y="226" text-anchor="middle" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9">http_req</text>
+      <circle cx="280" cy="222" r="22" fill="#0f172a" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="280" y="226" text-anchor="middle" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9">sql_query</text>
+      <!-- "+ 3 nodes" pulse -->
+      <text x="360" y="226" fill="#10b981" font-size="11" font-weight="600" opacity="0">
+        <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.305;0.35;0.37;1" dur="10s" repeatCount="indefinite"/>+3</text>
+    </g>
+
+    <!-- ===== Critical chain edge (T=0.45): read_file → http_req ===== -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.449;0.46;0.99;1" dur="10s" repeatCount="indefinite"/>
+      <!-- the red edge with arrow head, sitting above the existing grey edge -->
+      <line x1="122" y1="222" x2="166" y2="222" stroke="#e94560" stroke-width="3"/>
+      <polygon points="170,222 162,218 162,226" fill="#e94560"/>
+      <!-- exfil packet oscillating along the edge -->
+      <circle cy="222" r="4" fill="#e94560">
+        <animate attributeName="cx" values="122;166;122" dur="1.6s" repeatCount="indefinite"/>
+      </circle>
+      <!-- chain label -->
+      <rect x="100" y="252" width="90" height="20" rx="4" fill="#7f1d1d" stroke="#e94560"/>
+      <text x="145" y="266" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">⚠ data_exfil</text>
+      <!-- "critical detected" pulse -->
+      <text x="220" y="266" fill="#e94560" font-size="11" font-weight="700" opacity="0">
+        <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.455;0.51;0.53;1" dur="10s" repeatCount="indefinite"/>+1 critical</text>
+    </g>
+
+    <!-- ===== Attack node (T=0.60): connects to the red edge ===== -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.599;0.61;0.99;1" dur="10s" repeatCount="indefinite"/>
+      <!-- arc from attack box up to red edge midpoint (145, 222) -->
+      <path d="M 145 282 L 145 252" stroke="#e94560" stroke-width="1.5" fill="none" stroke-dasharray="3 3"/>
+      <!-- attack badge -->
+      <rect x="105" y="280" width="80" height="22" rx="4" fill="#450a0a" stroke="#e94560" stroke-width="1.5"/>
+      <text x="145" y="295" text-anchor="middle" fill="#fecaca" font-size="11" font-weight="700">🎯 exploit</text>
+    </g>
+
+    <!-- ===== "1 CRITICAL" hero badge (T=0.75) ===== -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.749;0.755;0.99;1" dur="10s" repeatCount="indefinite"/>
+      <rect x="430" y="230" width="200" height="56" rx="10" fill="#e94560"/>
+      <text x="530" y="256" text-anchor="middle" fill="#fff" font-size="18" font-weight="800">⚠ 1 CRITICAL</text>
+      <text x="530" y="276" text-anchor="middle" fill="#fff" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">read_file → http_request</text>
+    </g>
+
+    <!-- ===== "2 phases skipped" tag, visible from T=0.90 ===== -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.899;0.905;1" dur="10s" repeatCount="indefinite"/>
+      <rect x="430" y="60" width="200" height="22" rx="11" fill="#0f172a" stroke="#10b981"/>
+      <text x="530" y="75" text-anchor="middle" fill="#10b981" font-size="10" font-weight="700">2 phases skipped by graph state</text>
+    </g>
+  </g>
+
+  <!-- ============================================ -->
+  <!-- RIGHT PANEL: GRAPH STATE → NEXT PHASE         -->
+  <!-- ============================================ -->
+  <g transform="translate(940, 60)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="220" height="300" rx="14" fill="#1e293b" stroke="#334155"/>
+    <text x="110" y="26" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600" letter-spacing="2">GRAPH STATE  →  NEXT</text>
+
+    <!-- starting (0.00-0.15) -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.005;0.149;0.155" dur="10s" repeatCount="indefinite"/>
+      <text x="20" y="64" fill="#94a3b8" font-size="11">graph state:</text>
+      <text x="20" y="86" fill="#cbd5e1" font-size="11">• agent only</text>
+      <line x1="20" y1="120" x2="200" y2="120" stroke="#334155"/>
+      <text x="20" y="148" fill="#fbbf24" font-size="10" font-weight="700" letter-spacing="1">→ NEXT</text>
+      <text x="20" y="172" fill="#f1f5f9" font-size="14" font-weight="600">Reconnaissance</text>
+      <text x="20" y="194" fill="#94a3b8" font-size="10">map agent surface</text>
+    </g>
+
+    <!-- after recon (0.15-0.30) — Trust Build skipped -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.149;0.155;0.299;0.305" dur="10s" repeatCount="indefinite"/>
+      <text x="20" y="64" fill="#94a3b8" font-size="11">graph state:</text>
+      <text x="20" y="84" fill="#cbd5e1" font-size="11">• 3 capabilities</text>
+      <text x="20" y="102" fill="#94a3b8" font-size="11">• no auth surface</text>
+      <line x1="20" y1="118" x2="200" y2="118" stroke="#334155"/>
+      <text x="20" y="138" fill="#64748b" font-size="9" font-style="italic">↳ skip Trust Building</text>
+      <text x="20" y="160" fill="#fbbf24" font-size="10" font-weight="700" letter-spacing="1">→ NEXT</text>
+      <text x="20" y="182" fill="#f1f5f9" font-size="14" font-weight="600">Capability Map</text>
+      <text x="20" y="204" fill="#94a3b8" font-size="10">enumerate tools</text>
+    </g>
+
+    <!-- after cap map (0.30-0.45) -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.299;0.305;0.449;0.455" dur="10s" repeatCount="indefinite"/>
+      <text x="20" y="64" fill="#94a3b8" font-size="11">graph state:</text>
+      <text x="20" y="84" fill="#cbd5e1" font-size="11">• 3 tools mapped</text>
+      <text x="20" y="102" fill="#cbd5e1" font-size="11">• capability matrix</text>
+      <line x1="20" y1="120" x2="200" y2="120" stroke="#334155"/>
+      <text x="20" y="148" fill="#fbbf24" font-size="10" font-weight="700" letter-spacing="1">→ NEXT</text>
+      <text x="20" y="172" fill="#f1f5f9" font-size="14" font-weight="600">Vuln Discovery</text>
+      <text x="20" y="194" fill="#94a3b8" font-size="10">walk for chains</text>
+    </g>
+
+    <!-- after vuln disc (0.45-0.60) — critical chain found -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.449;0.455;0.599;0.605" dur="10s" repeatCount="indefinite"/>
+      <text x="20" y="64" fill="#94a3b8" font-size="11">graph state:</text>
+      <text x="20" y="84" fill="#fca5a5" font-size="11" font-weight="700">⚠ critical chain</text>
+      <text x="20" y="102" fill="#fca5a5" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">read_file→http_req</text>
+      <line x1="20" y1="120" x2="200" y2="120" stroke="#334155"/>
+      <text x="20" y="148" fill="#e94560" font-size="10" font-weight="700" letter-spacing="1">→ NEXT</text>
+      <text x="20" y="172" fill="#f1f5f9" font-size="14" font-weight="600">Exploit Setup</text>
+      <text x="20" y="194" fill="#94a3b8" font-size="10">prime the chain</text>
+    </g>
+
+    <!-- after exploit (0.60-0.75) -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.599;0.605;0.749;0.755" dur="10s" repeatCount="indefinite"/>
+      <text x="20" y="64" fill="#94a3b8" font-size="11">graph state:</text>
+      <text x="20" y="84" fill="#fca5a5" font-size="11">• exploit primed</text>
+      <text x="20" y="102" fill="#fca5a5" font-size="11">• ready to fire</text>
+      <line x1="20" y1="120" x2="200" y2="120" stroke="#334155"/>
+      <text x="20" y="148" fill="#e94560" font-size="10" font-weight="700" letter-spacing="1">→ NEXT</text>
+      <text x="20" y="172" fill="#f1f5f9" font-size="14" font-weight="600">Execute</text>
+      <text x="20" y="194" fill="#94a3b8" font-size="10">fire the exploit</text>
+    </g>
+
+    <!-- after execute (0.75-0.90) — Persistence skipped -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.749;0.755;0.899;0.905" dur="10s" repeatCount="indefinite"/>
+      <text x="20" y="64" fill="#94a3b8" font-size="11">graph state:</text>
+      <text x="20" y="84" fill="#fca5a5" font-size="11">• 1 critical fired</text>
+      <text x="20" y="102" fill="#94a3b8" font-size="11">• ephemeral target</text>
+      <line x1="20" y1="118" x2="200" y2="118" stroke="#334155"/>
+      <text x="20" y="138" fill="#64748b" font-size="9" font-style="italic">↳ skip Persistence</text>
+      <text x="20" y="160" fill="#e94560" font-size="10" font-weight="700" letter-spacing="1">→ NEXT</text>
+      <text x="20" y="182" fill="#f1f5f9" font-size="14" font-weight="600">Exfiltrate</text>
+      <text x="20" y="204" fill="#94a3b8" font-size="10">extract findings</text>
+    </g>
+
+    <!-- done (0.90-1.00) -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.899;0.905;1" dur="10s" repeatCount="indefinite"/>
+      <text x="20" y="64" fill="#94a3b8" font-size="11">graph state:</text>
+      <text x="20" y="84" fill="#fca5a5" font-size="11">• 1 critical</text>
+      <text x="20" y="102" fill="#94a3b8" font-size="11">• 6 phases run · 2 skipped</text>
+      <line x1="20" y1="120" x2="200" y2="120" stroke="#334155"/>
+      <text x="20" y="148" fill="#10b981" font-size="10" font-weight="700" letter-spacing="1">CAMPAIGN COMPLETE</text>
+      <text x="20" y="180" fill="#10b981" font-size="22" font-weight="700">✓</text>
+      <text x="20" y="204" fill="#94a3b8" font-size="10">graph: final state</text>
+    </g>
+  </g>
+
+  <text x="600" y="372" text-anchor="middle" fill="#475569" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-style="italic">Each phase updates the graph; the graph picks the next phase. Trust Building & Persistence skipped because graph state made them irrelevant.</text>
+</svg>

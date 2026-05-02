@@ -1,8 +1,30 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero-light.svg">
+    <img src="docs/assets/hero-light.svg" alt="ZIRAN: your AI agent — with tools, memory, and permissions — flows through the ZIRAN pipeline (discover, map, analyze, attack, report) and out into a ranked list of findings. The top finding 'read_file → http_request' is highlighted as a critical data-exfiltration tool chain. Keywords: AI agent security, agent red team, tool chain analysis, knowledge graph, MCP, A2A, LangChain, CrewAI, prompt injection, side-effect detection, multi-phase campaigns." width="100%" draggable="false"/>
+  </picture>
+</p>
+
+<h1 align="center">Find vulnerabilities in your <em>AI agents.</em></h1>
+
+<p align="center">
+  <strong>Star us&nbsp;❤️&nbsp;→</strong>&nbsp;<a href="https://github.com/taoq-ai/ziran" title="Star ZIRAN on GitHub — open-source agent security testing framework"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/star-btn-dark.svg"><source media="(prefers-color-scheme: light)" srcset="docs/assets/star-btn-light.svg"><img src="docs/assets/star-btn-light.svg" alt="Star ZIRAN on GitHub — open-source AI agent security scanner with tool chain discovery, side-effect detection, and adaptive multi-phase campaigns" height="36" align="absmiddle"/></picture></a> &nbsp;·&nbsp;
+  <a href="https://taoq-ai.github.io/ziran/"><b>📚 Docs</b></a> &nbsp;·&nbsp;
+  <a href="examples/"><b>🧪 Examples</b></a> &nbsp;·&nbsp;
+  <a href="https://pypi.org/project/ziran/"><b>📦 PyPI</b></a> &nbsp;·&nbsp;
+  <a href="https://github.com/taoq-ai/ziran/issues"><b>🐛 Issues</b></a>
+</p>
+
+<p align="center">
+  ZIRAN finds vulnerabilities in AI agents — not just LLMs, but agents with tools, memory, and multi-step reasoning. It models your agent as a graph of capabilities and tests what happens when they combine — surfacing dangerous tool chains, execution-level side effects, and multi-phase exploits that single-prompt scanners miss.
+</p>
+
+<p align="center">
+  <b>Graph-based</b> · tool-chain discovery &nbsp;·&nbsp; <b>Execution-aware</b> · side-effect detection &nbsp;·&nbsp; <b>Adaptive</b> · 8-phase campaigns
+</p>
+
 <div align="center">
-
-# ZIRAN 🧘
-
-### AI Agent Security Testing
 
 [![CI](https://github.com/taoq-ai/ziran/actions/workflows/ci.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/ci.yml)
 [![Tests](https://github.com/taoq-ai/ziran/actions/workflows/test.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/test.yml)
@@ -10,14 +32,21 @@
 [![Downloads](https://img.shields.io/pypi/dm/ziran.svg)](https://pypistats.org/packages/ziran)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-
-**Find vulnerabilities in AI agents -- not just LLMs, but agents with tools, memory, and multi-step reasoning.**
-
-![ZIRAN Dashboard](docs/assets/ui-dashboard.png)
-
-[Install](#install) · [Quick Start](#quick-start) · [Web UI](#web-ui) · [Examples](examples/) · [Docs](https://taoq-ai.github.io/ziran/)
+[![Stars](https://img.shields.io/github/stars/taoq-ai/ziran?style=flat&label=stars&color=fbbf24)](https://github.com/taoq-ai/ziran)
 
 </div>
+
+<p align="center">
+  <a href="#install"><b>Install</b></a> &nbsp;·&nbsp;
+  <a href="#quick-start"><b>Quick Start</b></a> &nbsp;·&nbsp;
+  <a href="#web-ui"><b>Web UI</b></a> &nbsp;·&nbsp;
+  <a href="examples/"><b>Examples</b></a> &nbsp;·&nbsp;
+  <a href="https://taoq-ai.github.io/ziran/"><b>Docs</b></a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/ui-dashboard.png" alt="ZIRAN Dashboard — web UI showing campaign results, attack library, and knowledge graph" width="100%"/>
+</p>
 
 ---
 
@@ -67,10 +96,44 @@ ZIRAN models your agent as a graph of capabilities and tests what happens when t
 
 **What these capabilities catch:**
 
-- **Tool Chain Discovery** -- Individual tools pass security review, but their compositions create vulnerabilities. Graph-based analysis finds transitive attack paths (e.g., `read_file` -> `http_request` = data exfiltration) that list-based testing misses.
-- **Side-Effect Detection** -- Agents can refuse a request in their text response while still executing the dangerous tool call. Without execution-level monitoring, these silent failures go undetected.
-- **Multi-Phase Campaigns** -- Real attackers don't send a single malicious prompt. They build trust, map capabilities, then exploit. Multi-phase campaigns model this behavior to find vulnerabilities that single-turn tests miss.
-- **Knowledge Graph** -- A live graph of discovered tools, permissions, and data flows grows as the scan progresses. Each phase uses it to plan the next, catching vulnerabilities that only appear after building enough context about the agent.
+### Tool-chain discovery — graph beats list
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/toolchain-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/toolchain-light.svg">
+    <img src="docs/assets/toolchain-light.svg" alt="Side-by-side comparison: a list-based scanner sees four individually-safe tools (read_file, http_request, sql_query, exec_code) and reports no findings, while ZIRAN walks the capability graph and surfaces dangerous transitive compositions — read_file→http_request as critical data exfiltration, sql_query→exec_code as high-severity SQL-to-RCE." width="100%"/>
+  </picture>
+</p>
+
+Individual tools pass security review in isolation, but their compositions create vulnerabilities. Graph-based analysis finds transitive attack paths — `read_file → http_request` for data exfiltration, `sql_query → exec_code` for SQL-to-RCE — that list-based testing misses entirely.
+
+### Side-effect detection — chat is not the truth
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/sideeffect-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/sideeffect-light.svg">
+    <img src="docs/assets/sideeffect-light.svg" alt="Two stacked layers: on the surface, the agent replies 'I can't do that — request refused' to 'Delete user 42' and a chat-only scanner marks it safe; on the execution layer below, ZIRAN intercepts the actual tool call delete_user(id=42) firing silently and flags it as critical." width="100%"/>
+  </picture>
+</p>
+
+Agents can refuse a request in their text response while still executing the dangerous tool call underneath. ZIRAN intercepts at the execution layer and flags these silent failures — chat-only scanners mark them as safe.
+
+### Adaptive 8-phase campaigns — the graph drives the next move
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/adaptive-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/adaptive-light.svg">
+    <img src="docs/assets/adaptive-light.svg" alt="A live knowledge graph grows phase by phase: Reconnaissance discovers 3 capabilities, Capability Map adds 3 tools, Vulnerability Discovery surfaces a critical read_file→http_request chain, Exploit Setup attaches an attack node. Trust Building is skipped (no auth surface) and Persistence is skipped (ephemeral target) because the graph state makes them irrelevant. The right panel narrates how each new graph state picks the next phase." width="100%"/>
+  </picture>
+</p>
+
+A live knowledge graph grows as the scan progresses, and the graph picks the next phase — not a fixed sequence. A critical chain found mid-campaign immediately routes to Exploit Setup, while phases like Trust Building or Persistence are skipped when graph state shows they would not yield results. Three strategies control this: `fixed` (sequential, reproducible for CI), `adaptive` (rule-based reordering), and `llm-adaptive` (LLM examines the graph after each phase to plan).
+
+### And…
+
 - **Multi-Agent Coordination** -- In multi-agent systems, an agent may trust messages from peers without validation. Testing cross-agent trust boundaries reveals lateral movement paths.
 - **A2A + MCP Protocols** -- Tests [Agent-to-Agent](https://google.github.io/A2A/) and [MCP](https://modelcontextprotocol.io/) agents through their native protocols, exercising the actual attack surface rather than a simplified proxy.
 - **Framework Agnostic** -- LangChain, CrewAI, Bedrock, MCP, browser UIs, remote HTTPS agents, or [custom adapters](examples/08-custom-adapter/).
