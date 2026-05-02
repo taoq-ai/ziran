@@ -264,5 +264,5 @@
     </g>
   </g>
 
-  <text x="600" y="372" text-anchor="middle" fill="#475569" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-style="italic">Each phase updates the graph; the graph picks the next phase. Trust Building & Persistence skipped because graph state made them irrelevant.</text>
+  <text x="600" y="372" text-anchor="middle" fill="#475569" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-style="italic">Each phase updates the graph; the graph picks the next phase. Trust Building &amp; Persistence skipped because graph state made them irrelevant.</text>
 </svg>

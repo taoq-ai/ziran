@@ -339,84 +339,19 @@ See [examples/15-remote-agent-scan/](examples/15-remote-agent-scan/) for ready-t
 
 ## How It Works
 
-```mermaid
-flowchart LR
-    subgraph agent["🤖 Your Agent"]
-        direction TB
-        T["🔧 Tools"]
-        M["🧠 Memory"]
-        P["🔑 Permissions"]
-    end
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/pipeline-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/pipeline-light.svg">
+    <img src="docs/assets/pipeline-light.svg" alt="ZIRAN pipeline diagram: your agent (with tools, memory, and permissions) connects through an adapter layer into the ZIRAN pipeline — DISCOVER probes capabilities, MAP builds a NetworkX MultiDiGraph, ANALYZE walks the graph for dangerous chains across 30+ patterns, ATTACK runs multi-phase exploits informed by the graph, and REPORT emits scored findings. Outputs land in three formats: HTML interactive graph, Markdown CI/CD tables, and JSON for programmatic consumption." width="100%"/>
+  </picture>
+</p>
 
-    agent -->|"adapter layer"| D
+Five sequential stages: **DISCOVER** probes tools, permissions, and data access; **MAP** builds a NetworkX MultiDiGraph of capabilities; **ANALYZE** walks the graph against 30+ dangerous-chain patterns; **ATTACK** runs multi-phase exploits informed by the graph; **REPORT** emits scored findings with remediation guidance.
 
-    subgraph ziran["⛩️ ZIRAN Pipeline"]
-        direction TB
-        D["🔍 DISCOVER\nProbe tools, permissions,\ndata access"]
-        MAP["🗺️ MAP\nBuild knowledge graph\n(NetworkX MultiDiGraph)"]
-        A["⚡ ANALYZE\nWalk graph for dangerous\nchains (30+ patterns)"]
-        ATK["🎯 ATTACK\nMulti-phase exploits\ninformed by the graph"]
-        R["📋 REPORT\nScored findings with\nremediation guidance"]
-        D --> MAP --> A --> ATK --> R
-    end
+### Campaign phases
 
-    R --> HTML["📊 HTML\nInteractive graph"]
-    R --> MD["📝 Markdown\nCI/CD tables"]
-    R --> JSON["📦 JSON\nMachine-parseable"]
-
-    style agent fill:#1a1a2e,stroke:#e94560,color:#fff,stroke-width:2px
-    style ziran fill:#0f3460,stroke:#e94560,color:#fff,stroke-width:2px
-    style D fill:#16213e,stroke:#0ea5e9,color:#fff
-    style MAP fill:#16213e,stroke:#0ea5e9,color:#fff
-    style A fill:#16213e,stroke:#0ea5e9,color:#fff
-    style ATK fill:#16213e,stroke:#e94560,color:#fff
-    style R fill:#16213e,stroke:#10b981,color:#fff
-    style HTML fill:#1e293b,stroke:#10b981,color:#fff
-    style MD fill:#1e293b,stroke:#10b981,color:#fff
-    style JSON fill:#1e293b,stroke:#10b981,color:#fff
-    style T fill:#2d2d44,stroke:#e94560,color:#fff
-    style M fill:#2d2d44,stroke:#e94560,color:#fff
-    style P fill:#2d2d44,stroke:#e94560,color:#fff
-```
-
-### Campaign Phases
-
-Campaigns run 8 phases: reconnaissance, trust building, capability mapping, vulnerability discovery, exploitation setup, execution, persistence, and exfiltration. Each phase feeds its findings into a live knowledge graph, and the graph informs which phase to run next.
-
-Phases are **not linear** -- the knowledge graph drives execution order. A discovery in the exploitation phase may trigger a return to reconnaissance. An agent that reveals new tools during trust building causes capability mapping to re-run with updated context.
-
-```mermaid
-flowchart TD
-    KG["🧠 Knowledge Graph\n(live state)"]
-
-    R["🔍 Reconnaissance"] --> KG
-    TB["🤝 Trust Building"] --> KG
-    CM["🗺️ Capability Mapping"] --> KG
-    VD["⚡ Vulnerability Discovery"] --> KG
-    ES["🎯 Exploitation Setup"] --> KG
-    EX["💥 Execution"] --> KG
-    PE["🔒 Persistence"] --> KG
-    EXF["📤 Exfiltration"] --> KG
-
-    KG -->|"decides next phase"| R
-    KG -->|"decides next phase"| TB
-    KG -->|"decides next phase"| CM
-    KG -->|"decides next phase"| VD
-    KG -->|"decides next phase"| ES
-    KG -->|"decides next phase"| EX
-    KG -->|"decides next phase"| PE
-    KG -->|"decides next phase"| EXF
-
-    style KG fill:#1a1a2e,stroke:#e94560,color:#fff,stroke-width:2px
-    style R fill:#16213e,stroke:#0ea5e9,color:#fff
-    style TB fill:#16213e,stroke:#0ea5e9,color:#fff
-    style CM fill:#16213e,stroke:#0ea5e9,color:#fff
-    style VD fill:#16213e,stroke:#0ea5e9,color:#fff
-    style ES fill:#16213e,stroke:#e94560,color:#fff
-    style EX fill:#16213e,stroke:#e94560,color:#fff
-    style PE fill:#16213e,stroke:#e94560,color:#fff
-    style EXF fill:#16213e,stroke:#e94560,color:#fff
-```
+The ATTACK stage runs an 8-phase campaign — reconnaissance, trust building, capability mapping, vulnerability discovery, exploitation setup, execution, persistence, exfiltration. Phases are **not linear**: the live knowledge graph drives execution order, so a discovery during exploitation may trigger a return to reconnaissance, and revealed tools cause capability mapping to re-run with updated context. (See [Adaptive 8-phase campaigns](#adaptive-8-phase-campaigns--the-graph-drives-the-next-move) above for an animated walk-through, including how Trust Building and Persistence are skipped when graph state makes them irrelevant.)
 
 Three strategies control this:
 
@@ -436,9 +371,13 @@ Three output formats, generated automatically:
 - **Markdown** -- CI/CD-friendly summary tables
 - **JSON** -- Machine-parseable for programmatic consumption
 
-<div align="center">
-  <img src="docs/assets/report.png" alt="ZIRAN HTML Report" width="800">
-</div>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/report-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/report-light.svg">
+    <img src="docs/assets/report-light.svg" alt="Mock-up of a ZIRAN HTML campaign report — header with target metadata, severity counters (3 critical, 7 high, 12 medium, 28 low), a findings table listing the top tool-chain vulnerabilities (data exfiltration, SQL-to-RCE, PII leakage, prompt injection, multi-agent trust boundary), and a live knowledge graph with the critical attack paths highlighted." width="100%"/>
+  </picture>
+</p>
 
 ---
 
