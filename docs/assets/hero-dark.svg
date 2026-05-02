@@ -88,11 +88,11 @@
   <polygon points="888,184 880,180 880,188" fill="#334155"/>
 
   <!-- finding packets traveling right (red, tagged critical) -->
-  <circle r="5" fill="#e94560">
+  <circle cy="184" r="5" fill="#e94560">
     <animate attributeName="cx" values="774;888" dur="2.4s" begin="0.6s" repeatCount="indefinite"/>
     <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="2.4s" begin="0.6s" repeatCount="indefinite"/>
   </circle>
-  <circle r="5" fill="#f59e0b">
+  <circle cy="184" r="5" fill="#f59e0b">
     <animate attributeName="cx" values="774;888" dur="2.4s" begin="1.8s" repeatCount="indefinite"/>
     <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="2.4s" begin="1.8s" repeatCount="indefinite"/>
   </circle>
