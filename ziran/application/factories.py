@@ -252,11 +252,12 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
         # Load the agent module and look for client + tools
         agent_module = _load_python_object(agent_path, "client")
         tools: list[Any] = []
-        model = "claude-sonnet-4-20250514"
         with contextlib.suppress(FileNotFoundError, ImportError, ValueError):
             tools = _load_python_object(agent_path, "tools")
-        with contextlib.suppress(FileNotFoundError, ImportError, ValueError):
+        try:
             model = _load_python_object(agent_path, "model")
+        except (FileNotFoundError, ImportError, ValueError):
+            model = "claude-sonnet-4-20250514"
         return AnthropicAdapter(client=agent_module, model=model, tools=tools)
 
     raise ValueError(f"Unsupported framework: {framework}")
