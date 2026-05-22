@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.31.0](https://github.com/taoq-ai/ziran/compare/v0.30.0...v0.31.0) (2026-05-22)
+
+
+### Features
+
+* **detectors:** add multilingual refusal detection ([#278](https://github.com/taoq-ai/ziran/issues/278)) ([#299](https://github.com/taoq-ai/ziran/issues/299))
+* **cli:** add ziran init scaffolding command ([#292](https://github.com/taoq-ai/ziran/issues/292)) ([#300](https://github.com/taoq-ai/ziran/issues/300))
+* **adapters:** add native Anthropic SDK adapter ([#286](https://github.com/taoq-ai/ziran/issues/286)) ([#301](https://github.com/taoq-ai/ziran/issues/301))
+* **vectors:** add tool-schema confusion attack vectors ([#277](https://github.com/taoq-ai/ziran/issues/277)) ([#302](https://github.com/taoq-ai/ziran/issues/302))
+
 ## [0.30.0](https://github.com/taoq-ai/ziran/compare/v0.29.0...v0.30.0) (2026-04-22)
 
 
