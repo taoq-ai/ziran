@@ -241,6 +241,24 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
             app = _load_python_object(agent_path, "app")
         return AgentCoreAdapter(entrypoint, app=app)
 
+    if framework == "anthropic":
+        try:
+            from ziran.infrastructure.adapters.anthropic_adapter import AnthropicAdapter
+        except ImportError as e:
+            raise ImportError(
+                f"anthropic not installed. Run: uv sync --extra anthropic\n{e}"
+            ) from e
+
+        # Load the agent module and look for client + tools
+        agent_module = _load_python_object(agent_path, "client")
+        tools: list[Any] = []
+        model = "claude-sonnet-4-20250514"
+        with contextlib.suppress(FileNotFoundError, ImportError, ValueError):
+            tools = _load_python_object(agent_path, "tools")
+        with contextlib.suppress(FileNotFoundError, ImportError, ValueError):
+            model = _load_python_object(agent_path, "model")
+        return AnthropicAdapter(client=agent_module, model=model, tools=tools)
+
     raise ValueError(f"Unsupported framework: {framework}")
 
 

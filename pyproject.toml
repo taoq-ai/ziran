@@ -50,6 +50,9 @@ agentcore = [
     "bedrock-agentcore>=1.0,<2",
     "boto3>=1.28,<2",
 ]
+anthropic = [
+    "anthropic>=0.39,<1",
+]
 llm = [
     "litellm>=1.40,<2",
 ]
@@ -80,7 +83,7 @@ ui = [
     "alembic>=1.13,<2",
 ]
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,llm,pentest,browser,promptfoo,otel,ui,langfuse]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,llm,pentest,browser,promptfoo,otel,ui,langfuse]",
 ]
 
 [project.scripts]

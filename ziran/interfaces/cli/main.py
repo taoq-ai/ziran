@@ -86,7 +86,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
+    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False),
     default=None,
     help="Agent framework to test (for in-process scanning).",
 )
@@ -513,7 +513,7 @@ def scan(
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
+    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False),
     default=None,
     help="Agent framework (for in-process discovery).",
 )
@@ -1829,7 +1829,7 @@ def multi_agent_scan(
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
+    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False),
     default=None,
     help="Agent framework to test (for in-process scanning).",
 )
