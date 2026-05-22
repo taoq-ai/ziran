@@ -86,7 +86,9 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
+    type=click.Choice(
+        ["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False
+    ),
     default=None,
     help="Agent framework to test (for in-process scanning).",
 )
@@ -513,7 +515,9 @@ def scan(
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
+    type=click.Choice(
+        ["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False
+    ),
     default=None,
     help="Agent framework (for in-process discovery).",
 )
@@ -1829,7 +1833,9 @@ def multi_agent_scan(
 @cli.command()
 @click.option(
     "--framework",
-    type=click.Choice(["langchain", "crewai", "bedrock", "agentcore"], case_sensitive=False),
+    type=click.Choice(
+        ["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False
+    ),
     default=None,
     help="Agent framework to test (for in-process scanning).",
 )
@@ -2227,7 +2233,15 @@ def _register_v08_commands() -> None:
     cli.add_command(watch_registry)
 
 
+def _register_extra_commands() -> None:
+    """Register additional CLI commands (lazy imports)."""
+    from ziran.interfaces.cli.init_command import init
+
+    cli.add_command(init)
+
+
 _register_v08_commands()
+_register_extra_commands()
 
 if __name__ == "__main__":
     cli()

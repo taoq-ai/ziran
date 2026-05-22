@@ -32,6 +32,8 @@ from ziran.domain.entities.detection import DetectionVerdict, DetectorResult
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
     from ziran.domain.interfaces.adapter import AgentResponse
     from ziran.domain.interfaces.detector import BaseDetector
@@ -71,6 +73,14 @@ class DetectorConfig:
     indicator_matchtype: Literal["str", "word"] = "str"
     """Match type for the indicator detector."""
 
+    refusal_languages: Sequence[str] | None = None
+    """ISO 639-1 language codes for multilingual refusal detection.
+
+    ``None`` = English only (default, backward compatible).
+    ``["all"]`` = all supported languages.
+    ``["es", "fr"]`` = English + Spanish + French.
+    """
+
 
 class DetectorPipeline:
     """Evaluates agent responses using multiple detectors.
@@ -97,7 +107,10 @@ class DetectorPipeline:
         self._disabled = config.disabled
         self._custom_detectors: list[BaseDetector] = []
 
-        self._refusal = RefusalDetector(matchtype=config.refusal_matchtype)
+        self._refusal = RefusalDetector(
+            matchtype=config.refusal_matchtype,
+            languages=config.refusal_languages,
+        )
         self._indicator = IndicatorDetector(matchtype=config.indicator_matchtype)
         self._side_effect = SideEffectDetector()
         self._authorization = AuthorizationDetector()
