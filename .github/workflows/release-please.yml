@@ -54,3 +54,6 @@ jobs:
           # The RELEASE_PAT needs repo scope so the tag push triggers
           # the Release workflow (release.yml).
           token: ${{ secrets.RELEASE_PAT }}
+          # Explicit target-branch because the repo default is develop,
+          # but release-please PRs must target main (production).
+          target-branch: main
