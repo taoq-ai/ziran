@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.31.0](https://github.com/taoq-ai/ziran/compare/v0.30.0...v0.31.0) (2026-05-22)
+
+
+### Features
+
+* **adapters:** add native Anthropic SDK adapter ([#301](https://github.com/taoq-ai/ziran/issues/301)) ([89cbfc7](https://github.com/taoq-ai/ziran/commit/89cbfc751bb055b9e7b50d7bfd78900de3e2885c))
+* **cli:** add ziran init scaffolding command ([#292](https://github.com/taoq-ai/ziran/issues/292)) ([#300](https://github.com/taoq-ai/ziran/issues/300)) ([29a2009](https://github.com/taoq-ai/ziran/commit/29a2009f4323c5b57a0490e0724904419b5c3598))
+* **detectors:** add multilingual refusal detection ([#299](https://github.com/taoq-ai/ziran/issues/299)) ([fd0a990](https://github.com/taoq-ai/ziran/commit/fd0a990490c34ba3dca790bc215bdc9886fb551e))
+* **vectors:** add tool-schema confusion attack vectors ([#277](https://github.com/taoq-ai/ziran/issues/277)) ([#302](https://github.com/taoq-ai/ziran/issues/302)) ([17301b3](https://github.com/taoq-ai/ziran/commit/17301b36716e97c42ed008acb04a1613adfd935d))
+
+
+### Bug Fixes
+
+* **ci:** set explicit target-branch in release-please action ([0a25ecc](https://github.com/taoq-ai/ziran/commit/0a25ecce23de73216cf422db9f2bc6e9adceef39))
+
 ## [0.30.0](https://github.com/taoq-ai/ziran/compare/v0.29.0...v0.30.0) (2026-04-22)
 
 
