@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/taoq-ai/ziran/compare/v0.30.0...v0.30.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **ci:** add target-branch: main to release-please action ([#307](https://github.com/taoq-ai/ziran/issues/307)) ([d5b9012](https://github.com/taoq-ai/ziran/commit/d5b9012116e489c2a3f62aab13ed31a2618cf8b4))
+
 ## [0.30.0](https://github.com/taoq-ai/ziran/compare/v0.29.0...v0.30.0) (2026-04-22)
 
 
