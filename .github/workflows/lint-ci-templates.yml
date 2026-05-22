@@ -2,12 +2,12 @@ name: Lint CI Templates
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "examples/07-cicd-quality-gate/**"
       - ".github/workflows/lint-ci-templates.yml"
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "examples/07-cicd-quality-gate/**"
       - ".github/workflows/lint-ci-templates.yml"

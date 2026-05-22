@@ -81,12 +81,24 @@ Add support for new agent frameworks:
 - Add examples and guides
 - Improve docstrings
 
+## Branching Model
+
+This project uses **Git Flow**:
+
+- **`main`** — production branch, always releasable. Only receives merges from `release/*` and `hotfix/*` branches.
+- **`develop`** — integration branch. All feature PRs target `develop`.
+- **`feat/*`, `fix/*`, `docs/*`** — branch from `develop`, PR back to `develop`.
+- **`release/vX.Y.Z`** — cut from `develop` when ready for release. Only bugfixes allowed. Merged to both `main` and `develop`.
+- **`hotfix/*`** — emergency fixes branched from `main`, merged to both `main` and `develop`.
+
 ## Development Workflow
 
 1. **Fork** the repository
-2. **Create a branch** from `main`:
+2. **Create a branch** from `develop`:
    ```bash
-   git checkout -b feature/my-feature
+   git checkout develop
+   git pull origin develop
+   git checkout -b feat/my-feature
    ```
 3. **Make changes** and add tests
 4. **Ensure all checks pass**:
@@ -98,7 +110,26 @@ Add support for new agent frameworks:
    ```
 5. **Commit** with a clear message
 6. **Push** to your fork
-7. **Open a Pull Request** against `main`
+7. **Open a Pull Request** against `develop`
+
+### Creating a release
+
+```bash
+git checkout develop && git pull origin develop
+git checkout -b release/v0.31.0
+# Only bugfixes allowed on this branch
+# Open PR targeting main
+# After merge to main, also merge release/v0.31.0 into develop
+```
+
+### Hotfixes
+
+```bash
+git checkout main && git pull origin main
+git checkout -b hotfix/critical-fix
+# Open PR targeting main
+# After merge, also merge hotfix/critical-fix into develop
+```
 
 ## Code Style
 
