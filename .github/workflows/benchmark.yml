@@ -2,13 +2,13 @@ name: Benchmark Coverage
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "ziran/application/attacks/vectors/**"
       - "ziran/domain/entities/attack.py"
       - "benchmarks/**"
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "ziran/application/attacks/vectors/**"
       - "ziran/domain/entities/attack.py"

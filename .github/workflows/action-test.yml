@@ -2,14 +2,14 @@ name: Action Self-Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "action.yml"
       - "ziran/**"
       - ".github/workflows/action-test.yml"
       - "tests/fixtures/sample_campaign_result.json"
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "action.yml"
       - "ziran/**"
