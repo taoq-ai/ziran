@@ -2227,7 +2227,15 @@ def _register_v08_commands() -> None:
     cli.add_command(watch_registry)
 
 
+def _register_extra_commands() -> None:
+    """Register additional CLI commands (lazy imports)."""
+    from ziran.interfaces.cli.init_command import init
+
+    cli.add_command(init)
+
+
 _register_v08_commands()
+_register_extra_commands()
 
 if __name__ == "__main__":
     cli()
