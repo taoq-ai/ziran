@@ -27,13 +27,13 @@
 
 **CRITICAL**: No user story work can begin until these patterns exist.
 
-- [ ] T001 [P] Add Spanish refusal pattern tuples (REFUSAL_PREFIXES_ES, REFUSAL_SUBSTRINGS_ES) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
-- [ ] T002 [P] Add French refusal pattern tuples (REFUSAL_PREFIXES_FR, REFUSAL_SUBSTRINGS_FR) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
-- [ ] T003 [P] Add German refusal pattern tuples (REFUSAL_PREFIXES_DE, REFUSAL_SUBSTRINGS_DE) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
-- [ ] T004 [P] Add Portuguese refusal pattern tuples (REFUSAL_PREFIXES_PT, REFUSAL_SUBSTRINGS_PT) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
-- [ ] T005 [P] Add Chinese refusal pattern tuples (REFUSAL_PREFIXES_ZH, REFUSAL_SUBSTRINGS_ZH) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
-- [ ] T006 [P] Add Japanese refusal pattern tuples (REFUSAL_PREFIXES_JA, REFUSAL_SUBSTRINGS_JA) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
-- [ ] T007 Add LANGUAGE_PATTERNS registry dict mapping ISO 639-1 codes to their pattern tuples in `ziran/application/detectors/refusal.py`
+- [x] T001 [P] Add Spanish refusal pattern tuples (REFUSAL_PREFIXES_ES, REFUSAL_SUBSTRINGS_ES) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
+- [x] T002 [P] Add French refusal pattern tuples (REFUSAL_PREFIXES_FR, REFUSAL_SUBSTRINGS_FR) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
+- [x] T003 [P] Add German refusal pattern tuples (REFUSAL_PREFIXES_DE, REFUSAL_SUBSTRINGS_DE) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
+- [x] T004 [P] Add Portuguese refusal pattern tuples (REFUSAL_PREFIXES_PT, REFUSAL_SUBSTRINGS_PT) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
+- [x] T005 [P] Add Chinese refusal pattern tuples (REFUSAL_PREFIXES_ZH, REFUSAL_SUBSTRINGS_ZH) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
+- [x] T006 [P] Add Japanese refusal pattern tuples (REFUSAL_PREFIXES_JA, REFUSAL_SUBSTRINGS_JA) with 10-15 curated phrases in `ziran/application/detectors/refusal.py`
+- [x] T007 Add LANGUAGE_PATTERNS registry dict mapping ISO 639-1 codes to their pattern tuples in `ziran/application/detectors/refusal.py`
 
 **Checkpoint**: All 6 language pattern tuples and registry exist. Patterns are curated from real LLM refusal outputs.
 
@@ -47,18 +47,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add test class TestRefusalDetectorSpanish with 10+ Spanish refusal phrases in `tests/unit/test_refusal_multilingual.py`
-- [ ] T009 [P] [US1] Add test class TestRefusalDetectorFrench with 10+ French refusal phrases in `tests/unit/test_refusal_multilingual.py`
-- [ ] T010 [P] [US1] Add test class TestRefusalDetectorGerman with 10+ German refusal phrases in `tests/unit/test_refusal_multilingual.py`
-- [ ] T011 [P] [US1] Add test class TestRefusalDetectorPortuguese with 10+ Portuguese refusal phrases in `tests/unit/test_refusal_multilingual.py`
-- [ ] T012 [P] [US1] Add test class TestRefusalDetectorChinese with 10+ Chinese refusal phrases in `tests/unit/test_refusal_multilingual.py`
-- [ ] T013 [P] [US1] Add test class TestRefusalDetectorJapanese with 10+ Japanese refusal phrases in `tests/unit/test_refusal_multilingual.py`
-- [ ] T014 [P] [US1] Add test class TestRefusalDetectorAll verifying `languages=["all"]` detects all languages in `tests/unit/test_refusal_multilingual.py`
+- [x] T008 [P] [US1] Add test class TestRefusalDetectorSpanish with 10+ Spanish refusal phrases in `tests/unit/test_refusal_multilingual.py`
+- [x] T009 [P] [US1] Add test class TestRefusalDetectorFrench with 10+ French refusal phrases in `tests/unit/test_refusal_multilingual.py`
+- [x] T010 [P] [US1] Add test class TestRefusalDetectorGerman with 10+ German refusal phrases in `tests/unit/test_refusal_multilingual.py`
+- [x] T011 [P] [US1] Add test class TestRefusalDetectorPortuguese with 10+ Portuguese refusal phrases in `tests/unit/test_refusal_multilingual.py`
+- [x] T012 [P] [US1] Add test class TestRefusalDetectorChinese with 10+ Chinese refusal phrases in `tests/unit/test_refusal_multilingual.py`
+- [x] T013 [P] [US1] Add test class TestRefusalDetectorJapanese with 10+ Japanese refusal phrases in `tests/unit/test_refusal_multilingual.py`
+- [x] T014 [P] [US1] Add test class TestRefusalDetectorAll verifying `languages=["all"]` detects all languages in `tests/unit/test_refusal_multilingual.py`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Modify `RefusalDetector.__init__()` to accept `languages: Sequence[str] | None = None` parameter and rebuild mega-regex from selected language patterns in `ziran/application/detectors/refusal.py`
-- [ ] T016 [US1] Add warning logging for unknown language codes in `RefusalDetector.__init__()` in `ziran/application/detectors/refusal.py`
+- [x] T015 [US1] Modify `RefusalDetector.__init__()` to accept `languages: Sequence[str] | None = None` parameter and rebuild mega-regex from selected language patterns in `ziran/application/detectors/refusal.py`
+- [x] T016 [US1] Add warning logging for unknown language codes in `RefusalDetector.__init__()` in `ziran/application/detectors/refusal.py`
 
 **Checkpoint**: `RefusalDetector(languages=["all"])` detects refusals in all 7 languages. All per-language tests pass.
 
@@ -72,12 +72,12 @@
 
 ### Tests for User Story 2
 
-- [ ] T017 [P] [US2] Add test class TestRefusalDetectorDefaults verifying `languages=None` matches English and rejects non-English in `tests/unit/test_refusal_multilingual.py`
-- [ ] T018 [P] [US2] Add test class TestRefusalDetectorUnknownLanguage verifying unknown codes log warning and don't crash in `tests/unit/test_refusal_multilingual.py`
+- [x] T017 [P] [US2] Add test class TestRefusalDetectorDefaults verifying `languages=None` matches English and rejects non-English in `tests/unit/test_refusal_multilingual.py`
+- [x] T018 [P] [US2] Add test class TestRefusalDetectorUnknownLanguage verifying unknown codes log warning and don't crash in `tests/unit/test_refusal_multilingual.py`
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Verify all existing tests in `tests/unit/test_detectors.py` pass without modification (no code change — validation only)
+- [x] T019 [US2] Verify all existing tests in `tests/unit/test_detectors.py` pass without modification (no code change — validation only)
 
 **Checkpoint**: Existing test suite passes unchanged. Default RefusalDetector behavior is identical to pre-change.
 
@@ -91,9 +91,9 @@
 
 ### Tests for User Story 3
 
-- [ ] T020 [P] [US3] Add test class TestRefusalDetectorSelectiveLanguages verifying subset selection works in `tests/unit/test_refusal_multilingual.py`
-- [ ] T021 [P] [US3] Add test class TestRefusalDetectorMixedLanguageResponse verifying refusal detection in mixed-language text in `tests/unit/test_refusal_multilingual.py`
-- [ ] T022 [P] [US3] Add test class TestRefusalDetectorMatchTypes verifying all 3 match types work with multilingual patterns in `tests/unit/test_refusal_multilingual.py`
+- [x] T020 [P] [US3] Add test class TestRefusalDetectorSelectiveLanguages verifying subset selection works in `tests/unit/test_refusal_multilingual.py`
+- [x] T021 [P] [US3] Add test class TestRefusalDetectorMixedLanguageResponse verifying refusal detection in mixed-language text in `tests/unit/test_refusal_multilingual.py`
+- [x] T022 [P] [US3] Add test class TestRefusalDetectorMatchTypes verifying all 3 match types work with multilingual patterns in `tests/unit/test_refusal_multilingual.py`
 
 ### Implementation for User Story 3
 
@@ -111,12 +111,12 @@ No additional implementation needed — the `languages` parameter logic from US1
 
 ### Tests for User Story 4
 
-- [ ] T023 [P] [US4] Add test class TestDetectorPipelineMultilingual verifying pipeline passes languages to RefusalDetector in `tests/unit/test_refusal_multilingual.py`
+- [x] T023 [P] [US4] Add test class TestDetectorPipelineMultilingual verifying pipeline passes languages to RefusalDetector in `tests/unit/test_refusal_multilingual.py`
 
 ### Implementation for User Story 4
 
-- [ ] T024 [US4] Add `refusal_languages: Sequence[str] | None = None` field to `DetectorConfig` dataclass in `ziran/application/detectors/pipeline.py`
-- [ ] T025 [US4] Pass `languages=config.refusal_languages` to `RefusalDetector()` constructor in `DetectorPipeline.__init__()` in `ziran/application/detectors/pipeline.py`
+- [x] T024 [US4] Add `refusal_languages: Sequence[str] | None = None` field to `DetectorConfig` dataclass in `ziran/application/detectors/pipeline.py`
+- [x] T025 [US4] Pass `languages=config.refusal_languages` to `RefusalDetector()` constructor in `DetectorPipeline.__init__()` in `ziran/application/detectors/pipeline.py`
 
 **Checkpoint**: Pipeline integration complete. End-to-end multilingual detection works through the pipeline.
 
@@ -126,11 +126,11 @@ No additional implementation needed — the `languages` parameter logic from US1
 
 **Purpose**: Quality gates and cleanup.
 
-- [ ] T026 Run `uv run ruff check .` and fix any lint violations
-- [ ] T027 Run `uv run ruff format --check .` and fix any formatting drift
-- [ ] T028 Run `uv run mypy ziran/` and fix any type errors
-- [ ] T029 Run `uv run pytest --cov=ziran` and verify coverage >= 85%
-- [ ] T030 Run full existing test suite and verify zero regressions
+- [x] T026 Run `uv run ruff check .` and fix any lint violations
+- [x] T027 Run `uv run ruff format --check .` and fix any formatting drift
+- [x] T028 Run `uv run mypy ziran/` and fix any type errors
+- [x] T029 Run `uv run pytest --cov=ziran` and verify coverage >= 85%
+- [x] T030 Run full existing test suite and verify zero regressions
 
 ---
 
