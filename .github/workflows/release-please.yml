@@ -35,10 +35,13 @@ jobs:
             --jq '.[0].head.ref // ""')
           echo "Merged branch: $HEAD_REF"
 
-          if echo "$HEAD_REF" | grep -qE '^(release/|hotfix/)'; then
+          # Also match release-please's OWN release PR branch — merging it is
+          # exactly when release-please must run to create the tag + GitHub
+          # release. Omitting it left the release stuck (manifest bumped, no tag).
+          if echo "$HEAD_REF" | grep -qE '^(release/|hotfix/|release-please--)'; then
             echo "is-release-merge=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Skipping — not a release or hotfix merge"
+            echo "Skipping — not a release, hotfix, or release-please merge"
             echo "is-release-merge=false" >> "$GITHUB_OUTPUT"
           fi
 
