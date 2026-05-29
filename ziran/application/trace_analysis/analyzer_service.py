@@ -10,15 +10,23 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.alerting.dispatch import dispatch
 from ziran.application.knowledge_graph.chain_analyzer import (
     ToolChainAnalyzer,
 )
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.trace_analysis.alerting import (
+    build_digest,
+    chain_to_alertable,
+    match_predeploy,
+)
 from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from ziran.application.alerting.dispatch import SinkBinding
+    from ziran.domain.entities.alerting import AlertableFinding, AlertOutcome
     from ziran.domain.entities.capability import DangerousChain
     from ziran.domain.entities.trace import TraceSession
     from ziran.domain.ports.trace_ingestor import TraceIngestor
@@ -90,6 +98,37 @@ class AnalyzerService:
                 "trace_source": (sessions[0].source if sessions else "unknown"),
             },
         )
+
+    async def emit_findings(
+        self,
+        source: Path | str,
+        sinks: list[SinkBinding],
+        *,
+        digest: bool = False,
+        predeploy_chains: list[dict[str, Any]] | None = None,
+        predeploy_ref: str | None = None,
+        **kwargs: Any,
+    ) -> AlertOutcome:
+        """Deliver dangerous-chain matches from production traces to alert sinks.
+
+        Findings are produced per ``(chain, session)``. When *predeploy_chains*
+        is supplied, each match is correlated by tool sequence to inherit
+        severity/remediation and link the pre-deploy finding. With *digest*,
+        all matches are aggregated into a single digest finding.
+        """
+        sessions = await self._ingestor.ingest(source, **kwargs)
+        findings: list[AlertableFinding] = []
+        for session in sessions:
+            for chain in self._analyze_session(session):
+                matched = match_predeploy(chain, predeploy_chains) if predeploy_chains else None
+                findings.append(
+                    chain_to_alertable(chain, session, matched=matched, predeploy_ref=predeploy_ref)
+                )
+
+        if digest and findings:
+            findings = [build_digest(findings)]
+
+        return await dispatch(findings, sinks)
 
     def _analyze_session(self, session: TraceSession) -> list[DangerousChain]:
         """Build a temp graph for one session and run chain analysis."""

@@ -85,15 +85,15 @@ Single-project hexagonal layout: code in `ziran/`, tests in `tests/`.
 
 ### Tests for User Story 2
 
-- [ ] T022 [P] [US2] Integration test (respx) for `analyze-traces` per-session issue + dedup on re-run in `tests/integration/test_analyze_traces_alerting.py`
-- [ ] T023 [P] [US2] Unit test for trace fingerprint `(tool_chain_hash + session_id)` and digest grouping/fingerprint (assert the digest fingerprint excludes the run date, so unchanged traces dedup across days) in `tests/unit/test_trace_alertable.py`
+- [X] T022 [P] [US2] Integration test (respx) for `analyze-traces` per-session issue + dedup on re-run in `tests/integration/test_analyze_traces_alerting.py`
+- [X] T023 [P] [US2] Unit test for trace fingerprint `(tool_chain_hash + session_id)` and digest grouping/fingerprint (assert the digest fingerprint excludes the run date, so unchanged traces dedup across days) in `tests/unit/test_trace_alertable.py`
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Implement `DangerousChain` (observed-in-production) → `AlertableFinding` mapping: tool sequence, matched-finding link, existing-issue link via marker search, session ID, trace source link, inherited severity, remediation from a covering `GuardrailPolicy`, in `ziran/application/trace_analysis/` (new mapping module) (depends on T003)
-- [ ] T025 [US2] Implement `AnalyzerService.emit_findings(sinks, digest=False)` with per-`(chain, session)` and aggregated-digest modes in `ziran/application/trace_analysis/analyzer_service.py` (depends on T007, T024)
-- [ ] T026 [US2] Extend the analyze config loader to parse the `alerts:` block (`!env`) in `ziran/application/trace_analysis/` config (depends on T005, T006)
-- [ ] T027 [US2] Wire the `analyze-traces` CLI: `--alert` / `--digest` flags, build sinks via factory, map `AlertOutcome` to exit codes in `ziran/interfaces/cli/analyze_traces.py` (depends on T011, T025, T026)
+- [X] T024 [US2] Implement `DangerousChain` (observed-in-production) → `AlertableFinding` mapping: tool sequence, matched-finding link, existing-issue link via marker search, session ID, trace source link, inherited severity, remediation from a covering `GuardrailPolicy`, in `ziran/application/trace_analysis/` (new mapping module) (depends on T003)
+- [X] T025 [US2] Implement `AnalyzerService.emit_findings(sinks, digest=False)` with per-`(chain, session)` and aggregated-digest modes in `ziran/application/trace_analysis/analyzer_service.py` (depends on T007, T024)
+- [X] T026 [US2] Extend the analyze config loader to parse the `alerts:` block (`!env`) in `ziran/application/trace_analysis/` config (depends on T005, T006)
+- [X] T027 [US2] Wire the `analyze-traces` CLI: `--alert` / `--digest` flags, build sinks via factory, map `AlertOutcome` to exit codes in `ziran/interfaces/cli/analyze_traces.py` (depends on T011, T025, T026)
 
 **Checkpoint**: US1 and US2 both work independently.
 
@@ -121,7 +121,7 @@ Single-project hexagonal layout: code in `ziran/`, tests in `tests/`.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T032 [P] Add the "Alerting" section to `docs/guides/analyze-traces.md` (FR-026)
+- [X] T032 [P] Add the "Alerting" section to `docs/guides/analyze-traces.md` (FR-026)
 - [ ] T033 [P] Write the new guide `docs/guides/policy-refresh-automation.md` (FR-027)
 - [ ] T034 Run quickstart.md validation end-to-end (config samples, exit codes)
 - [ ] T035 Run quality gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`, `uv run pytest --cov=ziran` (≥85%)

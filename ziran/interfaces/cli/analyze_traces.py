@@ -58,6 +58,35 @@ console = Console()
     default="json",
     help="Report format.",
 )
+@click.option(
+    "--alert",
+    is_flag=True,
+    help="Deliver dangerous-chain matches to the sinks in --config.",
+)
+@click.option(
+    "--digest",
+    is_flag=True,
+    help="Aggregate matches into a single digest issue (default: one per session).",
+)
+@click.option(
+    "--config",
+    "config_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="YAML config with an 'alerts:' block (required with --alert).",
+)
+@click.option(
+    "--predeploy-result",
+    "predeploy_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Pre-deploy CampaignResult JSON to correlate matches against.",
+)
+@click.option(
+    "--dry-run-alerts",
+    is_flag=True,
+    help="Preview alert payloads without contacting Slack/GitHub.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output.")
 def analyze_traces(
     source: str,
@@ -66,6 +95,11 @@ def analyze_traces(
     since: str,
     out: str,
     output_format: str,
+    alert: bool,
+    digest: bool,
+    config_path: Path | None,
+    predeploy_path: Path | None,
+    dry_run_alerts: bool,
     verbose: bool,
 ) -> None:
     """Analyze production traces for dangerous tool chains.
@@ -129,6 +163,64 @@ def analyze_traces(
         report_path.write_text(json.dumps(result.model_dump(mode="json"), indent=2))
 
     console.print(f"\n[dim]Report saved to {report_path}[/dim]")
+
+    # Deliver dangerous-chain matches to configured alert sinks
+    if alert:
+        if config_path is None:
+            console.print("[red]Error:[/red] --alert requires --config with an 'alerts:' block.")
+            raise SystemExit(1)
+        _emit_alerts(
+            service,
+            ingest_source,
+            kwargs,
+            config_path=config_path,
+            predeploy_path=predeploy_path,
+            digest=digest,
+            dry_run_alerts=dry_run_alerts,
+        )
+
+
+def _emit_alerts(
+    service: Any,
+    ingest_source: Path | str,
+    kwargs: dict[str, Any],
+    *,
+    config_path: Path,
+    predeploy_path: Path | None,
+    digest: bool,
+    dry_run_alerts: bool,
+) -> None:
+    """Build sinks from config and dispatch trace findings; map exit codes."""
+    from ziran.domain.entities.alerting import AlertConfig
+    from ziran.infrastructure.alert_sinks.factory import build_sinks
+    from ziran.infrastructure.config.env_yaml import load_yaml_with_env
+
+    raw = load_yaml_with_env(config_path.read_text(encoding="utf-8"))
+    alert_config = AlertConfig.model_validate(raw)
+    sinks = build_sinks(alert_config, dry_run=dry_run_alerts)
+
+    predeploy_chains: list[dict[str, Any]] | None = None
+    predeploy_ref: str | None = None
+    if predeploy_path is not None:
+        predeploy_data = json.loads(predeploy_path.read_text(encoding="utf-8"))
+        predeploy_chains = predeploy_data.get("dangerous_tool_chains", [])
+        predeploy_ref = str(predeploy_path)
+
+    outcome = asyncio.run(
+        service.emit_findings(
+            ingest_source,
+            sinks,
+            digest=digest,
+            predeploy_chains=predeploy_chains,
+            predeploy_ref=predeploy_ref,
+            **kwargs,
+        )
+    )
+    console.print(
+        f"Alerts: {outcome.sent} sent, {outcome.deduped} deduped, {outcome.failed} failed."
+    )
+    if outcome.any_failed:
+        raise SystemExit(2)
 
 
 def _build_ingestor(source: str) -> Any:
