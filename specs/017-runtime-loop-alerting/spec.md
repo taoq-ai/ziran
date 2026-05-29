@@ -2,7 +2,7 @@
 
 **Feature Branch**: `017-runtime-loop-alerting`  
 **Created**: 2026-05-29  
-**Status**: Draft  
+**Status**: Accepted  
 **Input**: User description: "Close the pre-deploy→runtime→observability feedback loop from the v0.8 runtime bridge (spec 011) by making three existing one-shot commands actively notify humans and repos: watch-registry alerting (#272), analyze-traces alerting (#274), and a policy-export auto-refresh GitHub Action (#273)."
 
 ## Overview
