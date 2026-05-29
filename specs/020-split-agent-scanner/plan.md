@@ -1,7 +1,7 @@
 # Implementation Plan: Split AgentScanner into Focused Modules
 
-**Branch**: `003-split-agent-scanner` | **Date**: 2026-03-20 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `/specs/003-split-agent-scanner/spec.md`
+**Branch**: `020-split-agent-scanner` | **Date**: 2026-03-20 | **Spec**: [spec.md](spec.md)
+**Input**: Feature specification from `/specs/020-split-agent-scanner/spec.md`
 
 ## Summary
 
@@ -38,7 +38,7 @@ Extract five responsibility areas from the 1159-line `scanner.py` into focused m
 ### Documentation (this feature)
 
 ```text
-specs/003-split-agent-scanner/
+specs/020-split-agent-scanner/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output

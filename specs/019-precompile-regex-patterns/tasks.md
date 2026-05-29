@@ -1,6 +1,6 @@
 # Tasks: Pre-compile Regex Patterns in Static Analysis
 
-**Input**: Design documents from `/specs/003-precompile-regex-patterns/`
+**Input**: Design documents from `/specs/019-precompile-regex-patterns/`
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md
 
 **Tests**: Included — the constitution requires unit tests for all business logic (application layer).

@@ -1,6 +1,6 @@
 # Tasks: Split AgentScanner into Focused Modules
 
-**Input**: Design documents from `/specs/003-split-agent-scanner/`
+**Input**: Design documents from `/specs/020-split-agent-scanner/`
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md
 
 **Tests**: Included — the constitution requires unit tests for all business logic (application layer).

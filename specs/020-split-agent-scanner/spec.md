@@ -1,6 +1,6 @@
 # Feature Specification: Split AgentScanner into Focused Modules
 
-**Feature Branch**: `003-split-agent-scanner`
+**Feature Branch**: `020-split-agent-scanner`
 **Created**: 2026-03-20
 **Status**: Accepted
 **Input**: User description: "Refactor AgentScanner (issue #122): Split the 1159-line scanner.py into focused modules."

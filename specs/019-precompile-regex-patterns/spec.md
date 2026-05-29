@@ -1,6 +1,6 @@
 # Feature Specification: Pre-compile Regex Patterns in Static Analysis
 
-**Feature Branch**: `003-precompile-regex-patterns`
+**Feature Branch**: `019-precompile-regex-patterns`
 **Created**: 2026-03-20
 **Status**: Accepted
 **Input**: User description: "Pre-compile regex patterns in static analysis checks (issue #113). Currently, CheckDefinition patterns are recompiled from YAML-defined strings on every file analysis call. For large codebases this is wasteful. Fix: pre-compile patterns when CheckDefinition is loaded. No behavior change, purely a performance optimization."
