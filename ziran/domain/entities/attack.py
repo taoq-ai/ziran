@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from ziran.domain.entities.phase import ScanPhase  # noqa: TC001
+from ziran.domain.entities.phase import ScanPhase
 
 
 class TokenUsage(BaseModel):

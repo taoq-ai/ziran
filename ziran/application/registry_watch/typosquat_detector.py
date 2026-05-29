@@ -7,7 +7,12 @@ the allowlist.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from ziran.domain.entities.registry import DriftFinding
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.attack import Severity
 
 # Common substitution pairs used in typosquatting attacks.
 # Each tuple is (original_substring, substitution_substring).
@@ -92,7 +97,7 @@ def detect(
         is_sub = _has_substitution(name, canonical)
 
         if distance <= 2 or is_sub:
-            severity = "high" if distance == 1 or is_sub else "medium"
+            severity: Severity = "high" if distance == 1 or is_sub else "medium"
 
             findings.append(
                 DriftFinding(
