@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-split-agent-scanner`
 **Created**: 2026-03-20
-**Status**: Active
+**Status**: Accepted
 **Input**: User description: "Refactor AgentScanner (issue #122): Split the 1159-line scanner.py into focused modules."
 
 ## User Scenarios & Testing *(mandatory)*

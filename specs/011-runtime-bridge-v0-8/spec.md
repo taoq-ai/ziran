@@ -2,7 +2,7 @@
 
 **Feature Branch**: `011-runtime-bridge-v0-8`
 **Created**: 2026-04-08
-**Status**: Draft
+**Status**: Accepted
 **Input**: User description: "specify the implementation plan for issues #253–#257"
 
 ## Overview

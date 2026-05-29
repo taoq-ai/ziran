@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feat/003-configurable-detector-pipeline`
 **Created**: 2026-03-20
-**Status**: Active
+**Status**: Accepted
 **Input**: User description: "Make detector pipeline configurable and extensible (issue #121)."
 
 ## User Scenarios & Testing *(mandatory)*

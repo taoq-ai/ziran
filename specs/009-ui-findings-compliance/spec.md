@@ -2,7 +2,7 @@
 
 **Feature Branch**: `009-ui-findings-compliance`
 **Created**: 2026-03-24
-**Status**: Draft
+**Status**: Accepted
 **Input**: GitHub issues #172, #176, #179, #180, #98
 **Scope**: Community (open-source) tier only — no auth, no enterprise features
 

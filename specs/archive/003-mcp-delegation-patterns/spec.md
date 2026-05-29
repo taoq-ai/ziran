@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feat/003-mcp-delegation-patterns`
 **Created**: 2026-03-20
-**Status**: Active
+**Status**: Accepted
 **Input**: User description: "Add MCP and multi-agent delegation patterns to tool classifier and chain analyzer (issue #163)."
 
 ## User Scenarios & Testing *(mandatory)*

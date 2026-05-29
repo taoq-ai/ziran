@@ -2,7 +2,7 @@
 
 **Feature Branch**: `016-tool-schema-confusion`
 **Created**: 2026-05-22
-**Status**: Draft
+**Status**: Accepted
 **Input**: "Add attack vectors for tool-schema confusion: type confusion, enum injection, schema override, missing required fields, extra field injection, nested payload smuggling."
 
 ## User Scenarios & Testing *(mandatory)*
