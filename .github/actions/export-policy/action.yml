@@ -1,0 +1,150 @@
+name: ziran-policy-refresh
+description: >-
+  Regenerate guardrail policy bundles (OPA/Rego, Cedar, NeMo Colang, Invariant)
+  from a ZIRAN scan and open/update a single refresh PR when they drift from the
+  committed bundle. Assumes the repository is already checked out and the `ziran`
+  CLI is installed.
+
+inputs:
+  target:
+    description: Path to a YAML target config to scan (alternative to result-json).
+    required: false
+    default: ""
+  result-json:
+    description: >-
+      Path to a pre-existing campaign result JSON. When set, the scan step is
+      skipped and policies are regenerated from this file (offline mode).
+    required: false
+    default: ""
+  out-dir:
+    description: Committed policy-bundle directory (contains only generated policy files).
+    required: false
+    default: policies
+  target-formats:
+    description: Comma-separated formats to regenerate (rego, cedar, nemo, invariant).
+    required: false
+    default: rego,cedar,nemo,invariant
+  severity-floor:
+    description: Minimum severity to include in exported policies.
+    required: false
+    default: medium
+  fail-on-diff:
+    description: Fail the run on any drift instead of opening a PR.
+    required: false
+    default: "false"
+  branch:
+    description: Fixed head branch for the single long-lived refresh PR.
+    required: false
+    default: ziran/policy-refresh
+  reviewer-team:
+    description: Team/user slug to request review from (optional).
+    required: false
+    default: ""
+  token:
+    description: Token used for git push and PR operations.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  changed:
+    description: "true if the regenerated bundle differs from the committed one."
+    value: ${{ steps.diff.outputs.changed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve campaign result
+      id: resolve
+      shell: bash
+      env:
+        IN_RESULT: ${{ inputs.result-json }}
+        IN_TARGET: ${{ inputs.target }}
+      run: |
+        set -euo pipefail
+        if [ -n "$IN_RESULT" ]; then
+          echo "result=$IN_RESULT" >> "$GITHUB_OUTPUT"
+        elif [ -n "$IN_TARGET" ]; then
+          dest="$RUNNER_TEMP/ziran-results"
+          mkdir -p "$dest"
+          ziran scan --target "$IN_TARGET" -o "$dest"
+          result="$(find "$dest" -name '*report*.json' | head -n1)"
+          if [ -z "$result" ]; then
+            echo "::error::scan produced no campaign result JSON"; exit 1
+          fi
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+        else
+          echo "::error::provide either 'target' or 'result-json'"; exit 1
+        fi
+
+    - name: Regenerate policies
+      id: gen
+      shell: bash
+      env:
+        RESULT: ${{ steps.resolve.outputs.result }}
+        FORMATS: ${{ inputs.target-formats }}
+        FLOOR: ${{ inputs.severity-floor }}
+      run: |
+        set -euo pipefail
+        gen="$RUNNER_TEMP/ziran-policy-gen"
+        rm -rf "$gen"; mkdir -p "$gen"
+        IFS=',' read -ra fmts <<< "$FORMATS"
+        for fmt in "${fmts[@]}"; do
+          fmt="$(echo "$fmt" | xargs)"
+          [ -z "$fmt" ] && continue
+          ziran export-policy --result "$RESULT" --format "$fmt" --out "$gen" --severity-floor "$FLOOR"
+        done
+        echo "gen=$gen" >> "$GITHUB_OUTPUT"
+
+    - name: Detect drift
+      id: diff
+      shell: bash
+      env:
+        OUT: ${{ inputs.out-dir }}
+        GEN: ${{ steps.gen.outputs.gen }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$OUT"
+        if diff -rq "$OUT" "$GEN" >/dev/null 2>&1; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "Policy bundle is up to date."
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Enforce or open refresh PR
+      if: steps.diff.outputs.changed == 'true'
+      shell: bash
+      env:
+        OUT: ${{ inputs.out-dir }}
+        GEN: ${{ steps.gen.outputs.gen }}
+        FAIL_ON_DIFF: ${{ inputs.fail-on-diff }}
+        BRANCH: ${{ inputs.branch }}
+        REVIEWER: ${{ inputs.reviewer-team }}
+        BASE_REF: ${{ github.ref_name }}
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        if [ "$FAIL_ON_DIFF" = "true" ]; then
+          echo "::error::Exported policies differ from the committed bundle (out-dir: $OUT)."
+          diff -ru "$OUT" "$GEN" || true
+          exit 1
+        fi
+        # Sync regenerated bundle into the committed dir (dropping stale files).
+        rsync -a --delete "$GEN"/ "$OUT"/
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git switch -C "$BRANCH"
+        git add -A "$OUT"
+        git commit -m "chore(policy): refresh exported guardrail policies"
+        git push -f origin "$BRANCH"
+        if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+          echo "Refresh PR already open for '$BRANCH'; branch updated."
+        else
+          gh pr create --base "$BASE_REF" --head "$BRANCH" \
+            --title "chore(policy): refresh exported guardrail policies" \
+            --body "Automated guardrail-policy refresh generated by \`ziran export-policy\`." \
+            --label policy-refresh
+        fi
+        if [ -n "$REVIEWER" ]; then
+          gh pr edit "$BRANCH" --add-reviewer "$REVIEWER" || true
+        fi

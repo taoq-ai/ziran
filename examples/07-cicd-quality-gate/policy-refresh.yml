@@ -1,0 +1,49 @@
+# ──────────────────────────────────────────────────────────────────────
+# Example: ZIRAN guardrail-policy refresh
+# Copy this file to .github/workflows/ in your repository.
+#
+# Re-scans your agent on a schedule, regenerates the exported guardrail
+# policy bundle, and opens/updates a single PR when it drifts from what is
+# committed. Set fail-on-diff: "true" to hard-block instead of opening a PR.
+# ──────────────────────────────────────────────────────────────────────
+name: Policy Refresh
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch: {}
+
+# A single long-lived refresh must never race itself into competing PRs.
+concurrency:
+  group: ziran-policy-refresh
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    name: Refresh exported policies
+    runs-on: ubuntu-latest
+    env:
+      # ZIRAN is provider-agnostic — set whichever key your agent needs.
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install ZIRAN
+        run: python -m pip install ziran
+
+      - name: Refresh guardrail policies
+        uses: taoq-ai/ziran/.github/actions/export-policy@v0
+        with:
+          target: target.yaml # YAML target config for your agent
+          out-dir: policies/ # committed policy bundle
+          target-formats: rego,cedar,nemo,invariant
+          reviewer-team: secops # team/user slug to request review from
+          # fail-on-diff: "true"  # uncomment to block instead of opening a PR
