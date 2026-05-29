@@ -1,0 +1,76 @@
+# Self-test for the export-policy composite action.
+# Exercises the drift-detection logic deterministically (no LLM keys, no PRs)
+# by running in fail-on-diff mode against a committed sample campaign result.
+name: policy-refresh-selftest
+
+on:
+  pull_request:
+    paths:
+      - ".github/actions/export-policy/**"
+      - ".github/workflows/policy-refresh-selftest.yml"
+      - "examples/07-cicd-quality-gate/sample-campaign-result.json"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  stale-bundle-is-detected:
+    name: Stale bundle → run fails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install ZIRAN (local checkout)
+        run: python -m pip install -e .
+      - name: Run against an empty bundle (should detect drift)
+        id: refresh
+        continue-on-error: true
+        uses: ./.github/actions/export-policy
+        with:
+          result-json: examples/07-cicd-quality-gate/sample-campaign-result.json
+          out-dir: ${{ runner.temp }}/empty-bundle
+          fail-on-diff: "true"
+      - name: Assert the run failed (drift detected)
+        run: |
+          if [ "${{ steps.refresh.outcome }}" != "failure" ]; then
+            echo "::error::expected fail-on-diff to fail against an empty bundle"
+            exit 1
+          fi
+          echo "Drift correctly detected (changed=${{ steps.refresh.outputs.changed }})."
+
+  current-bundle-is-noop:
+    name: Current bundle → no drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install ZIRAN (local checkout)
+        run: python -m pip install -e .
+      - name: Pre-generate the committed bundle
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/current-bundle"
+          for fmt in rego cedar nemo invariant; do
+            ziran export-policy \
+              --result examples/07-cicd-quality-gate/sample-campaign-result.json \
+              --format "$fmt" --out "$RUNNER_TEMP/current-bundle" --severity-floor medium
+          done
+      - name: Run against the up-to-date bundle (should be a no-op)
+        id: refresh
+        uses: ./.github/actions/export-policy
+        with:
+          result-json: examples/07-cicd-quality-gate/sample-campaign-result.json
+          out-dir: ${{ runner.temp }}/current-bundle
+          fail-on-diff: "true"
+      - name: Assert no drift
+        run: |
+          if [ "${{ steps.refresh.outputs.changed }}" != "false" ]; then
+            echo "::error::expected no drift for an up-to-date bundle"
+            exit 1
+          fi
+          echo "No drift, as expected."

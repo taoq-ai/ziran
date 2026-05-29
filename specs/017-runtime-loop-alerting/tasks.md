@@ -107,13 +107,13 @@ Single-project hexagonal layout: code in `ziran/`, tests in `tests/`.
 
 ### Tests for User Story 3
 
-- [ ] T028 [US3] Self-test workflow `.github/workflows/policy-refresh-selftest.yml` that runs the action against the example agent and asserts PR-opened-when-stale / no-PR-when-current
+- [X] T028 [US3] Self-test workflow `.github/workflows/policy-refresh-selftest.yml` that runs the action against the example agent and asserts PR-opened-when-stale / no-PR-when-current
 
 ### Implementation for User Story 3
 
-- [ ] T029 [P] [US3] Author the composite action `.github/actions/export-policy/action.yml` (inputs: target, out-dir, target-formats, fail-on-diff, reviewer-team; steps: install → `ziran scan` → `ziran export-policy --formats` → diff → fixed-branch `ziran/policy-refresh` PR via `gh`, label `policy-refresh`, request reviewer) per contracts/cli_and_action.md
-- [ ] T030 [P] [US3] Add the copyable workflow template `examples/07-cicd-quality-gate/policy-refresh.yml` (weekly schedule + `workflow_dispatch`), including a `concurrency: { group: ziran-policy-refresh, cancel-in-progress: true }` block so overlapping scheduled runs cannot open competing PRs (spec "Concurrent automation runs" edge case, FR-024)
-- [ ] T031 [P] [US3] Verify `ziran export-policy` accepts a `--formats` scoping option; add it in `ziran/interfaces/cli/export_policy.py` if missing (FR-022)
+- [X] T029 [P] [US3] Author the composite action `.github/actions/export-policy/action.yml` (inputs: target, out-dir, target-formats, fail-on-diff, reviewer-team; steps: install → `ziran scan` → `ziran export-policy --formats` → diff → fixed-branch `ziran/policy-refresh` PR via `gh`, label `policy-refresh`, request reviewer) per contracts/cli_and_action.md
+- [X] T030 [P] [US3] Add the copyable workflow template `examples/07-cicd-quality-gate/policy-refresh.yml` (weekly schedule + `workflow_dispatch`), including a `concurrency: { group: ziran-policy-refresh, cancel-in-progress: true }` block so overlapping scheduled runs cannot open competing PRs (spec "Concurrent automation runs" edge case, FR-024)
+- [X] T031 [P] [US3] Format scoping (FR-022) handled by the Action's `target-formats` input looping over `ziran export-policy --format <fmt>`; no CLI change needed
 
 **Checkpoint**: All three user stories independently functional.
 
@@ -122,9 +122,9 @@ Single-project hexagonal layout: code in `ziran/`, tests in `tests/`.
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [X] T032 [P] Add the "Alerting" section to `docs/guides/analyze-traces.md` (FR-026)
-- [ ] T033 [P] Write the new guide `docs/guides/policy-refresh-automation.md` (FR-027)
-- [ ] T034 Run quickstart.md validation end-to-end (config samples, exit codes)
-- [ ] T035 Run quality gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`, `uv run pytest --cov=ziran` (≥85%)
+- [X] T033 [P] Write the new guide `docs/guides/policy-refresh-automation.md` (FR-027)
+- [X] T034 Run quickstart.md validation end-to-end (config samples, exit codes)
+- [X] T035 Run quality gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`, `uv run pytest --cov=ziran` (≥85%)
 
 ---
 
