@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-extract-shared-factories`
 **Created**: 2026-03-20
-**Status**: Active
+**Status**: Accepted
 **Input**: Issue #89 — Extract shared adapter/strategy loading from CLI into reusable utilities
 
 ## User Scenarios & Testing *(mandatory)*

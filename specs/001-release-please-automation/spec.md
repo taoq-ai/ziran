@@ -2,7 +2,7 @@
 
 **Feature Branch**: `ci/001-release-please-automation`
 **Created**: 2026-03-20
-**Status**: Active
+**Status**: Accepted
 **Input**: User description: "Adopt release-please for automated release management. Replace manual tag-push workflow with release-please to automate versioning, changelog generation, and release PR creation based on Conventional Commits. Current version is v0.13.0. First release needs bootstrap with release-as to avoid version mismatch."
 
 ## Constitution Check

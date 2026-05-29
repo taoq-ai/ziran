@@ -2,7 +2,7 @@
 
 **Feature Branch**: `006-perf-optimizations`
 **Created**: 2026-03-22
-**Status**: Draft
+**Status**: Accepted
 **Input**: User description: "Performance optimization release covering 4 GitHub issues: #211, #214, #215, #216. The goal is to significantly reduce library init time, benchmark execution time, and chain analysis time for large tool sets."
 
 ## User Scenarios & Testing *(mandatory)*

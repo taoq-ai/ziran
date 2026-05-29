@@ -1,7 +1,7 @@
 # Implementation Plan: Pre-compile Regex Patterns in Static Analysis
 
-**Branch**: `perf/003-precompile-regex-patterns` | **Date**: 2026-03-20 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `/specs/003-precompile-regex-patterns/spec.md`
+**Branch**: `perf/019-precompile-regex-patterns` | **Date**: 2026-03-20 | **Spec**: [spec.md](spec.md)
+**Input**: Feature specification from `/specs/019-precompile-regex-patterns/spec.md`
 
 ## Summary
 
@@ -38,7 +38,7 @@ Pre-compile regex patterns in the static analysis module so that patterns are co
 ### Documentation (this feature)
 
 ```text
-specs/003-precompile-regex-patterns/
+specs/019-precompile-regex-patterns/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output

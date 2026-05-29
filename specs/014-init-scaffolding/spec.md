@@ -2,7 +2,7 @@
 
 **Feature Branch**: `014-init-scaffolding`
 **Created**: 2026-05-22
-**Status**: Draft
+**Status**: Accepted
 **Input**: User description: "Add a CLI command that generates a starter ziran.yaml configuration file for new projects."
 
 ## User Scenarios & Testing *(mandatory)*
