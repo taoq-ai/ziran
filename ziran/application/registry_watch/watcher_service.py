@@ -11,6 +11,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
+from ziran.application.alerting.dispatch import dispatch
 from ziran.application.registry_watch.typosquat_detector import detect as detect_typosquat
 from ziran.domain.entities.registry import (
     DriftFinding,
@@ -21,6 +22,8 @@ from ziran.domain.entities.registry import (
 )
 
 if TYPE_CHECKING:
+    from ziran.application.alerting.dispatch import SinkBinding
+    from ziran.domain.entities.alerting import AlertOutcome
     from ziran.domain.ports.snapshot_store import SnapshotStore
 
 logger = logging.getLogger(__name__)
@@ -204,3 +207,12 @@ async def watch(
         snapshot_store.save(server.name, new_snapshot)
 
     return all_findings
+
+
+async def emit_findings(
+    findings: list[DriftFinding],
+    sinks: list[SinkBinding],
+) -> AlertOutcome:
+    """Deliver drift findings to the configured alert sinks."""
+    alertable = [f.to_alertable() for f in findings]
+    return await dispatch(alertable, sinks)

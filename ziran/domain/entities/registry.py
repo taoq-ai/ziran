@@ -7,9 +7,18 @@ drift detection, and typosquat findings.
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 — Pydantic needs at runtime
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel, Field
+
+from ziran.domain.entities.alerting import (
+    AlertableFinding,
+    AlertSinkConfig,
+    drift_fingerprint,
+)
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.attack import Severity
 
 
 class ToolDescriptor(BaseModel):
@@ -45,6 +54,41 @@ class DriftFinding(BaseModel):
     suspected_canonical: str | None = None
     message: str
 
+    def fingerprint(self) -> str:
+        """Stable dedup key: ``(server, tool, drift-kind)``."""
+        return drift_fingerprint(self.server_name, self.tool_name or "", self.drift_type)
+
+    def to_alertable(self) -> AlertableFinding:
+        """Map this drift finding to the normalized alerting shape.
+
+        Before/after values are emitted as inline fields (the snapshot diff
+        summary), since registry snapshots are local and have no remote URL.
+        """
+        fields: dict[str, str] = {
+            "Server": self.server_name,
+            "Drift type": self.drift_type,
+        }
+        if self.tool_name:
+            fields["Tool"] = self.tool_name
+        if self.field:
+            fields["Field"] = self.field
+        if self.previous_value is not None:
+            fields["Previous"] = self.previous_value
+        if self.current_value is not None:
+            fields["Current"] = self.current_value
+        if self.suspected_canonical:
+            fields["Suspected canonical"] = self.suspected_canonical
+
+        tool_suffix = f" on tool '{self.tool_name}'" if self.tool_name else ""
+        return AlertableFinding(
+            fingerprint=self.fingerprint(),
+            kind="registry_drift",
+            severity=cast("Severity", self.severity),
+            title=f"{self.drift_type}{tool_suffix} ({self.server_name})",
+            summary=self.message,
+            fields=fields,
+        )
+
 
 class ServerEntry(BaseModel):
     """Configuration entry for an MCP server to monitor."""
@@ -61,3 +105,4 @@ class RegistryConfig(BaseModel):
     allowlist: list[str] = Field(default_factory=list)
     exemptions: list[str] = Field(default_factory=list)
     snapshot_dir: str | None = None
+    alerts: list[AlertSinkConfig] = Field(default_factory=list)
