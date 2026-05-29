@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from ziran.domain.entities.attack import Severity  # noqa: TC001 — Pydantic needs it at runtime
+from ziran.domain.entities.attack import Severity
 
 AlertKind = Literal["registry_drift", "dangerous_chain"]
 DeliveryStatus = Literal["sent", "deduped", "skipped_below_floor", "failed", "dry_run"]

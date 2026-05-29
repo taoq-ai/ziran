@@ -9,16 +9,16 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+from ziran.domain.entities.attack import Severity
+from ziran.domain.ports.alert_sink import AlertSink
 from ziran.infrastructure.alert_sinks.dry_run_sink import DryRunSink
 from ziran.infrastructure.alert_sinks.github_issue_sink import GitHubIssueSink
 from ziran.infrastructure.alert_sinks.slack_sink import SlackWebhookSink
 
 if TYPE_CHECKING:
     from ziran.domain.entities.alerting import AlertConfig, AlertSinkConfig
-    from ziran.domain.entities.attack import Severity
-    from ziran.domain.ports.alert_sink import AlertSink
 
-SinkBinding = tuple["AlertSink", "Severity"]
+SinkBinding = tuple[AlertSink, Severity]
 
 
 def _build_one(cfg: AlertSinkConfig) -> AlertSink:

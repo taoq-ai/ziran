@@ -6,8 +6,8 @@ drift detection, and typosquat findings.
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003 — Pydantic needs at runtime
-from typing import TYPE_CHECKING, Any, cast
+from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -16,9 +16,7 @@ from ziran.domain.entities.alerting import (
     AlertSinkConfig,
     drift_fingerprint,
 )
-
-if TYPE_CHECKING:
-    from ziran.domain.entities.attack import Severity
+from ziran.domain.entities.attack import Severity
 
 
 class ToolDescriptor(BaseModel):
@@ -46,7 +44,7 @@ class DriftFinding(BaseModel):
 
     server_name: str
     drift_type: str  # tool_added, tool_removed, description_changed, schema_changed, permission_changed, typosquat
-    severity: str  # critical, high, medium, low
+    severity: Severity
     tool_name: str | None = None
     field: str | None = None
     previous_value: str | None = None
@@ -83,7 +81,7 @@ class DriftFinding(BaseModel):
         return AlertableFinding(
             fingerprint=self.fingerprint(),
             kind="registry_drift",
-            severity=cast("Severity", self.severity),
+            severity=self.severity,
             title=f"{self.drift_type}{tool_suffix} ({self.server_name})",
             summary=self.message,
             fields=fields,
