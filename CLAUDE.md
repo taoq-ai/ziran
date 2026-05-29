@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-05-22
+Auto-generated from all feature plans. Last updated: 2026-05-29
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -19,6 +19,8 @@ Auto-generated from all feature plans. Last updated: 2026-05-22
 - YAML vector files under `ziran/application/attacks/vectors/`; benchmark result JSON under `benchmarks/results/`; docs under `docs/reference/benchmarks/`. (012-benchmark-maturity)
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + `re` (stdlib), existing `ziran.application.detectors` module (013-multilingual-refusal-detection)
 - N/A (in-memory pattern matching) (013-multilingual-refusal-detection)
+- Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + httpx (async HTTP — Slack + GitHub REST), Pydantic v2 (config + entity models), PyYAML (config + new `!env` tag), Click (CLI). Composite GitHub Action uses `gh` CLI + bash, no new runtime deps. (017-runtime-loop-alerting)
+- None new. Dedup is stateless via GitHub-side issue markers; existing registry snapshots stay in `.ziran/snapshots/` (local JSON). (017-runtime-loop-alerting)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -38,9 +40,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 017-runtime-loop-alerting: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + httpx (async HTTP — Slack + GitHub REST), Pydantic v2 (config + entity models), PyYAML (config + new `!env` tag), Click (CLI). Composite GitHub Action uses `gh` CLI + bash, no new runtime deps.
 - 013-multilingual-refusal-detection: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + `re` (stdlib), existing `ziran.application.detectors` module
 - 012-benchmark-maturity: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + pydantic (models), PyYAML (vector loader), click (CLI), rich (reports), networkx (graph — unchanged). No new dependencies.
-- 011-runtime-bridge-v0-8: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI), httpx (async HTTP), pydantic (models), networkx (graph), pyyaml (config), rich (output), mdutils (reports). New optional: `langfuse` (trace pull).
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -125,6 +125,7 @@ test = [
     "pytest>=8.0,<9",
     "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
+    "respx>=0.21,<1",
 ]
 
 [tool.uv]
