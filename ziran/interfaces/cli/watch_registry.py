@@ -13,12 +13,14 @@ from pathlib import Path
 from typing import Any
 
 import click
-import yaml
 from rich.console import Console
 from rich.table import Table
 
-from ziran.application.registry_watch.watcher_service import watch
+from ziran.application.registry_watch.watcher_service import emit_findings, watch
+from ziran.domain.entities.alerting import AlertConfig
 from ziran.domain.entities.registry import DriftFinding, RegistryConfig, ServerEntry
+from ziran.infrastructure.alert_sinks.factory import build_sinks
+from ziran.infrastructure.config.env_yaml import load_yaml_with_env
 from ziran.infrastructure.snapshot_stores.json_file_store import JsonFileStore
 
 logger = logging.getLogger(__name__)
@@ -180,20 +182,26 @@ def _print_summary(findings: list[DriftFinding]) -> None:
     show_default=True,
     help="Report output format.",
 )
+@click.option(
+    "--dry-run-alerts",
+    is_flag=True,
+    help="Preview alert payloads without contacting Slack/GitHub.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging.")
 def watch_registry(
     config_path: Path,
     snapshot_dir: Path,
     output_dir: Path,
     output_format: str,
+    dry_run_alerts: bool,
     verbose: bool,
 ) -> None:
     """Monitor MCP server registries for drift and typosquatting."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    # Load config
-    raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    # Load config (resolving !env / ${VAR} references for alert secrets)
+    raw_config = load_yaml_with_env(config_path.read_text(encoding="utf-8"))
     registry_config = RegistryConfig.model_validate(raw_config)
 
     # Override snapshot dir if specified in config
@@ -218,7 +226,19 @@ def watch_registry(
     console.print(f"Report written to [bold]{report_path}[/bold]")
     _print_summary(findings)
 
-    # Exit with non-zero if critical/high findings exist
+    # Deliver findings to configured alert sinks
+    delivery_failed = False
+    if registry_config.alerts and findings:
+        sinks = build_sinks(AlertConfig(alerts=registry_config.alerts), dry_run=dry_run_alerts)
+        outcome = asyncio.run(emit_findings(findings, sinks))
+        console.print(
+            f"Alerts: {outcome.sent} sent, {outcome.deduped} deduped, {outcome.failed} failed."
+        )
+        delivery_failed = outcome.any_failed
+
+    # Exit-code contract: delivery-failure (2) > severity-gate (1) > success (0).
+    if delivery_failed:
+        raise SystemExit(2)
     high_or_critical = [f for f in findings if f.severity in ("critical", "high")]
     if high_or_critical:
         raise SystemExit(1)

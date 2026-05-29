@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ziran.domain.entities.defence import DefenceProfile  # noqa: TC001 — Pydantic field type
+from ziran.domain.entities.defence import DefenceProfile
 
 
 class CoverageLevel(StrEnum):

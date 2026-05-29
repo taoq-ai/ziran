@@ -6,7 +6,7 @@ during reconnaissance and capability mapping phases.
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003 — Pydantic needs at runtime
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 

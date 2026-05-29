@@ -125,6 +125,7 @@ test = [
     "pytest>=8.0,<9",
     "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
+    "respx>=0.21,<1",
 ]
 
 [tool.uv]
@@ -156,6 +157,14 @@ ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["ziran"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic resolves field annotations at runtime, so imports used only in model
+# fields must stay as real runtime imports (not moved into `TYPE_CHECKING`).
+# Without this, ruff pushes them behind `TYPE_CHECKING`, leaving them referenced
+# only via string annotations — which CodeQL/github-code-quality then reports as
+# "unused import". Declaring the Pydantic base keeps those imports runtime-visible.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.mypy]
 python_version = "3.11"
