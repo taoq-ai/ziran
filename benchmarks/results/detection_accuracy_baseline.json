@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-06-12T11:35:52.939409+00:00",
+  "pipeline_f1": 1.0,
+  "tolerance": 0.02,
+  "per_detector_f1": {
+    "refusal": 1.0,
+    "indicator": 1.0,
+    "side_effect": 1.0,
+    "llm_judge": 1.0
+  },
+  "dataset_size": 12
+}
