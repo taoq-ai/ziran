@@ -88,6 +88,12 @@ uv run mypy ziran/               # Type check — zero errors (strict)
 uv run pytest --cov=ziran        # Tests — all pass, coverage >= 85%
 ```
 
+### Branching (gitflow)
+
+- This repo follows **gitflow**: `develop` is the integration branch, `main` is release-only.
+- Branch feature/fix work off `develop`, and **open pull requests against `develop`** (NOT `main`). `main` only receives merges via release branches.
+- CI workflows trigger on both `main` and `develop`.
+
 ### Commit rules
 
 - **NEVER** add `Co-Authored-By` trailers to commits. Use only the default git author config.
