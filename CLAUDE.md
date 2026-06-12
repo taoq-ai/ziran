@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-05-29
+Auto-generated from all feature plans. Last updated: 2026-06-12
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -21,6 +21,8 @@ Auto-generated from all feature plans. Last updated: 2026-05-29
 - N/A (in-memory pattern matching) (013-multilingual-refusal-detection)
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + httpx (async HTTP — Slack + GitHub REST), Pydantic v2 (config + entity models), PyYAML (config + new `!env` tag), Click (CLI). Composite GitHub Action uses `gh` CLI + bash, no new runtime deps. (017-runtime-loop-alerting)
 - None new. Dedup is stateless via GitHub-side issue markers; existing registry snapshots stay in `.ziran/snapshots/` (local JSON). (017-runtime-loop-alerting)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (threshold + dataset models), PyYAML (dataset + config loading, reusing `load_yaml_with_env`), Click (benchmark CLI entry point), existing `ziran.application.detectors` pipeline. No new runtime dependencies. (021-detection-accuracy-benchmark)
+- YAML files for the labelled dataset (under `benchmarks/ground_truth/detection/`) and for operator config (`.ziran/detectors.yaml`); JSON result + baseline artifacts under `benchmarks/results/` (existing pattern). (021-detection-accuracy-benchmark)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -40,9 +42,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 021-detection-accuracy-benchmark: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (threshold + dataset models), PyYAML (dataset + config loading, reusing `load_yaml_with_env`), Click (benchmark CLI entry point), existing `ziran.application.detectors` pipeline. No new runtime dependencies.
 - 017-runtime-loop-alerting: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + httpx (async HTTP — Slack + GitHub REST), Pydantic v2 (config + entity models), PyYAML (config + new `!env` tag), Click (CLI). Composite GitHub Action uses `gh` CLI + bash, no new runtime deps.
 - 013-multilingual-refusal-detection: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + `re` (stdlib), existing `ziran.application.detectors` module
-- 012-benchmark-maturity: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + pydantic (models), PyYAML (vector loader), click (CLI), rich (reports), networkx (graph — unchanged). No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->

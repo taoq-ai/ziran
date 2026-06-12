@@ -418,7 +418,7 @@ class TestLLMJudgeTimeoutAndErrors:
 
     async def test_pipeline_resolve_with_empty_results(self) -> None:
         """_resolve with empty results should return safe default."""
-        verdict = DetectorPipeline._resolve([])
+        verdict = DetectorPipeline()._resolve([])
         assert verdict.successful is False
         assert "No strong signal" in verdict.reasoning
 
