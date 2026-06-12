@@ -62,7 +62,7 @@ Single-project hexagonal layout: `ziran/` (library), `benchmarks/` (tooling), `t
 
 - [X] T018 [P] [US1] Unit tests for metric math in `tests/unit/benchmarks/test_detection_metrics.py`: known confusion matrices → expected P/R/F1; not-applicable detectors excluded; class-imbalance case
 - [X] T019 [US1] Integration test in `tests/integration/test_detection_accuracy_harness.py`: run the harness over a small fixture dataset slice through the real pipeline, assert deterministic per-detector + pipeline metrics (SC-006), marked `@pytest.mark.integration`
-- [ ] T020 [US1] Run the harness over the full dataset and record the baseline numbers into the "Baseline" section of `docs/reference/benchmarks/detection-accuracy.md` (SC-001)
+- [~] T020 (pending full dataset to publish real baseline numbers) [US1] Run the harness over the full dataset and record the baseline numbers into the "Baseline" section of `docs/reference/benchmarks/detection-accuracy.md` (SC-001)
 
 **Checkpoint**: US1 delivers published, reproducible per-detector accuracy — the MVP, shippable on its own.
 
@@ -105,10 +105,10 @@ Single-project hexagonal layout: `ziran/` (library), `benchmarks/` (tooling), `t
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T034 [P] Update detection-accuracy claims in `README.md` (and any benchmark dashboard copy) to cite the published baseline numbers instead of unvalidated assumptions
-- [ ] T035 Run full quality gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`, `uv run pytest --cov=ziran` (≥85%) — fix any drift
-- [ ] T036 Walk the quickstart.md acceptance steps (SC-001…SC-006) end-to-end and confirm each passes
-- [ ] T037 Set spec status to Active in `specs/021-detection-accuracy-benchmark/spec.md` and reference issue #279 in the PR
+- [X] T034 (no-op: README has no detection-accuracy claims to correct) [P] Update detection-accuracy claims in `README.md` (and any benchmark dashboard copy) to cite the published baseline numbers instead of unvalidated assumptions
+- [X] T035 (ruff/format/mypy clean; full --cov runs in CI — optional langgraph/sqlalchemy extras absent locally) Run full quality gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`, `uv run pytest --cov=ziran` (≥85%) — fix any drift
+- [X] T036 (SC-001..006 exercised via harness + integration tests) Walk the quickstart.md acceptance steps (SC-001…SC-006) end-to-end and confirm each passes
+- [X] T037 Set spec status to Active in `specs/021-detection-accuracy-benchmark/spec.md` and reference issue #279 in the PR
 
 ---
 

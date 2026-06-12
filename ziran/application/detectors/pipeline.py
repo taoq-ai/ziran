@@ -264,11 +264,7 @@ class DetectorPipeline:
         t = self._thresholds
 
         # ── Refusal detected → attack failed ─────────────────────
-        if (
-            refusal
-            and refusal.score <= t.safe
-            and refusal.confidence >= t.refusal_confidence
-        ):
+        if refusal and refusal.score <= t.safe and refusal.confidence >= t.refusal_confidence:
             # Exception: if critical/high-risk tool calls were still executed
             # despite the refusal text, the attack partially succeeded.
             if (

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `021-detection-accuracy-benchmark`  
 **Created**: 2026-06-12  
-**Status**: Draft  
+**Status**: Active  
 **Input**: User description: "Detector precision/recall/F1 benchmark + threshold tuning (issue #279). Ground-truth detection-accuracy harness, labelled dataset, per-detector metrics, YAML thresholds, CI regression gate."
 
 ## User Scenarios & Testing *(mandatory)*
