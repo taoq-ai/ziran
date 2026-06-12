@@ -105,6 +105,28 @@ baseline will record per-detector and pipeline precision/recall/F1 here, and the
 machine-readable **regression baseline** used by the CI gate will live at
 `benchmarks/results/detection_accuracy_baseline.json` (distinct artifact).
 
+## Regression gate
+
+`benchmarks/detection_regression.py` compares the current pipeline F1 against the
+**regression baseline** (`benchmarks/results/detection_accuracy_baseline.json`)
+and **fails when F1 drops more than 0.02 below baseline** (clarification Q3).
+Per-detector F1 deltas are reported but never block.
+
+```bash
+uv run python benchmarks/detection_regression.py                 # gate (exit 0/1/2)
+uv run python benchmarks/detection_regression.py --update-baseline  # re-record (reviewed)
+```
+
+Exit codes: `0` pass · `1` regression beyond tolerance · `2` baseline missing.
+Updating the baseline is a deliberate, reviewed action — do it only when an F1
+change is understood and intended.
+
+The CI workflow (`.github/workflows/detection-accuracy.yml`) runs the gate on
+every PR but **only enforces it when the diff touches detector code, the dataset,
+or threshold config** — it detects this inside the job and otherwise reports
+success, so the check can be a required status without deadlocking branch
+protection on unrelated PRs.
+
 ## Re-recording judge verdicts
 
 `llm_judge` verdicts are stored per example (`recorded_judge`) and replayed by

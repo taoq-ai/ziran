@@ -93,11 +93,11 @@ Single-project hexagonal layout: `ziran/` (library), `benchmarks/` (tooling), `t
 
 **Independent Test**: Degrade a detector on a branch → `detection_regression.py` exits non-zero; revert → exits zero.
 
-- [ ] T029 [US3] Add `DetectionAccuracyBaseline` Pydantic model and implement `benchmarks/detection_regression.py` (Click CLI) comparing current pipeline F1 vs baseline with 0.02 tolerance; `--update-baseline`, `--baseline`, `--format`; exit codes 0/1/2 per contracts/cli.md
-- [ ] T030 [US3] Generate and commit the initial *regression baseline* `benchmarks/results/detection_accuracy_baseline.json` via `--update-baseline` (this is the machine-readable gate baseline, distinct from the human-readable *published baseline* recorded in docs by T020 — FR-009)
-- [ ] T031 [P] [US3] Unit/integration tests in `tests/integration/test_detection_regression.py`: pass when F1 ≥ baseline−0.02; fail (exit 1) on a deliberate F1 drop; exit 2 when baseline missing; per-detector deltas never block (Q3)
-- [ ] T032 [US3] Add a CI job in `.github/workflows/` that runs the regression gate. To stay compatible with branch protection, the job MUST **always run** (no `paths:` trigger filter) but **skip the gate logic and report success** when the diff does not touch `ziran/application/detectors/**`, the dataset, or threshold files (detect changed paths inside the job, e.g. via `git diff --name-only` or a changed-files step). This avoids the required-check deadlock where a path-filtered required check never reports on unrelated PRs. The gate runs `detection_regression.py` and is blocking on `main`
-- [ ] T033 [US3] Document the gate (metric, tolerance, how to update the baseline) in `docs/reference/benchmarks/detection-accuracy.md`
+- [X] T029 [US3] Add `DetectionAccuracyBaseline` Pydantic model and implement `benchmarks/detection_regression.py` (Click CLI) comparing current pipeline F1 vs baseline with 0.02 tolerance; `--update-baseline`, `--baseline`, `--format`; exit codes 0/1/2 per contracts/cli.md
+- [X] T030 [US3] Generate and commit the initial *regression baseline* `benchmarks/results/detection_accuracy_baseline.json` via `--update-baseline` (this is the machine-readable gate baseline, distinct from the human-readable *published baseline* recorded in docs by T020 — FR-009)
+- [X] T031 [P] [US3] Unit/integration tests in `tests/integration/test_detection_regression.py`: pass when F1 ≥ baseline−0.02; fail (exit 1) on a deliberate F1 drop; exit 2 when baseline missing; per-detector deltas never block (Q3)
+- [X] T032 [US3] Add a CI job in `.github/workflows/` that runs the regression gate. To stay compatible with branch protection, the job MUST **always run** (no `paths:` trigger filter) but **skip the gate logic and report success** when the diff does not touch `ziran/application/detectors/**`, the dataset, or threshold files (detect changed paths inside the job, e.g. via `git diff --name-only` or a changed-files step). This avoids the required-check deadlock where a path-filtered required check never reports on unrelated PRs. The gate runs `detection_regression.py` and is blocking on `main`
+- [X] T033 [US3] Document the gate (metric, tolerance, how to update the baseline) in `docs/reference/benchmarks/detection-accuracy.md`
 
 **Checkpoint**: accuracy regressions are automatically blocked; baseline updates are explicit and reviewed.
 
