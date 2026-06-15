@@ -34,7 +34,7 @@ Create `.ziran/detectors.yaml` (all keys optional):
 ```yaml
 hit: 0.65          # more sensitive — more recall, less precision
 safe: 0.3
-side_effect_confidence: 0.8
+side_effect_override_confidence: 0.8
 ```
 
 Re-run a detection or the benchmark and observe the verdict/metric shift. Remove the file to return to documented defaults.

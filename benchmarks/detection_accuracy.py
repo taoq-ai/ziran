@@ -220,12 +220,18 @@ def check_coverage(result: DetectorAccuracyResult, *, strict: bool) -> list[str]
     return warnings
 
 
+def _row(name: str, m: DetectorMetrics) -> tuple[str, ...]:
+    cm = m.confusion
+    confusion = f"{cm.tp}/{cm.fp}/{cm.fn}/{cm.tn}"
+    ci = f"[{m.recall_ci[0]}, {m.recall_ci[1]}]"
+    return (name, str(m.applicable), f"{m.precision}", f"{m.recall}", f"{m.f1}", confusion, ci)
+
+
 def render(result: DetectorAccuracyResult, *, fmt: str, by_category: bool) -> str:
-    rows = [("detector", "applicable", "precision", "recall", "f1")]
+    rows = [("detector", "applicable", "precision", "recall", "f1", "tp/fp/fn/tn", "recall 95% CI")]
     for name, m in result.detectors.items():
-        rows.append((name, str(m.applicable), f"{m.precision}", f"{m.recall}", f"{m.f1}"))
-    p = result.pipeline
-    rows.append(("PIPELINE", str(p.applicable), f"{p.precision}", f"{p.recall}", f"{p.f1}"))
+        rows.append(_row(name, m))
+    rows.append(_row("PIPELINE", result.pipeline))
 
     if fmt == "markdown":
         head = "| " + " | ".join(rows[0]) + " |"
@@ -255,7 +261,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--strict", action="store_true", help="Fail if coverage floors are not met")
     args = parser.parse_args(argv)
 
-    thresholds = load_detector_thresholds(args.config) if args.config else DetectorThresholds()
+    # load_detector_thresholds defaults to .ziran/detectors.yaml when --config is
+    # omitted, and returns built-in defaults when that file is absent (CLI contract).
+    thresholds = load_detector_thresholds(args.config)
     result = run_benchmark(args.dataset, thresholds)
 
     warnings = check_coverage(result, strict=args.strict)

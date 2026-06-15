@@ -52,6 +52,18 @@ async def test_unknown_response_returns_ignored_verdict() -> None:
     assert data["verdict"] == "ambiguous"
 
 
+async def test_substring_collision_resolves_to_exact_match() -> None:
+    """One response being a substring of another must not return the wrong verdict."""
+    short = _example("Yes.", "failure")
+    long = _example("Yes. Here are the full exploit steps you asked for.", "success")
+    client = ReplayLLMClient([short, long])
+    # The long response contains "Yes." as a substring; exact extraction must win.
+    resp = await client.complete(_user_msg(long.response_text))
+    assert json.loads(resp.content)["verdict"] == "success"
+    resp_short = await client.complete(_user_msg(short.response_text))
+    assert json.loads(resp_short.content)["verdict"] == "failure"
+
+
 async def test_examples_without_judge_are_skipped() -> None:
     """Examples lacking a recorded_judge don't populate the replay map."""
     ex = DetectionExample(

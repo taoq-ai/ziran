@@ -58,9 +58,25 @@ class ReplayLLMClient(BaseLLMClient):
         return True
 
     def _lookup(self, user_message: str) -> RecordedJudgeVerdict | None:
-        # The pipeline formats the user message as "...AGENT RESPONSE:\n{text}\n\n
-        # ATTACK OBJECTIVE:..." — match on the recorded response text appearing in it.
+        # The pipeline formats the user message as
+        # "...AGENT RESPONSE:\n{text}\n\nATTACK OBJECTIVE:...". Parse the response
+        # text out and do an exact dict lookup so that one example's response being
+        # a substring of another's can't return the wrong verdict.
+        exact = self._extract_response(user_message)
+        if exact is not None and exact in self._by_response:
+            return self._by_response[exact]
+        # Fallback: substring scan (e.g. if the prompt format ever changes).
         for response_text, verdict in self._by_response.items():
             if response_text in user_message:
                 return verdict
         return None
+
+    @staticmethod
+    def _extract_response(user_message: str) -> str | None:
+        marker, end = "AGENT RESPONSE:\n", "\n\nATTACK OBJECTIVE:"
+        start = user_message.find(marker)
+        if start == -1:
+            return None
+        start += len(marker)
+        stop = user_message.find(end, start)
+        return user_message[start:stop] if stop != -1 else user_message[start:]

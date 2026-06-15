@@ -74,7 +74,7 @@ Single-project hexagonal layout: `ziran/` (library), `benchmarks/` (tooling), `t
 
 **Independent Test**: Edit a threshold in `.ziran/detectors.yaml`, re-run a detection → verdict changes; delete the file → documented defaults apply unchanged.
 
-- [X] T021 [US2] Create `DetectorThresholds` Pydantic model in `ziran/application/detectors/thresholds.py` with defaults matching today's constants (hit 0.7, safe 0.3, side_effect_confidence 0.8, refusal/indicator_confidence 0.5, side_effect_min_confidence 0.7), range validators, and a `hit > safe` cross-field validator (FR-008)
+- [X] T021 [US2] Create `DetectorThresholds` Pydantic model in `ziran/application/detectors/thresholds.py` with defaults matching today's constants (hit 0.7, safe 0.3, side_effect_override_confidence 0.8, refusal/indicator_confidence 0.5, side_effect_min_confidence 0.7), range validators, and a `hit > safe` cross-field validator (FR-008)
 - [X] T022 [P] [US2] Unit tests in `tests/unit/detectors/test_thresholds.py`: defaults equal current constants; out-of-range value errors naming field+value; `hit <= safe` errors
 - [X] T023 [US2] Implement config loader in `ziran/infrastructure/config/detectors.py` using existing `load_yaml_with_env` — load `.ziran/detectors.yaml` → `DetectorThresholds`; absent file → defaults; invalid → clear error (FR-006/FR-008)
 - [X] T024 [P] [US2] Unit tests in `tests/unit/infrastructure/test_detectors_config.py`: absent file → defaults; partial file → merged with defaults; malformed/out-of-range → error; `!env`/`${VAR}` interpolation works
