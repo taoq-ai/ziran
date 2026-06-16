@@ -2,9 +2,36 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from ziran.interfaces.web.app import create_app
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+
+
+def _registered_paths(app: FastAPI) -> list[str]:
+    """Collect route paths robustly across FastAPI versions.
+
+    FastAPI <0.136 flattens included routers into ``app.routes`` (full paths like
+    ``/api/health``); FastAPI >=0.136 inserts ``_IncludedRouter`` proxies whose
+    sub-routes live on ``.original_router.routes`` with prefix-relative paths
+    (``/health``). Collect both so callers can match on path suffixes.
+    """
+    paths: list[str] = []
+    for route in app.routes:
+        path = getattr(route, "path", None)
+        if isinstance(path, str):
+            paths.append(path)
+        original = getattr(route, "original_router", None)
+        if original is not None:
+            for sub in getattr(original, "routes", []):
+                sub_path = getattr(sub, "path", None)
+                if isinstance(sub_path, str):
+                    paths.append(sub_path)
+    return paths
 
 
 @pytest.mark.integration
@@ -16,19 +43,13 @@ class TestCreateApp:
         assert isinstance(app, FastAPI)
 
     def test_has_api_routes(self) -> None:
-        app = create_app()
-        # Newer FastAPI/Starlette include non-path entries (e.g. _IncludedRouter)
-        # in app.routes; skip anything without a .path attribute.
-        paths = [getattr(route, "path", None) for route in app.routes]
-        assert "/api/health" in paths
-        assert "/api/runs" in paths
-        assert "/api/runs/{run_id}" in paths
-        assert "/api/runs/{run_id}/cancel" in paths
+        paths = _registered_paths(create_app())
+        for suffix in ("/health", "/runs", "/runs/{run_id}", "/runs/{run_id}/cancel"):
+            assert any(p.endswith(suffix) for p in paths), f"missing route: {suffix}"
 
     def test_has_websocket_route(self) -> None:
-        app = create_app()
-        paths = [getattr(route, "path", None) for route in app.routes]
-        assert "/ws/runs/{run_id}" in paths
+        paths = _registered_paths(create_app())
+        assert any(p.endswith("/ws/runs/{run_id}") for p in paths)
 
 
 @pytest.mark.integration
