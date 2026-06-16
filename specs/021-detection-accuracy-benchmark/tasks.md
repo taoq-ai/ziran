@@ -43,11 +43,11 @@ Single-project hexagonal layout: `ziran/` (library), `benchmarks/` (tooling), `t
 
 ### Dataset curation (the bulk of the effort)
 
-- [~] T007 [P] [US1] (SEED: 3 done) Author ≥50 `clear_refusal` labelled examples in `benchmarks/ground_truth/detection/clear_refusal/*.yaml` (recorded response text/tool_calls/judge verdict, `expected_detectors`, overall `label`, provenance per contracts/dataset-schema.md)
-- [~] T008 [P] [US1] (SEED: 3 done) Author ≥50 `full_compliance` labelled examples in `benchmarks/ground_truth/detection/full_compliance/*.yaml`
-- [~] T009 [P] [US1] (SEED: 3 done) Author ≥50 `partial_compliance` labelled examples in `benchmarks/ground_truth/detection/partial_compliance/*.yaml`
-- [~] T010 [P] [US1] (SEED: 3 done) Author ≥50 `borderline` labelled examples in `benchmarks/ground_truth/detection/borderline/*.yaml` (may be over-weighted — thresholds matter most here)
-- [~] T011 [US1] (rubric done; floor pending full dataset) Write the labelling rubric section in `docs/reference/benchmarks/detection-accuracy.md` defining how each category is classified (FR-012), noting the dataset extends the spec-007 ground-truth fixtures and reuses its `ExpectedDetector`/provenance conventions (FR-004), then validate the whole dataset loads against `DetectionExample` and confirm ≥30 *applicable* examples exist for each of the four in-scope detectors (FR-003); add examples to fill any detector below the floor
+- [X] T007 [P] [US1] Author ≥50 `clear_refusal` labelled examples in `benchmarks/ground_truth/detection/clear_refusal/*.yaml` (recorded response text/tool_calls/judge verdict, `expected_detectors`, overall `label`, provenance per contracts/dataset-schema.md)
+- [X] T008 [P] [US1] Author ≥50 `full_compliance` labelled examples in `benchmarks/ground_truth/detection/full_compliance/*.yaml`
+- [X] T009 [P] [US1] Author ≥50 `partial_compliance` labelled examples in `benchmarks/ground_truth/detection/partial_compliance/*.yaml`
+- [X] T010 [P] [US1] Author ≥50 `borderline` labelled examples in `benchmarks/ground_truth/detection/borderline/*.yaml` (may be over-weighted — thresholds matter most here)
+- [X] T011 [US1] Write the labelling rubric section in `docs/reference/benchmarks/detection-accuracy.md` defining how each category is classified (FR-012), noting the dataset extends the spec-007 ground-truth fixtures and reuses its `ExpectedDetector`/provenance conventions (FR-004), then validate the whole dataset loads against `DetectionExample` and confirm ≥30 *applicable* examples exist for each of the four in-scope detectors (FR-003); add examples to fill any detector below the floor
 
 ### Metrics + harness
 
@@ -62,7 +62,7 @@ Single-project hexagonal layout: `ziran/` (library), `benchmarks/` (tooling), `t
 
 - [X] T018 [P] [US1] Unit tests for metric math in `tests/unit/benchmarks/test_detection_metrics.py`: known confusion matrices → expected P/R/F1; not-applicable detectors excluded; class-imbalance case
 - [X] T019 [US1] Integration test in `tests/integration/test_detection_accuracy_harness.py`: run the harness over a small fixture dataset slice through the real pipeline, assert deterministic per-detector + pipeline metrics (SC-006), marked `@pytest.mark.integration`
-- [~] T020 (pending full dataset to publish real baseline numbers) [US1] Run the harness over the full dataset and record the baseline numbers into the "Baseline" section of `docs/reference/benchmarks/detection-accuracy.md` (SC-001)
+- [X] T020 [US1] Run the harness over the full dataset and record the baseline numbers into the "Baseline" section of `docs/reference/benchmarks/detection-accuracy.md` (SC-001)
 
 **Checkpoint**: US1 delivers published, reproducible per-detector accuracy — the MVP, shippable on its own.
 

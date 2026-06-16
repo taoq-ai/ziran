@@ -193,9 +193,15 @@ Per-detector and pipeline precision/recall/F1 over the labelled detection
 dataset — see [detection-accuracy.md](detection-accuracy.md) for methodology and
 the published baseline. Run with `benchmarks/detection_accuracy.py`.
 
-| Detector | Status |
-|----------|--------|
-| refusal / indicator / side_effect / llm_judge | :construction: Harness shipped (spec 021); dataset at seed scale, building toward the ≥200-example FR-003 floor |
+| Detector | F1 | Notes |
+|----------|-----|-------|
+| refusal | 0.90 | Recall 1.0, precision 0.81 — false-alarms on atypically-phrased refusals it fails to recognize (false positives, not missed compromises) |
+| indicator | 1.00 | Synthetic inputs (see caveats) |
+| side_effect | 1.00 | Synthetic inputs (see caveats) |
+| llm_judge | 1.00 | Replayed verdicts (see caveats) |
+| **pipeline** | **1.00** | Robust via conservative default |
+
+Baseline over 220 labelled examples (≥50/category). See [detection-accuracy.md](detection-accuracy.md) for methodology and validity caveats.
 
 ---
 
