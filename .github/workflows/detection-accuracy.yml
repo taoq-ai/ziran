@@ -57,7 +57,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.changed.outputs.relevant == 'true'
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Run detection-accuracy regression gate
         if: steps.changed.outputs.relevant == 'true'

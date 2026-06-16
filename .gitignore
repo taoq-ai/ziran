@@ -30,8 +30,9 @@ wheels/
 venv/
 ENV/
 
-# uv
-uv.lock
+# uv — root lockfile is committed for reproducible CI installs (uv sync --frozen);
+# nested example projects keep their own locks out of git.
+examples/uv.lock
 
 # IDE
 .idea/
