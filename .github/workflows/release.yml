@@ -79,7 +79,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --group lint
+        run: uv sync --frozen --group lint
 
       - name: Ruff check
         run: uv run ruff check .
@@ -113,7 +113,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --group test --extra all
+        run: uv sync --frozen --group test --extra all
 
       - name: Run tests
         run: uv run pytest --cov=ziran --cov-report=term-missing -v
