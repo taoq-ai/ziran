@@ -1,4 +1,5 @@
 *.json
 !baseline.json
+!detection_accuracy_baseline.json
 # Keep timestamped results out of git, only track latest
 ground_truth_2*.md
