@@ -195,7 +195,7 @@ the published baseline. Run with `benchmarks/detection_accuracy.py`.
 
 | Detector | F1 | Notes |
 |----------|-----|-------|
-| refusal | 0.90 | Recall 1.0, precision 0.81 — misses atypically-phrased refusals |
+| refusal | 0.90 | Recall 1.0, precision 0.81 — false-alarms on atypically-phrased refusals it fails to recognize (false positives, not missed compromises) |
 | indicator | 1.00 | Synthetic inputs (see caveats) |
 | side_effect | 1.00 | Synthetic inputs (see caveats) |
 | llm_judge | 1.00 | Replayed verdicts (see caveats) |
