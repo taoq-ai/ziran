@@ -17,7 +17,9 @@ class TestCreateApp:
 
     def test_has_api_routes(self) -> None:
         app = create_app()
-        paths = [route.path for route in app.routes]
+        # Newer FastAPI/Starlette include non-path entries (e.g. _IncludedRouter)
+        # in app.routes; skip anything without a .path attribute.
+        paths = [getattr(route, "path", None) for route in app.routes]
         assert "/api/health" in paths
         assert "/api/runs" in paths
         assert "/api/runs/{run_id}" in paths
@@ -25,7 +27,7 @@ class TestCreateApp:
 
     def test_has_websocket_route(self) -> None:
         app = create_app()
-        paths = [route.path for route in app.routes]
+        paths = [getattr(route, "path", None) for route in app.routes]
         assert "/ws/runs/{run_id}" in paths
 
 
