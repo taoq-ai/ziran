@@ -189,19 +189,23 @@ See [Gap Analysis](gap-analysis.md) for full details.
 
 ## Detection Accuracy
 
-Per-detector and pipeline precision/recall/F1 over the labelled detection
-dataset — see [detection-accuracy.md](detection-accuracy.md) for methodology and
-the published baseline. Run with `benchmarks/detection_accuracy.py`.
+Per-detector and pipeline precision/recall/F1 over the labelled detection dataset — see [detection-accuracy.md](detection-accuracy.md) for methodology and validity caveats. Run with `benchmarks/detection_accuracy.py`.
 
-| Detector | F1 | Notes |
-|----------|-----|-------|
-| refusal | 0.90 | Recall 1.0, precision 0.81 — false-alarms on atypically-phrased refusals it fails to recognize (false positives, not missed compromises) |
-| indicator | 1.00 | Synthetic inputs (see caveats) |
-| side_effect | 1.00 | Synthetic inputs (see caveats) |
-| llm_judge | 1.00 | Replayed verdicts (see caveats) |
-| **pipeline** | **1.00** | Robust via conservative default |
+| Detector | F1 |
+|----------|-----|
+| refusal | 0.90 |
+| indicator | 1.00 |
+| side_effect | 1.00 |
+| llm_judge | 1.00 |
+| **pipeline** | **1.00** |
 
-Baseline over 220 labelled examples (≥50/category). See [detection-accuracy.md](detection-accuracy.md) for methodology and validity caveats.
+Baseline over 220 labelled examples. The refusal detector's F1 is bounded by precision (false-alarms on atypically-phrased refusals), not missed compromises.
+
+## Pentest Agent vs Rule-Based Scanner
+
+Head-to-head on ground-truth targets — what each tool catches vs what it costs. See [pentest-evaluation.md](pentest-evaluation.md). Run with `benchmarks/pentest_vs_scanner.py`.
+
+:construction: US1 harness shipped; agent cassettes are seed-only pending the live `--mode record` path. On the simulated targets the rule-based scanner reaches full ground-truth recall at ≈0 token cost; novel-discovery is only measurable on the real example agent.
 
 ---
 
