@@ -265,6 +265,8 @@ class AgentScanner:
             streaming=streaming,
             emitter=emitter,
             encoding=encoding,
+            n_shots=(int(n) if (n := self.config.get("n_shots")) is not None else None),
+            context_window=int(self.config.get("context_window", 200_000)),
         )
         phase_executor = PhaseExecutor(
             attack_executor,

@@ -37,6 +37,7 @@ def collect_inventory() -> dict:
     harm_cats: Counter[str] = Counter()
     multi_turn = 0
 
+    many_shot_vectors: list[str] = []
     for v in vectors:
         categories[v.category.value] += 1
         severities[v.severity] += 1
@@ -51,6 +52,8 @@ def collect_inventory() -> dict:
         harm_cat = getattr(v, "harm_category", None)
         if harm_cat is not None:
             harm_cats[harm_cat.value] += 1
+        if getattr(v, "many_shot", None) is not None:
+            many_shot_vectors.append(v.id)
 
     # Business impact coverage per category
     bi_coverage: dict[str, list[str]] = {}
@@ -68,6 +71,8 @@ def collect_inventory() -> dict:
         "severities": dict(sorted(severities.items())),
         "encoding_types": len(EncodingType),
         "unique_tags": len(tags),
+        "tags": dict(sorted(tags.items())),
+        "many_shot_vectors": sorted(many_shot_vectors),
         "multi_turn_vectors": multi_turn,
         "harm_categories": dict(sorted(harm_cats.items())) if harm_cats else {},
         "harm_category_count": len(HarmCategory) if HarmCategory is not None else 0,

@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-06-17
+Auto-generated from all feature plans. Last updated: 2026-06-18
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -25,6 +25,8 @@ Auto-generated from all feature plans. Last updated: 2026-06-17
 - YAML files for the labelled dataset (under `benchmarks/ground_truth/detection/`) and for operator config (`.ziran/detectors.yaml`); JSON result + baseline artifacts under `benchmarks/results/` (existing pattern). (021-detection-accuracy-benchmark)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cassette + comparison + result models), PyYAML (CVE target definitions, reusing spec-007 schema), Click/argparse (benchmark CLI), existing `AgentScanner` + `PentestOrchestrator`. Recording (opt-in) additionally needs the existing `pentest` extra (langgraph) + a live `BaseLLMClient`. No new runtime dependencies. (022-pentest-vs-scanner-benchmark)
 - YAML for CVE-modeled ground-truth agents (`benchmarks/ground_truth/agents/`); JSON cassettes for recorded agent runs (`benchmarks/ground_truth/pentest_runs/`); JSON results + baseline under `benchmarks/results/` (existing pattern). (022-pentest-vs-scanner-benchmark)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`ManyShotConfig` model + validators), PyYAML (vectors + synthetic corpus loading), existing `AttackLibrary` / `AttackExecutor` / `AgentScanner`. No new runtime dependencies (token estimate is a char heuristic, not `tiktoken`). (023-many-shot-jailbreak)
+- YAML — the vector file (`ziran/application/attacks/vectors/many_shot_jailbreak.yaml`) and a synthetic shot corpus (`ziran/application/attacks/vectors/many_shot_corpus.yaml`). (023-many-shot-jailbreak)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -44,9 +46,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 023-many-shot-jailbreak: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`ManyShotConfig` model + validators), PyYAML (vectors + synthetic corpus loading), existing `AttackLibrary` / `AttackExecutor` / `AgentScanner`. No new runtime dependencies (token estimate is a char heuristic, not `tiktoken`).
 - 022-pentest-vs-scanner-benchmark: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cassette + comparison + result models), PyYAML (CVE target definitions, reusing spec-007 schema), Click/argparse (benchmark CLI), existing `AgentScanner` + `PentestOrchestrator`. Recording (opt-in) additionally needs the existing `pentest` extra (langgraph) + a live `BaseLLMClient`. No new runtime dependencies.
 - 021-detection-accuracy-benchmark: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (threshold + dataset models), PyYAML (dataset + config loading, reusing `load_yaml_with_env`), Click (benchmark CLI entry point), existing `ziran.application.detectors` pipeline. No new runtime dependencies.
-- 017-runtime-loop-alerting: Added Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + httpx (async HTTP — Slack + GitHub REST), Pydantic v2 (config + entity models), PyYAML (config + new `!env` tag), Click (CLI). Composite GitHub Action uses `gh` CLI + bash, no new runtime deps.
 
 
 <!-- MANUAL ADDITIONS START -->
