@@ -17,15 +17,15 @@ for v in ms[:3]:
 
 ```bash
 uv run python -c "
-from ziran.application.attacks.many_shot import ShotRenderer
+from ziran.application.attacks.many_shot import ShotRenderer, clamp_shots, estimate_tokens
 r = ShotRenderer()
 small = r.render('cybercrime', 10)
 big = r.render('cybercrime', 100)
-print('10 shots  ~', r.estimate_tokens(small), 'tokens')
-print('100 shots ~', r.estimate_tokens(big), 'tokens')   # expect >= 50000
+print('10 shots  ~', estimate_tokens(small), 'tokens')
+print('100 shots ~', estimate_tokens(big), 'tokens')   # expect >= 50000
 assert len(big) > len(small)            # scales with n
 assert r.render('cybercrime', 100) == big   # deterministic
-print('clamp 9999 ->', r.clamp(9999))   # (500, True)
+print('clamp 9999 ->', clamp_shots(9999))   # (500, True)
 "
 ```
 
@@ -62,7 +62,7 @@ uv run pytest --cov=ziran        # all pass, coverage >= 85%
 | `ManyShotConfig` + `AttackVector.many_shot` | `ziran/domain/entities/attack.py` |
 | Shot renderer (clamp / estimate / render) | `ziran/application/attacks/many_shot.py` |
 | Vectors | `ziran/application/attacks/vectors/many_shot_jailbreak.yaml` |
-| Synthetic shot corpus | `ziran/application/attacks/vectors/many_shot_corpus.yaml` |
+| Synthetic shot corpus | `ziran/application/attacks/many_shot_corpus.yaml` |
 | Executor expansion + skip/warn | `ziran/application/agent_scanner/attack_executor.py` |
 | Config threading | `ziran/application/agent_scanner/scanner.py` |
 | Coverage tag | `benchmarks/inventory.py` + `generate_all.py` |

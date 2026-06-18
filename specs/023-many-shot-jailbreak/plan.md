@@ -18,7 +18,7 @@ Add a many-shot jailbreaking attack category: ≥10 YAML vectors whose prompts a
 
 **Language/Version**: Python 3.11+ (CI matrix 3.11, 3.12, 3.13)
 **Primary Dependencies**: Pydantic v2 (`ManyShotConfig` model + validators), PyYAML (vectors + synthetic corpus loading), existing `AttackLibrary` / `AttackExecutor` / `AgentScanner`. No new runtime dependencies (token estimate is a char heuristic, not `tiktoken`).
-**Storage**: YAML — the vector file (`ziran/application/attacks/vectors/many_shot_jailbreak.yaml`) and a synthetic shot corpus (`ziran/application/attacks/vectors/many_shot_corpus.yaml`).
+**Storage**: YAML — the vector file (`ziran/application/attacks/vectors/many_shot_jailbreak.yaml`) and a synthetic shot corpus (`ziran/application/attacks/many_shot_corpus.yaml`).
 **Testing**: pytest unit + integration markers.
 **Target Platform**: Library + CLI.
 **Project Type**: Single project, hexagonal layout in place.

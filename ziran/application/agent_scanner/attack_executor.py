@@ -297,9 +297,12 @@ class AttackExecutor:
                 expanded.append((prompt, enc, spec))
 
         if not expanded:
+            smallest_prompt_tokens = min(
+                estimate_tokens(f"{shots}\n\n{rendered}") for rendered, _, _ in prompt_attempts
+            )
             reason = (
                 f"target context too small for {effective} shots "
-                f"(~{estimate_tokens(shots)} tokens > {self._context_window} budget)"
+                f"(~{smallest_prompt_tokens} prompt tokens > {self._context_window} budget)"
             )
             logger.warning("Many-shot %s skipped: %s", attack.id, reason)
             return AttackResult(

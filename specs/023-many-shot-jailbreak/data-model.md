@@ -21,7 +21,7 @@ Add one optional field; everything else unchanged. The YAML loader builds `Attac
 |-------|------|---------|-------|
 | `many_shot` | `ManyShotConfig \| None` | `None` | present → the executor expands the prompt with stacked shots before sending |
 
-## Shot corpus (NEW data — `ziran/application/attacks/vectors/many_shot_corpus.yaml`)
+## Shot corpus (NEW data — `ziran/application/attacks/many_shot_corpus.yaml`)
 
 A mapping of harm-category key → ordered list of synthetic shots.
 

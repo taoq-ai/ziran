@@ -39,7 +39,7 @@ Validation:
 - Vectors carry `owasp_mapping: [LLM01]`, `atlas_mapping` including `AML.T0054` and `AML.T0065`, and a `many-shot` tag.
 - ≥10 vectors across multiple `harm_category` values (SC-001).
 
-## Shot corpus (`ziran/application/attacks/vectors/many_shot_corpus.yaml`)
+## Shot corpus (`ziran/application/attacks/many_shot_corpus.yaml`)
 
 Synthetic, non-operational shots keyed by harm category.
 
