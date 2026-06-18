@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.32.0](https://github.com/taoq-ai/ziran/compare/v0.31.0...v0.32.0) (2026-05-29)
+
+
+### Features
+
+* **alerting:** add AlertSink notification capability ([994bb94](https://github.com/taoq-ai/ziran/commit/994bb9464f64dfb3f12bbf9304d12040e775016b))
+* **analyze-traces:** file issues for dangerous production chains ([#274](https://github.com/taoq-ai/ziran/issues/274)) ([fa099ab](https://github.com/taoq-ai/ziran/commit/fa099abb2b36f38cfddfa8e07683618ef3339fbc))
+* **analyze-traces:** file issues for dangerous production chains ([#274](https://github.com/taoq-ai/ziran/issues/274)) ([20a468e](https://github.com/taoq-ai/ziran/commit/20a468ec6c47d466e6537f74c6653390634d35ee))
+* **policy-export:** auto-refresh exported policies via GitHub Action ([#273](https://github.com/taoq-ai/ziran/issues/273)) ([e1c5da7](https://github.com/taoq-ai/ziran/commit/e1c5da7317e93d37580ebd543d448da3da86de0e))
+* **policy-export:** auto-refresh exported policies via GitHub Action ([#273](https://github.com/taoq-ai/ziran/issues/273)) ([14cce10](https://github.com/taoq-ai/ziran/commit/14cce101121ff8b77bf2e5b64973df7ddb000466))
+* **watch-registry:** alerting via shared AlertSink layer ([#272](https://github.com/taoq-ai/ziran/issues/272)) ([4bc6c68](https://github.com/taoq-ai/ziran/commit/4bc6c68af2259bb3ef1c5ec72874057417e4ae2b))
+* **watch-registry:** deliver drift findings via alert sinks ([#272](https://github.com/taoq-ai/ziran/issues/272)) ([3277537](https://github.com/taoq-ai/ziran/commit/32775371bc2b9dd82f06bac601f6693a1b82f100))
+
+
+### Bug Fixes
+
+* **lint:** resolve CodeQL unused-import warnings on type-only imports ([badff97](https://github.com/taoq-ai/ziran/commit/badff97c167553b8e2101249de06d8f8d383dda6))
+
 ## [0.31.0](https://github.com/taoq-ai/ziran/compare/v0.30.0...v0.31.0) (2026-05-22)
 
 
