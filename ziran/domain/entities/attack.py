@@ -708,6 +708,22 @@ class AttackPrompt(BaseModel):
     )
 
 
+class ManyShotConfig(BaseModel):
+    """Many-shot jailbreaking configuration for a vector (spec 023).
+
+    Present on a vector → the executor builds the prompt by stacking ``n_shots``
+    synthetic shots (from the ``corpus``) before the vector's final request.
+    """
+
+    n_shots: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="Default number of synthetic shots to stack (floor 1, max 500).",
+    )
+    corpus: str = Field(description="Harm-category key into the synthetic shot corpus.")
+
+
 class AttackVector(BaseModel):
     """A specific attack technique to test against an agent.
 
@@ -748,6 +764,11 @@ class AttackVector(BaseModel):
     harm_category: HarmCategory | None = Field(
         default=None,
         description="AgentHarm-aligned harm category for harmful task scenarios.",
+    )
+    many_shot: ManyShotConfig | None = Field(
+        default=None,
+        description="Many-shot jailbreaking config; present → the executor stacks N shots "
+        "before the final request.",
     )
 
     @property

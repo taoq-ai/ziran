@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ── Agent definition models ──────────────────────────────────────────
 
@@ -127,3 +127,91 @@ class GroundTruthScenario(BaseModel):
     source: SourceProvenance
     attack: AttackConfig
     ground_truth: GroundTruthLabel
+
+
+# ── Detection-accuracy dataset models (spec 021) ──────────────────────
+#
+# One labelled (attack, response) pair the detector pipeline is run against
+# offline. Extends the spec-007 fixtures above — reuses ExpectedDetector,
+# AttackConfig, and SourceProvenance rather than forking a parallel schema.
+
+#: Detectors that carry required per-detector accuracy metrics in spec 021.
+IN_SCOPE_DETECTORS: tuple[str, ...] = ("refusal", "indicator", "side_effect", "llm_judge")
+#: Detectors permitted in fixtures (in-scope four + authorization, which runs in
+#: the pipeline but is excluded from required metrics).
+KNOWN_DETECTORS: frozenset[str] = frozenset((*IN_SCOPE_DETECTORS, "authorization"))
+
+DetectionCategory = Literal["clear_refusal", "partial_compliance", "full_compliance", "borderline"]
+
+
+class ToolCallRecord(BaseModel):
+    """A recorded tool invocation the side-effect/authorization detectors see."""
+
+    tool: str = Field(description="Tool name / identifier")
+    args: dict[str, Any] = Field(default_factory=dict, description="Call arguments")
+    result: str = Field(default="", description="Recorded tool output")
+    risk_level: Literal["critical", "high", "medium", "low"] = Field(default="medium")
+
+
+class RecordedJudgeVerdict(BaseModel):
+    """Cached llm_judge output, replayed offline for deterministic benchmarking.
+
+    The pipeline's judge derives its score from ``label``; ``confidence`` gates
+    whether the judge's verdict is trusted (see ``DetectorThresholds``).
+    """
+
+    label: Literal["success", "failure", "ambiguous"]
+    confidence: float = Field(default=0.9, ge=0.0, le=1.0)
+    rationale: str = Field(default="")
+
+
+class DetectionExample(BaseModel):
+    """One labelled (attack, response) pair — the unit of detection evaluation."""
+
+    model_config = {"extra": "forbid"}
+
+    example_id: str = Field(description="Unique id, prefixed 'det_{category}_'")
+    category: DetectionCategory
+    label: Literal["compromise", "no_compromise"] = Field(
+        description="Overall ground truth → pipeline confusion matrix"
+    )
+    attack: AttackConfig
+    response_text: str = Field(description="Recorded agent response the detectors see")
+    prompt_success_indicators: list[str] = Field(
+        default_factory=list,
+        description="Success indicators the indicator detector matches against the response",
+    )
+    prompt_failure_indicators: list[str] = Field(default_factory=list)
+    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
+    recorded_judge: RecordedJudgeVerdict | None = Field(default=None)
+    expected_detectors: list[ExpectedDetector] = Field(default_factory=list)
+    source: SourceProvenance
+    notes: str = Field(default="")
+
+    @model_validator(mode="after")
+    def _validate(self) -> DetectionExample:
+        if not self.response_text.strip():
+            raise ValueError(f"{self.example_id}: response_text must be non-empty")
+        prefix = f"det_{self.category}_"
+        if not self.example_id.startswith(prefix):
+            raise ValueError(
+                f"{self.example_id}: example_id must start with '{prefix}' "
+                f"to match category '{self.category}'"
+            )
+        names = {d.detector for d in self.expected_detectors}
+        unknown = names - KNOWN_DETECTORS
+        if unknown:
+            raise ValueError(
+                f"{self.example_id}: unknown detector(s) {sorted(unknown)}; "
+                f"allowed: {sorted(KNOWN_DETECTORS)}"
+            )
+        if "llm_judge" in names and self.recorded_judge is None:
+            raise ValueError(
+                f"{self.example_id}: recorded_judge is required when llm_judge "
+                f"is in expected_detectors"
+            )
+        return self
+
+    def applicable_detectors(self) -> set[str]:
+        """In-scope detectors this example carries an expected verdict for."""
+        return {d.detector for d in self.expected_detectors} & set(IN_SCOPE_DETECTORS)

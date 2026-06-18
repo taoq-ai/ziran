@@ -2,7 +2,7 @@
 
 **Feature Branch**: `015-anthropic-adapter`
 **Created**: 2026-05-22
-**Status**: Draft
+**Status**: Accepted
 **Input**: "Add native Anthropic SDK adapter for direct Claude scanning without LangChain wrapping."
 
 ## User Scenarios & Testing *(mandatory)*

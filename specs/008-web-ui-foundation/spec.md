@@ -2,7 +2,7 @@
 
 **Feature Branch**: `008-web-ui-foundation`
 **Created**: 2026-03-23
-**Status**: Draft
+**Status**: Accepted
 **Input**: User description: "Add web UI foundation to ziran - FastAPI backend with PostgreSQL (asyncpg + Alembic), React frontend (Vite + TypeScript + shadcn/ui + Tailwind) bundled into PyPI wheel, `ziran ui` CLI command. Frontend source at ui/ repo root, builds to ziran/interfaces/web/static/. Covers GitHub issues #105, #86, #88, #92, #103."
 
 ## User Scenarios & Testing *(mandatory)*

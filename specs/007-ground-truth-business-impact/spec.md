@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-ground-truth-business-impact`
 **Created**: 2026-03-22
-**Status**: Draft
+**Status**: Accepted
 **Input**: User description: "Expand ground truth benchmark dataset (#164) and add business impact categorization (#38)."
 
 ## User Scenarios & Testing *(mandatory)*

@@ -14,6 +14,7 @@ from ziran.application.agent_scanner.progress import (
     ProgressEvent,
     ProgressEventType,
 )
+from ziran.application.attacks.many_shot import ShotRenderer, clamp_shots, estimate_tokens
 from ziran.application.detectors.side_effect import get_side_effect_summary
 from ziran.domain.entities.attack import (
     AttackPrompt,
@@ -76,12 +77,19 @@ class AttackExecutor:
         streaming: bool = False,
         emitter: ProgressEmitter | None = None,
         encoding: list[str] | None = None,
+        n_shots: int | None = None,
+        context_window: int = 200_000,
     ) -> None:
         self._adapter = adapter
         self._detector_pipeline = detector_pipeline
         self._streaming = streaming
         self._emitter = emitter or ProgressEmitter()
         self._encoding = encoding
+        # Many-shot (spec 023): optional scan-time shot-count override and the
+        # target's usable context budget (over-capacity many-shot prompts skip+warn).
+        self._n_shots_override = n_shots
+        self._context_window = context_window
+        self._shot_renderer: ShotRenderer | None = None
 
     # -- public API --------------------------------------------------------
 
@@ -151,6 +159,14 @@ class AttackExecutor:
                     encoder = PromptEncoder([enc_type])
                     enc_result = encoder.encode(rendered)
                     prompt_attempts.append((enc_result.encoded, enc_type.value, prompt_spec))
+
+        # Many-shot expansion (spec 023): stack N synthetic shots before each
+        # rendered prompt; skip + warn if the result exceeds the context budget.
+        if attack.many_shot is not None:
+            skip = self._expand_many_shot(attack, prompt_attempts)
+            if skip is not None:
+                _attack_span.end()
+                return skip
 
         # Try each prompt variant
         for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
@@ -248,6 +264,62 @@ class AttackExecutor:
             harm_category=attack.harm_category,
             token_usage=attack_tokens,
         )
+
+    # -- many-shot (spec 023) ---------------------------------------------
+
+    def _expand_many_shot(
+        self,
+        attack: AttackVector,
+        prompt_attempts: list[tuple[str, str | None, AttackPrompt]],
+    ) -> AttackResult | None:
+        """Prepend N synthetic shots to each prompt in place.
+
+        Returns a skipped ``AttackResult`` when every expanded prompt exceeds the
+        target's context budget (skip + warn — FR-007); otherwise mutates
+        *prompt_attempts* to the expanded prompts and returns ``None``.
+        """
+        config = attack.many_shot
+        assert config is not None
+        if self._shot_renderer is None:
+            self._shot_renderer = ShotRenderer()
+        requested = self._n_shots_override if self._n_shots_override is not None else config.n_shots
+        effective, clamped = clamp_shots(requested)
+        if clamped:
+            logger.warning(
+                "Many-shot %s: requested n_shots=%s clamped to %s", attack.id, requested, effective
+            )
+        shots = self._shot_renderer.render(config.corpus, effective)
+
+        expanded: list[tuple[str, str | None, AttackPrompt]] = []
+        for rendered, enc, spec in prompt_attempts:
+            prompt = f"{shots}\n\n{rendered}"
+            if estimate_tokens(prompt) <= self._context_window:
+                expanded.append((prompt, enc, spec))
+
+        if not expanded:
+            smallest_prompt_tokens = min(
+                estimate_tokens(f"{shots}\n\n{rendered}") for rendered, _, _ in prompt_attempts
+            )
+            reason = (
+                f"target context too small for {effective} shots "
+                f"(~{smallest_prompt_tokens} prompt tokens > {self._context_window} budget)"
+            )
+            logger.warning("Many-shot %s skipped: %s", attack.id, reason)
+            return AttackResult(
+                vector_id=attack.id,
+                vector_name=attack.name,
+                category=attack.category,
+                severity=attack.severity,
+                successful=False,
+                evidence={"skipped": reason, "n_shots": effective},
+                owasp_mapping=attack.owasp_mapping,
+                atlas_mapping=attack.atlas_mapping,
+                business_impact=get_business_impacts(attack.category, attack.severity),
+                harm_category=attack.harm_category,
+            )
+
+        prompt_attempts[:] = expanded
+        return None
 
     # -- streaming ---------------------------------------------------------
 

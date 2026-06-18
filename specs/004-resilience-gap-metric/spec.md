@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feat/155-resilience-gap-metric`
 **Created**: 2026-03-20
-**Status**: Draft
+**Status**: Accepted
 **Input**: Issue #155: Implement resilience gap metric (baseline vs under-attack delta)
 
 ## User Scenarios & Testing *(mandatory)*

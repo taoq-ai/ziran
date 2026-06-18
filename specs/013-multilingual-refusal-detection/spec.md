@@ -2,7 +2,7 @@
 
 **Feature Branch**: `013-multilingual-refusal-detection`
 **Created**: 2026-05-22
-**Status**: Draft
+**Status**: Accepted
 **Input**: User description: "Extend ZIRAN's refusal detector to identify refusals in 6 additional languages beyond English: Spanish, French, German, Portuguese, Chinese (Simplified), and Japanese."
 
 ## User Scenarios & Testing *(mandatory)*
