@@ -156,10 +156,6 @@ class AgentScanner:
         self._attack_results: list[AttackResult] = []
         self._tested_vector_ids: set[str] = set()
         self._max_results: int = int(self.config.get("max_attack_results", 10_000))
-        # Many-shot (spec 023): optional scan-time shot-count override + context budget.
-        _n_shots = self.config.get("n_shots")
-        self._n_shots: int | None = int(_n_shots) if _n_shots is not None else None
-        self._context_window: int = int(self.config.get("context_window", 200_000))
         self._detector_pipeline = DetectorPipeline(
             llm_client=self.config.get("llm_client"),
             quality_scoring=bool(self.config.get("quality_scoring")),
@@ -269,8 +265,8 @@ class AgentScanner:
             streaming=streaming,
             emitter=emitter,
             encoding=encoding,
-            n_shots=self._n_shots,
-            context_window=self._context_window,
+            n_shots=self.config.get("n_shots"),
+            context_window=int(self.config.get("context_window", 200_000)),
         )
         phase_executor = PhaseExecutor(
             attack_executor,
@@ -707,8 +703,6 @@ class AgentScanner:
             streaming=streaming_val,
             emitter=emitter,
             encoding=encoding_val,
-            n_shots=self._n_shots,
-            context_window=self._context_window,
         )
         pe = PhaseExecutor(
             attack_executor,
@@ -746,8 +740,6 @@ class AgentScanner:
             streaming=streaming_val,
             emitter=emitter,
             encoding=encoding_val,
-            n_shots=self._n_shots,
-            context_window=self._context_window,
         )
         return await executor.execute(attack)
 
