@@ -40,6 +40,7 @@ from ziran.domain.entities.attack import (
     AttackPrompt,
     AttackVector,
     HarmCategory,
+    ManyShotConfig,
     OwaspLlmCategory,
     Severity,
 )
@@ -418,6 +419,7 @@ class AttackLibrary:
             harm_category=HarmCategory(data["harm_category"])
             if data.get("harm_category")
             else None,
+            many_shot=ManyShotConfig(**data["many_shot"]) if data.get("many_shot") else None,
         )
 
 

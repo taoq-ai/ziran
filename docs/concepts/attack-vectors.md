@@ -133,3 +133,38 @@ vectors = library.get_vectors(
     phase="vulnerability_discovery"
 )
 ```
+
+## Long-context attacks
+
+### Many-shot jailbreaking
+
+[Many-shot jailbreaking](https://www.anthropic.com/research/many-shot-jailbreaking)
+(Anthropic, 2024) exploits long context windows: a single prompt is stuffed with
+many faux "harmful question → compliant answer" examples ("shots") to condition
+the model into complying with a final harmful request.
+
+ZIRAN ships a `many_shot` vector category (tagged `many-shot`, OWASP **LLM01**,
+ATLAS **AML.T0054** + **AML.T0065**). A vector carries a `many_shot` config:
+
+```yaml
+many_shot:
+  n_shots: 50        # default per vector; floor 1, max 500
+  corpus: cybercrime # harm-category key into the synthetic shot corpus
+```
+
+At scan time the executor renders `n_shots` shots from a **synthetic, non-operational**
+corpus (`ziran/application/attacks/many_shot_corpus.yaml`) and prepends them to the
+vector's final request. Rendering is deterministic (same key + count → identical text).
+
+**Tuning the shot count.** Pass `n_shots` in the scanner config to override every
+many-shot vector for a susceptibility sweep; out-of-range values are **clamped** to
+[1, 500] with a warning.
+
+**Short-context targets.** If a rendered many-shot prompt would exceed the target's
+context budget (`context_window` in the scanner config, default 200k tokens), the
+vector is **skipped with a warning** — the oversized prompt is never sent.
+
+**Safety.** The shot corpus is **synthetic and non-operational** — it reproduces the
+*form* of compliant harmful exchanges (to exercise the conditioning pattern) but
+contains only abstract placeholders, never real operational instructions. ZIRAN tests
+susceptibility to the pattern, it does not ship harmful payloads.

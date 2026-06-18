@@ -82,6 +82,9 @@ def generate_markdown(
         f"**{inventory['encoding_types']}** encoding types"
     )
     lines.append(f"- **{inventory['multi_turn_vectors']}** multi-turn vectors")
+    _many_shot = inventory.get("tags", {}).get("many-shot", 0)
+    if _many_shot:
+        lines.append(f"- **{_many_shot}** long-context `many-shot` jailbreak vectors")
     lines.append(f"- **{inventory['harm_category_count']}** harm categories (AgentHarm-aligned)")
     gap_summary = gaps["summary"]
     lines.append(
