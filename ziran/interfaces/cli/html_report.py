@@ -16,75 +16,11 @@ import html
 import json
 from typing import Any
 
-# ── Node appearance by type ────────────────────────────────────────────
+from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
-_NODE_COLORS: dict[str, dict[str, str | dict[str, str]]] = {
-    "capability": {
-        "background": "#3b82f6",
-        "border": "#1d4ed8",
-        "highlight": {"background": "#60a5fa", "border": "#2563eb"},
-    },
-    "tool": {
-        "background": "#10b981",
-        "border": "#047857",
-        "highlight": {"background": "#34d399", "border": "#059669"},
-    },
-    "vulnerability": {
-        "background": "#ef4444",
-        "border": "#b91c1c",
-        "highlight": {"background": "#f87171", "border": "#dc2626"},
-    },
-    "data_source": {
-        "background": "#f59e0b",
-        "border": "#b45309",
-        "highlight": {"background": "#fbbf24", "border": "#d97706"},
-    },
-    "phase": {
-        "background": "#8b5cf6",
-        "border": "#6d28d9",
-        "highlight": {"background": "#a78bfa", "border": "#7c3aed"},
-    },
-    "agent_state": {
-        "background": "#6b7280",
-        "border": "#374151",
-        "highlight": {"background": "#9ca3af", "border": "#4b5563"},
-    },
-}
-
-_NODE_SHAPES: dict[str, str] = {
-    "capability": "dot",
-    "tool": "diamond",
-    "vulnerability": "triangle",
-    "data_source": "square",
-    "phase": "hexagon",
-    "agent_state": "ellipse",
-}
-
-_NODE_SIZES: dict[str, int] = {
-    "capability": 18,
-    "tool": 20,
-    "vulnerability": 25,
-    "data_source": 18,
-    "phase": 22,
-    "agent_state": 16,
-}
-
-_EDGE_COLORS: dict[str, str] = {
-    "uses_tool": "#3b82f6",
-    "accesses_data": "#f59e0b",
-    "trusts": "#10b981",
-    "enables": "#ef4444",
-    "can_chain_to": "#f97316",
-    "discovered_in": "#8b5cf6",
-    "exploits": "#dc2626",
-    "leads_to": "#ec4899",
-}
-
-_EDGE_DASHES: dict[str, bool] = {
-    "enables": True,
-    "can_chain_to": True,
-    "exploits": True,
-}
+# vis-network CDN version — kept in step with the web UI's ``vis-network``
+# dependency so both surfaces behave identically.
+_VIS_NETWORK_VERSION = "10.0.2"
 
 
 # ── Converter ──────────────────────────────────────────────────────────
@@ -93,61 +29,98 @@ _EDGE_DASHES: dict[str, bool] = {
 def graph_state_to_vis(graph_state: dict[str, Any]) -> dict[str, Any]:
     """Convert graph export_state() dict to vis-network nodes/edges.
 
+    Styling, sizing, severity/danger emphasis, attack-edge weighting, and
+    phase levels are all derived from the shared :mod:`ziran.interfaces.
+    graph_style` spec, so this mapping stays in lockstep with the web UI's
+    ``graphMapping.ts``.
+
     Args:
         graph_state: Dictionary from ``AttackKnowledgeGraph.export_state()``.
 
     Returns:
         ``{"nodes": [...], "edges": [...]}`` ready for vis-network DataSets.
     """
+    spec = load_graph_style()
     vis_nodes: list[dict[str, Any]] = []
     vis_edges: list[dict[str, Any]] = []
 
     for node in graph_state.get("nodes", []):
-        node_type = node.get("node_type", "agent_state")
-        colors = _NODE_COLORS.get(node_type, _NODE_COLORS["agent_state"])
-        label = node.get("name", node["id"])
-        if len(label) > 30:
-            label = label[:27] + "…"
-
-        vis_node: dict[str, Any] = {
-            "id": node["id"],
-            "label": label,
-            "title": _build_node_tooltip(node),
-            "shape": _NODE_SHAPES.get(node_type, "dot"),
-            "size": _NODE_SIZES.get(node_type, 16),
-            "color": colors,
-            "font": {"color": "#f8fafc", "size": 12},
-            "nodeType": node_type,
-        }
-        # Vulnerability nodes get a red border glow
-        if node_type == "vulnerability":
-            vis_node["borderWidth"] = 3
-            vis_node["shadow"] = {"enabled": True, "color": "rgba(239,68,68,0.5)", "size": 12}
-
-        vis_nodes.append(vis_node)
+        vis_nodes.append(_node_to_vis(node, spec))
 
     for idx, edge in enumerate(graph_state.get("edges", [])):
-        edge_type = edge.get("edge_type", "")
-        vis_edge: dict[str, Any] = {
-            "id": f"e{idx}",
-            "from": edge["source"],
-            "to": edge["target"],
-            "label": edge_type.replace("_", " "),
-            "arrows": "to",
-            "color": {"color": _EDGE_COLORS.get(edge_type, "#94a3b8"), "opacity": 0.8},
-            "font": {"size": 10, "color": "#94a3b8", "strokeWidth": 0, "align": "middle"},
-            "smooth": {"type": "curvedCW", "roundness": 0.15},
-            "edgeType": edge_type,
-        }
-        if _EDGE_DASHES.get(edge_type, False):
-            vis_edge["dashes"] = True
-        if edge_type in ("exploits", "enables"):
-            vis_edge["width"] = 2.5
-        else:
-            vis_edge["width"] = 1.5
-        vis_edges.append(vis_edge)
+        vis_edges.append(_edge_to_vis(idx, edge, spec))
 
     return {"nodes": vis_nodes, "edges": vis_edges}
+
+
+def _node_to_vis(node: dict[str, Any], spec: GraphStyleSpec) -> dict[str, Any]:
+    """Map a single graph node to a vis-network node using the shared spec."""
+    node_type = node.get("node_type", "agent_state")
+    style = spec.node_style(node_type)
+    label = node.get("name", node["id"])
+    if len(label) > 30:
+        label = label[:27] + "…"
+
+    # Severity overrides the border color when present (importance encoding).
+    severity = node.get("severity")
+    border = spec.severity_color(severity) or style.border
+    color: dict[str, Any] = {
+        "background": style.color,
+        "border": border,
+        "highlight": {"background": style.color, "border": border},
+    }
+
+    vis_node: dict[str, Any] = {
+        "id": node["id"],
+        "label": label,
+        "title": _build_node_tooltip(node),
+        "shape": style.shape,
+        "size": spec.node_size(node_type, node.get("centrality")),
+        "color": color,
+        "font": {"color": "#f8fafc", "size": 12},
+        "nodeType": node_type,
+        "severity": severity,
+        "level": spec.phase_level(node.get("phase")),
+        "phase": node.get("phase"),
+    }
+    # Dangerous capabilities get a distinct marker.
+    if node.get("dangerous"):
+        marker = spec.danger_marker
+        vis_node["borderWidth"] = marker.border_width
+        vis_node["color"]["border"] = marker.border_color
+        vis_node["shadow"] = {
+            "enabled": True,
+            "color": marker.shadow_color,
+            "size": marker.shadow_size,
+        }
+    elif severity:
+        vis_node["borderWidth"] = 3
+
+    return vis_node
+
+
+def _edge_to_vis(idx: int, edge: dict[str, Any], spec: GraphStyleSpec) -> dict[str, Any]:
+    """Map a single graph edge to a vis-network edge using the shared spec."""
+    edge_type = edge.get("edge_type", "")
+    style = spec.edge_style(edge_type)
+    vis_edge: dict[str, Any] = {
+        "id": f"e{idx}",
+        "from": edge["source"],
+        "to": edge["target"],
+        "label": edge_type.replace("_", " "),
+        "arrows": "to" if style.arrow else "",
+        "color": {"color": style.color, "opacity": 0.85},
+        "font": {"size": 10, "color": "#94a3b8", "strokeWidth": 0, "align": "middle"},
+        "smooth": {"type": "curvedCW", "roundness": 0.15},
+        "edgeType": edge_type,
+        "width": style.width,
+        "dashes": style.dashes,
+    }
+    # Attack-relevant edges get extra weight + emphasis.
+    if spec.is_attack_edge(edge_type):
+        vis_edge["width"] = max(style.width, 2.5)
+        vis_edge["color"]["opacity"] = 1.0
+    return vis_edge
 
 
 def _build_node_tooltip(node: dict[str, Any]) -> str:
@@ -237,6 +210,7 @@ def build_html_report(
     )
 
     return _HTML_TEMPLATE.format(
+        vis_version=_VIS_NETWORK_VERSION,
         campaign_id=html.escape(campaign_id),
         target_agent=html.escape(target_agent),
         total_vulns=total_vulns,
@@ -351,17 +325,25 @@ def _build_vulns_html(phases: list[dict[str, Any]]) -> str:
 
 
 def _build_legend_html() -> str:
+    """Build an interactive legend that doubles as a node-type filter.
+
+    Each node type renders as a checkbox swatch; toggling it shows/hides
+    nodes of that type in the graph (see ``toggleNodeType`` in the template).
+    Driven entirely by the shared graph-style spec.
+    """
+    spec = load_graph_style()
     parts: list[str] = ['<div class="legend-grid">']
-    for ntype, colors in _NODE_COLORS.items():
+    for ntype, style in spec.node_types.items():
         label = ntype.replace("_", " ").title()
-        bg = colors["background"]
-        shape_name = _NODE_SHAPES.get(ntype, "dot")
+        rounded = "50%" if style.shape in ("dot", "ellipse") else "3px"
         parts.append(
-            f'<div class="legend-item">'
-            f'  <span class="legend-swatch" style="background:{bg};'
-            f'    border-radius:{"50%" if shape_name in ("dot", "ellipse") else "3px"}"></span>'
+            f'<label class="legend-item" title="Toggle {html.escape(label)} nodes">'
+            f'  <input type="checkbox" class="legend-toggle" checked'
+            f'    data-node-type="{html.escape(ntype)}" onchange="toggleNodeType(this)">'
+            f'  <span class="legend-swatch" style="background:{style.color};'
+            f'    border-radius:{rounded}"></span>'
             f"  {html.escape(label)}"
-            f"</div>"
+            f"</label>"
         )
     parts.append("</div>")
     return "\n".join(parts)
@@ -662,7 +644,7 @@ _HTML_TEMPLATE = """\
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ZIRAN Report — {campaign_id}</title>
-<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script src="https://unpkg.com/vis-network@{vis_version}/standalone/umd/vis-network.min.js"></script>
 <style>
   :root {{
     --bg: #0f172a;
@@ -881,6 +863,13 @@ _HTML_TEMPLATE = """\
     gap: 5px;
     font-size: 0.75rem;
     color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }}
+  .legend-item input.legend-toggle {{
+    accent-color: var(--accent);
+    cursor: pointer;
+    margin: 0;
   }}
   .legend-swatch {{
     width: 12px;
@@ -1066,6 +1055,37 @@ _HTML_TEMPLATE = """\
     background: var(--accent);
     border-color: var(--accent);
   }}
+  /* Edge-type filter panel */
+  .graph-filters {{
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    max-width: 60%;
+    padding: 8px 12px;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid #334155;
+    border-radius: 8px;
+    z-index: 10;
+  }}
+  .graph-filters .filter-label {{
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-right: 4px;
+  }}
+  .graph-filters .filter-item {{
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    cursor: pointer;
+  }}
+  .graph-filters .filter-item input {{ accent-color: var(--accent); cursor: pointer; margin: 0; }}
 </style>
 </head>
 <body>
@@ -1194,10 +1214,15 @@ _HTML_TEMPLATE = """\
 
   <!-- Controls -->
   <div class="graph-controls">
+    <button onclick="setLayout('force', this)" id="layoutForceBtn" class="active">Force</button>
+    <button onclick="setLayout('hierarchical', this)" id="layoutHierBtn">By Phase</button>
     <button onclick="fitGraph()">Fit View</button>
     <button onclick="togglePhysics(this)" id="physicsBtn">Pause Physics</button>
     <button onclick="resetHighlight()">Clear Highlight</button>
   </div>
+
+  <!-- Edge-type filters (built from data) -->
+  <div class="graph-filters" id="edgeFilters"></div>
 </main>
 
 <script>
@@ -1242,6 +1267,73 @@ const options = {{
 }};
 
 const network = new vis.Network(container, data, options);
+
+// ── Layout modes (force-directed ↔ hierarchical by phase) ─────────
+let currentLayout = 'force';
+function setLayout(mode, btn) {{
+  currentLayout = mode;
+  document.querySelectorAll('#layoutForceBtn, #layoutHierBtn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (mode === 'hierarchical') {{
+    network.setOptions({{
+      layout: {{ hierarchical: {{
+        enabled: true, direction: 'LR', sortMethod: 'directed',
+        levelSeparation: 220, nodeSpacing: 110,
+      }} }},
+      physics: {{ enabled: false }},
+    }});
+    physicsEnabled = false;
+    const pb = document.getElementById('physicsBtn');
+    if (pb) {{ pb.textContent = 'Resume Physics'; pb.classList.add('active'); }}
+  }} else {{
+    network.setOptions({{
+      layout: {{ hierarchical: {{ enabled: false }} }},
+      physics: {{ enabled: true }},
+    }});
+    physicsEnabled = true;
+    const pb = document.getElementById('physicsBtn');
+    if (pb) {{ pb.textContent = 'Pause Physics'; pb.classList.remove('active'); }}
+  }}
+  network.fit({{ animation: {{ duration: 400, easingFunction: 'easeInOutQuad' }} }});
+}}
+
+// ── Filtering (legend doubles as a node-type filter) ───────────────
+const hiddenNodeTypes = new Set();
+const hiddenEdgeTypes = new Set();
+
+function applyFilters() {{
+  nodes.update(rawNodes.map(n => ({{ id: n.id, hidden: hiddenNodeTypes.has(n.nodeType) }})));
+  edges.update(rawEdges.map(e => ({{ id: e.id, hidden: hiddenEdgeTypes.has(e.edgeType) }})));
+}}
+
+function toggleNodeType(cb) {{
+  const t = cb.getAttribute('data-node-type');
+  if (cb.checked) hiddenNodeTypes.delete(t); else hiddenNodeTypes.add(t);
+  applyFilters();
+}}
+
+function toggleEdgeType(cb) {{
+  const t = cb.getAttribute('data-edge-type');
+  if (cb.checked) hiddenEdgeTypes.delete(t); else hiddenEdgeTypes.add(t);
+  applyFilters();
+}}
+
+// Build edge-type filter checkboxes from the edge types actually present.
+(function buildEdgeFilters() {{
+  const panel = document.getElementById('edgeFilters');
+  if (!panel) return;
+  const present = [...new Set(rawEdges.map(e => e.edgeType).filter(Boolean))].sort();
+  if (!present.length) return;
+  panel.innerHTML = '<span class="filter-label">Edges:</span>';
+  present.forEach(t => {{
+    const id = 'edgef_' + t;
+    const label = document.createElement('label');
+    label.className = 'filter-item';
+    label.innerHTML = '<input type="checkbox" checked data-edge-type="' + escHtml(t) +
+      '" onchange="toggleEdgeType(this)" id="' + id + '"> ' + escHtml(t.replace(/_/g, ' '));
+    panel.appendChild(label);
+  }});
+}})();
 
 // ── Click handler — show node detail ──────────────────────────────
 network.on('click', function(params) {{

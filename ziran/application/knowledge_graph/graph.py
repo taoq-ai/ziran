@@ -46,6 +46,14 @@ class EdgeType:
     TRUST_BOUNDARY = "trust_boundary"
 
 
+# Edge types that attribute a node to the phase in which it was discovered.
+_PHASE_EDGE_TYPES = frozenset({EdgeType.DISCOVERED_IN, "executed_in"})
+
+# Above this node count, skip betweenness centrality (O(V*E)) to keep
+# ``export_state`` responsive on very large graphs; centrality defaults to 0.0.
+_MAX_CENTRALITY_NODES = 800
+
+
 class AttackKnowledgeGraph:
     """NetworkX-based knowledge graph tracking attack campaign state.
 
@@ -361,8 +369,19 @@ class AttackKnowledgeGraph:
         now = datetime.now(tz=UTC)
         duration = (now - self.campaign_start).total_seconds()
 
+        centrality = self._normalized_centrality()
+        node_phase = self._derive_node_phases()
+
+        nodes: list[dict[str, Any]] = []
+        for n, d in self.graph.nodes(data=True):
+            node: dict[str, Any] = {"id": n, **d, "centrality": centrality.get(n, 0.0)}
+            phase = node_phase.get(n)
+            if phase is not None:
+                node["phase"] = phase
+            nodes.append(node)
+
         state: dict[str, Any] = {
-            "nodes": [{"id": n, **d} for n, d in self.graph.nodes(data=True)],
+            "nodes": nodes,
             "edges": [{"source": u, "target": v, **d} for u, v, d in self.graph.edges(data=True)],
             "campaign_start": self.campaign_start.isoformat(),
             "campaign_duration_seconds": duration,
@@ -375,6 +394,47 @@ class AttackKnowledgeGraph:
         }
         self._cached_state = state
         return state
+
+    def _normalized_centrality(self) -> dict[str, float]:
+        """Betweenness centrality per node, min-max normalized to ``[0, 1]``.
+
+        The most pivotal (chokepoint) node maps to ``1.0`` so the
+        visualization can size nodes by relative importance. Returns ``0.0``
+        for every node when the graph is too small for meaningful centrality
+        or large enough that the O(V*E) computation would be costly.
+        """
+        n_nodes = self.graph.number_of_nodes()
+        if n_nodes < 3 or n_nodes > _MAX_CENTRALITY_NODES:
+            return {}
+
+        raw: dict[str, float] = nx.betweenness_centrality(self.graph)
+        if not raw:
+            return {}
+        peak = max(raw.values())
+        if peak <= 0.0:
+            return {}
+        return {node: score / peak for node, score in raw.items()}
+
+    def _derive_node_phases(self) -> dict[str, str]:
+        """Map each node to the campaign phase it was discovered in.
+
+        A node is attributed to the earliest phase reached via a
+        ``discovered_in``/``executed_in`` edge to a ``phase`` node. Phase
+        nodes are attributed to themselves. Nodes with no such linkage are
+        omitted (callers treat them as "unassigned").
+        """
+        node_phase: dict[str, str] = {}
+        for u, v, data in self.graph.edges(data=True):
+            if data.get("edge_type") in _PHASE_EDGE_TYPES:
+                target = self.graph.nodes.get(v, {})
+                if target.get("node_type") == NodeType.PHASE and u not in node_phase:
+                    node_phase[u] = target.get("name", v)
+
+        for n, d in self.graph.nodes(data=True):
+            if d.get("node_type") == NodeType.PHASE:
+                node_phase[n] = d.get("name", n)
+
+        return node_phase
 
     def import_state(self, state: dict[str, Any]) -> None:
         """Import a previously exported graph state.
