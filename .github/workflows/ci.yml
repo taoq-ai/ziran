@@ -95,9 +95,6 @@ jobs:
         run: npm audit --audit-level=high
 
   frontend-build:
-    # Builds and lints the React/Vite frontend on every PR (#334). Without this,
-    # frontend dependency bumps (e.g. an eslint major) pass CI while silently
-    # breaking `npm run build` / `npm run lint`.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
