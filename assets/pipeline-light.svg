@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-label="ZIRAN pipeline: your agent flows through five stages — discover, map, analyze, attack, report — and out into three formats: HTML, Markdown, JSON" preserveAspectRatio="xMidYMid meet">
+  <title>ZIRAN pipeline: adapter to outputs</title>
+  <desc>Your agent (with tools, memory, and permissions) connects through an adapter layer into the ZIRAN pipeline, which runs five sequential stages — DISCOVER (probe tools, permissions, data access), MAP (build a NetworkX MultiDiGraph), ANALYZE (walk the graph for dangerous chains across 30 plus patterns), ATTACK (run multi-phase exploits informed by the graph), and REPORT (emit scored findings with remediation guidance). Outputs land in three formats: HTML interactive graph, Markdown CI/CD tables, and JSON for programmatic consumption. Keywords: agent security pipeline, adapter, knowledge graph, dangerous tool chain, SARIF, HTML report, JSON.</desc>
+
+  <rect width="1200" height="360" fill="#f8fafc" rx="16"/>
+  <rect x="0.5" y="0.5" width="1199" height="359" fill="none" stroke="#e2e8f0" rx="16"/>
+
+  <text x="600" y="32" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" letter-spacing="3">HOW ZIRAN WORKS  ·  ADAPTER TO OUTPUTS</text>
+
+  <g transform="translate(40, 60)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="190" height="260" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="95" y="32" text-anchor="middle" fill="#0f172a" font-size="13" font-weight="600">Your Agent</text>
+    <rect x="20" y="60" width="150" height="42" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+    <text x="36" y="86" fill="#334155" font-size="13">🔧  Tools</text>
+    <rect x="20" y="116" width="150" height="42" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+    <text x="36" y="142" fill="#334155" font-size="13">🧠  Memory</text>
+    <rect x="20" y="172" width="150" height="42" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+    <text x="36" y="198" fill="#334155" font-size="13">🔑  Permissions</text>
+    <text x="95" y="240" text-anchor="middle" fill="#94a3b8" font-size="10" font-style="italic">in-process · HTTPS · MCP · A2A</text>
+  </g>
+
+  <text x="260" y="170" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600">adapter</text>
+  <line x1="232" y1="190" x2="288" y2="190" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4 4"/>
+  <polygon points="288,190 280,186 280,194" fill="#cbd5e1"/>
+  <circle cy="190" r="5" fill="#0284c7">
+    <animate attributeName="cx" values="232;288" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.9;1" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <g transform="translate(295, 60)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="620" height="260" rx="14" fill="#ffffff" stroke="#dc2626" stroke-width="1.5"/>
+    <text x="310" y="32" text-anchor="middle" fill="#0f172a" font-size="13" font-weight="600">⛩  ZIRAN Pipeline</text>
+
+    <line x1="80" y1="124" x2="540" y2="124" stroke="#cbd5e1" stroke-width="2"/>
+
+    <g text-anchor="middle">
+      <circle cx="80" cy="124" r="22" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+      <text x="80" y="129" fill="#0284c7" font-size="14" font-weight="700">D</text>
+      <text x="80" y="170" fill="#0f172a" font-size="11" font-weight="600">DISCOVER</text>
+      <text x="80" y="186" fill="#64748b" font-size="9">probe tools,</text>
+      <text x="80" y="198" fill="#64748b" font-size="9">permissions,</text>
+      <text x="80" y="210" fill="#64748b" font-size="9">data access</text>
+    </g>
+    <g text-anchor="middle">
+      <circle cx="195" cy="124" r="22" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+      <text x="195" y="129" fill="#0284c7" font-size="14" font-weight="700">M</text>
+      <text x="195" y="170" fill="#0f172a" font-size="11" font-weight="600">MAP</text>
+      <text x="195" y="186" fill="#64748b" font-size="9">build knowledge</text>
+      <text x="195" y="198" fill="#64748b" font-size="9">graph (NetworkX</text>
+      <text x="195" y="210" fill="#64748b" font-size="9">MultiDiGraph)</text>
+    </g>
+    <g text-anchor="middle">
+      <circle cx="310" cy="124" r="22" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+      <text x="310" y="129" fill="#0284c7" font-size="14" font-weight="700">A</text>
+      <text x="310" y="170" fill="#0f172a" font-size="11" font-weight="600">ANALYZE</text>
+      <text x="310" y="186" fill="#64748b" font-size="9">walk graph for</text>
+      <text x="310" y="198" fill="#64748b" font-size="9">dangerous chains</text>
+      <text x="310" y="210" fill="#64748b" font-size="9">(30+ patterns)</text>
+    </g>
+    <g text-anchor="middle">
+      <circle cx="425" cy="124" r="22" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+      <text x="425" y="129" fill="#dc2626" font-size="14" font-weight="700">T</text>
+      <text x="425" y="170" fill="#7f1d1d" font-size="11" font-weight="600">ATTACK</text>
+      <text x="425" y="186" fill="#64748b" font-size="9">multi-phase</text>
+      <text x="425" y="198" fill="#64748b" font-size="9">exploits informed</text>
+      <text x="425" y="210" fill="#64748b" font-size="9">by the graph</text>
+    </g>
+    <g text-anchor="middle">
+      <circle cx="540" cy="124" r="22" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+      <text x="540" y="129" fill="#059669" font-size="14" font-weight="700">R</text>
+      <text x="540" y="170" fill="#065f46" font-size="11" font-weight="600">REPORT</text>
+      <text x="540" y="186" fill="#64748b" font-size="9">scored findings</text>
+      <text x="540" y="198" fill="#64748b" font-size="9">with remediation</text>
+      <text x="540" y="210" fill="#64748b" font-size="9">guidance</text>
+    </g>
+
+    <circle cy="124" r="26" fill="none" stroke="#d97706" stroke-width="2.5">
+      <animate attributeName="cx" values="80;195;310;425;540;80" keyTimes="0;0.2;0.4;0.6;0.8;1" dur="5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;1;1;1;1;0" keyTimes="0;0.05;0.2;0.4;0.6;0.95;1" dur="5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <line x1="918" y1="124" x2="970" y2="98" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4 4"/>
+  <polygon points="970,98 962,96 964,104" fill="#cbd5e1"/>
+  <line x1="918" y1="190" x2="970" y2="190" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4 4"/>
+  <polygon points="970,190 962,186 962,194" fill="#cbd5e1"/>
+  <line x1="918" y1="256" x2="970" y2="280" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4 4"/>
+  <polygon points="970,280 962,276 964,284" fill="#cbd5e1"/>
+
+  <g transform="translate(975, 60)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="190" height="260" rx="14" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+    <text x="95" y="32" text-anchor="middle" fill="#0f172a" font-size="13" font-weight="600">Outputs</text>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.30;0.40;1" dur="5s" repeatCount="indefinite"/>
+      <rect x="20" y="50" width="150" height="50" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+      <text x="36" y="74" fill="#065f46" font-size="13" font-weight="600">📊  HTML</text>
+      <text x="36" y="92" fill="#64748b" font-size="9">interactive graph</text>
+    </g>
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.40;0.50;1" dur="5s" repeatCount="indefinite"/>
+      <rect x="20" y="116" width="150" height="50" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+      <text x="36" y="140" fill="#065f46" font-size="13" font-weight="600">📝  Markdown</text>
+      <text x="36" y="158" fill="#64748b" font-size="9">CI/CD tables</text>
+    </g>
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.50;0.60;1" dur="5s" repeatCount="indefinite"/>
+      <rect x="20" y="182" width="150" height="50" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+      <text x="36" y="206" fill="#065f46" font-size="13" font-weight="600">📦  JSON</text>
+      <text x="36" y="224" fill="#64748b" font-size="9">machine-parseable</text>
+    </g>
+  </g>
+</svg>
