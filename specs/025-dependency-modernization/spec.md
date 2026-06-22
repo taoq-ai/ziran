@@ -2,7 +2,7 @@
 
 **Feature Branch**: `025-dependency-modernization`  
 **Created**: 2026-06-22  
-**Status**: Draft  
+**Status**: Active  
 **Input**: User description: "Upgrade litellm and the langchain family to fixed versions so the not-reachable dismissals from spec 024 become real upgrades." Refined in clarification to the forward-modernization path (#332 Option C): upgrade the CrewAI integration to the latest version and refactor its adapter, accepting the core command-line rendering major bump.
 
 ## User Scenarios & Testing *(mandatory)*

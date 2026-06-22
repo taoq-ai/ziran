@@ -78,7 +78,7 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); CI in `.git
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [ ] T016 Confirm the upgraded set introduces **no new Dependabot alert of any severity** (FR-009 / clarification Q3); if any appears (on crewai 1.14 / rich 14 / openai 2 / langchain 1.x), upgrade it away rather than recording it.
-- [ ] T017 Final acceptance: open critical/high alerts = 0 (SC-002), all SCs met; set spec 025 Status to Active in `specs/025-dependency-modernization/spec.md`; open the PR against `develop` referencing #332.
+- [~] T017 (spec Active; PR opening) Final acceptance: open critical/high alerts = 0 (SC-002), all SCs met; set spec 025 Status to Active in `specs/025-dependency-modernization/spec.md`; open the PR against `develop` referencing #332.
 
 ---
 
