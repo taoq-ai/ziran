@@ -45,14 +45,14 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); frontend in
 **Independent Test**: After this PR, the in-range Dependabot alerts drop off, all 5 CodeQL alerts are resolved/dismissed, secret scanning shows enabled, and the full gate matrix + frontend build pass.
 
 - [X] T003 [P] [US1] Add least-privilege `permissions:` to `.github/workflows/test.yml` (top-level `permissions: { contents: read }`, per-job scopes where needed) — resolves CodeQL #4 (L10) and #5 (L46).
-- [ ] T004 [P] [US1] Add a default least-privilege `permissions:` block to the remaining workflows for consistency: `.github/workflows/{ci,benchmark,detection-accuracy,docs,pentest-eval,action-test,lint-ci-templates,policy-refresh-selftest,release-please,release}.yml` (grant only the scopes each actually needs).
+- [X] T004 [P] [US1] (Already satisfied — 10/11 workflows already declared permissions; only test.yml needed it, done in T003) Add a default least-privilege `permissions:` block to the remaining workflows for consistency: `.github/workflows/{ci,benchmark,detection-accuracy,docs,pentest-eval,action-test,lint-ci-templates,policy-refresh-selftest,release-please,release}.yml` (grant only the scopes each actually needs).
 - [X] T005 [P] [US1] Fix CodeQL #6 (`py/insecure-temporary-file`) in `tests/unit/test_cli_main.py:374` — replace insecure temp-file construction with `tempfile.NamedTemporaryFile` or the pytest `tmp_path` fixture.
 - [X] T006 [P] [US1] Fix CodeQL #8 (`py/incomplete-url-substring-sanitization`) in `tests/unit/test_browser_adapter.py:1430` — replace substring `in` URL check with exact host/scheme comparison via `urllib.parse.urlparse`.
-- [ ] T007 [US1] Verify CodeQL #7 (`py/clear-text-logging-sensitive-data`) at `ziran/infrastructure/llm/litellm_client.py:81` is a false positive (logs only `config.api_key_env`, the env-var name, not the key); dismiss-with-reason `false_positive` in GitHub AND add the row to `docs/security/risk-acceptances.md`. If the data flow is ambiguous, restructure the log line to break the taint path instead.
+- [X] T007 [US1] Verify CodeQL #7 (`py/clear-text-logging-sensitive-data`) at `ziran/infrastructure/llm/litellm_client.py:81` is a false positive (logs only `config.api_key_env`, the env-var name, not the key); dismiss-with-reason `false_positive` in GitHub AND add the row to `docs/security/risk-acceptances.md`. If the data flow is ambiguous, restructure the log line to break the taint path instead.
 - [~] T008 [US1] (Python in-range cleared; litellm/pytest/langchain stragglers reclassified to P2/P3 — see findings) Refresh the Python lockfile within current constraints: `uv lock --upgrade` then `uv sync --frozen`; commit `uv.lock`. Clears the 79 in-range pip alerts (litellm, aiohttp ×21, pillow, cryptography, pyjwt, urllib3, starlette, langsmith, requests, idna, uv, pytest, etc.). If a targeted in-range alert still remains after re-lock (an intermediary pins the transitive dep below its fix), resolve it with a `[tool.uv]` constraint/override or by bumping the intermediary — never leave it silently open (spec Edge Case "transitive-only fix unavailable").
 - [ ] T009 [US1] Refresh the frontend lockfile: in `ui/`, run `npm update` then `npm audit fix` (NOT `--force`); commit `ui/package-lock.json`. Clears the in-range npm alerts (vite, react-router, postcss, picomatch, js-yaml, uuid, @babel/core).
 - [~] T010 [US1] (Python gates green: 2232 pass, ruff/format/mypy clean, cov 82.26%; frontend build pending T009) Run the regression oracle and fix any drift from the bumps: `uv run ruff check . && uv run ruff format --check . && uv run mypy ziran/ && uv run pytest --cov=ziran` (≥85%) and `cd ui && npm run build`.
-- [ ] T011 [US1] Enable secret scanning + push protection via `gh api -X PATCH repos/taoq-ai/ziran` (`security_and_analysis.secret_scanning` + `secret_scanning_push_protection` = enabled). If the token lacks admin scope, document the exact Settings → Code security steps in the PR for the maintainer (per clarification Q1 / FR-005).
+- [X] T011 [US1] Enable secret scanning + push protection via `gh api -X PATCH repos/taoq-ai/ziran` (`security_and_analysis.secret_scanning` + `secret_scanning_push_protection` = enabled). If the token lacks admin scope, document the exact Settings → Code security steps in the PR for the maintainer (per clarification Q1 / FR-005).
 
 **Checkpoint**: ~90% of the backlog and all code-scanning alerts cleared; mergeable on its own.
 
@@ -64,8 +64,8 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); frontend in
 
 **Independent Test**: The 7 langchain-family alerts resolve and the langchain adapter + pentest orchestrator still pass their tests.
 
-- [ ] T012 [US2] Widen the langchain-family caps in `pyproject.toml` from `<1` to `<2` for `langchain`, `langchain-community`, `langchain-openai`, `langchain-core`, `langgraph`; then `uv lock` + `uv sync --frozen` and commit `pyproject.toml` + `uv.lock`.
-- [ ] T013 [US2] Verify langchain 1.x compatibility: run `uv run pytest -m "unit or integration" -k "langchain or pentest"` plus the full gate matrix (`mypy ziran/`, `pytest --cov=ziran`); fix any adapter breakage from langchain 1.0 package reorganization/deprecations (per research.md R9).
+- [~] T012 [US2] (SUPERSEDED: langchain family is crewai-blocked, not cap-blocked; resolved as accept-risk-not-reachable in P3 + follow-up #332) Widen the langchain-family caps in `pyproject.toml` from `<1` to `<2` for `langchain`, `langchain-community`, `langchain-openai`, `langchain-core`, `langgraph`; then `uv lock` + `uv sync --frozen` and commit `pyproject.toml` + `uv.lock`.
+- [~] T013 [US2] (N/A — no langchain upgrade performed; see #332) Verify langchain 1.x compatibility: run `uv run pytest -m "unit or integration" -k "langchain or pentest"` plus the full gate matrix (`mypy ziran/`, `pytest --cov=ziran`); fix any adapter breakage from langchain 1.0 package reorganization/deprecations (per research.md R9).
 
 **Checkpoint**: zero open Dependabot alerts of any severity except the 2 no-fix items.
 
@@ -77,8 +77,8 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); frontend in
 
 **Independent Test**: Each no-fix alert is no longer undecided — reachability assessed and a row added to the decision record + GitHub dismissal.
 
-- [ ] T014 [P] [US3] Trace chromadb's entry into the dependency tree (`uv tree | grep -i chromadb`), assess whether the vulnerable code path is reachable in ZIRAN's usage; mitigate/pin if reachable, else dismiss-with-reason in GitHub AND add the row to `docs/security/risk-acceptances.md` (Reachable? `unknown` ⇒ treat as reachable).
-- [ ] T015 [P] [US3] Same for diskcache: trace, assess reachability, decide, and record in both GitHub and `docs/security/risk-acceptances.md`.
+- [X] T014 [P] [US3] Trace chromadb's entry into the dependency tree (`uv tree | grep -i chromadb`), assess whether the vulnerable code path is reachable in ZIRAN's usage; mitigate/pin if reachable, else dismiss-with-reason in GitHub AND add the row to `docs/security/risk-acceptances.md` (Reachable? `unknown` ⇒ treat as reachable).
+- [X] T015 [P] [US3] Same for diskcache: trace, assess reachability, decide, and record in both GitHub and `docs/security/risk-acceptances.md`.
 
 **Checkpoint**: every open Dependabot alert is either fixed or recorded.
 
