@@ -31,6 +31,8 @@ Auto-generated from all feature plans. Last updated: 2026-06-22
 - N/A (no data store). The committed risk-acceptance record (`docs/security/risk-acceptances.md`) is the only new persisted artifact. (024-security-alert-remediation)
 - Python 3.11+ (CI matrix 3.11/3.12/3.13); TypeScript frontend unaffected. (025-dependency-modernization)
 - N/A. Touched persisted artifact: `docs/security/risk-acceptances.md` (rows removed). (025-dependency-modernization)
+- Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / React 18 frontend. + Backend — FastAPI, SQLAlchemy 2.0 (async), Alembic, asyncpg, Pydantic v2, NetworkX, mdutils/f-string HTML report. Frontend — React 18, Vite, TanStack Query v5, vis-network v10.0.2 + vis-data v8, Tailwind/shadcn. Report — vis-network via CDN (currently v9.1.9). No new runtime dependencies anticipated (vis-network clustering + hierarchical layout already available). (026-interactive-knowledge-graph)
+- PostgreSQL via asyncpg (`ZIRAN_DATABASE_URL`). New: `graph_state_json` JSONB column on `phase_results`. (026-interactive-knowledge-graph)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -50,9 +52,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 026-interactive-knowledge-graph: Added Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / React 18 frontend. + Backend — FastAPI, SQLAlchemy 2.0 (async), Alembic, asyncpg, Pydantic v2, NetworkX, mdutils/f-string HTML report. Frontend — React 18, Vite, TanStack Query v5, vis-network v10.0.2 + vis-data v8, Tailwind/shadcn. Report — vis-network via CDN (currently v9.1.9). No new runtime dependencies anticipated (vis-network clustering + hierarchical layout already available).
 - 025-dependency-modernization: Added Python 3.11+ (CI matrix 3.11/3.12/3.13); TypeScript frontend unaffected.
 - 024-security-alert-remediation: Added Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / Node frontend — *no new source code*, only manifests, lockfiles, CI workflows, and docs. + package managers + audit tooling — `uv` (Python lock/sync), `npm` (frontend lock), `pip-audit` (Python vuln gate), `npm audit` (frontend vuln gate). No new runtime dependencies in `ziran/`.
-- 023-many-shot-jailbreak: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`ManyShotConfig` model + validators), PyYAML (vectors + synthetic corpus loading), existing `AttackLibrary` / `AttackExecutor` / `AgentScanner`. No new runtime dependencies (token estimate is a char heuristic, not `tiktoken`).
 
 
 <!-- MANUAL ADDITIONS START -->

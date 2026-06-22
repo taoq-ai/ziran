@@ -126,11 +126,43 @@ class TestGraphStateToVis:
         assert "color" in cap_node
         assert cap_node["nodeType"] == "capability"
 
-    def test_vulnerability_has_shadow(self, sample_graph_state: dict[str, Any]) -> None:
+    def test_severity_node_gets_emphasized_border(self, sample_graph_state: dict[str, Any]) -> None:
+        # Severity now drives border emphasis (spec 026 importance encoding).
         vis = graph_state_to_vis(sample_graph_state)
         vuln = next(n for n in vis["nodes"] if n["id"] == "vuln_1")
         assert vuln["borderWidth"] == 3
-        assert vuln["shadow"]["enabled"] is True
+        assert vuln["severity"] == "high"
+
+    def test_dangerous_node_gets_danger_marker(self, sample_graph_state: dict[str, Any]) -> None:
+        # The dangerous capability marker (shadow + border) applies to
+        # dangerous nodes, not vulnerabilities.
+        vis = graph_state_to_vis(sample_graph_state)
+        danger = next(n for n in vis["nodes"] if n["id"] == "tool_email")
+        assert danger["shadow"]["enabled"] is True
+        assert danger["borderWidth"] >= 3
+
+    def test_node_size_scales_with_centrality(self) -> None:
+        # A high-centrality node renders larger than a low-centrality one.
+        state = {
+            "nodes": [
+                {"id": "hub", "node_type": "tool", "centrality": 1.0},
+                {"id": "leaf", "node_type": "tool", "centrality": 0.0},
+            ],
+            "edges": [],
+        }
+        vis = graph_state_to_vis(state)
+        hub = next(n for n in vis["nodes"] if n["id"] == "hub")
+        leaf = next(n for n in vis["nodes"] if n["id"] == "leaf")
+        assert hub["size"] > leaf["size"]
+
+    def test_node_carries_phase_level(self, sample_graph_state: dict[str, Any]) -> None:
+        # Hierarchical layout level is derived from the discovery phase.
+        state = {
+            "nodes": [{"id": "n", "node_type": "tool", "phase": "reconnaissance"}],
+            "edges": [],
+        }
+        vis = graph_state_to_vis(state)
+        assert vis["nodes"][0]["level"] == 1  # reconnaissance is the first band
 
     def test_converts_edges(self, sample_graph_state: dict[str, Any]) -> None:
         vis = graph_state_to_vis(sample_graph_state)
@@ -147,7 +179,14 @@ class TestGraphStateToVis:
     def test_non_dashed_edge(self, sample_graph_state: dict[str, Any]) -> None:
         vis = graph_state_to_vis(sample_graph_state)
         access_edge = next(e for e in vis["edges"] if e["edgeType"] == "accesses_data")
-        assert "dashes" not in access_edge
+        assert access_edge["dashes"] is False
+
+    def test_attack_edge_emphasized(self, sample_graph_state: dict[str, Any]) -> None:
+        # Attack-relevant edges (exploits) are weighted/emphasized.
+        vis = graph_state_to_vis(sample_graph_state)
+        exploit_edge = next(e for e in vis["edges"] if e["edgeType"] == "exploits")
+        assert exploit_edge["width"] >= 2.5
+        assert exploit_edge["color"]["opacity"] == 1.0
 
     def test_empty_graph(self) -> None:
         vis = graph_state_to_vis({"nodes": [], "edges": []})
@@ -280,6 +319,30 @@ class TestBuildHtmlReport:
 
         assert "VULNERABLE" in html
         assert "0.60" in html  # trust score
+
+    def test_includes_layout_and_filter_controls(
+        self,
+        sample_campaign_result: CampaignResult,
+        sample_graph_state: dict[str, Any],
+    ) -> None:
+        # Spec 026 US1/US4: layout toggle, legend-as-filter, edge filters.
+        result_data = sample_campaign_result.model_dump(mode="json")
+        html = build_html_report(result_data, sample_graph_state)
+
+        assert "setLayout('hierarchical'" in html  # layout-mode toggle
+        assert "toggleNodeType(" in html  # legend doubles as node-type filter
+        assert "buildEdgeFilters" in html  # edge-type filter panel
+        assert "data-node-type" in html
+
+    def test_uses_pinned_vis_network_version(
+        self,
+        sample_campaign_result: CampaignResult,
+        sample_graph_state: dict[str, Any],
+    ) -> None:
+        # Report CDN stays in step with the web UI's vis-network version.
+        result_data = sample_campaign_result.model_dump(mode="json")
+        html = build_html_report(result_data, sample_graph_state)
+        assert "vis-network@10" in html
 
 
 # ── ReportGenerator.save_html ──────────────────────────────────────────
@@ -532,3 +595,17 @@ class TestBuildLegendHtml:
         assert "legend-item" in html
         # Should contain node type labels
         assert "Capability" in html or "Tool" in html
+
+    def test_legend_is_interactive_filter(self) -> None:
+        # The legend doubles as a node-type filter control (spec 026 FR-009).
+        html = _build_legend_html()
+        assert 'class="legend-toggle"' in html
+        assert "toggleNodeType(this)" in html
+        assert 'data-node-type="capability"' in html
+
+    def test_legend_covers_all_spec_node_types(self) -> None:
+        from ziran.interfaces.graph_style.spec import load_graph_style
+
+        html = _build_legend_html()
+        for ntype in load_graph_style().node_types:
+            assert f'data-node-type="{ntype}"' in html

@@ -1,80 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Search, X } from "lucide-react"
+import type { Network as VisNetwork, Options as VisOptions } from "vis-network"
+
+import type { GraphState } from "../../types"
+import { GraphControls } from "./GraphControls"
+import { GraphLegend } from "./GraphLegend"
 import {
-  Maximize2,
-  Pause,
-  Play,
-  Search,
-  X,
-} from "lucide-react"
+  graphStateToVis,
+  presentEdgeTypes,
+  presentNodeTypes,
+  presentSeverities,
+} from "./graphMapping"
+import { largeGraphNodeThreshold } from "./graphStyle"
+import { layoutOptions, physicsDefaultFor, type LayoutMode } from "./layouts"
 
-// vis-network types
-import type { Network as VisNetwork } from "vis-network"
-
-// ── Node/edge styling constants (ported from html_report.py) ─────────
-
-const NODE_COLORS: Record<string, { background: string; border: string; highlight: { background: string; border: string } }> = {
-  capability: { background: "#3b82f6", border: "#1d4ed8", highlight: { background: "#60a5fa", border: "#2563eb" } },
-  tool: { background: "#10b981", border: "#047857", highlight: { background: "#34d399", border: "#059669" } },
-  vulnerability: { background: "#ef4444", border: "#b91c1c", highlight: { background: "#f87171", border: "#dc2626" } },
-  data_source: { background: "#f59e0b", border: "#b45309", highlight: { background: "#fbbf24", border: "#d97706" } },
-  phase: { background: "#8b5cf6", border: "#6d28d9", highlight: { background: "#a78bfa", border: "#7c3aed" } },
-  agent_state: { background: "#6b7280", border: "#374151", highlight: { background: "#9ca3af", border: "#4b5563" } },
-}
-
-const NODE_SHAPES: Record<string, string> = {
-  capability: "dot",
-  tool: "diamond",
-  vulnerability: "triangle",
-  data_source: "square",
-  phase: "hexagon",
-  agent_state: "ellipse",
-}
-
-const NODE_SIZES: Record<string, number> = {
-  capability: 18,
-  tool: 20,
-  vulnerability: 25,
-  data_source: 18,
-  phase: 22,
-  agent_state: 16,
-}
-
-const EDGE_COLORS: Record<string, string> = {
-  uses_tool: "#3b82f6",
-  accesses_data: "#f59e0b",
-  trusts: "#10b981",
-  enables: "#ef4444",
-  can_chain_to: "#f97316",
-  discovered_in: "#8b5cf6",
-  exploits: "#dc2626",
-  leads_to: "#ec4899",
-}
-
-const EDGE_DASHES = new Set(["enables", "can_chain_to", "exploits"])
-
-// ── Types ────────────────────────────────────────────────────────────
-
-interface GraphNode {
-  id: string
-  node_type: string
-  [key: string]: unknown
-}
-
-interface GraphEdge {
-  source: string
-  target: string
-  edge_type: string
-  [key: string]: unknown
-}
-
-interface GraphState {
-  nodes: GraphNode[]
-  edges: GraphEdge[]
-  stats?: {
-    total_nodes: number
-    total_edges: number
-    node_types: Record<string, number>
-  }
+interface VisDataSet {
+  update: (items: unknown) => void
 }
 
 interface NodeDetail {
@@ -92,75 +33,54 @@ interface Props {
 export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const networkRef = useRef<VisNetwork | null>(null)
+  const nodesRef = useRef<VisDataSet | null>(null)
+  const edgesRef = useRef<VisDataSet | null>(null)
+
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("force")
   const [physicsEnabled, setPhysicsEnabled] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedNode, setSelectedNode] = useState<NodeDetail | null>(null)
+  const [hiddenNodeTypes, setHiddenNodeTypes] = useState<Set<string>>(new Set())
+  const [hiddenEdgeTypes, setHiddenEdgeTypes] = useState<Set<string>>(new Set())
+  const [hiddenSeverities, setHiddenSeverities] = useState<Set<string>>(new Set())
 
-  const isLargeGraph = (graphState?.nodes.length ?? 0) > 200
+  const isLargeGraph = (graphState?.nodes.length ?? 0) > largeGraphNodeThreshold
 
-  // Build and render the graph
+  const nodeTypes = useMemo(() => (graphState ? presentNodeTypes(graphState) : []), [graphState])
+  const edgeTypes = useMemo(() => (graphState ? presentEdgeTypes(graphState) : []), [graphState])
+  const severities = useMemo(() => (graphState ? presentSeverities(graphState) : []), [graphState])
+
+  // Build / rebuild the network when the graph data changes.
   useEffect(() => {
     if (!containerRef.current || !graphState || graphState.nodes.length === 0) return
-
     let cancelled = false
 
     const loadNetwork = async () => {
       const vis = await import("vis-network/standalone")
-      if (cancelled) return
+      if (cancelled || !containerRef.current) return
 
-      const nodes = graphState.nodes.map((n) => {
-        const nodeType = n.node_type?.toLowerCase() ?? "agent_state"
-        return {
-          id: n.id,
-          label: (n.label as string) ?? n.id,
-          shape: NODE_SHAPES[nodeType] ?? "ellipse",
-          size: NODE_SIZES[nodeType] ?? 16,
-          color: NODE_COLORS[nodeType] ?? NODE_COLORS.agent_state,
-          font: { color: "#fafafa", size: 11 },
-          _raw: n,
-        }
-      })
-
-      const edges = graphState.edges.map((e, i) => {
-        const edgeType = e.edge_type?.toLowerCase() ?? "default"
-        return {
-          id: `e${i}`,
-          from: e.source,
-          to: e.target,
-          color: { color: EDGE_COLORS[edgeType] ?? "#555", opacity: 0.8 },
-          dashes: EDGE_DASHES.has(edgeType),
-          arrows: "to",
-          width: 1.5,
-          _raw: e,
-        }
-      })
-
+      const { nodes, edges } = graphStateToVis(graphState)
       const nodesDS = new vis.DataSet(nodes)
       const edgesDS = new vis.DataSet(edges)
+      nodesRef.current = nodesDS as unknown as VisDataSet
+      edgesRef.current = edgesDS as unknown as VisDataSet
+
+      const base = layoutOptions(layoutMode, isLargeGraph)
+      const options = {
+        ...base,
+        interaction: { hover: true, tooltipDelay: 200 },
+        edges: { smooth: { enabled: true, type: "continuous", roundness: 0.2 } },
+      } as unknown as VisOptions
 
       const network = new vis.Network(
-        containerRef.current!,
+        containerRef.current,
         { nodes: nodesDS, edges: edgesDS },
-        {
-          physics: {
-            enabled: !isLargeGraph,
-            solver: "forceAtlas2Based",
-            stabilization: { iterations: isLargeGraph ? 200 : 100 },
-          },
-          interaction: {
-            hover: true,
-            tooltipDelay: 200,
-          },
-          edges: {
-            smooth: { enabled: true, type: "continuous", roundness: 0.2 },
-          },
-        }
+        options,
       )
 
       network.on("click", (params: { nodes: string[] }) => {
         if (params.nodes.length > 0) {
-          const nodeId = params.nodes[0]
-          const node = graphState.nodes.find((n) => n.id === nodeId)
+          const node = graphState.nodes.find((n) => n.id === params.nodes[0])
           if (node) {
             const { id, node_type, ...rest } = node
             setSelectedNode({ id, type: node_type, attrs: rest })
@@ -171,35 +91,56 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
       })
 
       networkRef.current = network
-
-      if (isLargeGraph) {
-        network.stabilize(200)
-        setPhysicsEnabled(false)
-      }
+      setPhysicsEnabled(physicsDefaultFor(layoutMode, isLargeGraph))
     }
 
     loadNetwork()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
+    // layoutMode intentionally excluded — handled by setOptions below, no rebuild.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphState, isLargeGraph])
 
-  // Handle path highlighting
+  // Apply layout changes without rebuilding (preserves filters + selection).
   useEffect(() => {
-    if (!networkRef.current || !highlightPath || highlightPath.length === 0) return
+    if (!networkRef.current) return
+    const opts = layoutOptions(layoutMode, isLargeGraph)
+    networkRef.current.setOptions(opts as unknown as VisOptions)
+    setPhysicsEnabled(physicsDefaultFor(layoutMode, isLargeGraph))
+  }, [layoutMode, isLargeGraph])
 
-    const pathSet = new Set(highlightPath)
-    const allNodeIds = graphState?.nodes.map((n) => n.id) ?? []
+  // Apply type/severity/edge filters by toggling node/edge visibility.
+  useEffect(() => {
+    if (!nodesRef.current || !edgesRef.current || !graphState) return
+    nodesRef.current.update(
+      graphState.nodes.map((n) => ({
+        id: n.id,
+        hidden:
+          hiddenNodeTypes.has(n.node_type) ||
+          (n.severity ? hiddenSeverities.has(n.severity) : false),
+      })),
+    )
+    edgesRef.current.update(
+      graphState.edges.map((e, i) => ({ id: `e${i}`, hidden: hiddenEdgeTypes.has(e.edge_type) })),
+    )
+  }, [graphState, hiddenNodeTypes, hiddenEdgeTypes, hiddenSeverities])
 
-    // Dim nodes not in path
-    const nodeUpdates: Array<{ id: string; opacity: number }> = allNodeIds.map((nid) => ({
-      id: nid,
-      opacity: pathSet.has(nid) ? 1.0 : 0.15,
-    }))
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(networkRef.current as any).body.data.nodes.update(nodeUpdates)
+  // Path highlighting — dim nodes not on the selected attack path. When the
+  // path is cleared, restore full opacity for every node (otherwise the graph
+  // stays dimmed until the next rebuild).
+  useEffect(() => {
+    if (!nodesRef.current || !graphState) return
+    const active = highlightPath !== undefined && highlightPath.length > 0
+    const pathSet = new Set(highlightPath ?? [])
+    nodesRef.current.update(
+      graphState.nodes.map((n) => ({
+        id: n.id,
+        opacity: !active || pathSet.has(n.id) ? 1.0 : 0.15,
+      })),
+    )
   }, [highlightPath, graphState])
 
-  // Physics toggle
   const togglePhysics = useCallback(() => {
     if (!networkRef.current) return
     const next = !physicsEnabled
@@ -207,23 +148,33 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
     setPhysicsEnabled(next)
   }, [physicsEnabled])
 
-  // Fit view
   const fitView = useCallback(() => {
     networkRef.current?.fit({ animation: { duration: 500, easingFunction: "easeInOutQuad" } })
   }, [])
 
-  // Search
   const handleSearch = useCallback(() => {
     if (!networkRef.current || !searchQuery.trim() || !graphState) return
     const q = searchQuery.toLowerCase()
     const match = graphState.nodes.find(
-      (n) => n.id.toLowerCase().includes(q) || ((n.label as string) ?? "").toLowerCase().includes(q)
+      (n) => n.id.toLowerCase().includes(q) || ((n.name as string) ?? "").toLowerCase().includes(q),
     )
     if (match) {
-      networkRef.current.focus(match.id, { scale: 1.5, animation: { duration: 500, easingFunction: "easeInOutQuad" } })
+      networkRef.current.focus(match.id, {
+        scale: 1.5,
+        animation: { duration: 500, easingFunction: "easeInOutQuad" },
+      })
       networkRef.current.selectNodes([match.id])
     }
   }, [searchQuery, graphState])
+
+  const toggleSetMember = (setter: typeof setHiddenNodeTypes, value: string) => {
+    setter((prev) => {
+      const next = new Set(prev)
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return next
+    })
+  }
 
   if (!graphState || graphState.nodes.length === 0) {
     return (
@@ -237,17 +188,15 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
     <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-bg-tertiary">
-        <button onClick={fitView} className="p-1.5 rounded hover:bg-bg-secondary transition-colors" title="Fit view">
-          <Maximize2 className="h-4 w-4 text-fg-secondary" />
-        </button>
-        <button onClick={togglePhysics} className="p-1.5 rounded hover:bg-bg-secondary transition-colors" title={physicsEnabled ? "Pause physics" : "Resume physics"}>
-          {physicsEnabled ? <Pause className="h-4 w-4 text-fg-secondary" /> : <Play className="h-4 w-4 text-fg-secondary" />}
-        </button>
-        {highlightPath && onClearHighlight && (
-          <button onClick={onClearHighlight} className="p-1.5 rounded hover:bg-bg-secondary transition-colors text-severity-danger" title="Clear highlight">
-            <X className="h-4 w-4" />
-          </button>
-        )}
+        <GraphControls
+          layoutMode={layoutMode}
+          onLayoutChange={setLayoutMode}
+          physicsEnabled={physicsEnabled}
+          onTogglePhysics={togglePhysics}
+          onFit={fitView}
+          showClear={Boolean(highlightPath && onClearHighlight)}
+          onClear={() => onClearHighlight?.()}
+        />
         <div className="flex-1" />
         <div className="flex items-center gap-1">
           <input
@@ -262,26 +211,31 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
             <Search className="h-3.5 w-3.5 text-fg-secondary" />
           </button>
         </div>
-
-        {/* Legend */}
-        <div className="hidden md:flex items-center gap-3 ml-3 text-[10px] text-fg-secondary">
-          {Object.entries(NODE_COLORS).map(([type, colors]) => (
-            <span key={type} className="flex items-center gap-1">
-              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.background }} />
-              {type.replace("_", " ")}
-            </span>
-          ))}
-        </div>
       </div>
 
       {/* Graph container */}
       <div ref={containerRef} className="w-full" style={{ height: 500 }} />
 
+      {/* Legend doubles as a filter */}
+      <GraphLegend
+        nodeTypes={nodeTypes}
+        hiddenNodeTypes={hiddenNodeTypes}
+        onToggleNodeType={(t) => toggleSetMember(setHiddenNodeTypes, t)}
+        edgeTypes={edgeTypes}
+        hiddenEdgeTypes={hiddenEdgeTypes}
+        onToggleEdgeType={(t) => toggleSetMember(setHiddenEdgeTypes, t)}
+        severities={severities}
+        hiddenSeverities={hiddenSeverities}
+        onToggleSeverity={(s) => toggleSetMember(setHiddenSeverities, s)}
+      />
+
       {/* Node detail overlay */}
       {selectedNode && (
         <div className="absolute bottom-4 right-4 w-72 rounded-lg border border-border bg-bg-secondary/95 backdrop-blur p-3 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-accent capitalize">{selectedNode.type.replace("_", " ")}</span>
+            <span className="text-xs font-medium text-accent capitalize">
+              {selectedNode.type.replace("_", " ")}
+            </span>
             <button onClick={() => setSelectedNode(null)} className="p-0.5">
               <X className="h-3.5 w-3.5 text-fg-secondary" />
             </button>

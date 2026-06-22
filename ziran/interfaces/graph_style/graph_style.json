@@ -1,0 +1,51 @@
+{
+  "version": "1",
+  "node_types": {
+    "agent": { "color": "#22d3ee", "border": "#0e7490", "shape": "star", "base_size": 24 },
+    "agent_state": { "color": "#6b7280", "border": "#374151", "shape": "ellipse", "base_size": 16 },
+    "capability": { "color": "#3b82f6", "border": "#1d4ed8", "shape": "dot", "base_size": 18 },
+    "tool": { "color": "#10b981", "border": "#047857", "shape": "diamond", "base_size": 20 },
+    "data_source": { "color": "#f59e0b", "border": "#b45309", "shape": "square", "base_size": 18 },
+    "vulnerability": { "color": "#ef4444", "border": "#b91c1c", "shape": "triangle", "base_size": 25 },
+    "phase": { "color": "#8b5cf6", "border": "#6d28d9", "shape": "hexagon", "base_size": 22 }
+  },
+  "edge_types": {
+    "uses_tool": { "color": "#3b82f6", "dashes": false, "width": 1.5, "arrow": true },
+    "accesses_data": { "color": "#f59e0b", "dashes": false, "width": 1.5, "arrow": true },
+    "trusts": { "color": "#10b981", "dashes": false, "width": 1.5, "arrow": true },
+    "enables": { "color": "#ef4444", "dashes": true, "width": 2.5, "arrow": true },
+    "can_chain_to": { "color": "#f97316", "dashes": true, "width": 2.0, "arrow": true },
+    "discovered_in": { "color": "#8b5cf6", "dashes": false, "width": 1.0, "arrow": true },
+    "exploits": { "color": "#dc2626", "dashes": true, "width": 2.5, "arrow": true },
+    "leads_to": { "color": "#ec4899", "dashes": false, "width": 2.0, "arrow": true },
+    "delegates_to": { "color": "#06b6d4", "dashes": false, "width": 2.0, "arrow": true },
+    "shares_context": { "color": "#a78bfa", "dashes": [2, 4], "width": 1.5, "arrow": true },
+    "trust_boundary": { "color": "#f43f5e", "dashes": [8, 4], "width": 2.0, "arrow": false }
+  },
+  "severity_ramp": {
+    "critical": "#dc2626",
+    "high": "#ef4444",
+    "medium": "#f59e0b",
+    "low": "#eab308",
+    "info": "#6b7280"
+  },
+  "danger_marker": {
+    "border_color": "#ef4444",
+    "border_width": 3,
+    "shadow_color": "rgba(239,68,68,0.5)",
+    "shadow_size": 12
+  },
+  "phase_order": [
+    "reconnaissance",
+    "trust_building",
+    "capability_mapping",
+    "vulnerability_discovery",
+    "exploitation_setup",
+    "execution",
+    "persistence",
+    "exfiltration"
+  ],
+  "size_encoding": { "min_size": 12, "max_size": 40 },
+  "attack_edge_types": ["exploits", "can_chain_to", "leads_to"],
+  "thresholds": { "large_graph_node_threshold": 200, "auto_cluster": true }
+}
