@@ -40,7 +40,7 @@ export interface PhaseResult {
   discovered_capabilities: string[]
   error: string | null
   /** Per-phase knowledge-graph snapshot (P3 temporal scrubbing); null on older runs. */
-  graph_state?: GraphState | null
+  graph_state_json?: GraphState | null
 }
 
 export interface RunDetail extends RunSummary {

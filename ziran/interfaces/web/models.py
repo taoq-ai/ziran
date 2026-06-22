@@ -88,6 +88,10 @@ class PhaseResultRow(Base):
     token_usage_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     vulnerabilities_found: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     discovered_capabilities: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
+    # Per-phase knowledge-graph snapshot (export_state() output). Nullable so
+    # rows created before spec-026 keep working; the UI scrubber falls back to
+    # the run's final graph_state_json when absent.
+    graph_state_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow

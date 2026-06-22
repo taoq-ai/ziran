@@ -169,6 +169,9 @@ def build_html_report(
     paths = critical_paths or result_data.get("critical_paths", [])
     stats = graph_state.get("stats", {})
 
+    # Per-phase snapshots power the offline timeline scrubber (spec 026 US3).
+    phase_states = _build_phase_states(result_data)
+
     campaign_id = result_data.get("campaign_id", "unknown")
     target_agent = result_data.get("target_agent", "unknown")
     total_vulns = result_data.get("total_vulnerabilities", 0)
@@ -237,7 +240,31 @@ def build_html_report(
         vis_nodes_json=json.dumps(vis_data["nodes"]),
         vis_edges_json=json.dumps(vis_data["edges"]),
         critical_paths_json=json.dumps(paths),
+        phase_states_json=json.dumps(phase_states),
     )
+
+
+def _build_phase_states(result_data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build per-phase vis snapshots for the offline timeline scrubber.
+
+    Each completed phase that carries a graph snapshot becomes a labeled stop
+    ``{"label", "nodes", "edges"}``. Returns an empty list when no per-phase
+    snapshots exist (older runs), in which case the scrubber stays hidden.
+    """
+    states: list[dict[str, Any]] = []
+    for phase in result_data.get("phases_executed", []):
+        snapshot = phase.get("graph_state")
+        if not snapshot or not snapshot.get("nodes"):
+            continue
+        vis = graph_state_to_vis(snapshot)
+        states.append(
+            {
+                "label": str(phase.get("phase", "")),
+                "nodes": vis["nodes"],
+                "edges": vis["edges"],
+            }
+        )
+    return states
 
 
 # ── HTML fragment builders ─────────────────────────────────────────────
@@ -1237,6 +1264,14 @@ _HTML_TEMPLATE = """\
     <button onclick="resetHighlight()">Clear Highlight</button>
   </div>
 
+  <!-- Phase timeline scrubber (hidden when no per-phase snapshots) -->
+  <div class="graph-controls" id="phaseScrubber" style="display:none">
+    <span style="color:var(--muted);font-size:.8rem">Timeline</span>
+    <input type="range" id="phaseRange" min="0" max="0" step="1" value="0"
+           oninput="showPhase(this.value)" style="flex:1;min-width:160px">
+    <span id="phaseLabel" style="color:var(--text);font-size:.8rem"></span>
+  </div>
+
   <!-- Edge-type filters (built from data) -->
   <div class="graph-filters" id="edgeFilters"></div>
 </main>
@@ -1246,6 +1281,7 @@ _HTML_TEMPLATE = """\
 const rawNodes = {vis_nodes_json};
 const rawEdges = {vis_edges_json};
 const criticalPaths = {critical_paths_json};
+const phaseStates = {phase_states_json};
 
 // ── Initialise vis-network ────────────────────────────────────────
 const nodes = new vis.DataSet(rawNodes);
@@ -1376,6 +1412,32 @@ function setCluster(mode) {{
     }});
     clusterIds.push(id);
   }});
+}}
+
+// ── Phase timeline scrubber (offline temporal replay) ────────────
+(function initScrubber() {{
+  if (!phaseStates || phaseStates.length < 2) return;
+  const range = document.getElementById('phaseRange');
+  range.max = String(phaseStates.length - 1);
+  range.value = String(phaseStates.length - 1);
+  updatePhaseLabel(phaseStates.length - 1);
+  document.getElementById('phaseScrubber').style.display = 'flex';
+}})();
+
+function updatePhaseLabel(idx) {{
+  const state = phaseStates[idx];
+  document.getElementById('phaseLabel').textContent =
+    (idx + 1) + '/' + phaseStates.length + ' · ' + String(state.label).replace(/_/g, ' ');
+}}
+
+function showPhase(i) {{
+  const idx = Number(i);
+  const state = phaseStates[idx];
+  if (!state) return;
+  resetClusters();
+  nodes.clear(); nodes.add(state.nodes);
+  edges.clear(); edges.add(state.edges);
+  updatePhaseLabel(idx);
 }}
 
 // ── Click handler — show node detail + cross-link to attack log ───

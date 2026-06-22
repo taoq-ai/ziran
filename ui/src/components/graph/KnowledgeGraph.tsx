@@ -77,6 +77,22 @@ export function KnowledgeGraph({
   const severities = useMemo(() => (graphState ? presentSeverities(graphState) : []), [graphState])
   const hasAgents = nodeTypes.includes("agent")
 
+  // Nodes still visible after filters — drives the "nothing matches" state.
+  const visibleNodeCount = useMemo(() => {
+    if (!graphState) return 0
+    return graphState.nodes.filter(
+      (n) =>
+        !hiddenNodeTypes.has(n.node_type) &&
+        !(n.severity ? hiddenSeverities.has(n.severity) : false),
+    ).length
+  }, [graphState, hiddenNodeTypes, hiddenSeverities])
+
+  const resetFilters = useCallback(() => {
+    setHiddenNodeTypes(new Set())
+    setHiddenEdgeTypes(new Set())
+    setHiddenSeverities(new Set())
+  }, [])
+
   // Build / rebuild the network when the graph data changes.
   useEffect(() => {
     if (!containerRef.current || !graphState || graphState.nodes.length === 0) return
@@ -303,7 +319,20 @@ export function KnowledgeGraph({
       </div>
 
       {/* Graph container */}
-      <div ref={containerRef} className="w-full" style={{ height: 500 }} />
+      <div className="relative w-full" style={{ height: 500 }}>
+        <div ref={containerRef} className="w-full h-full" />
+        {visibleNodeCount === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-bg-secondary/80 backdrop-blur-sm">
+            <p className="text-sm text-fg-secondary">No nodes match the current filters.</p>
+            <button
+              onClick={resetFilters}
+              className="px-3 py-1.5 rounded-md border border-border text-xs text-accent hover:bg-accent/10 transition-colors"
+            >
+              Reset filters
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Legend doubles as a filter */}
       <GraphLegend
