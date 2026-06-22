@@ -13,8 +13,9 @@ A title, a short preamble, and a Markdown table. One row per dismissed/accepted 
 # Security Risk Acceptances
 
 Decisions for security alerts not resolved by upgrading. Each row mirrors a
-GitHub dismiss-with-reason. The `accept-risk-no-fix` pip rows below are the
-authoritative source for the CI `pip-audit --ignore-vuln` suppression list.
+GitHub dismiss-with-reason. The accepted-risk pip rows below
+(`accept-risk-no-fix` **or** `accept-risk-not-reachable`) are the authoritative
+source for the CI `pip-audit --ignore-vuln` suppression list.
 
 | Advisory / Alert | Package / Location | Eco | Severity | Decision | Reachable? | Justification | GH dismissal reason | Date | Revisit when |
 |---|---|---|---|---|---|---|---|---|---|
@@ -25,7 +26,7 @@ authoritative source for the CI `pip-audit --ignore-vuln` suppression list.
 
 ## Field rules
 
-- **Decision** ∈ `{dismiss-false-positive, accept-risk-no-fix, mitigated, pinned}`.
+- **Decision** ∈ `{dismiss-false-positive, accept-risk-not-reachable, accept-risk-no-fix, mitigated, pinned}`.
 - **Reachable?** required for dependency rows (`yes` / `no` / `unknown`); `unknown` MUST be treated as `yes` (→ cannot accept-risk; must mitigate). `n/a` for code-scanning rows.
 - **GH dismissal reason** MUST match a valid GitHub dismissal reason (`false_positive`, `won't_fix`, `used_in_tests`, …) and the alert MUST actually be dismissed in GitHub with that reason.
 - **Justification** MUST be specific (no "low risk" without explanation).
@@ -33,5 +34,5 @@ authoritative source for the CI `pip-audit --ignore-vuln` suppression list.
 ## Invariants
 
 - Bijection: every row ⇔ exactly one GitHub dismissal; no orphan rows, no undocumented dismissals.
-- The `accept-risk-no-fix` + `eco=pip` rows ⇔ the `pip-audit --ignore-vuln` GHSA list in CI (must not drift).
-- No dependency alert with an *available* fix appears here (those are upgraded, not accepted) — enforces FR-006/FR-007.
+- The accepted-risk `eco=pip` rows (`accept-risk-no-fix` **or** `accept-risk-not-reachable`) ⇔ the `pip-audit --ignore-vuln` GHSA list in CI (must not drift) — this is what keeps the gate from failing on accepted risk (FR-010).
+- A dependency alert with an *available* fix appears here only when the fix is structurally unreachable (e.g. transitively pinned) and the vuln is `accept-risk-not-reachable`; otherwise it MUST be upgraded, not accepted (FR-006/FR-007).

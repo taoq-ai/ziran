@@ -56,9 +56,13 @@ jobs:
         run: uv run mypy ziran
 
   dependency-audit:
-    # Prevention gate (spec 024, #330): fail on a NEW high/critical known vuln in
-    # either ecosystem. Accepted-risk advisories below mirror the pip rows in
-    # docs/security/risk-acceptances.md — keep the two lists in sync.
+    # Prevention gate (spec 024, #330): blocks a PR that introduces a new known
+    # vulnerability. pip-audit has no native severity filter, so it fails on ANY
+    # un-ignored advisory — which matches the "all severities to zero" policy
+    # (clarification Q3); npm audit fails on high or above (a known low esbuild
+    # dev-server advisory is below threshold). Accepted-risk advisories
+    # (--ignore-vuln below) mirror the pip rows in docs/security/risk-acceptances.md
+    # — keep the two lists in sync.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
