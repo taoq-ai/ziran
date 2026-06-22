@@ -56,7 +56,7 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); CI in `.git
 
 - [X] T011 [US1] Run the full regression oracle and fix any residual drift: `uv run ruff check . && uv run ruff format --check . && uv run mypy ziran/ && uv run pytest --cov=ziran` (CI floor `--cov-fail-under=80`) and `cd ui && npm run build`; spot-check CLI rendering on rich 14 (`ziran library`, `ziran audit <example>`, a scan summary).
 - [X] T012 [US1] Confirm the lock no longer carries vulnerable versions of the convert→fixed packages; resolve alert **#82** (langchain LangSmith prompt-pull) — mark fixed if langchain 1.3.2 patches it, else keep it as a not-reachable row with justification.
-- [ ] T013 [US1] Reopen the now-fixed dismissed Dependabot alerts via the API (per research R9) so they close as *fixed* on the next default-branch rescan; leave #108/#84/#41 dismissed. NOTE: Dependabot resolves alerts from the **default branch (main)**, so the "fixed" state lands when this reaches `main` via release — not immediately on the merge to `develop` (same timing as spec 024).
+- [~] T013 (DEFERRED to release: reopening now would surface open criticals while main still has the old lock; reopen when develop→main lands the patched lock so Dependabot closes them as fixed) [US1] Reopen the now-fixed dismissed Dependabot alerts via the API (per research R9) so they close as *fixed* on the next default-branch rescan; leave #108/#84/#41 dismissed. NOTE: Dependabot resolves alerts from the **default branch (main)**, so the "fixed" state lands when this reaches `main` via release — not immediately on the merge to `develop` (same timing as spec 024).
 
 **Checkpoint**: ~12 alerts are fixed-by-upgrade; security outcome achieved.
 
@@ -77,8 +77,8 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); CI in `.git
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T016 Confirm the upgraded set introduces **no new Dependabot alert of any severity** (FR-009 / clarification Q3); if any appears (on crewai 1.14 / rich 14 / openai 2 / langchain 1.x), upgrade it away rather than recording it.
-- [~] T017 (spec Active; PR opening) Final acceptance: open critical/high alerts = 0 (SC-002), all SCs met; set spec 025 Status to Active in `specs/025-dependency-modernization/spec.md`; open the PR against `develop` referencing #332.
+- [X] T016 (verified — the CI dependency-audit gate PASSES on the upgraded majors with only the 4 kept ignores; no new alert introduced) Confirm the upgraded set introduces **no new Dependabot alert of any severity** (FR-009 / clarification Q3); if any appears (on crewai 1.14 / rich 14 / openai 2 / langchain 1.x), upgrade it away rather than recording it.
+- [X] T017 (spec Active; PR #339 open, green, CLEAN) Final acceptance: open critical/high alerts = 0 (SC-002), all SCs met; set spec 025 Status to Active in `specs/025-dependency-modernization/spec.md`; open the PR against `develop` referencing #332.
 
 ---
 
