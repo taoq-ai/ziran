@@ -16,7 +16,7 @@ jobs:
     outputs:
       is-release-merge: ${{ steps.check.outputs.is-release-merge }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
       - name: Check if merge is from release or hotfix branch
@@ -50,7 +50,7 @@ jobs:
     if: needs.check-source-branch.outputs.is-release-merge == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           # MUST use a PAT, not GITHUB_TOKEN. Tags created by GITHUB_TOKEN
           # do not trigger other workflows (GitHub's anti-cascade rule).
