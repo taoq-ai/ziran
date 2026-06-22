@@ -15,7 +15,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 _SPEC_PATH = Path(__file__).with_name("graph_style.json")
 
@@ -56,6 +56,13 @@ class SizeEncoding(BaseModel):
 
     min_size: float = Field(gt=0)
     max_size: float = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _check_span(self) -> SizeEncoding:
+        # A non-positive span would invert or collapse centrality sizing.
+        if self.max_size <= self.min_size:
+            raise ValueError("size_encoding.max_size must be greater than min_size")
+        return self
 
 
 class Thresholds(BaseModel):

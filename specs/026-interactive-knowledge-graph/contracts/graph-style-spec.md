@@ -10,9 +10,9 @@ The canonical JSON file `ziran/interfaces/graph_style/graph_style.json` is the s
 {
   "version": "1",
   "node_types": {
-    "vulnerability": { "color": "#ef4444", "shape": "diamond", "base_size": 22 },
-    "tool":          { "color": "#10b981", "shape": "square",  "base_size": 18 }
-    // …all 7 node types
+    "vulnerability": { "color": "#ef4444", "border": "#b91c1c", "shape": "diamond", "base_size": 22 },
+    "tool":          { "color": "#10b981", "border": "#047857", "shape": "square",  "base_size": 18 }
+    // …all 7 node types (each requires color, border, shape, base_size)
   },
   "edge_types": {
     "exploits":     { "color": "#ef4444", "dashes": [5,5], "width": 2, "arrow": true },
