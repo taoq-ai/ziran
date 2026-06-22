@@ -25,7 +25,7 @@ dependencies = [
     "networkx>=3.2,<4",
     "httpx>=0.27,<1",
     "click>=8.1,<9",
-    "rich>=13.7,<14",
+    "rich>=13.7,<15",
     "pyyaml>=6.0,<7",
     "python-dotenv>=1.0,<2",
     "mdutils>=1.6,<2",
@@ -33,12 +33,13 @@ dependencies = [
 
 [project.optional-dependencies]
 langchain = [
-    "langchain>=0.2,<1",
-    "langchain-community>=0.2,<1",
-    "langchain-openai>=0.1,<1",
+    "langchain>=1.0,<2",
+    "langchain-classic>=1.0,<2",
+    "langchain-community>=0.4,<2",
+    "langchain-openai>=1.0,<2",
 ]
 crewai = [
-    "crewai>=0.30,<1",
+    "crewai>=1.14,<2",
 ]
 a2a = [
     "a2a-sdk>=0.3,<1",
@@ -54,12 +55,12 @@ anthropic = [
     "anthropic>=0.39,<1",
 ]
 llm = [
-    "litellm>=1.40,<2",
+    "litellm>=1.84,<2",
 ]
 pentest = [
     "ziran[llm]",
-    "langgraph>=0.2,<1",
-    "langchain-core>=0.3,<1",
+    "langgraph>=1.0,<2",
+    "langchain-core>=1.0,<2",
     "numpy>=1.26,<3",
 ]
 browser = [
@@ -181,6 +182,7 @@ init_typed = true
 [[tool.mypy.overrides]]
 module = [
     "langchain.*",
+    "langchain_classic.*",
     "langchain_core.*",
     "langchain_openai.*",
     "crewai.*",
