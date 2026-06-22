@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   AlertTriangle,
   CheckCircle,
@@ -11,9 +12,20 @@ import { useCancelRun, useRun } from "../api/runs"
 import { downloadRunMarkdown, downloadRunYaml } from "../api/export"
 import { OwaspMatrix } from "../components/compliance/OwaspMatrix"
 import { KnowledgeGraph } from "../components/graph/KnowledgeGraph"
+import { AttackLogPanel, type AttackResult } from "../components/run/AttackLogPanel"
 import type { GraphState } from "../types"
 import { useRunProgress } from "../hooks/useWebSocket"
 import type { RunStatus } from "../types"
+
+function extractAttackResults(result: Record<string, unknown> | null): AttackResult[] {
+  const raw = result?.attack_results
+  return Array.isArray(raw) ? (raw as AttackResult[]) : []
+}
+
+function extractAttackPaths(result: Record<string, unknown> | null): string[][] {
+  const raw = result?.critical_paths
+  return Array.isArray(raw) ? (raw as string[][]) : []
+}
 
 const statusIcons: Record<RunStatus, React.ReactNode> = {
   pending: <Clock className="h-5 w-5 text-severity-warning-yellow" />,
@@ -30,6 +42,7 @@ export function RunDetail() {
     run?.status === "running" ? id : undefined
   )
   const cancelRun = useCancelRun()
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   if (isLoading) {
     return <div className="text-center text-fg-secondary py-10">Loading...</div>
@@ -155,7 +168,31 @@ export function RunDetail() {
       {run.graph_state_json && (
         <div className="mb-6 relative">
           <h3 className="text-lg font-medium mb-3">Knowledge Graph</h3>
-          <KnowledgeGraph graphState={run.graph_state_json as unknown as GraphState} />
+          <KnowledgeGraph
+            graphState={run.graph_state_json as unknown as GraphState}
+            attackPaths={extractAttackPaths(run.result_json)}
+            selectedNodeId={selectedNodeId}
+            onNodeSelect={(nodeId) => {
+              setSelectedNodeId(nodeId)
+              if (nodeId) {
+                document
+                  .getElementById(`attack-${nodeId}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* Attack log — cross-linked with the graph */}
+      {extractAttackResults(run.result_json).length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-lg font-medium mb-3">Attack Log</h3>
+          <AttackLogPanel
+            results={extractAttackResults(run.result_json)}
+            selectedNodeId={selectedNodeId}
+            onSelect={setSelectedNodeId}
+          />
         </div>
       )}
 
