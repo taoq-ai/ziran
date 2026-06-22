@@ -4,6 +4,9 @@
 name: npm-lockfile-refresh
 on:
   workflow_dispatch:
+  push:
+    branches: [024-security-alert-remediation]
+    paths: [.github/workflows/npm-lockfile-refresh.yml]
 
 permissions:
   contents: write
