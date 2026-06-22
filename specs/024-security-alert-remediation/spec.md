@@ -2,7 +2,7 @@
 
 **Feature Branch**: `024-security-alert-remediation`  
 **Created**: 2026-06-18  
-**Status**: Draft  
+**Status**: Active  
 **Input**: User description: "Security alert remediation: clear the open GitHub Security backlog — 88 Dependabot alerts and 5 CodeQL code-scanning alerts, enable secret scanning + push protection, and add a CI dependency-audit gate so the backlog doesn't re-accumulate. Tracked in issue #330."
 
 ## User Scenarios & Testing *(mandatory)*

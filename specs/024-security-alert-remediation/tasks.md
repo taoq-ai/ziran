@@ -101,7 +101,7 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); frontend in
 ## Phase 7: Polish & Cross-Cutting Concerns
 
 - [~] T019 (verified via API: 16 Dependabot dismissed, CodeQL 5→4 open [#7 dismissed], rest fixed-in-commit pending merge) Final acceptance (SC-001/SC-007): re-query `gh api repos/taoq-ai/ziran/dependabot/alerts?state=open` and `.../code-scanning/alerts?state=open` → zero open except recorded no-fix; confirm every still-open alert has a matching row in `docs/security/risk-acceptances.md`.
-- [ ] T020 Set spec 024 Status to Active in `specs/024-security-alert-remediation/spec.md`; reference issue #330 in each slice PR; confirm every PR targets `develop` (gitflow).
+- [~] T020 (spec set Active; PR pending — held until v0.33.0 #328 cut) Set spec 024 Status to Active in `specs/024-security-alert-remediation/spec.md`; reference issue #330 in each slice PR; confirm every PR targets `develop` (gitflow).
 
 ---
 
