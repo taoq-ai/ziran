@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.34.0](https://github.com/taoq-ai/ziran/compare/v0.33.0...v0.34.0) (2026-06-22)
+
+
+### Features
+
+* **deps:** modernize framework stack to retire security dismissals (spec 025, [#332](https://github.com/taoq-ai/ziran/issues/332)) ([7536508](https://github.com/taoq-ai/ziran/commit/7536508c2fce41790895c1db229e94dcde9406e0))
+* **deps:** modernize framework stack to retire security dismissals (spec 025, [#332](https://github.com/taoq-ai/ziran/issues/332)) ([36cd3d1](https://github.com/taoq-ai/ziran/commit/36cd3d1174edb907e9ff582535aa6cc02fbb7f8b))
+
+
+### Bug Fixes
+
+* **security:** accept-risk langsmith TracingMiddleware advisory (spec 024, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([b7dde4e](https://github.com/taoq-ai/ziran/commit/b7dde4eeaed508cf65c9dc491649af4e79f154e8))
+* **security:** clear GitHub Security backlog + add prevention gate (spec 024, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([821f1fe](https://github.com/taoq-ai/ziran/commit/821f1fe30f88e6f46260a1e90b8795d799920bc5))
+* **security:** P1 dependency + code-scanning remediation (spec 024, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([1a5d8a3](https://github.com/taoq-ai/ziran/commit/1a5d8a30d4f1755b0a46535f3ed3f2f80cba3f50))
+* **security:** refresh ui/package-lock.json via CI (spec 024 T009, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([eb5eaf2](https://github.com/taoq-ai/ziran/commit/eb5eaf243f586fff8cbc0fca12c83801d3f37aec))
+* **typecheck:** add langchain_classic.* to mypy ignore_missing_imports (spec 025) ([40d077b](https://github.com/taoq-ai/ziran/commit/40d077b83a740195c76f0db628fdfadf38a33125))
+
 ## [0.33.0](https://github.com/taoq-ai/ziran/compare/v0.32.0...v0.33.0) (2026-06-18)
 
 
