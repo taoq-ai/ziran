@@ -168,48 +168,45 @@ export function KnowledgeGraph({
     )
   }, [graphState, hiddenNodeTypes, hiddenEdgeTypes, hiddenSeverities])
 
-  // Static path highlighting — dim nodes not on the highlighted path. When the
-  // path is cleared, restore full opacity for every node (otherwise the graph
-  // stays dimmed until the next rebuild).
+  // Centralized node opacity. Priority: the attack-chain walker (while active)
+  // overrides the static path highlight; when the walker exits, the highlight
+  // is re-applied (or full opacity if nothing is highlighted). Keeping this in
+  // one effect avoids the two sources fighting over the same property.
   useEffect(() => {
     if (!nodesRef.current || !graphState) return
-    const active = highlightPath !== undefined && highlightPath.length > 0
-    const pathSet = new Set(highlightPath ?? [])
-    nodesRef.current.update(
-      graphState.nodes.map((n) => ({
-        id: n.id,
-        opacity: !active || pathSet.has(n.id) ? 1.0 : 0.15,
-      })),
-    )
-  }, [highlightPath, graphState])
 
-  // Attack-chain walker — focus the current step with surrounding context.
-  useEffect(() => {
-    if (!nodesRef.current || !graphState) return
-    if (!walk) {
-      nodesRef.current.update(graphState.nodes.map((n) => ({ id: n.id, opacity: 1.0 })))
-      return
+    let opacityFor: (id: string) => number
+    if (walk) {
+      const pathSet = new Set(walk.path)
+      const current = walk.path[walk.step]
+      opacityFor = (id) => (id === current ? 1.0 : pathSet.has(id) ? 0.6 : 0.12)
+    } else if (highlightPath !== undefined && highlightPath.length > 0) {
+      const pathSet = new Set(highlightPath)
+      opacityFor = (id) => (pathSet.has(id) ? 1.0 : 0.15)
+    } else {
+      opacityFor = () => 1.0
     }
-    const pathSet = new Set(walk.path)
-    const current = walk.path[walk.step]
+
     nodesRef.current.update(
-      graphState.nodes.map((n) => ({
-        id: n.id,
-        opacity: n.id === current ? 1.0 : pathSet.has(n.id) ? 0.6 : 0.12,
-      })),
+      graphState.nodes.map((n) => ({ id: n.id, opacity: opacityFor(n.id) })),
     )
-    if (current && networkRef.current) {
-      try {
-        networkRef.current.focus(current, {
-          scale: 1.3,
-          animation: { duration: 400, easingFunction: "easeInOutQuad" },
-        })
-        networkRef.current.selectNodes([current])
-      } catch {
-        // Node may be inside a cluster — ignore focus failure.
+
+    // Focus the current walker step (best-effort — node may be clustered).
+    if (walk && networkRef.current) {
+      const current = walk.path[walk.step]
+      if (current) {
+        try {
+          networkRef.current.focus(current, {
+            scale: 1.3,
+            animation: { duration: 400, easingFunction: "easeInOutQuad" },
+          })
+          networkRef.current.selectNodes([current])
+        } catch {
+          // Node inside a cluster — ignore focus failure.
+        }
       }
     }
-  }, [walk, graphState])
+  }, [walk, highlightPath, graphState])
 
   // External focus (cross-linking from a finding / attack-log row).
   useEffect(() => {
