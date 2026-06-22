@@ -5,14 +5,23 @@ import type { Network as VisNetwork, Options as VisOptions } from "vis-network"
 import type { GraphState } from "../../types"
 import { GraphControls } from "./GraphControls"
 import { GraphLegend } from "./GraphLegend"
+import { AttackChainWalker } from "./AttackChainWalker"
 import {
   graphStateToVis,
   presentEdgeTypes,
   presentNodeTypes,
   presentSeverities,
+  type VisNode,
 } from "./graphMapping"
 import { largeGraphNodeThreshold } from "./graphStyle"
 import { layoutOptions, physicsDefaultFor, type LayoutMode } from "./layouts"
+import {
+  applyClusterMode,
+  resetClusters,
+  shouldAutoCluster,
+  type ClusterableNetwork,
+  type ClusterMode,
+} from "./clustering"
 
 interface VisDataSet {
   update: (items: unknown) => void
@@ -28,27 +37,45 @@ interface Props {
   graphState: GraphState | null
   highlightPath?: string[]
   onClearHighlight?: () => void
+  /** Discovered attack paths (node-id sequences) for the chain walker. */
+  attackPaths?: string[][]
+  /** Externally-focused node (e.g. from clicking a finding/attack-log row). */
+  selectedNodeId?: string | null
+  /** Notifies the parent which node was clicked (for cross-linking). */
+  onNodeSelect?: (nodeId: string | null) => void
 }
 
-export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: Props) {
+export function KnowledgeGraph({
+  graphState,
+  highlightPath,
+  onClearHighlight,
+  attackPaths = [],
+  selectedNodeId,
+  onNodeSelect,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const networkRef = useRef<VisNetwork | null>(null)
   const nodesRef = useRef<VisDataSet | null>(null)
   const edgesRef = useRef<VisDataSet | null>(null)
+  const visNodesRef = useRef<VisNode[]>([])
+  const clusterIdsRef = useRef<string[]>([])
 
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("force")
+  const [clusterMode, setClusterMode] = useState<ClusterMode>("none")
   const [physicsEnabled, setPhysicsEnabled] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedNode, setSelectedNode] = useState<NodeDetail | null>(null)
   const [hiddenNodeTypes, setHiddenNodeTypes] = useState<Set<string>>(new Set())
   const [hiddenEdgeTypes, setHiddenEdgeTypes] = useState<Set<string>>(new Set())
   const [hiddenSeverities, setHiddenSeverities] = useState<Set<string>>(new Set())
+  const [walk, setWalk] = useState<{ path: string[]; step: number } | null>(null)
 
   const isLargeGraph = (graphState?.nodes.length ?? 0) > largeGraphNodeThreshold
 
   const nodeTypes = useMemo(() => (graphState ? presentNodeTypes(graphState) : []), [graphState])
   const edgeTypes = useMemo(() => (graphState ? presentEdgeTypes(graphState) : []), [graphState])
   const severities = useMemo(() => (graphState ? presentSeverities(graphState) : []), [graphState])
+  const hasAgents = nodeTypes.includes("agent")
 
   // Build / rebuild the network when the graph data changes.
   useEffect(() => {
@@ -60,6 +87,7 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
       if (cancelled || !containerRef.current) return
 
       const { nodes, edges } = graphStateToVis(graphState)
+      visNodesRef.current = nodes
       const nodesDS = new vis.DataSet(nodes)
       const edgesDS = new vis.DataSet(edges)
       nodesRef.current = nodesDS as unknown as VisDataSet
@@ -84,31 +112,45 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
           if (node) {
             const { id, node_type, ...rest } = node
             setSelectedNode({ id, type: node_type, attrs: rest })
+            onNodeSelect?.(id)
+            return
           }
-        } else {
-          setSelectedNode(null)
         }
+        setSelectedNode(null)
+        onNodeSelect?.(null)
       })
 
       networkRef.current = network
       setPhysicsEnabled(physicsDefaultFor(layoutMode, isLargeGraph))
+
+      // Auto-cluster large graphs by phase for a navigable overview.
+      if (shouldAutoCluster(graphState.nodes.length)) {
+        setClusterMode("phase")
+      }
     }
 
     loadNetwork()
     return () => {
       cancelled = true
     }
-    // layoutMode intentionally excluded — handled by setOptions below, no rebuild.
+    // layoutMode/clusterMode handled by dedicated effects (no rebuild).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphState, isLargeGraph])
 
   // Apply layout changes without rebuilding (preserves filters + selection).
   useEffect(() => {
     if (!networkRef.current) return
-    const opts = layoutOptions(layoutMode, isLargeGraph)
-    networkRef.current.setOptions(opts as unknown as VisOptions)
+    networkRef.current.setOptions(layoutOptions(layoutMode, isLargeGraph) as unknown as VisOptions)
     setPhysicsEnabled(physicsDefaultFor(layoutMode, isLargeGraph))
   }, [layoutMode, isLargeGraph])
+
+  // Apply clustering (collapse/expand into super-nodes).
+  useEffect(() => {
+    const network = networkRef.current as ClusterableNetwork | null
+    if (!network) return
+    resetClusters(network, clusterIdsRef.current)
+    clusterIdsRef.current = applyClusterMode(network, visNodesRef.current, clusterMode)
+  }, [clusterMode, graphState])
 
   // Apply type/severity/edge filters by toggling node/edge visibility.
   useEffect(() => {
@@ -126,20 +168,59 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
     )
   }, [graphState, hiddenNodeTypes, hiddenEdgeTypes, hiddenSeverities])
 
-  // Path highlighting — dim nodes not on the selected attack path. When the
-  // path is cleared, restore full opacity for every node (otherwise the graph
-  // stays dimmed until the next rebuild).
+  // Centralized node opacity. Priority: the attack-chain walker (while active)
+  // overrides the static path highlight; when the walker exits, the highlight
+  // is re-applied (or full opacity if nothing is highlighted). Keeping this in
+  // one effect avoids the two sources fighting over the same property.
   useEffect(() => {
     if (!nodesRef.current || !graphState) return
-    const active = highlightPath !== undefined && highlightPath.length > 0
-    const pathSet = new Set(highlightPath ?? [])
+
+    let opacityFor: (id: string) => number
+    if (walk) {
+      const pathSet = new Set(walk.path)
+      const current = walk.path[walk.step]
+      opacityFor = (id) => (id === current ? 1.0 : pathSet.has(id) ? 0.6 : 0.12)
+    } else if (highlightPath !== undefined && highlightPath.length > 0) {
+      const pathSet = new Set(highlightPath)
+      opacityFor = (id) => (pathSet.has(id) ? 1.0 : 0.15)
+    } else {
+      opacityFor = () => 1.0
+    }
+
     nodesRef.current.update(
-      graphState.nodes.map((n) => ({
-        id: n.id,
-        opacity: !active || pathSet.has(n.id) ? 1.0 : 0.15,
-      })),
+      graphState.nodes.map((n) => ({ id: n.id, opacity: opacityFor(n.id) })),
     )
-  }, [highlightPath, graphState])
+
+    // Focus the current walker step (best-effort — node may be clustered).
+    if (walk && networkRef.current) {
+      const current = walk.path[walk.step]
+      if (current) {
+        try {
+          networkRef.current.focus(current, {
+            scale: 1.3,
+            animation: { duration: 400, easingFunction: "easeInOutQuad" },
+          })
+          networkRef.current.selectNodes([current])
+        } catch {
+          // Node inside a cluster — ignore focus failure.
+        }
+      }
+    }
+  }, [walk, highlightPath, graphState])
+
+  // External focus (cross-linking from a finding / attack-log row).
+  useEffect(() => {
+    if (!networkRef.current || !selectedNodeId) return
+    try {
+      networkRef.current.focus(selectedNodeId, {
+        scale: 1.5,
+        animation: { duration: 500, easingFunction: "easeInOutQuad" },
+      })
+      networkRef.current.selectNodes([selectedNodeId])
+    } catch {
+      // Unknown / clustered node — ignore.
+    }
+  }, [selectedNodeId])
 
   const togglePhysics = useCallback(() => {
     if (!networkRef.current) return
@@ -187,15 +268,23 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
   return (
     <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-bg-tertiary">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-bg-tertiary">
         <GraphControls
           layoutMode={layoutMode}
           onLayoutChange={setLayoutMode}
+          clusterMode={clusterMode}
+          onClusterChange={setClusterMode}
+          hasAgents={hasAgents}
           physicsEnabled={physicsEnabled}
           onTogglePhysics={togglePhysics}
           onFit={fitView}
           showClear={Boolean(highlightPath && onClearHighlight)}
           onClear={() => onClearHighlight?.()}
+        />
+        <AttackChainWalker
+          paths={attackPaths}
+          onStep={(path, step) => setWalk({ path, step })}
+          onExit={() => setWalk(null)}
         />
         <div className="flex-1" />
         <div className="flex items-center gap-1">

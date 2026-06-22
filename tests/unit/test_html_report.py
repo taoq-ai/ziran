@@ -334,6 +334,20 @@ class TestBuildHtmlReport:
         assert "buildEdgeFilters" in html  # edge-type filter panel
         assert "data-node-type" in html
 
+    def test_includes_clustering_and_crosslink(
+        self,
+        sample_campaign_result: CampaignResult,
+        sample_graph_state: dict[str, Any],
+    ) -> None:
+        # Spec 026 US2: clustering controls + node→attack-log cross-link.
+        result_data = sample_campaign_result.model_dump(mode="json")
+        html = build_html_report(result_data, sample_graph_state)
+
+        assert "function setCluster(" in html  # collapse/expand clustering
+        assert "network.cluster(" in html
+        assert 'id="clusterSelect"' in html
+        assert "report-attack-" in html  # node click scrolls to attack-log card
+
     def test_uses_pinned_vis_network_version(
         self,
         sample_campaign_result: CampaignResult,

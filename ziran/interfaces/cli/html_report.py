@@ -564,6 +564,7 @@ def _build_attack_log_html(attack_results: list[dict[str, Any]]) -> str:
 
         for ar in results:
             successful = ar.get("successful", False)
+            vector_id = ar.get("vector_id", "")
             name = ar.get("vector_name", ar.get("vector_id", "unknown"))
             severity = ar.get("severity", "unknown")
             category = ar.get("category", "unknown").replace("_", " ")
@@ -589,8 +590,9 @@ def _build_attack_log_html(attack_results: list[dict[str, Any]]) -> str:
                 else "sev-low"
             )
 
+            anchor = f' id="report-attack-{html.escape(vector_id)}"' if vector_id else ""
             parts.append(
-                f'<details class="attack-card {result_cls}">'
+                f'<details class="attack-card {result_cls}"{anchor}>'
                 f'<summary class="attack-summary">'
                 f'  <span class="attack-icon">{icon}</span>'
                 f'  <span class="attack-name">{html.escape(name)}</span>'
@@ -1055,6 +1057,15 @@ _HTML_TEMPLATE = """\
     background: var(--accent);
     border-color: var(--accent);
   }}
+  .graph-controls select {{
+    background: var(--bg-card);
+    border: 1px solid #475569;
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+  }}
   /* Edge-type filter panel */
   .graph-filters {{
     position: absolute;
@@ -1218,6 +1229,11 @@ _HTML_TEMPLATE = """\
     <button onclick="setLayout('hierarchical', this)" id="layoutHierBtn">By Phase</button>
     <button onclick="fitGraph()">Fit View</button>
     <button onclick="togglePhysics(this)" id="physicsBtn">Pause Physics</button>
+    <select id="clusterSelect" onchange="setCluster(this.value)" title="Collapse nodes into groups">
+      <option value="none">No grouping</option>
+      <option value="phase">Group: phase</option>
+      <option value="nodeType">Group: type</option>
+    </select>
     <button onclick="resetHighlight()">Clear Highlight</button>
   </div>
 
@@ -1335,12 +1351,41 @@ function toggleEdgeType(cb) {{
   }});
 }})();
 
-// ── Click handler — show node detail ──────────────────────────────
+// ── Clustering (collapse nodes into labeled super-nodes) ──────────
+let clusterIds = [];
+function resetClusters() {{
+  clusterIds.forEach(id => {{ try {{ network.openCluster(id); }} catch (e) {{}} }});
+  clusterIds = [];
+}}
+function setCluster(mode) {{
+  resetClusters();
+  if (mode === 'none') return;
+  const counts = {{}};
+  rawNodes.forEach(n => {{ const k = n[mode]; if (k) counts[k] = (counts[k] || 0) + 1; }});
+  Object.keys(counts).forEach(key => {{
+    if (counts[key] < 2) return;
+    const id = 'cluster:' + mode + ':' + key;
+    network.cluster({{
+      joinCondition: o => o[mode] === key,
+      clusterNodeProperties: {{
+        id: id,
+        label: String(key).replace(/_/g, ' ') + ' (' + counts[key] + ')',
+        shape: 'database', color: '#475569',
+        font: {{ color: '#f8fafc', size: 13 }}, borderWidth: 2,
+      }},
+    }});
+    clusterIds.push(id);
+  }});
+}}
+
+// ── Click handler — show node detail + cross-link to attack log ───
 network.on('click', function(params) {{
   if (params.nodes.length > 0) {{
     const nodeId = params.nodes[0];
     const node = nodes.get(nodeId);
     showDetail(node);
+    const card = document.getElementById('report-attack-' + nodeId);
+    if (card) {{ card.open = true; card.scrollIntoView({{ behavior: 'smooth', block: 'center' }}); }}
   }} else {{
     closeDetail();
   }}
