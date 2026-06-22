@@ -348,6 +348,44 @@ class TestBuildHtmlReport:
         assert 'id="clusterSelect"' in html
         assert "report-attack-" in html  # node click scrolls to attack-log card
 
+    def test_phase_scrubber_present_with_per_phase_snapshots(
+        self,
+        sample_graph_state: dict[str, Any],
+    ) -> None:
+        # Spec 026 US3: per-phase snapshots drive an offline timeline scrubber.
+        result_data = {
+            "campaign_id": "t",
+            "target_agent": "a",
+            "total_vulnerabilities": 0,
+            "final_trust_score": 0.5,
+            "success": False,
+            "critical_paths": [],
+            "phases_executed": [
+                {"phase": "reconnaissance", "graph_state": {"nodes": [{"id": "n1"}], "edges": []}},
+                {
+                    "phase": "execution",
+                    "graph_state": {
+                        "nodes": [{"id": "n1"}, {"id": "n2"}],
+                        "edges": [],
+                    },
+                },
+            ],
+        }
+        html = build_html_report(result_data, sample_graph_state)
+        assert 'id="phaseScrubber"' in html
+        assert "function showPhase(" in html
+        assert "const phaseStates =" in html
+
+    def test_phase_scrubber_absent_for_legacy_runs(
+        self,
+        sample_graph_state: dict[str, Any],
+    ) -> None:
+        # Older runs carry no per-phase snapshots; the scrubber stays empty.
+        from ziran.interfaces.cli.html_report import _build_phase_states
+
+        result_data = {"phases_executed": [{"phase": "recon", "graph_state": None}]}
+        assert _build_phase_states(result_data) == []
+
     def test_uses_pinned_vis_network_version(
         self,
         sample_campaign_result: CampaignResult,
