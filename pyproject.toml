@@ -182,6 +182,7 @@ init_typed = true
 [[tool.mypy.overrides]]
 module = [
     "langchain.*",
+    "langchain_classic.*",
     "langchain_core.*",
     "langchain_openai.*",
     "crewai.*",
