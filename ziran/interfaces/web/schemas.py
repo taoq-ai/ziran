@@ -68,6 +68,9 @@ class PhaseResultSchema(BaseModel):
     token_usage_json: dict[str, Any]
     vulnerabilities_found: list[Any]
     discovered_capabilities: list[Any]
+    # Per-phase knowledge-graph snapshot for the temporal scrubber. Null for
+    # runs created before spec-026 (clients fall back to RunDetail.graph_state_json).
+    graph_state_json: dict[str, Any] | None = None
     error: str | None
 
     model_config = {"from_attributes": True}

@@ -176,6 +176,8 @@ class RunManager:
                             token_usage_json=pr.token_usage,
                             vulnerabilities_found=pr.vulnerabilities_found,
                             discovered_capabilities=pr.discovered_capabilities,
+                            # Per-phase snapshot powers the temporal scrubber.
+                            graph_state_json=pr.graph_state or None,
                             error=pr.error,
                         )
                         session.add(phase_row)

@@ -9,9 +9,21 @@ How to read and act on ZIRAN scan results.
 The interactive HTML report includes:
 
 - **Campaign summary** — Overall metrics and status
-- **Knowledge graph** — Interactive visualization of agent capabilities and attack paths
+- **Knowledge graph** — Interactive visualization of agent capabilities and attack paths (see below)
 - **Phase timeline** — Results from each scan phase
 - **Dangerous tool chains** — Highlighted with risk levels and remediation
+
+#### Working with the knowledge graph
+
+The graph is the same interactive component in both the HTML report and the web UI:
+
+- **Layout modes** — switch between *Force*, *By phase* (hierarchical bands per campaign phase), and *Centrality*.
+- **Importance at a glance** — node size reflects betweenness centrality (chokepoints look bigger), severity drives node color/border, dangerous capabilities are marked, and attack edges (`exploits`/`can_chain_to`/`leads_to`) are emphasized.
+- **Filter** — the legend toggles node types, edge types, and severity bands; text search and path highlighting are also available.
+- **Drill down** — collapse into super-nodes by phase/type/agent (large graphs auto-cluster), step a discovered attack path with the **chain walker**, and click a node to jump to its **attack-log** entry (and back).
+- **Replay over time** — the **phase timeline scrubber** steps the graph through each phase so you watch the campaign grow; older runs fall back to the final state.
+
+See [Knowledge Graph](../concepts/knowledge-graph.md) for the full reference.
 
 ### Markdown Report
 

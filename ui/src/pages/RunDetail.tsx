@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   AlertTriangle,
   CheckCircle,
@@ -11,9 +12,21 @@ import { useCancelRun, useRun } from "../api/runs"
 import { downloadRunMarkdown, downloadRunYaml } from "../api/export"
 import { OwaspMatrix } from "../components/compliance/OwaspMatrix"
 import { KnowledgeGraph } from "../components/graph/KnowledgeGraph"
+import { PhaseScrubber } from "../components/graph/PhaseScrubber"
+import { AttackLogPanel, type AttackResult } from "../components/run/AttackLogPanel"
 import type { GraphState } from "../types"
 import { useRunProgress } from "../hooks/useWebSocket"
 import type { RunStatus } from "../types"
+
+function extractAttackResults(result: Record<string, unknown> | null): AttackResult[] {
+  const raw = result?.attack_results
+  return Array.isArray(raw) ? (raw as AttackResult[]) : []
+}
+
+function extractAttackPaths(result: Record<string, unknown> | null): string[][] {
+  const raw = result?.critical_paths
+  return Array.isArray(raw) ? (raw as string[][]) : []
+}
 
 const statusIcons: Record<RunStatus, React.ReactNode> = {
   pending: <Clock className="h-5 w-5 text-severity-warning-yellow" />,
@@ -30,6 +43,9 @@ export function RunDetail() {
     run?.status === "running" ? id : undefined
   )
   const cancelRun = useCancelRun()
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  // null => show the final end-state; a number => that phase's snapshot.
+  const [scrubIndex, setScrubIndex] = useState<number | null>(null)
 
   if (isLoading) {
     return <div className="text-center text-fg-secondary py-10">Loading...</div>
@@ -38,6 +54,23 @@ export function RunDetail() {
   if (!run) {
     return <div className="text-center text-fg-secondary py-10">Run not found</div>
   }
+
+  const finalGraph = run.graph_state_json as unknown as GraphState | null
+  const orderedPhases = [...run.phase_results].sort((a, b) => a.phase_index - b.phase_index)
+  const phaseSnapshots = orderedPhases.map((p) => p.graph_state_json ?? null)
+  // Only offer temporal scrubbing when the run actually carries per-phase
+  // snapshots (older runs fall back to the final state only).
+  const hasSnapshots = phaseSnapshots.some((s) => (s?.nodes?.length ?? 0) > 0)
+  const lastStop = orderedPhases.length - 1
+  const activeStop = scrubIndex ?? lastStop
+  // Nearest non-null snapshot at/before the active stop, else the final state.
+  const displayedGraph = ((): GraphState | null => {
+    if (!hasSnapshots || scrubIndex === null) return finalGraph
+    for (let i = activeStop; i >= 0; i--) {
+      if (phaseSnapshots[i]?.nodes?.length) return phaseSnapshots[i]
+    }
+    return finalGraph
+  })()
 
   return (
     <div>
@@ -152,10 +185,41 @@ export function RunDetail() {
       )}
 
       {/* Knowledge Graph */}
-      {run.graph_state_json && (
+      {finalGraph && (
         <div className="mb-6 relative">
           <h3 className="text-lg font-medium mb-3">Knowledge Graph</h3>
-          <KnowledgeGraph graphState={run.graph_state_json as unknown as GraphState} />
+          <KnowledgeGraph
+            graphState={displayedGraph}
+            attackPaths={extractAttackPaths(run.result_json)}
+            selectedNodeId={selectedNodeId}
+            onNodeSelect={(nodeId) => {
+              setSelectedNodeId(nodeId)
+              if (nodeId) {
+                document
+                  .getElementById(`attack-${nodeId}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+            }}
+          />
+          {hasSnapshots && (
+            <PhaseScrubber
+              phaseLabels={orderedPhases.map((p) => p.phase)}
+              value={activeStop}
+              onChange={setScrubIndex}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Attack log — cross-linked with the graph */}
+      {extractAttackResults(run.result_json).length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-lg font-medium mb-3">Attack Log</h3>
+          <AttackLogPanel
+            results={extractAttackResults(run.result_json)}
+            selectedNodeId={selectedNodeId}
+            onSelect={setSelectedNodeId}
+          />
         </div>
       )}
 

@@ -39,6 +39,8 @@ export interface PhaseResult {
   vulnerabilities_found: string[]
   discovered_capabilities: string[]
   error: string | null
+  /** Per-phase knowledge-graph snapshot (P3 temporal scrubbing); null on older runs. */
+  graph_state_json?: GraphState | null
 }
 
 export interface RunDetail extends RunSummary {
@@ -198,6 +200,15 @@ export interface LibraryStats {
 export interface GraphNode {
   id: string
   node_type: string
+  /** Normalized betweenness centrality (0..1) — drives node size. */
+  centrality?: number
+  /** Severity band (critical/high/medium/low/info) — drives border emphasis. */
+  severity?: string
+  /** Campaign phase the node was discovered in — drives hierarchical layout. */
+  phase?: string
+  /** Whether this node is a dangerous capability — drives the danger marker. */
+  dangerous?: boolean
+  risk_score?: number
   [key: string]: unknown
 }
 
@@ -205,6 +216,8 @@ export interface GraphEdge {
   source: string
   target: string
   edge_type: string
+  risk_score?: number
+  chain_position?: number
   [key: string]: unknown
 }
 
