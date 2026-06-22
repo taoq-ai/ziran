@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from ziran.application.knowledge_graph.graph import EdgeType, NodeType
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
@@ -52,6 +53,14 @@ class TestGraphStyleSpec:
         assert spec.size_for_centrality(None) == pytest.approx(lo)
         assert spec.size_for_centrality(2.0) == pytest.approx(hi)
         assert spec.size_for_centrality(-1.0) == pytest.approx(lo)
+
+    def test_size_encoding_rejects_non_positive_span(self) -> None:
+        from ziran.interfaces.graph_style.spec import SizeEncoding
+
+        with pytest.raises(ValidationError):
+            SizeEncoding(min_size=20, max_size=20)
+        with pytest.raises(ValidationError):
+            SizeEncoding(min_size=30, max_size=10)
 
     def test_node_style_fallback(self) -> None:
         spec = load_graph_style()

@@ -126,12 +126,18 @@ export function KnowledgeGraph({ graphState, highlightPath, onClearHighlight }: 
     )
   }, [graphState, hiddenNodeTypes, hiddenEdgeTypes, hiddenSeverities])
 
-  // Path highlighting — dim nodes not on the selected attack path.
+  // Path highlighting — dim nodes not on the selected attack path. When the
+  // path is cleared, restore full opacity for every node (otherwise the graph
+  // stays dimmed until the next rebuild).
   useEffect(() => {
-    if (!nodesRef.current || !highlightPath || highlightPath.length === 0 || !graphState) return
-    const pathSet = new Set(highlightPath)
+    if (!nodesRef.current || !graphState) return
+    const active = highlightPath !== undefined && highlightPath.length > 0
+    const pathSet = new Set(highlightPath ?? [])
     nodesRef.current.update(
-      graphState.nodes.map((n) => ({ id: n.id, opacity: pathSet.has(n.id) ? 1.0 : 0.15 })),
+      graphState.nodes.map((n) => ({
+        id: n.id,
+        opacity: !active || pathSet.has(n.id) ? 1.0 : 0.15,
+      })),
     )
   }, [highlightPath, graphState])
 
