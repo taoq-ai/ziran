@@ -367,11 +367,11 @@ class TestCiCommand:
             )
         assert result.exit_code in (0, 1)
 
-    def test_ci_with_sarif(self, runner: CliRunner) -> None:
+    def test_ci_with_sarif(self, runner: CliRunner, tmp_path: Path) -> None:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json.dump(_minimal_campaign_result(), f)
             f.flush()
-            sarif_path = tempfile.mktemp(suffix=".sarif")
+            sarif_path = str(tmp_path / "out.sarif")
             result = runner.invoke(
                 cli,
                 [

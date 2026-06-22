@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import urlparse
 
 import pytest
 
@@ -1427,7 +1428,8 @@ class TestResetChatAfterProbe:
 
         # Page should be navigated to the original URL
         mock_page.goto.assert_called_once()
-        assert "chat.example.com" in str(mock_page.goto.call_args)
+        goto_url = str(mock_page.goto.call_args.args[0])
+        assert urlparse(goto_url).hostname == "chat.example.com"
 
         # Cookie banner dismissal should be attempted
         adapter._dismiss_cookie_banner.assert_called_once()
