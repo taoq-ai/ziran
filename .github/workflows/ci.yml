@@ -97,6 +97,7 @@ jobs:
           --ignore-vuln GHSA-mhr3-j7m5-c7c9
           --ignore-vuln GHSA-w8v5-vhqr-4h9v
           --ignore-vuln GHSA-r7w7-9xr2-qq2r
+          --ignore-vuln GHSA-f4xh-w4cj-qxq8
 
       - name: Frontend audit (npm)
         working-directory: ui

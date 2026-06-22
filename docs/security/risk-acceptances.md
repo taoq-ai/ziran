@@ -54,6 +54,7 @@ and the vulnerable code path is not exercised by ZIRAN. GH dismissal reason: `no
 | #41 | diskcache | medium | GHSA-w8v5-vhqr-4h9v — unsafe pickle deserialization | not imported by ZIRAN (0 refs); no untrusted cache loaded | not_used | diskcache becomes used |
 | #40 | langchain-core | low | GHSA-2g6r-c272-w58r — SSRF via image token counting | image token counting not used | not_used | as above |
 | #70 | langchain-openai | low | GHSA-r7w7-9xr2-qq2r — image token counting SSRF (DNS rebinding) | not used | not_used | as above |
+| #111 | langsmith | high | GHSA-f4xh-w4cj-qxq8 — LangSmith SDK TracingMiddleware arbitrary server-side file read | ZIRAN does not use the LangSmith SDK / TracingMiddleware (0 refs); langsmith is a transitive dep of langchain-core, pinned at 0.8.5 (<0.8.18) by the crewai-blocked langchain family | not_used | crewai loosened / langchain upgradable |
 
 > **Resolved by upgrade (not accepted):** `pytest` (GHSA-6w46-j5rx-g56g) was **fixed** by relaxing
 > the dev cap `<9`→`<10` and bumping to 9.1.1 (full suite green) — it is not in this table.
