@@ -18,6 +18,17 @@ try:
 except ImportError:
     _HAS_CREWAI = False
 
+try:
+    # crewai 1.x: kickoff() returns a CrewOutput, not a str — the adapter relies
+    # on str(CrewOutput) yielding the raw text. Guarded separately so a future
+    # internal-path change skips this one test rather than the whole module.
+    from crewai.crews.crew_output import CrewOutput
+    from crewai.types.usage_metrics import UsageMetrics
+
+    _HAS_CREW_OUTPUT = True
+except ImportError:
+    _HAS_CREW_OUTPUT = False
+
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(not _HAS_CREWAI, reason="crewai extras not installed"),
@@ -64,6 +75,27 @@ class TestCrewAIAdapterIntegration:
         response = await adapter.invoke("Analyze security posture")
         assert "Analysis complete" in response.content
         crew.kickoff.assert_called_once()
+
+    @pytest.mark.skipif(not _HAS_CREW_OUTPUT, reason="crewai CrewOutput not importable")
+    async def test_invoke_extracts_text_from_crewoutput(self) -> None:
+        """crewai 1.x kickoff() returns a CrewOutput; the adapter must extract its text.
+
+        Guards the major-version upgrade (spec 025 / #332): the mocked-string test
+        above would not catch a regression where the adapter stops handling the real
+        CrewOutput return type.
+        """
+        from ziran.infrastructure.adapters.crewai_adapter import CrewAIAdapter
+
+        crew = _build_mock_crew()
+        crew.kickoff.return_value = CrewOutput(
+            raw="Real CrewOutput payload.",
+            tasks_output=[],
+            token_usage=UsageMetrics(),
+        )
+        adapter = CrewAIAdapter(crew)
+
+        response = await adapter.invoke("Analyze security posture")
+        assert response.content == "Real CrewOutput payload."
 
     async def test_state_lifecycle(self) -> None:
         from ziran.infrastructure.adapters.crewai_adapter import CrewAIAdapter

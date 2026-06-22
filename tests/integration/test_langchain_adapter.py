@@ -25,7 +25,7 @@ pytestmark = [
 
 def _build_agent_executor() -> Any:
     """Build a minimal ReAct agent backed by FakeListLLM."""
-    from langchain.agents import AgentExecutor, create_react_agent
+    from langchain_classic.agents import AgentExecutor, create_react_agent
     from langchain_community.llms.fake import FakeListLLM
     from langchain_core.prompts import PromptTemplate
     from langchain_core.tools import tool as lc_tool

@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-06-18
+Auto-generated from all feature plans. Last updated: 2026-06-22
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -27,6 +27,10 @@ Auto-generated from all feature plans. Last updated: 2026-06-18
 - YAML for CVE-modeled ground-truth agents (`benchmarks/ground_truth/agents/`); JSON cassettes for recorded agent runs (`benchmarks/ground_truth/pentest_runs/`); JSON results + baseline under `benchmarks/results/` (existing pattern). (022-pentest-vs-scanner-benchmark)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`ManyShotConfig` model + validators), PyYAML (vectors + synthetic corpus loading), existing `AttackLibrary` / `AttackExecutor` / `AgentScanner`. No new runtime dependencies (token estimate is a char heuristic, not `tiktoken`). (023-many-shot-jailbreak)
 - YAML — the vector file (`ziran/application/attacks/vectors/many_shot_jailbreak.yaml`) and a synthetic shot corpus (`ziran/application/attacks/vectors/many_shot_corpus.yaml`). (023-many-shot-jailbreak)
+- Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / Node frontend — *no new source code*, only manifests, lockfiles, CI workflows, and docs. + package managers + audit tooling — `uv` (Python lock/sync), `npm` (frontend lock), `pip-audit` (Python vuln gate), `npm audit` (frontend vuln gate). No new runtime dependencies in `ziran/`. (024-security-alert-remediation)
+- N/A (no data store). The committed risk-acceptance record (`docs/security/risk-acceptances.md`) is the only new persisted artifact. (024-security-alert-remediation)
+- Python 3.11+ (CI matrix 3.11/3.12/3.13); TypeScript frontend unaffected. (025-dependency-modernization)
+- N/A. Touched persisted artifact: `docs/security/risk-acceptances.md` (rows removed). (025-dependency-modernization)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -46,9 +50,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 025-dependency-modernization: Added Python 3.11+ (CI matrix 3.11/3.12/3.13); TypeScript frontend unaffected.
+- 024-security-alert-remediation: Added Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / Node frontend — *no new source code*, only manifests, lockfiles, CI workflows, and docs. + package managers + audit tooling — `uv` (Python lock/sync), `npm` (frontend lock), `pip-audit` (Python vuln gate), `npm audit` (frontend vuln gate). No new runtime dependencies in `ziran/`.
 - 023-many-shot-jailbreak: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`ManyShotConfig` model + validators), PyYAML (vectors + synthetic corpus loading), existing `AttackLibrary` / `AttackExecutor` / `AgentScanner`. No new runtime dependencies (token estimate is a char heuristic, not `tiktoken`).
-- 022-pentest-vs-scanner-benchmark: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cassette + comparison + result models), PyYAML (CVE target definitions, reusing spec-007 schema), Click/argparse (benchmark CLI), existing `AgentScanner` + `PentestOrchestrator`. Recording (opt-in) additionally needs the existing `pentest` extra (langgraph) + a live `BaseLLMClient`. No new runtime dependencies.
-- 021-detection-accuracy-benchmark: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (threshold + dataset models), PyYAML (dataset + config loading, reusing `load_yaml_with_env`), Click (benchmark CLI entry point), existing `ziran.application.detectors` pipeline. No new runtime dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->

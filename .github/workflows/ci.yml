@@ -13,15 +13,15 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -37,15 +37,15 @@ jobs:
   typecheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -54,3 +54,63 @@ jobs:
 
       - name: Mypy
         run: uv run mypy ziran
+
+  dependency-audit:
+    # Prevention gate (spec 024, #330): blocks a PR that introduces a new known
+    # vulnerability. pip-audit has no native severity filter, so it fails on ANY
+    # un-ignored advisory — which matches the "all severities to zero" policy
+    # (clarification Q3); npm audit fails on high or above (a known low esbuild
+    # dev-server advisory is below threshold). Accepted-risk advisories
+    # (--ignore-vuln below) mirror the pip rows in docs/security/risk-acceptances.md
+    # — keep the two lists in sync.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Export full dependency set
+        run: >-
+          uv export --frozen --no-emit-project --all-extras
+          --format requirements-txt -o /tmp/requirements.txt
+
+      - name: Python audit (pip-audit)
+        run: >-
+          uvx pip-audit -r /tmp/requirements.txt --no-deps
+          --ignore-vuln GHSA-f4j7-r4q5-qw2c
+          --ignore-vuln GHSA-w8v5-vhqr-4h9v
+          --ignore-vuln GHSA-gr75-jv2w-4656
+          --ignore-vuln GHSA-f4xh-w4cj-qxq8
+
+      - name: Frontend audit (npm)
+        working-directory: ui
+        run: npm audit --audit-level=high
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install
+        working-directory: ui
+        run: npm ci
+
+      - name: Build
+        working-directory: ui
+        run: npm run build
+
+      - name: Lint
+        working-directory: ui
+        run: npm run lint

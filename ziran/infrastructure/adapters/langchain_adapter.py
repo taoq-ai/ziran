@@ -20,7 +20,8 @@ from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgent
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 
 if TYPE_CHECKING:
-    from langchain.agents import AgentExecutor
+    # langchain 1.0 moved the classic AgentExecutor to the langchain-classic package.
+    from langchain_classic.agents import AgentExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class LangChainAdapter(BaseAgentAdapter):
 
     Example:
         ```python
-        from langchain.agents import AgentExecutor
+        from langchain_classic.agents import AgentExecutor
         from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
 
         agent_executor = AgentExecutor(agent=agent, tools=tools)
