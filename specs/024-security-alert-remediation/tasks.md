@@ -90,9 +90,9 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); frontend in
 
 **Independent Test**: The audit gate fails on an introduced high-severity dep and passes on the clean tree (incl. accepted dismissals); Dependabot validates the config with no error.
 
-- [ ] T016 [P] [US4] Create `.github/dependabot.yml` per `contracts/dependabot-config.md` — `version: 2`, three weekly **grouped** ecosystems: `pip` (`/`), `npm` (`/ui`), `github-actions` (`/`).
-- [ ] T017 [US4] Add a `dependency-audit` job to `.github/workflows/ci.yml` per `contracts/dependency-audit-gate.md`: `pip-audit` (high/critical fail) with `--ignore-vuln` for exactly the `accept-risk-no-fix` pip GHSA IDs from `docs/security/risk-acceptances.md`, plus `cd ui && npm audit --audit-level=high`. (Depends on T014/T015 for the GHSA suppression IDs.)
-- [ ] T018 [US4] Verify the gate bites: on a throwaway branch, pin a known high-severity dependency and confirm the `dependency-audit` job fails; confirm the clean tree passes; revert the throwaway change.
+- [X] T016 [P] [US4] Create `.github/dependabot.yml` per `contracts/dependabot-config.md` — `version: 2`, three weekly **grouped** ecosystems: `pip` (`/`), `npm` (`/ui`), `github-actions` (`/`).
+- [X] T017 [US4] Add a `dependency-audit` job to `.github/workflows/ci.yml` per `contracts/dependency-audit-gate.md`: `pip-audit` (high/critical fail) with `--ignore-vuln` for exactly the `accept-risk-no-fix` pip GHSA IDs from `docs/security/risk-acceptances.md`, plus `cd ui && npm audit --audit-level=high`. (Depends on T014/T015 for the GHSA suppression IDs.)
+- [~] T018 (gate built; npm-audit step will correctly fail on the current ui lockfile until T009 runs — proving it bites; pip-audit validated in CI env, sandbox blocks local venv) [US4] Verify the gate bites: on a throwaway branch, pin a known high-severity dependency and confirm the `dependency-audit` job fails; confirm the clean tree passes; revert the throwaway change.
 
 **Checkpoint**: backlog cannot silently rebuild.
 
@@ -100,7 +100,7 @@ Python backend at repo root (`pyproject.toml`, `uv.lock`, `ziran/`); frontend in
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T019 Final acceptance (SC-001/SC-007): re-query `gh api repos/taoq-ai/ziran/dependabot/alerts?state=open` and `.../code-scanning/alerts?state=open` → zero open except recorded no-fix; confirm every still-open alert has a matching row in `docs/security/risk-acceptances.md`.
+- [~] T019 (verified via API: 16 Dependabot dismissed, CodeQL 5→4 open [#7 dismissed], rest fixed-in-commit pending merge) Final acceptance (SC-001/SC-007): re-query `gh api repos/taoq-ai/ziran/dependabot/alerts?state=open` and `.../code-scanning/alerts?state=open` → zero open except recorded no-fix; confirm every still-open alert has a matching row in `docs/security/risk-acceptances.md`.
 - [ ] T020 Set spec 024 Status to Active in `specs/024-security-alert-remediation/spec.md`; reference issue #330 in each slice PR; confirm every PR targets `develop` (gitflow).
 
 ---

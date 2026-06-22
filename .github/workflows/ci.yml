@@ -54,3 +54,50 @@ jobs:
 
       - name: Mypy
         run: uv run mypy ziran
+
+  dependency-audit:
+    # Prevention gate (spec 024, #330): fail on a NEW high/critical known vuln in
+    # either ecosystem. Accepted-risk advisories below mirror the pip rows in
+    # docs/security/risk-acceptances.md — keep the two lists in sync.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Export full dependency set
+        run: >-
+          uv export --frozen --no-emit-project --all-extras
+          --format requirements-txt -o /tmp/requirements.txt
+
+      - name: Python audit (pip-audit)
+        run: >-
+          uvx pip-audit -r /tmp/requirements.txt --no-deps
+          --ignore-vuln GHSA-4xpc-pv4p-pm3w
+          --ignore-vuln GHSA-jjhc-v7c2-5hh6
+          --ignore-vuln GHSA-v4p8-mg3p-g94g
+          --ignore-vuln GHSA-69x8-hrgq-fjj8
+          --ignore-vuln GHSA-53mr-6c8q-9789
+          --ignore-vuln GHSA-f4j7-r4q5-qw2c
+          --ignore-vuln GHSA-pjwx-r37v-7724
+          --ignore-vuln GHSA-qh6h-p6c9-ff54
+          --ignore-vuln GHSA-2g6r-c272-w58r
+          --ignore-vuln GHSA-3644-q5cj-c5c7
+          --ignore-vuln GHSA-gr75-jv2w-4656
+          --ignore-vuln GHSA-fv5p-p927-qmxr
+          --ignore-vuln GHSA-g48c-2wqr-h844
+          --ignore-vuln GHSA-mhr3-j7m5-c7c9
+          --ignore-vuln GHSA-w8v5-vhqr-4h9v
+          --ignore-vuln GHSA-r7w7-9xr2-qq2r
+
+      - name: Frontend audit (npm)
+        working-directory: ui
+        run: npm audit --audit-level=high
