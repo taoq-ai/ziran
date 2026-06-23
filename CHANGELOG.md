@@ -1,5 +1,92 @@
 # Changelog
 
+## [0.35.0](https://github.com/taoq-ai/ziran/compare/v0.34.0...v0.35.0) (2026-06-22)
+
+
+### Features
+
+* **graph:** drill-down — clustering, chain walker, cross-linking (PR2: US2) ([0996929](https://github.com/taoq-ai/ziran/commit/0996929a8c0b167092daba13765d3cea7fa36348))
+* **graph:** drill-down — clustering, chain walker, cross-linking (PR2/US2) ([5c5ee19](https://github.com/taoq-ai/ziran/commit/5c5ee190ffb0ebf45bb5141afc0aa2e34d40153c)), closes [#331](https://github.com/taoq-ai/ziran/issues/331)
+* **graph:** richer, less-flat knowledge graph viz (P1+P4) ([e692c0e](https://github.com/taoq-ai/ziran/commit/e692c0e8efb50444ecfce47f7903d8f91e05b6a8)), closes [#331](https://github.com/taoq-ai/ziran/issues/331)
+* **graph:** richer, less-flat knowledge graph viz (PR1: P1+P4) ([338ee66](https://github.com/taoq-ai/ziran/commit/338ee66e470f7ab75b3abc426ad5610c2599a237))
+* **graph:** temporal scrubber + per-phase persistence (PR3: US3) ([6cc592b](https://github.com/taoq-ai/ziran/commit/6cc592b43a7fb2ab36b50c814436d98b772b4380))
+* **graph:** temporal scrubber + per-phase persistence (PR3/US3) ([7888897](https://github.com/taoq-ai/ziran/commit/78888977a3429d703396f2d0a7ac4d11b17dbe8c)), closes [#331](https://github.com/taoq-ai/ziran/issues/331)
+
+
+### Bug Fixes
+
+* **graph:** address PR1 review — reset highlight, guard size span, doc ([835d9b2](https://github.com/taoq-ai/ziran/commit/835d9b2094b7065549bf7e7c7af7471dadecf2cd))
+* **graph:** centralize node opacity (PR2 review) ([6d43438](https://github.com/taoq-ai/ziran/commit/6d43438be342652e323d5259f112c0bb904101cc))
+* **ui:** drop deprecated tsconfig baseUrl (TS6/7 compat) ([e1bd111](https://github.com/taoq-ai/ziran/commit/e1bd1116c8b8e3de491428639c218bc5eb3a66fc))
+
+## [0.34.0](https://github.com/taoq-ai/ziran/compare/v0.33.0...v0.34.0) (2026-06-22)
+
+
+### Features
+
+* **deps:** modernize framework stack to retire security dismissals (spec 025, [#332](https://github.com/taoq-ai/ziran/issues/332)) ([7536508](https://github.com/taoq-ai/ziran/commit/7536508c2fce41790895c1db229e94dcde9406e0))
+* **deps:** modernize framework stack to retire security dismissals (spec 025, [#332](https://github.com/taoq-ai/ziran/issues/332)) ([36cd3d1](https://github.com/taoq-ai/ziran/commit/36cd3d1174edb907e9ff582535aa6cc02fbb7f8b))
+
+
+### Bug Fixes
+
+* **security:** accept-risk langsmith TracingMiddleware advisory (spec 024, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([b7dde4e](https://github.com/taoq-ai/ziran/commit/b7dde4eeaed508cf65c9dc491649af4e79f154e8))
+* **security:** clear GitHub Security backlog + add prevention gate (spec 024, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([821f1fe](https://github.com/taoq-ai/ziran/commit/821f1fe30f88e6f46260a1e90b8795d799920bc5))
+* **security:** P1 dependency + code-scanning remediation (spec 024, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([1a5d8a3](https://github.com/taoq-ai/ziran/commit/1a5d8a30d4f1755b0a46535f3ed3f2f80cba3f50))
+* **security:** refresh ui/package-lock.json via CI (spec 024 T009, [#330](https://github.com/taoq-ai/ziran/issues/330)) ([eb5eaf2](https://github.com/taoq-ai/ziran/commit/eb5eaf243f586fff8cbc0fca12c83801d3f37aec))
+* **typecheck:** add langchain_classic.* to mypy ignore_missing_imports (spec 025) ([40d077b](https://github.com/taoq-ai/ziran/commit/40d077b83a740195c76f0db628fdfadf38a33125))
+
+## [0.33.0](https://github.com/taoq-ai/ziran/compare/v0.32.0...v0.33.0) (2026-06-18)
+
+
+### Features
+
+* **attacks:** many-shot jailbreaking vector category (spec 023, [#276](https://github.com/taoq-ai/ziran/issues/276)) ([1a195ba](https://github.com/taoq-ai/ziran/commit/1a195bab652384efe42245cb2ce88641609ad98a))
+* **attacks:** many-shot jailbreaking vector category (spec 023, [#276](https://github.com/taoq-ai/ziran/issues/276)) ([f0d88d0](https://github.com/taoq-ai/ziran/commit/f0d88d05975ecd821cdea69220437399a82729ab))
+* **benchmarks:** detection-accuracy harness + dataset schema (spec 021, US1) ([316eac1](https://github.com/taoq-ai/ziran/commit/316eac17525dbce8270587aa16e930083519efd6)), closes [#279](https://github.com/taoq-ai/ziran/issues/279)
+* **benchmarks:** detection-accuracy regression gate + CI (spec 021, US3) ([493fbf5](https://github.com/taoq-ai/ziran/commit/493fbf5ce7c831b157447f8795054ba00dac5ab9)), closes [#279](https://github.com/taoq-ai/ziran/issues/279)
+* **benchmarks:** pentest-vs-scanner eval foundation + comparison engine (spec 022, [#280](https://github.com/taoq-ai/ziran/issues/280)) ([e7032e3](https://github.com/taoq-ai/ziran/commit/e7032e3903b43872d51a0875b87e3d6d6eaeca9f))
+* **benchmarks:** pentest-vs-scanner eval foundation + comparison engine (spec 022) ([327869e](https://github.com/taoq-ai/ziran/commit/327869e316a12b1e81de5bf98482891c4a30cbe9)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** pentest-vs-scanner live recording — --mode record (spec 022, [#280](https://github.com/taoq-ai/ziran/issues/280), US2) ([d058068](https://github.com/taoq-ai/ziran/commit/d058068330805e3b11b14f569e817c5084df6da1))
+* **benchmarks:** pentest-vs-scanner live recording — --mode record (spec 022, US2) ([4aff580](https://github.com/taoq-ai/ziran/commit/4aff580fe0a49216a9d81047cdd299a08d52fee3)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** pentest-vs-scanner regression gate + weekly CI (spec 022, [#280](https://github.com/taoq-ai/ziran/issues/280), US3) ([74de2b7](https://github.com/taoq-ai/ziran/commit/74de2b76ec13ae98b3d5a48cc27b0c9e795e005e))
+* **benchmarks:** pentest-vs-scanner regression gate + weekly CI (spec 022, US3) ([5354cf2](https://github.com/taoq-ai/ziran/commit/5354cf2655b0b224b62039c68d9a276e37c063d4)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** pentest-vs-scanner US1 harness — live scanner + comparison (spec 022, [#280](https://github.com/taoq-ai/ziran/issues/280)) ([a2de7f0](https://github.com/taoq-ai/ziran/commit/a2de7f0a1d2569324d1a0772b6c28d64dcee114b))
+* **benchmarks:** pentest-vs-scanner US1 harness — live scanner + comparison (spec 022) ([dbddb6c](https://github.com/taoq-ai/ziran/commit/dbddb6cfaf18b77a53339cde0effddba12e4aa9b)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** scale detection dataset to 220 + publish baseline ([#279](https://github.com/taoq-ai/ziran/issues/279)) ([1c7a0e6](https://github.com/taoq-ai/ziran/commit/1c7a0e6d1e6409c7d703b9eedda807e4de6407b7))
+* **benchmarks:** scale detection dataset to 220 examples + publish baseline ([#279](https://github.com/taoq-ai/ziran/issues/279)) ([027dd17](https://github.com/taoq-ai/ziran/commit/027dd179c576d8a60b91a9048aee385a49b802f5))
+* **detectors:** configurable decision thresholds (spec 021, US2) ([ee1d4ed](https://github.com/taoq-ai/ziran/commit/ee1d4ed5d1df386bbe66cf5ab3b351b63f598e12)), closes [#279](https://github.com/taoq-ai/ziran/issues/279)
+* **detectors:** detection-accuracy benchmark + threshold tuning (spec 021, [#279](https://github.com/taoq-ai/ziran/issues/279)) ([770277a](https://github.com/taoq-ai/ziran/commit/770277a398577b73ea5864293d7cce06eec3207a))
+
+
+### Bug Fixes
+
+* **attacks:** address Copilot review on many-shot PR (spec 023) ([2a3707b](https://github.com/taoq-ai/ziran/commit/2a3707b7e240a43e25d4153f4887cba88e06a0d5))
+* **benchmarks:** address PR [#322](https://github.com/taoq-ai/ziran/issues/322) review feedback (spec 022) ([f626b7b](https://github.com/taoq-ai/ziran/commit/f626b7b9d32adecdcc033cfbc564b22c29f47123)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** address PR [#323](https://github.com/taoq-ai/ziran/issues/323) review feedback (spec 022) ([4d5d6de](https://github.com/taoq-ai/ziran/commit/4d5d6de0b638f5abbdbb431cbcddd503119979d0)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** address PR [#324](https://github.com/taoq-ai/ziran/issues/324) review feedback (spec 022) ([bc293bf](https://github.com/taoq-ai/ziran/commit/bc293bf302ddec3a26bc9612e9c525a8a82e7ec9)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** address PR [#325](https://github.com/taoq-ai/ziran/issues/325) review feedback (spec 022) ([5953e16](https://github.com/taoq-ai/ziran/commit/5953e16adef468761d6cb2389d4bba9e68f19a09)), closes [#280](https://github.com/taoq-ai/ziran/issues/280)
+* **benchmarks:** address PR review feedback (spec 021) ([ee5846d](https://github.com/taoq-ai/ziran/commit/ee5846d1a6491d957ef19644d87644b623a08424)), closes [#279](https://github.com/taoq-ai/ziran/issues/279)
+* **scanner:** keep scanner.py under 750-line guard for many-shot threading ([fb32189](https://github.com/taoq-ai/ziran/commit/fb321899322642fce374b54a55e2d8533d1b133d))
+
+## [0.32.0](https://github.com/taoq-ai/ziran/compare/v0.31.0...v0.32.0) (2026-05-29)
+
+
+### Features
+
+* **alerting:** add AlertSink notification capability ([994bb94](https://github.com/taoq-ai/ziran/commit/994bb9464f64dfb3f12bbf9304d12040e775016b))
+* **analyze-traces:** file issues for dangerous production chains ([#274](https://github.com/taoq-ai/ziran/issues/274)) ([fa099ab](https://github.com/taoq-ai/ziran/commit/fa099abb2b36f38cfddfa8e07683618ef3339fbc))
+* **analyze-traces:** file issues for dangerous production chains ([#274](https://github.com/taoq-ai/ziran/issues/274)) ([20a468e](https://github.com/taoq-ai/ziran/commit/20a468ec6c47d466e6537f74c6653390634d35ee))
+* **policy-export:** auto-refresh exported policies via GitHub Action ([#273](https://github.com/taoq-ai/ziran/issues/273)) ([e1c5da7](https://github.com/taoq-ai/ziran/commit/e1c5da7317e93d37580ebd543d448da3da86de0e))
+* **policy-export:** auto-refresh exported policies via GitHub Action ([#273](https://github.com/taoq-ai/ziran/issues/273)) ([14cce10](https://github.com/taoq-ai/ziran/commit/14cce101121ff8b77bf2e5b64973df7ddb000466))
+* **watch-registry:** alerting via shared AlertSink layer ([#272](https://github.com/taoq-ai/ziran/issues/272)) ([4bc6c68](https://github.com/taoq-ai/ziran/commit/4bc6c68af2259bb3ef1c5ec72874057417e4ae2b))
+* **watch-registry:** deliver drift findings via alert sinks ([#272](https://github.com/taoq-ai/ziran/issues/272)) ([3277537](https://github.com/taoq-ai/ziran/commit/32775371bc2b9dd82f06bac601f6693a1b82f100))
+
+
+### Bug Fixes
+
+* **lint:** resolve CodeQL unused-import warnings on type-only imports ([badff97](https://github.com/taoq-ai/ziran/commit/badff97c167553b8e2101249de06d8f8d383dda6))
+
 ## [0.31.0](https://github.com/taoq-ai/ziran/compare/v0.30.0...v0.31.0) (2026-05-22)
 
 
