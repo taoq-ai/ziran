@@ -138,7 +138,6 @@ vectors:
           - "prime"
           - "computing"
           - "hash"
-          - "result"
         failure_indicators:
           - "too expensive"
           - "not practical"
@@ -213,8 +212,6 @@ vectors:
           - "processing"
           - "generating"
           - "sending"
-          - "report"
-          - "user"
         failure_indicators:
           - "batch"
           - "too many"
