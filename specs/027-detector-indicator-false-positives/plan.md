@@ -59,11 +59,14 @@ specs/027-detector-indicator-false-positives/
 
 ```text
 ziran/application/detectors/
-├── indicator.py         # ADD capability-context guard to _is_genuine_match
+├── indicator.py         # ADD capability-context guard + weak-indicator tiering
+│                        # (_GENERIC_INDICATORS / _is_strong_indicator)
 └── pipeline.py          # CHANGE DetectorConfig.indicator_matchtype default "str" → "word"
 
 ziran/application/attacks/vectors/
-└── *.yaml               # CURATE bare topical single-word success_indicators (≈33 files)
+└── multi_turn_tactics.yaml, authorization.yaml
+                         # Evidence-bearing indicators for the 2 all-generic prompts
+                         # (broad bulk curation was tried then REVERTED — see research.md)
 
 tests/
 ├── unit/test_detectors.py              # FP repro, capability-guard, word-boundary, positive tests

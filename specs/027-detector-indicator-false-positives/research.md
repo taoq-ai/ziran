@@ -52,27 +52,36 @@ complementary.
 - *Keep `"str"`, fix only via curation* — leaves the mechanical substring class latent for future vectors.
 - *Custom tokenizer* — unjustified complexity (YAGNI); `\b` regex suffices.
 
-## Decision 3 — Curate generic indicators across all vectors
+## Decision 3 — Tier weak indicators to the semantic judge (not bulk curation)
 
-**Decision**: Sweep all vector YAMLs under
-`ziran/application/attacks/vectors/` and replace bare topical single-word
-`success_indicators` that merely name the attack's subject with evidence-bearing
-indicators (concrete value markers, field labels like `name:`, multi-token
-phrases such as `sample record`, or require 2+ corroborating indicators).
-Inventory enumerated via a triage script over the YAMLs (in spec research).
+**Decision**: Classify success indicators as *strong* vs *weak/generic* in the
+detector. A genuine match on a generic single-word indicator (`data`, `email`,
+`account`, …) alone returns an **ambiguous** result (score 0.5), so the pipeline
+escalates to the semantic LLM judge instead of auto-flagging. A *specific*
+indicator (multi-word, evidence punctuation like `:`/`@`, or a non-generic word
+such as `ssn`/`exported`) remains a confident hit. Implemented via
+`_GENERIC_INDICATORS` + `_is_strong_indicator` in `indicator.py`. The two
+all-generic prompts (`mt_crescendo_data_access`, `authz_bola_user_id_swap`) get
+evidence-bearing indicators so they still detect offline.
 
-**Rationale**: A topical word ("data", "system", "account") is weak evidence —
-it appears in benign answers. Evidence-bearing indicators only appear when the
-agent actually produced the targeted content, which is what "attack succeeded"
-means.
+**Why this over bulk curation (revised)**: An earlier pass stripped ~137 generic
+tokens from vector YAMLs. That was reverted because (a) the runtime guards
+already neutralise the benign false positives — the reported FP is fixed with
+the original indicators intact — so the strip was largely redundant; and (b) the
+spec-021 benchmark carries its *own* fixture indicators and does **not** exercise
+the vectors' indicators, so the strip had **no recall guard** and risked silent
+false negatives in offline (no-judge) scans. Tiering keeps the FP-suppression,
+preserves recall (the judge adjudicates weak signals), is centralised in one
+place, and leaves the hand-authored data untouched.
 
-**Recall safeguard**: The spec-021 detection-accuracy benchmark + a positive
-genuine-disclosure unit test gate against over-curation. Where a generic word is
-the only feasible signal, keep it but rely on the new guards.
+**Recall safeguard**: Tiering changes the *indicator detector itself*, which the
+spec-021 benchmark DOES run — so the benchmark (indicator F1 unchanged at 1.0)
+now genuinely guards this change, plus positive unit tests for strong-indicator
+and generic+strong hits.
 
 **Alternatives considered**:
-- *Only curate the reported vector* — user explicitly chose the broadest scope; leaving the rest perpetuates the class.
-- *Drop indicator matching entirely in favor of LLM judge* — cost/latency and determinism regressions.
+- *Bulk-curate all vectors* — reverted (redundant given guards; unguarded for recall; large unreviewable diff).
+- *Drop indicator matching entirely in favour of the LLM judge* — cost/latency and determinism regressions; the deterministic layer is valuable for clear cases.
 
 ## Open questions
 
