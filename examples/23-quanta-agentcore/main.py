@@ -224,9 +224,11 @@ async def main() -> None:
             src, tgt, EdgeType.CAN_CHAIN_TO, {"reason": "agent can sequence tools"}
         )
     chains = ToolChainAnalyzer(scanner.graph).analyze()
+    # The headline finding — do NOT fall back to an arbitrary chain, or the
+    # example would mislabel some other chain as "the" exfiltration path.
     exfil = next(
         (c for c in chains if "search_database" in c.tools and "send_email_report" in c.tools),
-        chains[0] if chains else None,
+        None,
     )
     if exfil is not None:
         path = " -> ".join(exfil.graph_path)
@@ -234,10 +236,12 @@ async def main() -> None:
         print(f"     why:  {exfil.exploit_description}")
         if exfil.remediation:
             print(f"     fix:  {exfil.remediation}")
-    print(
-        "\n  This is a *latent capability* — a path that exists in the graph. Next we\n"
-        "  show it is actually exploitable."
-    )
+        print(
+            "\n  This is a *latent capability* — a path that exists in the graph. Next we\n"
+            "  show it is actually exploitable."
+        )
+    else:
+        print("  (expected search_database -> send_email_report chain not found)")
 
     # ── 3. Dynamic exploit: indirect prompt injection ─────────────────────
     _rule("3. DYNAMIC — exploiting it via indirect prompt injection")
