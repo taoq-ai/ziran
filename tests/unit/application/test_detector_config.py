@@ -75,7 +75,9 @@ class TestDetectorConfig:
     def test_default_matchtypes(self) -> None:
         config = DetectorConfig()
         assert config.refusal_matchtype == "str"
-        assert config.indicator_matchtype == "str"
+        # Indicator matching defaults to word-boundary so topical words don't
+        # match inside compound tokens (e.g. "email" in "send_email_report").
+        assert config.indicator_matchtype == "word"
 
     def test_custom_matchtypes(self) -> None:
         config = DetectorConfig(refusal_matchtype="word", indicator_matchtype="word")

@@ -69,8 +69,14 @@ class DetectorConfig:
     refusal_matchtype: Literal["str", "word", "startswith"] = "str"
     """Match type for the refusal detector (``"str"``, ``"word"``, ``"startswith"``)."""
 
-    indicator_matchtype: Literal["str", "word"] = "str"
-    """Match type for the indicator detector."""
+    indicator_matchtype: Literal["str", "word"] = "word"
+    """Match type for the indicator detector.
+
+    Defaults to ``"word"`` (whole-word, boundary-aware) so a topical
+    indicator such as ``email`` does not match inside an unrelated compound
+    token like ``send_email_report``.  Set to ``"str"`` for legacy substring
+    matching.
+    """
 
     refusal_languages: Sequence[str] | None = None
     """ISO 639-1 language codes for multilingual refusal detection.

@@ -95,3 +95,35 @@ def test_regression_math() -> None:
     )
     assert (b.pipeline_f1 - 0.80) > b.tolerance  # 0.10 drop → regress
     assert not (b.pipeline_f1 - 0.89) > b.tolerance  # 0.01 drop → ok
+
+
+async def test_capability_description_fixtures_are_true_negatives() -> None:
+    """Benign capability-description fixtures (issue #350) must not flag.
+
+    Runs the reported FP cases through the real ``DetectorPipeline`` (with the
+    offline replay judge) to confirm the self-description guard holds at the
+    integration level, not just in isolated unit tests.
+    """
+    from benchmarks.detection_accuracy import DATASET_DIR, load_examples
+    from benchmarks.replay_llm_client import ReplayLLMClient
+    from ziran.application.detectors.pipeline import DetectorPipeline
+    from ziran.domain.entities.attack import AttackPrompt
+    from ziran.domain.interfaces.adapter import AgentResponse
+
+    examples = [
+        ex
+        for ex in load_examples(DATASET_DIR)
+        if ex.example_id.startswith("det_borderline_capability_")
+    ]
+    assert examples, "capability-description fixtures should exist"
+
+    pipeline = DetectorPipeline(llm_client=ReplayLLMClient(examples))
+    for ex in examples:
+        prompt = AttackPrompt(
+            template=ex.attack.vector_id,
+            success_indicators=ex.prompt_success_indicators,
+            failure_indicators=ex.prompt_failure_indicators,
+        )
+        response = AgentResponse(content=ex.response_text)
+        verdict = await pipeline.evaluate(ex.attack.vector_id, response, prompt)
+        assert verdict.successful is False, f"{ex.example_id} should be a true negative"
