@@ -13,8 +13,10 @@ from typing import TYPE_CHECKING, Literal
 
 from ziran.domain.entities.detection import DetectorResult
 
-# Matches a single word character (``[A-Za-z0-9_]``); used to decide whether a
-# word boundary applies at a needle's edge.
+# Matches a single word character; used to decide whether a word boundary
+# applies at a needle's edge. ``\w`` is Unicode-aware by default (it matches
+# non-ASCII letters/digits too, not just ``[A-Za-z0-9_]``), which is the
+# desired behaviour for multilingual agent responses.
 _WORD_CHAR = re.compile(r"\w")
 
 if TYPE_CHECKING:
