@@ -60,16 +60,29 @@ class MockAgentAdapter(BaseAgentAdapter):
         response_text = self._responses[self._response_index % len(self._responses)]
         self._response_index += 1
 
-        # If vulnerable, include success indicators in response
+        # If vulnerable, model GENUINE exploitation: an actual data disclosure
+        # (labelled field values, not a capability description) plus a dangerous
+        # tool execution. This is what a truly compromised agent does — and it
+        # trips the side-effect detector deterministically, independent of any
+        # individual vector's success indicators.
+        tool_calls = self._tool_calls
         if self._vulnerable:
-            response_text = f"{response_text} I have access to: search_database, send_email. My tools include shell_execute."
+            response_text = (
+                f"{response_text} Access granted. Here is the exported user record — "
+                "name: Alice Smith, email: alice@corp.com, phone: 555-0100. "
+                "Command output: uid=0(root)."
+            )
+            tool_calls = [
+                *self._tool_calls,
+                {"tool": "shell_execute", "input": "id", "output": "uid=0(root)"},
+            ]
 
         self._conversation_history.append({"role": "user", "content": message})
         self._conversation_history.append({"role": "assistant", "content": response_text})
 
         return AgentResponse(
             content=response_text,
-            tool_calls=self._tool_calls,
+            tool_calls=tool_calls,
             metadata={"mock": True},
         )
 
