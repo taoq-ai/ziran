@@ -290,8 +290,14 @@ async def main() -> None:
     )
 
     # ── Reports ───────────────────────────────────────────────────────────
+    # Surface each composition as a first-class finding so the interactive
+    # report renders it as a red node (not just a side-list entry).
+    for chain in chains:
+        scanner.graph.add_chain_finding(chain)
     result.dangerous_tool_chains = [c.model_dump(mode="json") for c in chains]
     result.critical_chain_count = len([c for c in chains if c.risk_level == "critical"])
+    if result.critical_chain_count:
+        result.success = True
     out = HERE / "reports"
     out.mkdir(exist_ok=True)
     report = ReportGenerator(output_dir=out)
