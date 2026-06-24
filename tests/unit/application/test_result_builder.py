@@ -188,3 +188,86 @@ class TestComputeUtility:
 
             mock_fn.assert_called_once_with(0.9, ["a"], 0.85, ["b"], 3)
             assert result == {"degradation": 0.05}
+
+
+@pytest.mark.unit
+class TestResultBuilderCompositionFindings:
+    """Spec 028 — a dangerous tool-composition is a first-class finding."""
+
+    @staticmethod
+    def _graph_with(edge: tuple[str, str], tools: tuple[str, ...]):
+        from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
+        from ziran.domain.entities.capability import AgentCapability, CapabilityType
+
+        g = AttackKnowledgeGraph()
+        for tid in tools:
+            g.add_capability(
+                tid,
+                AgentCapability(
+                    id=tid, name=tid, type=CapabilityType.TOOL, description=tid, dangerous=False
+                ),
+            )
+        g.add_edge(edge[0], edge[1], EdgeType.CAN_CHAIN_TO, {})
+        return g
+
+    def _build(self, graph):
+        builder = ResultBuilder(graph=graph, adapter_name="quanta")
+        return builder.build(
+            campaign_id="c",
+            phase_results=[],
+            attack_results=[],
+            campaign_tokens=TokenUsage(),
+            coverage_value="standard",
+            max_concurrent_attacks=1,
+            duration=0.1,
+            capabilities_count=2,
+        )
+
+    def test_critical_composition_is_a_finding(self) -> None:
+        from ziran.application.knowledge_graph.graph import NodeType
+
+        graph = self._graph_with(
+            ("search_database", "send_email_report"),
+            ("search_database", "send_email_report"),
+        )
+        result, chains = self._build(graph)
+
+        # the scan registers a finding even with zero detector vulnerabilities
+        assert result.success is True
+        assert result.total_vulnerabilities == 0
+        assert result.critical_chain_count == 1
+        assert len(chains) == 1
+        assert result.metadata["composition_finding_count"] == 1
+        assert result.metadata["finding_sources"]["composition"] == 1
+
+        # rendered as a red composition VULNERABILITY node, reachable as a path
+        vulns = [
+            (n, d)
+            for n, d in graph.graph.nodes(data=True)
+            if d.get("node_type") == NodeType.VULNERABILITY
+        ]
+        assert len(vulns) == 1
+        node_id, data = vulns[0]
+        assert data["category"] == "tool_composition"
+        assert data["severity"] == "critical"
+        assert data["finding_source"] == "composition"
+        assert any(node_id in path for path in result.critical_paths)
+
+    def test_benign_composition_is_not_flagged(self) -> None:
+        """search_database -> run_analysis is no exfil pattern: no finding, scan clean."""
+        from ziran.application.knowledge_graph.graph import NodeType
+
+        graph = self._graph_with(
+            ("search_database", "run_analysis"),
+            ("search_database", "run_analysis"),
+        )
+        result, chains = self._build(graph)
+
+        assert chains == []
+        assert result.success is False
+        assert result.critical_chain_count == 0
+        assert not [
+            n
+            for n, d in graph.graph.nodes(data=True)
+            if d.get("node_type") == NodeType.VULNERABILITY
+        ]
