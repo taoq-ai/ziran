@@ -116,15 +116,15 @@ class QualityGate:
 
         # 4. Policy-violation check
         if self.config.fail_on_policy_violation and not result.success:
-            # `result.success` is True when any critical path exists,
-            # meaning the *agent* is vulnerable.  For gating purposes
-            # we treat that as a failure.
+            # `result.success` is True when the agent is vulnerable — a critical
+            # attack path, a phase vulnerability, or a critical tool-composition
+            # chain.  For gating purposes we treat that as a failure.
             pass  # already covered by findings; kept for explicit gate
         if self.config.fail_on_policy_violation and result.success:
             violations.append(
                 GateViolation(
                     rule="policy_violation",
-                    message="Critical attack paths were found in the campaign",
+                    message="Critical attack paths or tool-composition chains were found",
                     severity="critical",
                 )
             )
@@ -144,7 +144,12 @@ class QualityGate:
 
     @staticmethod
     def _count_findings(result: CampaignResult) -> FindingCount:
-        """Aggregate successful (vulnerability) findings by severity."""
+        """Aggregate findings by severity.
+
+        Counts both detector-confirmed vulnerabilities *and* tool-composition
+        chains — a critical composition (e.g. ``search_database ->
+        send_email_report``) is a finding the gate must act on, not a side note.
+        """
         counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
 
         for raw in result.attack_results:
@@ -153,6 +158,12 @@ class QualityGate:
                 sev = ar.get("severity", "medium")
                 if sev in counts:
                     counts[sev] += 1
+
+        # Tool-composition chains are first-class findings.
+        for chain in result.dangerous_tool_chains:
+            sev = chain.get("risk_level", "medium") if isinstance(chain, dict) else "medium"
+            if sev in counts:
+                counts[sev] += 1
 
         return FindingCount(**counts)
 

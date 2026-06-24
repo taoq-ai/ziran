@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 if TYPE_CHECKING:
-    from ziran.domain.entities.capability import AgentCapability
+    from ziran.domain.entities.capability import AgentCapability, DangerousChain
 
 
 class NodeType:
@@ -221,6 +221,50 @@ class AttackKnowledgeGraph:
                 chain_position=i,
                 timestamp=datetime.now(tz=UTC).isoformat(),
             )
+
+    def add_chain_finding(self, chain: DangerousChain) -> str:
+        """Surface a dangerous tool-composition as a first-class finding node.
+
+        Tool-composition risk is ZIRAN's differentiator, but a ``DangerousChain``
+        is otherwise only a side-list entry — invisible in the graph, the scan
+        verdict, and CI. This synthesises a ``VULNERABILITY`` node for the
+        composition and links it from each tool in the chain via ``EXPLOITS``
+        edges, so the chain renders as a red finding, is reachable by
+        attack-path enumeration, and is counted like any other finding.
+
+        The node carries ``finding_source="composition"`` so reports/consumers
+        can still distinguish a *latent* composition from a detector-*confirmed*
+        exploit.
+
+        Args:
+            chain: The dangerous chain discovered by :class:`ToolChainAnalyzer`.
+
+        Returns:
+            The id of the synthesised vulnerability node.
+        """
+        self._invalidate_cache()
+        tools = list(chain.tools)
+        vuln_id = f"composition::{chain.vulnerability_type}::{'->'.join(tools)}"
+        self.add_vulnerability(
+            vuln_id,
+            severity=chain.risk_level,
+            attributes={
+                "name": f"{chain.vulnerability_type}: {' → '.join(tools)}",
+                "category": "tool_composition",
+                "finding_source": "composition",
+                "vulnerability_type": chain.vulnerability_type,
+                "description": chain.exploit_description,
+                "remediation": chain.remediation,
+                "chain_type": chain.chain_type,
+                "risk_score": chain.risk_score,
+                "tools": tools,
+                "graph_path": list(chain.graph_path),
+            },
+        )
+        for tool in tools:
+            if tool in self.graph:
+                self.add_edge(tool, vuln_id, EdgeType.EXPLOITS, {"composition_finding": True})
+        return vuln_id
 
     def find_attack_paths(
         self,

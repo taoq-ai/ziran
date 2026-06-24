@@ -76,14 +76,21 @@ class ResultBuilder:
         Returns:
             A tuple of ``(campaign_result, dangerous_chains)``.
         """
-        # Analyze graph for attack paths
-        critical_paths = self._graph.find_all_attack_paths()
-
-        # Analyze tool chains for dangerous combinations
+        # Analyze tool chains for dangerous combinations and surface each as a
+        # first-class finding on the graph (red VULNERABILITY node + EXPLOITS
+        # edges) BEFORE attack-path enumeration, so a composition is reachable
+        # as a finding — not just a side-list entry.
         chain_analyzer = ToolChainAnalyzer(self._graph)
         dangerous_chains = chain_analyzer.analyze()
+        for chain in dangerous_chains:
+            self._graph.add_chain_finding(chain)
+
+        # Analyze graph for attack paths (now includes the composition findings).
+        critical_paths = self._graph.find_all_attack_paths()
 
         serialized_results = [r.model_dump(mode="json") for r in attack_results]
+        total_vulnerabilities = sum(len(p.vulnerabilities_found) for p in phase_results)
+        critical_chain_count = len([c for c in dangerous_chains if c.risk_level == "critical"])
 
         metadata: dict[str, Any] = {
             "duration_seconds": duration,
@@ -91,6 +98,11 @@ class ResultBuilder:
             "graph_stats": self._graph.export_state()["stats"],
             "attack_results_count": len(attack_results),
             "dangerous_chain_count": len(dangerous_chains),
+            "composition_finding_count": len(dangerous_chains),
+            "finding_sources": {
+                "detector": total_vulnerabilities,
+                "composition": len(dangerous_chains),
+            },
             "coverage_level": coverage_value,
             "max_concurrent_attacks": max_concurrent_attacks,
         }
@@ -108,13 +120,17 @@ class ResultBuilder:
             campaign_id=campaign_id,
             target_agent=self._adapter_name,
             phases_executed=phase_results,
-            total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
+            total_vulnerabilities=total_vulnerabilities,
             critical_paths=critical_paths,
             final_trust_score=phase_results[-1].trust_score if phase_results else 0.0,
-            success=len(critical_paths) > 0 or any(p.vulnerabilities_found for p in phase_results),
+            success=(
+                len(critical_paths) > 0
+                or any(p.vulnerabilities_found for p in phase_results)
+                or critical_chain_count > 0
+            ),
             attack_results=serialized_results,
             dangerous_tool_chains=[c.model_dump(mode="json") for c in dangerous_chains],
-            critical_chain_count=len([c for c in dangerous_chains if c.risk_level == "critical"]),
+            critical_chain_count=critical_chain_count,
             token_usage={
                 "prompt_tokens": campaign_tokens.prompt_tokens,
                 "completion_tokens": campaign_tokens.completion_tokens,

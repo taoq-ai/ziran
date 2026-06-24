@@ -196,7 +196,13 @@ class CampaignResult(BaseModel):
         default_factory=list, description="Attack paths discovered via graph analysis"
     )
     final_trust_score: float = Field(ge=0.0, le=1.0)
-    success: bool = Field(description="True if any critical attack path was found")
+    success: bool = Field(
+        description=(
+            "True if the target is vulnerable: a critical attack path was found, "
+            "a phase reported vulnerabilities, or a critical tool-composition chain "
+            "exists (a dangerous composition is a finding in its own right)."
+        )
+    )
     attack_results: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Serialised AttackResult dicts with prompts and agent responses",
