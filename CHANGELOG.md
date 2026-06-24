@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.0](https://github.com/taoq-ai/ziran/compare/v0.36.0...v0.37.0) (2026-06-24)
+
+
+### Features
+
+* **findings:** make tool-composition chains first-class findings (028) ([00e2afa](https://github.com/taoq-ai/ziran/commit/00e2afa2f5c17d8fdef4c77360b52bdd1645c891))
+* **findings:** make tool-composition chains first-class findings (028) ([38078b4](https://github.com/taoq-ai/ziran/commit/38078b45e9bcb24d3ead284367546b887b73df8d))
+
 ## [0.36.0](https://github.com/taoq-ai/ziran/compare/v0.35.0...v0.36.0) (2026-06-23)
 
 
