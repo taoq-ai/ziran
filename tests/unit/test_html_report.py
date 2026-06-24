@@ -319,6 +319,10 @@ class TestBuildHtmlReport:
 
         assert "VULNERABLE" in html
         assert "0.60" in html  # trust score
+        # Composition findings must be a first-class metric so a VULNERABLE
+        # verdict is never shown next to a lone "0 vulnerabilities".
+        assert "Composition findings" in html
+        assert "Prompt-level vulns" in html
 
     def test_includes_layout_and_filter_controls(
         self,
