@@ -178,7 +178,11 @@ class ReportGenerator:
         lines.append("| Metric | Value |")
         lines.append("|--------|-------|")
         lines.append(f"| Phases Executed | {len(result.phases_executed)} |")
-        lines.append(f"| Total Vulnerabilities | {result.total_vulnerabilities} |")
+        lines.append(f"| Prompt-level Vulnerabilities | {result.total_vulnerabilities} |")
+        lines.append(
+            "| Composition Findings (tool chains) | "
+            f"{len(result.dangerous_tool_chains)} ({result.critical_chain_count} critical) |"
+        )
         lines.append(f"| Critical Attack Paths | {len(result.critical_paths)} |")
         lines.append(f"| Final Trust Score | {result.final_trust_score:.2f} |")
         lines.append(f"| Overall Result | {'⚠️ VULNERABLE' if result.success else '✅ PASSED'} |")
