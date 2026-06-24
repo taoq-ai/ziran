@@ -138,6 +138,10 @@ class TestReportGenerator:
         out = gen.save_markdown(result)
         content = out.read_text()
         assert "⚠️ VULNERABLE" in content
+        # The verdict must be backed by a visible finding count, not a bare
+        # "Total Vulnerabilities: 0" — surface the composition findings.
+        assert "Prompt-level Vulnerabilities" in content
+        assert "Composition Findings (tool chains)" in content
         assert "Prompt Injection" in content
         assert "Token Usage" in content
         assert "Dangerous Tool Chains" in content

@@ -175,6 +175,8 @@ def build_html_report(
     campaign_id = result_data.get("campaign_id", "unknown")
     target_agent = result_data.get("target_agent", "unknown")
     total_vulns = result_data.get("total_vulnerabilities", 0)
+    critical_chains = result_data.get("critical_chain_count", 0)
+    total_chains = len(result_data.get("dangerous_tool_chains", []))
     trust_score = result_data.get("final_trust_score", 0)
     success = result_data.get("success", False)
     phases = result_data.get("phases_executed", [])
@@ -217,6 +219,8 @@ def build_html_report(
         campaign_id=html.escape(campaign_id),
         target_agent=html.escape(target_agent),
         total_vulns=total_vulns,
+        total_chains=total_chains,
+        chain_class="danger" if critical_chains else ("orange" if total_chains else "accent"),
         trust_score=f"{trust_score:.2f}",
         trust_pct=int(trust_score * 100),
         success_label="VULNERABLE" if success else "PASSED",
@@ -1144,8 +1148,12 @@ _HTML_TEMPLATE = """\
         <div class="metric-label">Result</div>
       </div>
       <div class="metric">
-        <div class="metric-value danger">{total_vulns}</div>
-        <div class="metric-label">Vulnerabilities</div>
+        <div class="metric-value {chain_class}">{total_chains}</div>
+        <div class="metric-label">Composition findings</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">{total_vulns}</div>
+        <div class="metric-label">Prompt-level vulns</div>
       </div>
       <div class="metric">
         <div class="metric-value orange">{num_paths}</div>

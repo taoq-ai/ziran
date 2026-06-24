@@ -1506,7 +1506,7 @@ def _display_results(result: CampaignResult) -> None:
     summary_table.add_row("Target Agent", result.target_agent)
     summary_table.add_row("Phases Executed", str(len(result.phases_executed)))
     summary_table.add_row(
-        "Total Vulnerabilities",
+        "Prompt-level Vulnerabilities",
         f"[bold red]{result.total_vulnerabilities}[/bold red]"
         if result.total_vulnerabilities > 0
         else "[green]0[/green]",
