@@ -1518,6 +1518,11 @@ def _display_results(result: CampaignResult) -> None:
         if result.dangerous_tool_chains
         else "[green]0[/green]",
     )
+    if result.critical_chain_count:
+        summary_table.add_row(
+            "Critical Compositions",
+            f"[bold red]{result.critical_chain_count}[/bold red]",
+        )
     summary_table.add_row("Final Trust Score", f"{result.final_trust_score:.2f}")
     summary_table.add_row(
         "Result",

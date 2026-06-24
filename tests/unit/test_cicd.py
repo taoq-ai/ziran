@@ -34,6 +34,7 @@ def _make_campaign(
     trust: float = 0.8,
     attacks: list[dict[str, Any]] | None = None,
     success: bool = False,
+    chains: list[dict[str, Any]] | None = None,
 ) -> CampaignResult:
     """Build a minimal CampaignResult for testing."""
     return CampaignResult(
@@ -44,6 +45,8 @@ def _make_campaign(
         final_trust_score=trust,
         success=success,
         attack_results=attacks or [],
+        dangerous_tool_chains=chains or [],
+        critical_chain_count=len([c for c in (chains or []) if c.get("risk_level") == "critical"]),
     )
 
 
@@ -345,3 +348,36 @@ class TestGitHubActions:
         gate_result = gate.evaluate(risky_campaign)
         summary = write_step_summary(gate_result, risky_campaign)
         assert "Vulnerabilities Found" in summary
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Tests — Composition findings are gated (spec 028)
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _make_chain(*, risk_level: str = "critical") -> dict[str, Any]:
+    return {
+        "risk_level": risk_level,
+        "vulnerability_type": "data_exfiltration",
+        "tools": ["search_database", "send_email_report"],
+    }
+
+
+class TestCompositionFindingGating:
+    def test_critical_composition_fails_default_gate(self) -> None:
+        camp = _make_campaign(trust=0.9, success=True, chains=[_make_chain()])
+        result = QualityGate().evaluate(camp)
+        assert result.finding_counts.critical == 1
+        assert result.status == GateStatus.FAILED
+        assert result.passed is False
+
+    def test_composition_counts_alongside_detector_findings(self) -> None:
+        camp = _make_campaign(
+            attacks=[_make_attack(severity="high", vector_id="h1")],
+            chains=[_make_chain(risk_level="high")],
+        )
+        counts = QualityGate._count_findings(camp)
+        assert counts.high == 2  # one detector finding + one composition finding
+
+    def test_clean_campaign_has_no_findings(self, clean_campaign: CampaignResult) -> None:
+        assert QualityGate._count_findings(clean_campaign).total == 0
