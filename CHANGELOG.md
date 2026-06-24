@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.1](https://github.com/taoq-ai/ziran/compare/v0.37.0...v0.37.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **report:** surface composition findings in the summary headline ([e930ba8](https://github.com/taoq-ai/ziran/commit/e930ba84ecf40a1b1086a10b5364099ec6bfa066)), closes [#361](https://github.com/taoq-ai/ziran/issues/361)
+* **report:** surface composition findings so the verdict isn't misleading ([74bf3e9](https://github.com/taoq-ai/ziran/commit/74bf3e9cdf186b272b54b3fbcbaa415261005d3f))
+
 ## [0.37.0](https://github.com/taoq-ai/ziran/compare/v0.36.0...v0.37.0) (2026-06-24)
 
 
