@@ -294,6 +294,9 @@ async def main() -> None:
     # report renders it as a red node (not just a side-list entry).
     for chain in chains:
         scanner.graph.add_chain_finding(chain)
+    # Recompute attack paths now the composition findings are on the graph, so
+    # the report's verdict/paths stay consistent with the red node it renders.
+    result.critical_paths = scanner.graph.find_all_attack_paths()
     result.dangerous_tool_chains = [c.model_dump(mode="json") for c in chains]
     result.critical_chain_count = len([c for c in chains if c.risk_level == "critical"])
     if result.critical_chain_count:

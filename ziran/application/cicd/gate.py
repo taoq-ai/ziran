@@ -116,15 +116,15 @@ class QualityGate:
 
         # 4. Policy-violation check
         if self.config.fail_on_policy_violation and not result.success:
-            # `result.success` is True when any critical path exists,
-            # meaning the *agent* is vulnerable.  For gating purposes
-            # we treat that as a failure.
+            # `result.success` is True when the agent is vulnerable — a critical
+            # attack path, a phase vulnerability, or a critical tool-composition
+            # chain.  For gating purposes we treat that as a failure.
             pass  # already covered by findings; kept for explicit gate
         if self.config.fail_on_policy_violation and result.success:
             violations.append(
                 GateViolation(
                     rule="policy_violation",
-                    message="Critical attack paths were found in the campaign",
+                    message="Critical attack paths or tool-composition chains were found",
                     severity="critical",
                 )
             )
