@@ -2,7 +2,7 @@
 
 **Feature Branch**: `fix/027-detector-indicator-false-positives`
 **Created**: 2026-06-23
-**Status**: Active
+**Status**: Accepted
 **Input**: User description: "Eliminate indicator-matching false positives in the detection pipeline. The IndicatorDetector flags benign agent responses as attacks when topical words merely appear in capability descriptions or refusals (e.g. a data-analyst agent listing tools 'search_database, send_email_report' gets flagged for data exfiltration with matched indicators 'email, data'). Tracked by GitHub issue #350."
 
 ## User Scenarios & Testing *(mandatory)*

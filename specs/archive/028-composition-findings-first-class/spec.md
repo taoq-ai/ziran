@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feat/028-composition-findings-first-class`
 **Created**: 2026-06-24
-**Status**: Active
+**Status**: Accepted
 **Input**: Composition analysis is Ziran's differentiator, but a `DangerousChain` from
 `ToolChainAnalyzer` is not surfaced as a finding: it does not affect `CampaignResult.success`,
 is never added to the knowledge graph (so the interactive report shows no red node for it), and
