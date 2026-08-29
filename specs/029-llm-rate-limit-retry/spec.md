@@ -59,7 +59,7 @@ Reviewing the run, the analyst must be able to tell a throttled-and-retried call
 - A non-retryable error (e.g. 400 bad request, 401 auth): MUST fail immediately without consuming retries.
 - Tokens-per-minute limit with unknown completion length: prompt tokens are estimated before the call (completion length is not known in advance); the estimate paces the bucket, it is not billed exactly.
 - `rpm`/`tpm` set to `0`: the corresponding bucket is disabled (no pacing).
-- Streaming calls (`stream_complete`): rate-limiting applies to acquiring the slot before the stream opens; retry applies only to failures raised before the first chunk (mid-stream failures are out of scope, see Assumptions).
+- Streaming calls (`stream_complete`): rate-limiting applies to acquiring the slot before the stream opens; retry does not apply to streaming at all (see Assumptions).
 
 ## Requirements *(mandatory)*
 
@@ -80,7 +80,7 @@ Reviewing the run, the analyst must be able to tell a throttled-and-retried call
 
 - **RateLimitConfig**: Pydantic model holding `rpm`, `tpm`, `max_retries`, base backoff delay, and max backoff cap; exposes per-provider defaults.
 - **Token bucket**: An async primitive that admits requests/tokens at a fixed refill rate and makes callers wait when the bucket is empty.
-- **RateLimitedClient**: A `BaseLLMClient` decorator wrapping an inner client; applies the buckets and the retry loop around `complete()` / `stream_complete()`.
+- **RateLimitedClient**: A `BaseLLMClient` decorator wrapping an inner client; applies the buckets to `complete()` and `stream_complete()`, and the retry loop to `complete()` only.
 - **Retry classification**: The rule deciding whether a raised exception is retryable (status code / error type).
 
 ## Success Criteria *(mandatory)*
