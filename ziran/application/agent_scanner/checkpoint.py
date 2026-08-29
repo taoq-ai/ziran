@@ -21,16 +21,20 @@ from __future__ import annotations
 import json
 import logging
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
+from ziran.domain.entities.attack import AttackResult, TokenUsage
+from ziran.domain.entities.phase import PhaseResult
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from ziran.domain.entities.phase import PhaseResult
+    from ziran.domain.entities.phase import ScanPhase
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +75,10 @@ class FlushThrottle:
         Resets the counter and the elapsed timer when it returns ``True``.
         """
         self._count += 1
-        due = self._count >= self._max_completions or (self._clock() - self._last_flush) >= self._max_seconds
+        due = (
+            self._count >= self._max_completions
+            or (self._clock() - self._last_flush) >= self._max_seconds
+        )
         if due:
             self._count = 0
             self._last_flush = self._clock()
@@ -196,3 +203,93 @@ class CheckpointManager:
             coverage=coverage,
             remaining_phases=remaining_phases,
         )
+
+
+class IncrementalCheckpointer:
+    """Builds and atomically saves campaign checkpoints during a run.
+
+    ``flush()`` is throttled and called from the per-vector hot path;
+    ``write()`` forces a save at phase boundaries. Both read live campaign
+    state through the references handed in at construction, so the scanner
+    does not rebuild checkpoint arguments at each call site.
+    """
+
+    def __init__(
+        self,
+        manager: CheckpointManager,
+        *,
+        campaign_id: str,
+        phase_results: list[PhaseResult],
+        attack_results: list[Any],
+        tested_vector_ids: set[str],
+        remaining_phases: list[ScanPhase],
+        coverage: str,
+        token_provider: Callable[[], dict[str, int]],
+        flush_interval: float = DEFAULT_FLUSH_INTERVAL_SECONDS,
+    ) -> None:
+        self._manager = manager
+        self._campaign_id = campaign_id
+        self._phase_results = phase_results
+        self._attack_results = attack_results
+        self._tested_vector_ids = tested_vector_ids
+        self._remaining_phases = remaining_phases
+        self._coverage = coverage
+        self._token_provider = token_provider
+        self._throttle = FlushThrottle(DEFAULT_FLUSH_EVERY_N_COMPLETIONS, flush_interval)
+
+    def flush(self) -> None:
+        """Save a checkpoint if the throttle says one is due (hot path)."""
+        if self._throttle.record():
+            self._write()
+
+    def write(self) -> None:
+        """Force a checkpoint save (phase boundary)."""
+        self._write()
+
+    def _write(self) -> None:
+        self._manager.save(
+            self._manager.build_checkpoint(
+                campaign_id=self._campaign_id,
+                phase_results=self._phase_results,
+                attack_results=self._attack_results,
+                tested_vector_ids=self._tested_vector_ids,
+                token_usage=self._token_provider(),
+                coverage=self._coverage,
+                remaining_phases=[p.value for p in self._remaining_phases],
+            )
+        )
+
+
+@dataclass
+class ResumeState:
+    """State reconstructed from a checkpoint when resuming a campaign."""
+
+    campaign_id: str
+    phase_results: list[PhaseResult]
+    campaign_tokens: TokenUsage
+    tested_vector_ids: set[str]
+    attack_results: list[AttackResult]
+    remaining_phases: list[ScanPhase]
+
+
+def load_resume_state(manager: CheckpointManager, phases: list[ScanPhase]) -> ResumeState:
+    """Load a checkpoint and derive the state needed to resume a campaign.
+
+    Filters ``phases`` down to those not already completed; the interrupted
+    phase (if any) stays in the list and re-enters, skipping tested vectors.
+    """
+    ckpt = manager.load()
+    phase_results = [PhaseResult.model_validate(p) for p in ckpt.completed_phases]
+    completed = {pr.phase for pr in phase_results}
+    return ResumeState(
+        campaign_id=ckpt.campaign_id,
+        phase_results=phase_results,
+        campaign_tokens=TokenUsage(
+            prompt_tokens=ckpt.token_usage.get("prompt_tokens", 0),
+            completion_tokens=ckpt.token_usage.get("completion_tokens", 0),
+            total_tokens=ckpt.token_usage.get("total_tokens", 0),
+        ),
+        tested_vector_ids=set(ckpt.tested_vector_ids),
+        attack_results=[AttackResult.model_validate(a) for a in ckpt.attack_results],
+        remaining_phases=[p for p in phases if p not in completed],
+    )

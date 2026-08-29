@@ -43,7 +43,7 @@ class _StubLibrary:
     def __init__(self, vectors: list[_StubVector]) -> None:
         self._vectors = vectors
 
-    def get_attacks_for_phase(self, phase: Any, *, coverage: Any) -> list[_StubVector]:  # noqa: ARG002
+    def get_attacks_for_phase(self, phase: Any, *, coverage: Any) -> list[_StubVector]:
         return list(self._vectors)
 
 
@@ -74,7 +74,7 @@ class _StubGraph:
     def export_state(self) -> dict[str, Any]:
         return self.state
 
-    def add_vulnerability(self, *args: Any, **kwargs: Any) -> None:  # noqa: ARG002
+    def add_vulnerability(self, *args: Any, **kwargs: Any) -> None:
         return None
 
 
