@@ -18,6 +18,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ziran import __version__
+from ziran.application.agent_scanner.checkpoint import DEFAULT_FLUSH_INTERVAL_SECONDS
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
@@ -240,6 +241,16 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     "Reads checkpoint from the --output directory.",
 )
 @click.option(
+    "--checkpoint-flush-interval",
+    type=float,
+    default=DEFAULT_FLUSH_INTERVAL_SECONDS,
+    show_default=True,
+    help="Max seconds between incremental (mid-phase) checkpoint flushes. "
+    "Lower values checkpoint more often (finer-grained resume, more writes); "
+    "higher values reduce write overhead. A completion-count backstop also "
+    "flushes periodically regardless of this interval.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -277,6 +288,7 @@ def scan(
     utility_tasks: str | None,
     otel: bool,
     resume: bool,
+    checkpoint_flush_interval: float,
     dry_run: bool,
     defence_profile: str | None,
 ) -> None:
@@ -494,6 +506,7 @@ def scan(
                 utility_tasks=loaded_utility_tasks,
                 checkpoint_manager=checkpoint_mgr,
                 resume_from_checkpoint=resume,
+                checkpoint_flush_interval=checkpoint_flush_interval,
                 defence_profile=_load_defence_profile(defence_profile),
             )
         )

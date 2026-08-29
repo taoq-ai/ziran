@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -215,6 +216,33 @@ class TestFlushThrottle:
         assert throttle.record() is False  # only 3s since last flush
         now[0] = 10.0
         assert throttle.record() is True  # 5s since last flush
+
+
+@pytest.mark.unit
+class TestBackwardsCompatibility:
+    """A checkpoint written by the previous between-phase version must load."""
+
+    def test_legacy_checkpoint_loads_and_drives_exclusion(self, tmp_output_dir: Path) -> None:
+        # A minimal between-phase checkpoint: only pre-existing fields, one
+        # completed phase, and tested vectors from that phase.
+        legacy = {
+            "campaign_id": "legacy_001",
+            "completed_phases": [_sample_phase_result()],
+            "attack_results": [_sample_attack_result()],
+            "tested_vector_ids": ["v1"],
+            "token_usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            "coverage": "standard",
+            "remaining_phases": ["trust_building"],
+            "checkpoint_time": "2026-01-01T00:00:00+00:00",
+        }
+        mgr = CheckpointManager(tmp_output_dir)
+        mgr.path.write_text(json.dumps(legacy), encoding="utf-8")
+
+        loaded = mgr.load()
+        assert loaded.campaign_id == "legacy_001"
+        assert loaded.tested_vector_ids == ["v1"]
+        # tested_vector_ids is what resume uses to skip already-run vectors
+        assert "v1" in set(loaded.tested_vector_ids)
 
 
 @pytest.mark.unit

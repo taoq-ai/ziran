@@ -25,6 +25,11 @@ from ziran.application.agent_scanner.attack_executor import (
 from ziran.application.agent_scanner.attack_executor import (
     _is_error_response as _is_error_response,
 )
+from ziran.application.agent_scanner.checkpoint import (
+    DEFAULT_FLUSH_EVERY_N_COMPLETIONS,
+    DEFAULT_FLUSH_INTERVAL_SECONDS,
+    FlushThrottle,
+)
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
 from ziran.application.agent_scanner.progress import (
     ProgressEmitter as ProgressEmitter,
@@ -176,6 +181,7 @@ class AgentScanner:
         utility_tasks: list[UtilityTask] | None = None,
         checkpoint_manager: CheckpointManager | None = None,
         resume_from_checkpoint: bool = False,
+        checkpoint_flush_interval: float = DEFAULT_FLUSH_INTERVAL_SECONDS,
         defence_profile: DefenceProfile | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
@@ -330,6 +336,31 @@ class AgentScanner:
         phase_idx = len(phase_results)  # Continue numbering from checkpoint
         total_phases = len(phase_results) + len(phases)
 
+        # Incremental (mid-phase) checkpoint flush, throttled to bound overhead.
+        # Reads live campaign state (all mutated in place / rebound in the loop);
+        # defined once so it is not re-created per phase.
+        _flush_throttle = (
+            FlushThrottle(DEFAULT_FLUSH_EVERY_N_COMPLETIONS, checkpoint_flush_interval)
+            if checkpoint_manager is not None
+            else None
+        )
+
+        def _flush_checkpoint() -> None:
+            if checkpoint_manager is None or _flush_throttle is None:
+                return
+            if not _flush_throttle.record():
+                return
+            ckpt = checkpoint_manager.build_checkpoint(
+                campaign_id=campaign_id,
+                phase_results=phase_results,
+                attack_results=self._attack_results,
+                tested_vector_ids=self._tested_vector_ids,
+                token_usage=campaign_tokens.model_dump(),
+                coverage=coverage.value,
+                remaining_phases=[p.value for p in remaining_phases],
+            )
+            checkpoint_manager.save(ckpt)
+
         while True:
             # Build context for strategy decision-making
             context = CampaignContext(
@@ -390,6 +421,7 @@ class AgentScanner:
                 attack_results=self._attack_results,
                 max_results=self._max_results,
                 calculate_trust_score=self._calculate_trust_score,
+                on_vector_complete=_flush_checkpoint if checkpoint_manager is not None else None,
             )
             phase_results.append(result)
 
