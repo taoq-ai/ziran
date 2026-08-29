@@ -10,7 +10,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 from rich.console import Console
@@ -18,13 +18,14 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ziran import __version__
+from ziran.application.agent_scanner.checkpoint import DEFAULT_FLUSH_INTERVAL_SECONDS
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.defence import DefenceProfile
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
-from ziran.infrastructure.logging.logger import setup_logging
+from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli.reports import ReportGenerator
 
@@ -57,8 +58,14 @@ AI Agent Security Testing Framework
     "--verbose", "-v", is_flag=True, default=False, help="Enable verbose (DEBUG) logging."
 )
 @click.option("--log-file", type=click.Path(), default=None, help="Write logs to file.")
+@click.option(
+    "--log-format",
+    type=click.Choice(["json", "text"]),
+    default=None,
+    help="Log output format (default: text on a TTY, json otherwise).",
+)
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
+def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str | None) -> None:
     """ZIRAN — AI Agent Security Testing Framework.
 
     Test AI agents for vulnerabilities using multi-phase scan campaigns
@@ -75,7 +82,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     ctx.ensure_object(dict)
 
     level = "DEBUG" if verbose else "INFO"
-    setup_logging(level=level, log_file=log_file)
+    setup_logging(level=level, log_file=log_file, log_format=cast("LogFormat | None", log_format))
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -163,6 +170,29 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     "Env: ZIRAN_LLM_MODEL.",
 )
 @click.option(
+    "--llm-rpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_RPM",
+    help="Client-side LLM requests-per-minute limit (0 disables). "
+    "Defaults per provider. Env: ZIRAN_LLM_RPM.",
+)
+@click.option(
+    "--llm-tpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_TPM",
+    help="Client-side LLM tokens-per-minute limit (0 disables). Env: ZIRAN_LLM_TPM.",
+)
+@click.option(
+    "--llm-max-retries",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_MAX_RETRIES",
+    help="Retries for throttled/transient LLM errors (429, 5xx). "
+    "Default: 3. Env: ZIRAN_LLM_MAX_RETRIES.",
+)
+@click.option(
     "--attack-timeout",
     type=float,
     default=60.0,
@@ -240,6 +270,16 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     "Reads checkpoint from the --output directory.",
 )
 @click.option(
+    "--checkpoint-flush-interval",
+    type=float,
+    default=DEFAULT_FLUSH_INTERVAL_SECONDS,
+    show_default=True,
+    help="Max seconds between incremental (mid-phase) checkpoint flushes. "
+    "Lower values checkpoint more often (finer-grained resume, more writes); "
+    "higher values reduce write overhead. A completion-count backstop also "
+    "flushes periodically regardless of this interval.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -268,6 +308,9 @@ def scan(
     concurrency: int,
     llm_provider: str | None,
     llm_model: str | None,
+    llm_rpm: int | None,
+    llm_tpm: int | None,
+    llm_max_retries: int | None,
     attack_timeout: float,
     phase_timeout: float,
     strategy: str,
@@ -277,6 +320,7 @@ def scan(
     utility_tasks: str | None,
     otel: bool,
     resume: bool,
+    checkpoint_flush_interval: float,
     dry_run: bool,
     defence_profile: str | None,
 ) -> None:
@@ -439,6 +483,9 @@ def scan(
             llm_client = create_llm_client(
                 provider=llm_provider or "litellm",
                 model=llm_model or "gpt-4o",
+                rpm=llm_rpm,
+                tpm=llm_tpm,
+                max_retries=llm_max_retries,
             )
             scanner_config["llm_client"] = llm_client
             console.print("[dim]LLM backbone enabled for AI-powered features[/dim]")
@@ -494,6 +541,7 @@ def scan(
                 utility_tasks=loaded_utility_tasks,
                 checkpoint_manager=checkpoint_mgr,
                 resume_from_checkpoint=resume,
+                checkpoint_flush_interval=checkpoint_flush_interval,
                 defence_profile=_load_defence_profile(defence_profile),
             )
         )
@@ -1885,6 +1933,27 @@ def multi_agent_scan(
     help="LLM model name (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'). Required.",
 )
 @click.option(
+    "--llm-rpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_RPM",
+    help="Client-side LLM requests-per-minute limit (0 disables). Env: ZIRAN_LLM_RPM.",
+)
+@click.option(
+    "--llm-tpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_TPM",
+    help="Client-side LLM tokens-per-minute limit (0 disables). Env: ZIRAN_LLM_TPM.",
+)
+@click.option(
+    "--llm-max-retries",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_MAX_RETRIES",
+    help="Retries for throttled/transient LLM errors (429, 5xx). Env: ZIRAN_LLM_MAX_RETRIES.",
+)
+@click.option(
     "--embedding-model",
     type=str,
     default="text-embedding-3-small",
@@ -1905,6 +1974,9 @@ def pentest(
     max_iterations: int,
     llm_provider: str,
     llm_model: str,
+    llm_rpm: int | None,
+    llm_tpm: int | None,
+    llm_max_retries: int | None,
     embedding_model: str,
     output: str,
 ) -> None:
@@ -1949,7 +2021,13 @@ def pentest(
     # Create LLM client
     from ziran.infrastructure.llm.factory import create_llm_client
 
-    llm_client = create_llm_client(provider=llm_provider, model=llm_model)
+    llm_client = create_llm_client(
+        provider=llm_provider,
+        model=llm_model,
+        rpm=llm_rpm,
+        tpm=llm_tpm,
+        max_retries=llm_max_retries,
+    )
 
     # Display config
     config_table = Table(title="Pentesting Agent Configuration", show_header=False)

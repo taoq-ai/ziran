@@ -11,7 +11,6 @@ incrementally, yielding ``AgentResponseChunk`` instances as events arrive.
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -22,13 +21,14 @@ from ziran.infrastructure.adapters.protocols import (
     ProtocolError,
     ProtocolResponse,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from ziran.domain.entities.target import TargetConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # SSE-specific constants
 _SSE_CONTENT_TYPE = "text/event-stream"
@@ -294,7 +294,7 @@ class SSEProtocolHandler(BaseProtocolHandler):
         try:
             data = json.loads(data_str)
         except json.JSONDecodeError:
-            logger.debug("Non-JSON SSE data: %s", data_str[:100])
+            logger.debug("non_json_sse_data", data=data_str[:100])
             return AgentResponseChunk(content_delta=data_str)
 
         # Extract content delta

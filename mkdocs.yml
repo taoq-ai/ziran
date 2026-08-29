@@ -77,11 +77,14 @@ nav:
     - OpenTelemetry Tracing: guides/otel-tracing.md
     - Static Analysis: guides/static-analysis.md
     - Interpreting Results: guides/interpreting-results.md
+    - Long-Running Campaigns: guides/long-running-campaigns.md
     - Custom Attacks: guides/custom-attacks.md
     - Framework Adapters: guides/adapters.md
   - Reference:
     - CLI Reference: reference/cli.md
+    - Runtime Configuration: reference/runtime-config.md
     - Python API: reference/api.md
+    - Observability: reference/observability.md
     - Attack Library: reference/attack-library.md
     - Benchmarks:
       - Coverage Comparison: reference/benchmarks/coverage-comparison.md

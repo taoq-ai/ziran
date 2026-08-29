@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import contextlib
 import json
-import logging
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,8 +15,9 @@ from typing import Any
 
 from ziran.domain.entities.trace import ToolCallEvent, TraceSession
 from ziran.domain.ports.trace_ingestor import TraceIngestor
+from ziran.infrastructure.logging.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _nano_to_datetime(nano_str: str) -> datetime:
@@ -73,7 +73,7 @@ class OTelIngestor(TraceIngestor):
                 try:
                     batch = json.loads(line)
                 except json.JSONDecodeError:
-                    logger.warning("Skipping malformed JSON at line %d", line_no)
+                    logger.warning("skipping_malformed_json", line=line_no)
                     continue
 
                 self._process_batch(batch, traces, agent_names)
@@ -86,9 +86,9 @@ class OTelIngestor(TraceIngestor):
                 sessions.append(session)
 
         logger.info(
-            "OTel ingestor: parsed %d sessions from %s",
-            len(sessions),
-            path,
+            "otel_sessions_parsed",
+            session_count=len(sessions),
+            path=str(path),
         )
         return sessions
 

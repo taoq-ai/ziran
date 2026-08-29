@@ -8,7 +8,6 @@ Ollama, LiteLLM proxies, and similar.
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -19,13 +18,14 @@ from ziran.infrastructure.adapters.protocols import (
     ProtocolError,
     ProtocolResponse,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from ziran.domain.entities.target import TargetConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Default model to request if none is specified in headers/body
 _DEFAULT_MODEL = "gpt-4"
@@ -130,7 +130,7 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
             response = await self._client.get(url)
             response.raise_for_status()
         except httpx.HTTPError:
-            logger.debug("OpenAI model listing not available at %s", url)
+            logger.debug("model_listing_unavailable", url=url)
             return []
 
         data = response.json()
