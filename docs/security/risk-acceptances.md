@@ -27,6 +27,7 @@ accepted. Only the rows below remain, each with **no reachable fix** in the reso
 | Alert | Location | Decision | Justification | GH reason | Date |
 |---|---|---|---|---|---|
 | #7 `py/clear-text-logging-sensitive-data` | `ziran/infrastructure/llm/litellm_client.py:81` | dismiss-false-positive | The `logger.warning` emits only `config.api_key_env` (the **name** of the env var), never the key value; the secret flows into `self._api_key` on a different branch and is never logged. | false_positive | 2026-06-18 |
+| #9 `py/clear-text-logging-sensitive-data` | `ziran/infrastructure/llm/litellm_client.py:79` | dismiss-false-positive | Re-raise of #7 after spec-030 reformatted the same call site (line shift 81 to 79). Identical rationale: only the env var **name** is logged. Any future edit to this line will re-raise the alert; re-dismiss with this row as precedent. | false_positive | 2026-08-29 |
 
 ## Dependencies — accept-risk (no reachable fix)
 
