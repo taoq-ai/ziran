@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 
+from ziran.application.rate_limiting import RateLimitConfig
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig
 
 
@@ -21,6 +22,10 @@ def create_llm_client(
     temperature: float = 0.0,
     max_tokens: int = 4096,
     config: LLMConfig | None = None,
+    rpm: int | None = None,
+    tpm: int | None = None,
+    max_retries: int | None = None,
+    rate_config: RateLimitConfig | None = None,
 ) -> BaseLLMClient:
     """Create an LLM client for the given provider.
 
@@ -61,24 +66,29 @@ def create_llm_client(
             max_tokens=max_tokens,
         )
 
-    if config.provider == "litellm":
-        from ziran.infrastructure.llm.litellm_client import LiteLLMClient
+    supported = ("litellm", "openai", "anthropic", "bedrock", "azure", "ollama", "groq")
+    if config.provider not in supported:
+        msg = (
+            f"Unsupported LLM provider: '{config.provider}'. "
+            "Supported: 'litellm' (recommended), 'openai', 'anthropic', "
+            "'bedrock', 'azure', 'ollama', 'groq'."
+        )
+        raise ValueError(msg)
 
-        return LiteLLMClient(config)
+    # All supported providers route through LiteLLM (model-name prefixes).
+    from ziran.infrastructure.llm.litellm_client import LiteLLMClient
 
-    # For convenience, route common provider names through LiteLLM
-    # since it already handles them via model-name prefixes.
-    if config.provider in ("openai", "anthropic", "bedrock", "azure", "ollama", "groq"):
-        from ziran.infrastructure.llm.litellm_client import LiteLLMClient
+    inner = LiteLLMClient(config)
 
-        return LiteLLMClient(config)
+    # Wrap in the shared rate-limiting + retry layer so every provider call
+    # is paced and retried (spec 029). Transparent BaseLLMClient interface.
+    if rate_config is None:
+        rate_config = RateLimitConfig.for_provider(
+            config.provider, rpm=rpm, tpm=tpm, max_retries=max_retries
+        )
+    from ziran.infrastructure.llm.rate_limited_client import RateLimitedClient
 
-    msg = (
-        f"Unsupported LLM provider: '{config.provider}'. "
-        "Supported: 'litellm' (recommended), 'openai', 'anthropic', "
-        "'bedrock', 'azure', 'ollama', 'groq'."
-    )
-    raise ValueError(msg)
+    return RateLimitedClient(inner, config, rate_config)
 
 
 def _parse_env_float(env_var: str, default: str) -> float:
@@ -93,6 +103,17 @@ def _parse_env_float(env_var: str, default: str) -> float:
 def _parse_env_int(env_var: str, default: str) -> int:
     """Parse an environment variable as int with validation."""
     raw = os.environ.get(env_var, default)
+    try:
+        return int(raw)
+    except ValueError as err:
+        raise ValueError(f"Invalid value for {env_var}: '{raw}' (expected an integer)") from err
+
+
+def _env_int_or_none(env_var: str) -> int | None:
+    """Parse an optional int env var; return None when unset."""
+    raw = os.environ.get(env_var)
+    if raw is None or raw == "":
+        return None
     try:
         return int(raw)
     except ValueError as err:
@@ -131,4 +152,11 @@ def create_llm_client_from_env() -> BaseLLMClient | None:
         max_tokens=_parse_env_int("ZIRAN_LLM_MAX_TOKENS", "4096"),
     )
 
-    return create_llm_client(config=config)
+    rate_config = RateLimitConfig.for_provider(
+        config.provider,
+        rpm=_env_int_or_none("ZIRAN_LLM_RPM"),
+        tpm=_env_int_or_none("ZIRAN_LLM_TPM"),
+        max_retries=_env_int_or_none("ZIRAN_LLM_MAX_RETRIES"),
+    )
+
+    return create_llm_client(config=config, rate_config=rate_config)

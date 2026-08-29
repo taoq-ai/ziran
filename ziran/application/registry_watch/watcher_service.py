@@ -7,7 +7,6 @@ allows dependency injection for testing.
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -20,13 +19,14 @@ from ziran.domain.entities.registry import (
     ServerEntry,
     ToolDescriptor,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from ziran.application.alerting.dispatch import SinkBinding
     from ziran.domain.entities.alerting import AlertOutcome
     from ziran.domain.ports.snapshot_store import SnapshotStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ManifestFetcher(Protocol):
@@ -182,7 +182,7 @@ async def watch(
         try:
             raw = await fetcher.fetch(server)
         except Exception:
-            logger.warning("Failed to fetch manifest for '%s' — skipping", server.name)
+            logger.warning("manifest_fetch_failed", server=server.name)
             continue
 
         new_snapshot = _raw_to_snapshot(server.name, raw)

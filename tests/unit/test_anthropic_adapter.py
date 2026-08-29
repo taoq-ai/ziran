@@ -134,6 +134,27 @@ class TestAnthropicAdapterInvoke:
 
 
 @pytest.mark.unit
+class TestAnthropicAdapterClientDetection:
+    """Async vs sync client detection against the real SDK.
+
+    anthropic 1.x wraps ``AsyncMessages.create`` in a sync-def wrapper,
+    so ``asyncio.iscoroutinefunction`` alone no longer detects it.
+    """
+
+    def test_detects_real_async_client(self) -> None:
+        anthropic = pytest.importorskip("anthropic")
+        client = anthropic.AsyncAnthropic(api_key="test-key")
+        adapter = AnthropicAdapter(client=client)
+        assert adapter._is_async is True
+
+    def test_detects_real_sync_client(self) -> None:
+        anthropic = pytest.importorskip("anthropic")
+        client = anthropic.Anthropic(api_key="test-key")
+        adapter = AnthropicAdapter(client=client)
+        assert adapter._is_async is False
+
+
+@pytest.mark.unit
 class TestAnthropicAdapterCapabilities:
     """US1: discover_capabilities() extracts tools."""
 

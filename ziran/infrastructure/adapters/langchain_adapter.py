@@ -12,18 +12,18 @@ Requires the ``langchain`` extra::
 from __future__ import annotations
 
 import contextlib
-import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     # langchain 1.0 moved the classic AgentExecutor to the langchain-classic package.
     from langchain_classic.agents import AgentExecutor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 try:
     pass
@@ -162,9 +162,9 @@ class LangChainAdapter(BaseAgentAdapter):
             )
 
         logger.info(
-            "Discovered %d LangChain tools (%d dangerous)",
-            len(capabilities),
-            sum(1 for c in capabilities if c.dangerous),
+            "langchain_tools_discovered",
+            tool_count=len(capabilities),
+            dangerous_count=sum(1 for c in capabilities if c.dangerous),
         )
         return capabilities
 

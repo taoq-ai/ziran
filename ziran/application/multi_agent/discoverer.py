@@ -7,7 +7,6 @@ The discovered topology informs cross-agent attack planning.
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -19,11 +18,12 @@ from ziran.domain.entities.multi_agent import (
     TopologyType,
     TrustBoundaryType,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Probes designed to elicit information about multi-agent architecture
 _TOPOLOGY_PROBES = [
@@ -134,7 +134,7 @@ class TopologyDiscoverer:
                     sub_edges = self._extract_delegation_edges(agent_id, sub_results)
                     edges.extend(sub_edges)
                 except Exception:
-                    logger.warning("Failed to probe sub-agent %s", agent_id)
+                    logger.warning("sub_agent_probe_failed", agent_id=agent_id)
 
         # Phase 4: Determine topology type
         all_agents = [entry_agent, *discovered_agents]
@@ -153,10 +153,10 @@ class TopologyDiscoverer:
         )
 
         logger.info(
-            "Topology discovery complete: type=%s, agents=%d, edges=%d",
-            topology_type.value,
-            len(all_agents),
-            len(edges),
+            "topology_discovery_complete",
+            topology_type=topology_type.value,
+            agents=len(all_agents),
+            edges=len(edges),
         )
 
         return topology
@@ -183,7 +183,7 @@ class TopologyDiscoverer:
                     }
                 )
             except Exception as exc:
-                logger.debug("Probe failed: %s - %s", probe[:50], exc)
+                logger.debug("probe_failed", probe=probe[:50], error=str(exc))
                 results.append(
                     {
                         "probe": probe,

@@ -9,7 +9,6 @@ delegation patterns.
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.agent_scanner.scanner import (
@@ -25,6 +24,7 @@ from ziran.domain.entities.phase import (
     CoverageLevel,
     ScanPhase,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from ziran.domain.entities.multi_agent import MultiAgentTopology
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MultiAgentScanner:
@@ -116,10 +116,10 @@ class MultiAgentScanner:
         self._graph.import_topology(self._topology)
 
         logger.info(
-            "Topology discovered: %s with %d agents and %d edges",
-            self._topology.topology_type.value,
-            self._topology.agent_count,
-            self._topology.edge_count,
+            "topology_discovered",
+            topology_type=self._topology.topology_type.value,
+            agent_count=self._topology.agent_count,
+            edge_count=self._topology.edge_count,
         )
 
         return self._topology

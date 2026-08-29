@@ -83,9 +83,19 @@ class AnthropicAdapter(BaseAgentAdapter):
         self._conversation_history: list[dict[str, str]] = []
         self._observed_tool_calls: list[dict[str, Any]] = []
 
-        # Detect if client is async or sync.
-        self._is_async = hasattr(client, "messages") and asyncio.iscoroutinefunction(
-            getattr(client.messages, "create", None)
+        # Detect if client is async or sync. anthropic 1.x wraps
+        # AsyncMessages.create in a sync-def wrapper, so isinstance is
+        # the reliable check; iscoroutinefunction remains as fallback
+        # for duck-typed clients (e.g. mocks).
+        try:
+            from anthropic import AsyncAnthropic
+
+            is_async_sdk_client = isinstance(client, AsyncAnthropic)
+        except ImportError:
+            is_async_sdk_client = False
+        self._is_async = is_async_sdk_client or (
+            hasattr(client, "messages")
+            and asyncio.iscoroutinefunction(getattr(client.messages, "create", None))
         )
 
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:

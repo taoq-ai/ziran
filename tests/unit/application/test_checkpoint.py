@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -12,6 +13,7 @@ import pytest
 from ziran.application.agent_scanner.checkpoint import (
     CampaignCheckpoint,
     CheckpointManager,
+    FlushThrottle,
 )
 
 
@@ -181,6 +183,66 @@ class TestCheckpointManager:
         loaded = mgr.load()
         assert len(loaded.completed_phases) == 1
         assert loaded.remaining_phases == []
+
+
+@pytest.mark.unit
+class TestFlushThrottle:
+    """Tests for the FlushThrottle (incremental-write throttling)."""
+
+    def test_flushes_after_max_completions(self) -> None:
+        clock = [0.0]  # frozen clock — never trips the time bound
+        throttle = FlushThrottle(max_completions=3, max_seconds=1000.0, clock=lambda: clock[0])
+        assert throttle.record() is False  # 1
+        assert throttle.record() is False  # 2
+        assert throttle.record() is True  # 3 -> due
+        # counter resets after a flush
+        assert throttle.record() is False  # 1
+        assert throttle.record() is False  # 2
+        assert throttle.record() is True  # 3 -> due again
+
+    def test_flushes_after_max_seconds_before_count(self) -> None:
+        now = [0.0]
+        throttle = FlushThrottle(max_completions=1000, max_seconds=5.0, clock=lambda: now[0])
+        assert throttle.record() is False  # count small, no time elapsed
+        now[0] = 5.0  # time bound reached
+        assert throttle.record() is True
+
+    def test_time_bound_resets_after_flush(self) -> None:
+        now = [0.0]
+        throttle = FlushThrottle(max_completions=1000, max_seconds=5.0, clock=lambda: now[0])
+        now[0] = 5.0
+        assert throttle.record() is True  # flush, resets last-flush time to 5.0
+        now[0] = 8.0
+        assert throttle.record() is False  # only 3s since last flush
+        now[0] = 10.0
+        assert throttle.record() is True  # 5s since last flush
+
+
+@pytest.mark.unit
+class TestBackwardsCompatibility:
+    """A checkpoint written by the previous between-phase version must load."""
+
+    def test_legacy_checkpoint_loads_and_drives_exclusion(self, tmp_output_dir: Path) -> None:
+        # A minimal between-phase checkpoint: only pre-existing fields, one
+        # completed phase, and tested vectors from that phase.
+        legacy = {
+            "campaign_id": "legacy_001",
+            "completed_phases": [_sample_phase_result()],
+            "attack_results": [_sample_attack_result()],
+            "tested_vector_ids": ["v1"],
+            "token_usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            "coverage": "standard",
+            "remaining_phases": ["trust_building"],
+            "checkpoint_time": "2026-01-01T00:00:00+00:00",
+        }
+        mgr = CheckpointManager(tmp_output_dir)
+        mgr.path.write_text(json.dumps(legacy), encoding="utf-8")
+
+        loaded = mgr.load()
+        assert loaded.campaign_id == "legacy_001"
+        assert loaded.tested_vector_ids == ["v1"]
+        # tested_vector_ids is what resume uses to skip already-run vectors
+        assert "v1" in set(loaded.tested_vector_ids)
 
 
 @pytest.mark.unit

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import contextlib
 import json
-import logging
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -23,6 +22,7 @@ from ziran.infrastructure.adapters.protocols import (
     ProtocolError,
     ProtocolResponse,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from ziran.domain.entities.target import TargetConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Default field paths for JSON-based WebSocket messages
 _DEFAULT_MESSAGE_FIELD = "message"
@@ -134,7 +134,7 @@ class WebSocketProtocolHandler(BaseProtocolHandler):
             msg = f"WebSocket connection failed: {exc}"
             raise ProtocolError(msg) from exc
 
-        logger.info("WebSocket connected to %s", self._ws_url)
+        logger.info("ws_connected", ws_url=self._ws_url)
         return self._ws
 
     # ── BaseProtocolHandler Implementation ───────────────────────

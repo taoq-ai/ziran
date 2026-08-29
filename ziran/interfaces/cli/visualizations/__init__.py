@@ -11,16 +11,17 @@ if it is not installed.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
+
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
     from ziran.domain.entities.capability import DangerousChain
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ── Node styling ──────────────────────────────────────────────────────
 
@@ -273,7 +274,7 @@ class GraphVisualizer:
             raise RuntimeError("Call create_interactive_viz() first")
 
         self._figure.write_html(filepath, include_plotlyjs="cdn")
-        logger.info("Graph visualization exported to %s", filepath)
+        logger.info("graph_visualization_exported", filepath=str(filepath))
         return filepath
 
     def to_html_div(self) -> str:

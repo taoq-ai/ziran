@@ -12,7 +12,6 @@ attacker to exfiltrate local file contents to an external server.
 from __future__ import annotations
 
 import contextlib
-import logging
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
@@ -23,6 +22,7 @@ from ziran.application.knowledge_graph.chain_patterns import (
 )
 from ziran.application.knowledge_graph.graph import NodeType
 from ziran.domain.entities.capability import DangerousChain
+from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
 
 # ── Dangerous pattern definitions ──────────────────────────────────────
@@ -143,12 +143,11 @@ class ToolChainAnalyzer:
         unique.sort(key=lambda c: (-c.risk_score, risk_order.get(c.risk_level, 4)))
 
         logger.info(
-            "Tool chain analysis complete: %d dangerous chains found "
-            "(%d critical, %d high, %d medium)",
-            len(unique),
-            sum(1 for c in unique if c.risk_level == "critical"),
-            sum(1 for c in unique if c.risk_level == "high"),
-            sum(1 for c in unique if c.risk_level == "medium"),
+            "chain_analysis_complete",
+            dangerous_chains=len(unique),
+            critical=sum(1 for c in unique if c.risk_level == "critical"),
+            high=sum(1 for c in unique if c.risk_level == "high"),
+            medium=sum(1 for c in unique if c.risk_level == "medium"),
         )
 
         _chain_span.set_attribute("ziran.chain_count", len(unique))

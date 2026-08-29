@@ -8,6 +8,7 @@ ZIRAN provides 8 commands for scanning, reporting, and CI/CD integration.
 |--------|-------------|
 | `--verbose`, `-v` | Enable debug logging |
 | `--log-file PATH` | Write logs to file |
+| `--log-format [json\|text]` | Log output format (default: text on a TTY, json otherwise). See [Observability](observability.md). |
 | `--version` | Show version |
 | `--help` | Show help |
 
