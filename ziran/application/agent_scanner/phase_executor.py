@@ -7,7 +7,6 @@ execution within a single campaign phase.
 from __future__ import annotations
 
 import asyncio
-import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +17,8 @@ from ziran.application.agent_scanner.progress import (
 )
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
+from ziran.infrastructure.logging.context import bind_phase
+from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     )
     from ziran.domain.entities.attack import AttackVector
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
 
 
@@ -111,6 +112,7 @@ class PhaseExecutor:
             Phase result with all findings.
         """
         start_time = datetime.now(tz=UTC)
+        bind_phase(phase.value)
         _phase_span = _tracer.start_span(
             "ziran.phase",
             attributes={
@@ -130,11 +132,11 @@ class PhaseExecutor:
             attacks = [a for a in attacks if a.id not in exclude]
             if before != len(attacks):
                 logger.info(
-                    "Phase %s: excluded %d already-tested vectors (%d -> %d)",
-                    phase.value,
-                    before - len(attacks),
-                    before,
-                    len(attacks),
+                    "excluded_tested_vectors",
+                    phase=phase.value,
+                    excluded=before - len(attacks),
+                    before=before,
+                    after=len(attacks),
                 )
 
         # Apply strategy-based attack prioritization and filtering
@@ -155,10 +157,10 @@ class PhaseExecutor:
                 attacks = attacks[: decision.max_attacks]
 
         logger.info(
-            "Phase %s has %d attack vectors (coverage=%s)",
-            phase.value,
-            len(attacks),
-            coverage.value,
+            "phase_attacks_loaded",
+            phase=phase.value,
+            attack_count=len(attacks),
+            coverage=coverage.value,
         )
 
         # Emit PHASE_ATTACKS_LOADED so progress bars know the real total
@@ -238,12 +240,12 @@ class PhaseExecutor:
 
             except TimeoutError:
                 logger.warning(
-                    "Attack %s timed out after %.0fs",
-                    attack.id,
-                    self._attack_timeout,
+                    "attack_timed_out",
+                    vector_id=attack.id,
+                    timeout_seconds=self._attack_timeout,
                 )
             except Exception:
-                logger.exception("Failed to execute attack %s", attack.id)
+                logger.exception("attack_execution_failed", vector_id=attack.id)
 
             self._emitter.emit(
                 ProgressEvent(
@@ -269,9 +271,9 @@ class PhaseExecutor:
                 await asyncio.gather(*tasks)
         except TimeoutError:
             logger.warning(
-                "Phase %s timed out after %.0fs",
-                phase.value,
-                self._phase_timeout,
+                "phase_timed_out",
+                phase=phase.value,
+                timeout_seconds=self._phase_timeout,
             )
 
         # Calculate trust score
