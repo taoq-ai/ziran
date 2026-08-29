@@ -29,7 +29,7 @@ dependencies = [
     "pyyaml>=6.0,<7",
     "python-dotenv>=1.0,<2",
     "mdutils>=1.6,<2",
-    "structlog>=24.1,<26",
+    "structlog>=24.1,<27",
 ]
 
 [project.optional-dependencies]
