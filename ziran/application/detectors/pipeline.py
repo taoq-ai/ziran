@@ -20,7 +20,6 @@ running the tool.
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
@@ -30,6 +29,7 @@ from ziran.application.detectors.refusal import RefusalDetector
 from ziran.application.detectors.side_effect import SideEffectDetector
 from ziran.application.detectors.thresholds import DetectorThresholds
 from ziran.domain.entities.detection import DetectionVerdict, DetectorResult
+from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from ziran.domain.interfaces.detector import BaseDetector
     from ziran.infrastructure.llm.base import BaseLLMClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
 
 # Decision thresholds now live on :class:`DetectorThresholds` (configurable via
@@ -130,8 +130,8 @@ class DetectorPipeline:
 
             self._llm_judge = LLMJudgeDetector(llm_client, quality_scoring=quality_scoring)
             logger.info(
-                "LLM judge detector enabled (quality_scoring=%s)",
-                quality_scoring,
+                "llm_judge_enabled",
+                quality_scoring=quality_scoring,
             )
 
     def register_detector(self, detector: BaseDetector) -> None:
@@ -146,7 +146,7 @@ class DetectorPipeline:
         # Replace existing custom detector with the same name
         self._custom_detectors = [d for d in self._custom_detectors if d.name != detector.name]
         self._custom_detectors.append(detector)
-        logger.info("Registered custom detector: %s", detector.name)
+        logger.info("custom_detector_registered", detector=detector.name)
 
     def _is_enabled(self, name: str) -> bool:
         """Check if a detector is enabled."""
@@ -200,7 +200,7 @@ class DetectorPipeline:
                     custom_result = custom.detect(prompt, response, prompt_spec, vector)
                     results.append(custom_result)
                 except Exception as exc:
-                    logger.warning("Custom detector '%s' failed: %s", custom.name, exc)
+                    logger.warning("custom_detector_failed", detector=custom.name, error=str(exc))
 
         # ── 6. LLM judge (optional, only for ambiguous cases) ────
         llm_judge_result = None
@@ -214,9 +214,9 @@ class DetectorPipeline:
                         vector,
                     )
             except TimeoutError:
-                logger.warning("LLM judge timed out after %.0fs", _LLM_JUDGE_TIMEOUT)
+                logger.warning("llm_judge_timed_out", timeout_seconds=_LLM_JUDGE_TIMEOUT)
             except Exception as exc:
-                logger.warning("LLM judge failed: %s", exc)
+                logger.warning("llm_judge_failed", error=str(exc))
 
             if llm_judge_result is not None:
                 results.append(llm_judge_result)

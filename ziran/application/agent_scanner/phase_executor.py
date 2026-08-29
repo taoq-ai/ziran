@@ -7,8 +7,8 @@ execution within a single campaign phase.
 from __future__ import annotations
 
 import asyncio
-import logging
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.agent_scanner.progress import (
@@ -18,9 +18,14 @@ from ziran.application.agent_scanner.progress import (
 )
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
+from ziran.infrastructure.logging.context import bind_phase
+from ziran.infrastructure.logging.logger import get_logger
+from ziran.infrastructure.telemetry import metrics
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ziran.application.agent_scanner.attack_executor import AttackExecutor
     from ziran.application.attacks.library import AttackLibrary
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
@@ -30,7 +35,7 @@ if TYPE_CHECKING:
     )
     from ziran.domain.entities.attack import AttackVector
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
 
 
@@ -83,6 +88,7 @@ class PhaseExecutor:
         attack_results: list[AttackResult],
         max_results: int = 10_000,
         calculate_trust_score: Any = None,
+        on_vector_complete: Callable[[], None] | None = None,
     ) -> PhaseResult:
         """Execute a single scan phase.
 
@@ -99,11 +105,16 @@ class PhaseExecutor:
             attack_results: Shared mutable list of attack results.
             max_results: Maximum number of results to store.
             calculate_trust_score: Callable(phase, vulns) -> float.
+            on_vector_complete: Optional hook invoked (under the result lock)
+                after each vector is recorded into ``tested_vector_ids``.
+                Used for incremental checkpointing; ``None`` preserves the
+                original between-phase-only behaviour.
 
         Returns:
             Phase result with all findings.
         """
         start_time = datetime.now(tz=UTC)
+        bind_phase(phase.value)
         _phase_span = _tracer.start_span(
             "ziran.phase",
             attributes={
@@ -123,11 +134,11 @@ class PhaseExecutor:
             attacks = [a for a in attacks if a.id not in exclude]
             if before != len(attacks):
                 logger.info(
-                    "Phase %s: excluded %d already-tested vectors (%d -> %d)",
-                    phase.value,
-                    before - len(attacks),
-                    before,
-                    len(attacks),
+                    "excluded_tested_vectors",
+                    phase=phase.value,
+                    excluded=before - len(attacks),
+                    before=before,
+                    after=len(attacks),
                 )
 
         # Apply strategy-based attack prioritization and filtering
@@ -148,10 +159,10 @@ class PhaseExecutor:
                 attacks = attacks[: decision.max_attacks]
 
         logger.info(
-            "Phase %s has %d attack vectors (coverage=%s)",
-            phase.value,
-            len(attacks),
-            coverage.value,
+            "phase_attacks_loaded",
+            phase=phase.value,
+            attack_count=len(attacks),
+            coverage=coverage.value,
         )
 
         # Emit PHASE_ATTACKS_LOADED so progress bars know the real total
@@ -192,8 +203,26 @@ class PhaseExecutor:
 
             try:
                 async with semaphore:
-                    async with asyncio.timeout(self._attack_timeout):
-                        result = await self._attack_executor.execute(attack)
+                    metrics.attack_started(phase.value)
+                    started = perf_counter()
+                    try:
+                        async with asyncio.timeout(self._attack_timeout):
+                            result = await self._attack_executor.execute(attack)
+                    finally:
+                        metrics.attack_finished(phase.value)
+                    elapsed = perf_counter() - started
+
+                # Refused = agent responded but the attack did not succeed
+                # (distinct from an error/timeout where no response came back).
+                metrics.record_attack(
+                    phase=phase.value,
+                    vector_id=result.vector_id,
+                    provider=getattr(self._attack_executor, "provider", "unknown"),
+                    coverage_level=coverage.value,
+                    successful=result.successful,
+                    refused=not result.successful and result.agent_response is not None,
+                    duration_seconds=elapsed,
+                )
 
                 # Tag result with the phase for reporting
                 result.evidence.setdefault("phase", phase.value)
@@ -224,14 +253,19 @@ class PhaseExecutor:
                             },
                         )
 
+                    # Incremental checkpoint hook: fire under the lock so the
+                    # snapshot it flushes is consistent with tested_vector_ids.
+                    if on_vector_complete is not None:
+                        on_vector_complete()
+
             except TimeoutError:
                 logger.warning(
-                    "Attack %s timed out after %.0fs",
-                    attack.id,
-                    self._attack_timeout,
+                    "attack_timed_out",
+                    vector_id=attack.id,
+                    timeout_seconds=self._attack_timeout,
                 )
             except Exception:
-                logger.exception("Failed to execute attack %s", attack.id)
+                logger.exception("attack_execution_failed", vector_id=attack.id)
 
             self._emitter.emit(
                 ProgressEvent(
@@ -257,9 +291,9 @@ class PhaseExecutor:
                 await asyncio.gather(*tasks)
         except TimeoutError:
             logger.warning(
-                "Phase %s timed out after %.0fs",
-                phase.value,
-                self._phase_timeout,
+                "phase_timed_out",
+                phase=phase.value,
+                timeout_seconds=self._phase_timeout,
             )
 
         # Calculate trust score
@@ -277,6 +311,14 @@ class PhaseExecutor:
         _phase_span.set_attribute("ziran.phase.duration_seconds", duration)
         _phase_span.set_attribute("ziran.phase.attacks_executed", len(attacks))
         _phase_span.end()
+
+        # Metrics: per-phase duration histogram + tokens-per-phase gauge
+        metrics.record_phase(
+            phase=phase.value,
+            coverage_level=coverage.value,
+            duration_seconds=duration,
+            tokens=phase_tokens.total_tokens,
+        )
 
         return PhaseResult(
             phase=phase,

@@ -12,10 +12,10 @@ and attempt exploitation — all tracked via the knowledge graph.
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from ziran.application.agent_scanner import campaign_telemetry
 from ziran.application.agent_scanner.attack_executor import (
     _ERROR_SENTINELS as _ERROR_SENTINELS,
 )
@@ -24,6 +24,11 @@ from ziran.application.agent_scanner.attack_executor import (
 )
 from ziran.application.agent_scanner.attack_executor import (
     _is_error_response as _is_error_response,
+)
+from ziran.application.agent_scanner.checkpoint import (
+    DEFAULT_FLUSH_INTERVAL_SECONDS,
+    IncrementalCheckpointer,
+    load_resume_state,
 )
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
 from ziran.application.agent_scanner.progress import (
@@ -65,6 +70,8 @@ from ziran.domain.entities.phase import (
     PhaseResult,
     ScanPhase,
 )
+from ziran.infrastructure.logging.context import bind_campaign, clear_context
+from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
@@ -76,7 +83,7 @@ if TYPE_CHECKING:
     from ziran.domain.entities.utility import UtilityTask
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
 
 
@@ -176,6 +183,7 @@ class AgentScanner:
         utility_tasks: list[UtilityTask] | None = None,
         checkpoint_manager: CheckpointManager | None = None,
         resume_from_checkpoint: bool = False,
+        checkpoint_flush_interval: float = DEFAULT_FLUSH_INTERVAL_SECONDS,
         defence_profile: DefenceProfile | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
@@ -214,48 +222,36 @@ class AgentScanner:
         campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
         campaign_start = datetime.now(tz=UTC)
 
-        # ── Resume from checkpoint if available ────────────────────
+        # Resume from checkpoint if available.
         _resumed = False
         phase_results: list[PhaseResult] = []
         campaign_tokens = TokenUsage()
-
         if checkpoint_manager and resume_from_checkpoint and checkpoint_manager.exists():
-            checkpoint = checkpoint_manager.load()
-            campaign_id = checkpoint.campaign_id
-            phase_results = [PhaseResult.model_validate(p) for p in checkpoint.completed_phases]
-            campaign_tokens = TokenUsage(
-                prompt_tokens=checkpoint.token_usage.get("prompt_tokens", 0),
-                completion_tokens=checkpoint.token_usage.get("completion_tokens", 0),
-                total_tokens=checkpoint.token_usage.get("total_tokens", 0),
-            )
-            self._tested_vector_ids = set(checkpoint.tested_vector_ids)
-
-            # Restore attack results
-            for ar_dict in checkpoint.attack_results:
-                self._attack_results.append(AttackResult.model_validate(ar_dict))
-
-            # Resume from remaining phases
-            completed_phase_names = {p.phase for p in phase_results}
-            phases = [p for p in phases if p not in completed_phase_names]
+            _rs = load_resume_state(checkpoint_manager, phases)
+            campaign_id = _rs.campaign_id
+            phase_results = _rs.phase_results
+            campaign_tokens = _rs.campaign_tokens
+            phases = _rs.remaining_phases
+            self._tested_vector_ids = _rs.tested_vector_ids
+            self._attack_results.extend(_rs.attack_results)
             _resumed = True
             logger.info(
-                "Resuming campaign %s from checkpoint (%d phases completed, %d remaining)",
-                campaign_id,
-                len(phase_results),
-                len(phases),
+                "campaign_resumed_from_checkpoint",
+                campaign_id=campaign_id,
+                phases_completed=len(phase_results),
+                phases_remaining=len(phases),
             )
 
-        # OTel: root span for the entire campaign
-        self._campaign_span = _tracer.start_span(
-            "ziran.campaign",
-            attributes={
-                "ziran.campaign_id": campaign_id,
-                "ziran.phase_count": len(phases),
-                "ziran.coverage": coverage.value,
-                "ziran.strategy": type(strategy).__name__,
-                "ziran.resumed": _resumed,
-            },
+        # OTel span + campaign-started metric (extracted to keep scanner lean)
+        self._campaign_span = campaign_telemetry.start_campaign_span(
+            campaign_id=campaign_id,
+            phase_count=len(phases),
+            coverage_level=coverage.value,
+            strategy_name=type(strategy).__name__,
+            resumed=_resumed,
         )
+
+        bind_campaign(campaign_id)  # merge campaign_id into every log line
 
         # Build sub-components
         emitter = ProgressEmitter(on_progress)
@@ -287,14 +283,14 @@ class AgentScanner:
         self._encoding = encoding
 
         logger.info(
-            "%s scan campaign %s with %d phases (coverage=%s, concurrency=%d, strategy=%s, streaming=%s)",
-            "Resuming" if _resumed else "Starting",
-            campaign_id,
-            len(phases),
-            coverage.value,
-            max_concurrent_attacks,
-            type(strategy).__name__,
-            streaming,
+            "campaign_started",
+            resumed=_resumed,
+            campaign_id=campaign_id,
+            phase_count=len(phases),
+            coverage=coverage.value,
+            concurrency=max_concurrent_attacks,
+            strategy=type(strategy).__name__,
+            streaming=streaming,
         )
 
         emitter.emit(
@@ -314,7 +310,7 @@ class AgentScanner:
         if utility_tasks and not _resumed:
             from ziran.application.utility.measurer import UtilityMeasurer
 
-            logger.info("Measuring baseline utility (%d tasks)", len(utility_tasks))
+            logger.info("measuring_baseline_utility", task_count=len(utility_tasks))
             emitter.emit(
                 ProgressEvent(
                     event=ProgressEventType.CAMPAIGN_START,
@@ -323,12 +319,27 @@ class AgentScanner:
             )
             measurer = UtilityMeasurer(self.adapter, utility_tasks)
             _baseline_score, _baseline_results = await measurer.measure()
-            logger.info("Baseline utility score: %.1f%%", _baseline_score * 100)
+            logger.info("baseline_utility_measured", score_pct=round(_baseline_score * 100, 1))
 
         # Track which phases remain available for the strategy
         remaining_phases = list(phases)
         phase_idx = len(phase_results)  # Continue numbering from checkpoint
         total_phases = len(phase_results) + len(phases)
+
+        # Incremental (mid-phase) checkpoint writer, reading live state by ref.
+        _checkpointer: IncrementalCheckpointer | None = None
+        if checkpoint_manager is not None:
+            _checkpointer = IncrementalCheckpointer(
+                checkpoint_manager,
+                campaign_id=campaign_id,
+                phase_results=phase_results,
+                attack_results=self._attack_results,
+                tested_vector_ids=self._tested_vector_ids,
+                remaining_phases=remaining_phases,
+                coverage=coverage.value,
+                token_provider=lambda: campaign_tokens.model_dump(),
+                flush_interval=checkpoint_flush_interval,
+            )
 
         while True:
             # Build context for strategy decision-making
@@ -344,24 +355,20 @@ class AgentScanner:
 
             # Check strategy termination
             if strategy.should_stop(context):
-                logger.info("Strategy %s requested campaign stop", type(strategy).__name__)
+                logger.info("strategy_requested_stop", strategy=type(strategy).__name__)
                 break
 
             # Ask strategy for the next phase
             decision = strategy.select_next_phase(context)
             if decision is None:
-                logger.info("Strategy returned no next phase — campaign complete")
+                logger.info("strategy_no_next_phase")
                 break
 
             phase = decision.phase
             self._current_phase = phase
             self._current_decision = decision
 
-            logger.info(
-                "Executing phase: %s (reason: %s)",
-                phase.value,
-                decision.reasoning or "none",
-            )
+            logger.info("phase_executing", phase=phase.value, reason=decision.reasoning or "none")
 
             emitter.emit(
                 ProgressEvent(
@@ -390,6 +397,7 @@ class AgentScanner:
                 attack_results=self._attack_results,
                 max_results=self._max_results,
                 calculate_trust_score=self._calculate_trust_score,
+                on_vector_complete=_checkpointer.flush if _checkpointer is not None else None,
             )
             phase_results.append(result)
 
@@ -431,25 +439,15 @@ class AgentScanner:
             )
 
             logger.info(
-                "Phase %s complete: %d vulnerabilities found (trust=%.2f)",
-                phase.value,
-                len(result.vulnerabilities_found),
-                result.trust_score,
+                "phase_complete",
+                phase=phase.value,
+                vulnerabilities_found=len(result.vulnerabilities_found),
+                trust_score=round(result.trust_score, 2),
             )
 
-            # ── Save checkpoint after each phase ──────────────────
-            if checkpoint_manager is not None:
-                ckpt = checkpoint_manager.build_checkpoint(
-                    campaign_id=campaign_id,
-                    phase_results=phase_results,
-                    attack_results=self._attack_results,
-                    tested_vector_ids=self._tested_vector_ids,
-                    token_usage=campaign_tokens.model_dump(),
-                    coverage=coverage.value,
-                    remaining_phases=[p.value for p in remaining_phases],
-                )
-                checkpoint_manager.save(ckpt)
-                logger.debug("Checkpoint saved after phase %s", phase.value)
+            # Force a checkpoint save at the phase boundary.
+            if _checkpointer is not None:
+                _checkpointer.write()
 
             phase_idx += 1
 
@@ -459,10 +457,10 @@ class AgentScanner:
         if utility_tasks and _baseline_score is not None:
             from ziran.application.utility.measurer import UtilityMeasurer
 
-            logger.info("Measuring post-attack utility (%d tasks)", len(utility_tasks))
+            logger.info("measuring_post_attack_utility", task_count=len(utility_tasks))
             measurer = UtilityMeasurer(self.adapter, utility_tasks)
             _post_score, _post_results = await measurer.measure()
-            logger.info("Post-attack utility score: %.1f%%", _post_score * 100)
+            logger.info("post_attack_utility_measured", score_pct=round(_post_score * 100, 1))
 
         # Build final result via ResultBuilder
         result_builder = ResultBuilder(self.graph, type(self.adapter).__name__)
@@ -487,14 +485,13 @@ class AgentScanner:
         duration = campaign_result.metadata["duration_seconds"]
 
         logger.info(
-            "Campaign %s complete: %d vulnerabilities, %d critical paths, "
-            "%d dangerous chains (%.1fs, %d tokens)",
-            campaign_id,
-            campaign_result.total_vulnerabilities,
-            len(campaign_result.critical_paths),
-            len(dangerous_chains),
-            duration,
-            campaign_tokens.total_tokens,
+            "campaign_complete",
+            campaign_id=campaign_id,
+            total_vulnerabilities=campaign_result.total_vulnerabilities,
+            critical_paths=len(campaign_result.critical_paths),
+            dangerous_chains=len(dangerous_chains),
+            duration_seconds=round(duration, 1),
+            total_tokens=campaign_tokens.total_tokens,
         )
 
         emitter.emit(
@@ -512,21 +509,24 @@ class AgentScanner:
             )
         )
 
-        # OTel: finalize campaign span
-        span = getattr(self, "_campaign_span", None)
-        if span is not None:
-            span.set_attribute("ziran.total_vulnerabilities", campaign_result.total_vulnerabilities)
-            span.set_attribute("ziran.trust_score", campaign_result.final_trust_score)
-            span.set_attribute("ziran.duration_seconds", duration)
-            span.set_attribute("ziran.total_tokens", campaign_tokens.total_tokens)
-            span.set_attribute("ziran.dangerous_chain_count", len(dangerous_chains))
-            span.end()
+        # OTel span finalize + campaign-completed metric (extracted)
+        campaign_telemetry.finish_campaign_span(
+            getattr(self, "_campaign_span", None),
+            campaign_id=campaign_id,
+            coverage_level=coverage.value,
+            total_vulnerabilities=campaign_result.total_vulnerabilities,
+            trust_score=campaign_result.final_trust_score,
+            duration_seconds=duration,
+            total_tokens=campaign_tokens.total_tokens,
+            dangerous_chain_count=len(dangerous_chains),
+        )
 
         # Clean up checkpoint on successful completion
         if checkpoint_manager is not None:
             checkpoint_manager.cleanup()
-            logger.info("Checkpoint cleaned up after successful campaign")
+            logger.info("checkpoint_cleaned_up")
 
+        clear_context()
         return campaign_result
 
     # ── Capability discovery (stays here — graph management) ──────────────
@@ -540,10 +540,10 @@ class AgentScanner:
         try:
             capabilities = await self.adapter.discover_capabilities()
         except (ConnectionError, OSError) as exc:
-            logger.warning("Failed to discover capabilities (connection error): %s", exc)
+            logger.warning("capability_discovery_failed", error=str(exc))
             return []
         except Exception:
-            logger.exception("Failed to discover capabilities")
+            logger.exception("capability_discovery_failed")
             return []
 
         for cap in capabilities:
@@ -563,9 +563,9 @@ class AgentScanner:
                 )
 
         logger.info(
-            "Discovered %d capabilities (%d dangerous)",
-            len(capabilities),
-            sum(1 for c in capabilities if c.dangerous),
+            "capabilities_discovered",
+            count=len(capabilities),
+            dangerous=sum(1 for c in capabilities if c.dangerous),
         )
 
         # Run MCP metadata poisoning analysis on discovered capabilities
@@ -579,17 +579,17 @@ class AgentScanner:
             mcp_findings = analyzer.analyze_capabilities(cap_dicts)
             if mcp_findings:
                 logger.warning(
-                    "MCP metadata analysis found %d suspicious patterns in tool metadata",
-                    len(mcp_findings),
+                    "mcp_metadata_suspicious_patterns",
+                    count=len(mcp_findings),
                 )
                 for finding in mcp_findings:
                     logger.warning(
-                        "  [%s] %s.%s: %s — %s",
-                        finding.severity,
-                        finding.tool_id,
-                        finding.field,
-                        finding.pattern_matched,
-                        finding.snippet[:80],
+                        "mcp_metadata_finding",
+                        severity=finding.severity,
+                        tool_id=finding.tool_id,
+                        field=finding.field,
+                        pattern=finding.pattern_matched,
+                        snippet=finding.snippet[:80],
                     )
             self._mcp_metadata_findings = mcp_findings
 

@@ -16,6 +16,15 @@ _API_ROOT = "https://api.github.com"
 _MARKER_PREFIX = "ziran-fingerprint:"
 
 
+class _DedupUnavailableError(Exception):
+    """The dedup lookup could not be completed, so prior state is unknown.
+
+    Distinct from "searched successfully and found nothing": a rate limit,
+    outage or malformed response means we cannot prove the issue is absent,
+    and creating one anyway would file a duplicate.
+    """
+
+
 def marker(fingerprint: str) -> str:
     """Hidden HTML-comment marker embedded in issue bodies for dedup."""
     return f"<!-- {_MARKER_PREFIX} {fingerprint} -->"
@@ -83,6 +92,15 @@ class GitHubIssueSink(AlertSink):
                         detail=existing,
                     )
                 return await self._create(client, finding)
+        except _DedupUnavailableError as exc:
+            # Do NOT fall through to _create: dedup is the only thing standing
+            # between a transient search failure and a duplicate issue.
+            return DeliveryResult(
+                sink_name=self.name,
+                fingerprint=finding.fingerprint,
+                status="failed",
+                detail=f"dedup lookup failed, not creating issue: {exc}",
+            )
         except httpx.HTTPError as exc:
             return DeliveryResult(
                 sink_name=self.name,
@@ -92,11 +110,29 @@ class GitHubIssueSink(AlertSink):
             )
 
     async def _find_existing(self, client: httpx.AsyncClient, fingerprint: str) -> str | None:
+        """Return the existing issue URL, or None if the search proved absence.
+
+        Raises:
+            _DedupUnavailableError: the search did not complete, so absence is
+                unproven. Callers must not treat this as "no issue exists".
+        """
         query = f'repo:{self._repo} in:body "{_MARKER_PREFIX} {fingerprint}" is:issue'
         resp = await client.get(f"{_API_ROOT}/search/issues", params={"q": query})
         if resp.status_code != httpx.codes.OK:
-            return None
-        items = resp.json().get("items", [])
+            raise _DedupUnavailableError(f"search responded {resp.status_code}: {resp.text[:200]}")
+        try:
+            payload = resp.json()
+        except ValueError as exc:
+            raise _DedupUnavailableError(f"search returned non-JSON body: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise _DedupUnavailableError(
+                f"search returned unexpected payload type: {type(payload).__name__}"
+            )
+        items = payload.get("items", [])
+        if not isinstance(items, list):
+            raise _DedupUnavailableError(
+                f"search 'items' was {type(items).__name__}, expected list"
+            )
         if items:
             url: str = items[0].get("html_url", "")
             return url

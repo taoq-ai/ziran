@@ -6,7 +6,6 @@ against the target agent, plus the ``_is_error_response`` sentinel checker.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.agent_scanner.progress import (
@@ -23,13 +22,15 @@ from ziran.domain.entities.attack import (
     TokenUsage,
     get_business_impacts,
 )
+from ziran.infrastructure.logging.context import bind_vector
+from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
 
 # ---------------------------------------------------------------------------
@@ -81,6 +82,9 @@ class AttackExecutor:
         context_window: int = 200_000,
     ) -> None:
         self._adapter = adapter
+        # Bounded-cardinality provider label for metrics (e.g. "anthropic",
+        # "langchain") derived from the adapter class name.
+        self.provider = type(adapter).__name__.removesuffix("Adapter").lower() or "unknown"
         self._detector_pipeline = detector_pipeline
         self._streaming = streaming
         self._emitter = emitter or ProgressEmitter()
@@ -95,6 +99,7 @@ class AttackExecutor:
 
     async def execute(self, attack: AttackVector) -> AttackResult:
         """Execute *attack* and return the result."""
+        bind_vector(attack.id)
         _attack_span = _tracer.start_span(
             "ziran.attack",
             attributes={
@@ -240,11 +245,11 @@ class AttackExecutor:
                     )
 
             except TimeoutError:
-                logger.warning("Prompt for %s timed out", attack.id)
+                logger.warning("prompt_timed_out", vector_id=attack.id)
             except (ConnectionError, OSError) as exc:
-                logger.warning("Connection error executing prompt for %s: %s", attack.id, exc)
+                logger.warning("prompt_connection_error", vector_id=attack.id, error=str(exc))
             except Exception as e:
-                logger.warning("Error executing prompt for %s: %s", attack.id, str(e))
+                logger.warning("prompt_error", vector_id=attack.id, error=str(e))
 
         # None of the prompts succeeded
         _attack_span.set_attribute("ziran.attack.successful", False)
@@ -286,7 +291,10 @@ class AttackExecutor:
         effective, clamped = clamp_shots(requested)
         if clamped:
             logger.warning(
-                "Many-shot %s: requested n_shots=%s clamped to %s", attack.id, requested, effective
+                "many_shot_clamped",
+                vector_id=attack.id,
+                requested=requested,
+                effective=effective,
             )
         shots = self._shot_renderer.render(config.corpus, effective)
 
@@ -304,7 +312,7 @@ class AttackExecutor:
                 f"target context too small for {effective} shots "
                 f"(~{smallest_prompt_tokens} prompt tokens > {self._context_window} budget)"
             )
-            logger.warning("Many-shot %s skipped: %s", attack.id, reason)
+            logger.warning("many_shot_skipped", vector_id=attack.id, reason=reason)
             return AttackResult(
                 vector_id=attack.id,
                 vector_name=attack.name,

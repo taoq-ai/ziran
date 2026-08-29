@@ -153,9 +153,9 @@ Backend: `ziran/...`, tests in `tests/unit/` and `tests/integration/`. Frontend:
 
 **Purpose**: Per-PR finishing (run the relevant subset before each PR; full pass before the last).
 
-- [ ] T047 [P] Update `docs/` (and any graph/report user docs) to describe layout modes, filters, clustering, walker, cross-linking, and the phase scrubber
-- [ ] T048 Run `quickstart.md` verification for each completed user story (per-story acceptance checks)
-- [ ] T049 Quality gates per PR: `uv run ruff check . && uv run ruff format --check . && uv run mypy ziran/ && uv run pytest --cov=ziran` (≥ 85%); `cd ui && npm run build && npm run test:unit && npm run test:e2e`
+- [X] T047 [P] Update `docs/` (and any graph/report user docs) to describe layout modes, filters, clustering, walker, cross-linking, and the phase scrubber — see `docs/concepts/knowledge-graph.md` (layout modes, legend filters, clustering, walker, timeline scrubber) and `docs/guides/interpreting-results.md`
+- [X] T048 Run `quickstart.md` verification for each completed user story (per-story acceptance checks) — validated per PR; acceptance flows are locked in by the Playwright specs `ui/e2e/graph-structure.spec.ts`, `graph-drilldown.spec.ts`, `graph-temporal.spec.ts`
+- [X] T049 Quality gates per PR: `uv run ruff check . && uv run ruff format --check . && uv run mypy ziran/ && uv run pytest --cov=ziran` (≥ 85%); `cd ui && npm run build && npm run test:e2e` — passed on PR1/PR2/PR3; shipped in v0.35.0. (`npm run test:unit` is the deferred Vitest step, see T001.)
 
 ---
 

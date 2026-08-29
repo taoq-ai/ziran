@@ -10,7 +10,6 @@ Requires the ``[llm]`` extra (litellm).
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.strategies.adaptive import AdaptiveStrategy
@@ -19,12 +18,13 @@ from ziran.application.strategies.protocol import (
     PhaseDecision,
 )
 from ziran.domain.entities.phase import ScanPhase
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackVector
     from ziran.infrastructure.llm.base import BaseLLMClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _PHASE_SELECTION_PROMPT = """\
 You are an AI security researcher conducting an automated security assessment \
@@ -132,7 +132,7 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         try:
             return self._llm_select_phase(context)
         except Exception as exc:
-            logger.warning("LLM phase selection failed, falling back to rules: %s", exc)
+            logger.warning("llm_phase_selection_failed", error=str(exc))
             return super().select_next_phase(context)
 
     def prioritize_attacks(
@@ -144,7 +144,7 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         try:
             return self._llm_prioritize_attacks(attacks, context)
         except Exception as exc:
-            logger.warning("LLM attack prioritization failed, falling back to rules: %s", exc)
+            logger.warning("llm_attack_prioritization_failed", error=str(exc))
             return super().prioritize_attacks(attacks, context)
 
     # ── LLM-Powered Methods ──────────────────────────────────────
@@ -179,18 +179,18 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         data = self._parse_json_response(response.content)
 
         if data.get("should_stop", False):
-            logger.info("LLM recommends stopping the campaign: %s", data.get("reasoning", ""))
+            logger.info("llm_recommends_stop", reasoning=data.get("reasoning", ""))
             return None
 
         phase_name = data.get("phase", "")
         try:
             phase = ScanPhase(phase_name)
         except ValueError:
-            logger.warning("LLM returned invalid phase '%s', falling back", phase_name)
+            logger.warning("llm_invalid_phase", phase=phase_name)
             return super().select_next_phase(context)
 
         if phase not in context.available_phases:
-            logger.warning("LLM selected unavailable phase '%s', falling back", phase_name)
+            logger.warning("llm_unavailable_phase", phase=phase_name)
             return super().select_next_phase(context)
 
         boost_categories = data.get("attack_boost_categories", [])
@@ -270,5 +270,5 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
         try:
             return json.loads(content)
         except json.JSONDecodeError:
-            logger.warning("Failed to parse LLM response as JSON: %s", content)
+            logger.warning("llm_json_parse_failed", content=content)
             return {}

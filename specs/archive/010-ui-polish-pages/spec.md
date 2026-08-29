@@ -2,7 +2,7 @@
 
 **Feature Branch**: `010-ui-polish-pages`
 **Created**: 2026-03-30
-**Status**: Draft
+**Status**: Accepted
 **Input**: GitHub issues #99, #100, #101, #102, #104, #174
 **Scope**: Community (single-developer) edition only
 

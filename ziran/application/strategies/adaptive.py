@@ -10,7 +10,6 @@ No LLM dependency — pure rule-based logic.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from ziran.application.strategies.protocol import (
@@ -19,12 +18,13 @@ from ziran.application.strategies.protocol import (
     PhaseDecision,
 )
 from ziran.domain.entities.phase import ScanPhase
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackVector
     from ziran.domain.entities.phase import PhaseResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Which categories tend to succeed after which phases
 _PHASE_SYNERGIES: dict[ScanPhase, list[str]] = {
@@ -127,10 +127,10 @@ class AdaptiveStrategy:
             return None
 
         logger.info(
-            "Adaptive strategy: selected %s (score=%.2f, reason=%s)",
-            best_phase.value,
-            best_score,
-            reasoning,
+            "adaptive_phase_selected",
+            phase=best_phase.value,
+            score=best_score,
+            reason=reasoning,
         )
 
         return PhaseDecision(
@@ -145,8 +145,8 @@ class AdaptiveStrategy:
             return True
         if self._consecutive_failures >= self._max_consecutive_failures:
             logger.info(
-                "Adaptive strategy: stopping after %d consecutive failures",
-                self._consecutive_failures,
+                "adaptive_stopping_consecutive_failures",
+                consecutive_failures=self._consecutive_failures,
             )
             return True
         return not context.available_phases
