@@ -191,6 +191,7 @@ module = [
     "mdutils.*",
     "a2a.*",
     "a2a_sdk.*",
+    "anthropic.*",
     "boto3.*",
     "botocore.*",
     "litellm.*",
