@@ -82,3 +82,81 @@ async def test_create_sends_labels_and_marker() -> None:
     body = route.calls.last.request.read().decode()
     assert "ziran-fingerprint: 0123456789abcdef" in body
     assert "mcp-drift" in body
+
+
+@pytest.mark.parametrize(
+    ("status_code", "label"),
+    [
+        (403, "rate limited"),
+        (422, "malformed query"),
+        (500, "server error"),
+        (503, "search outage"),
+    ],
+)
+@respx.mock
+async def test_dedup_lookup_failure_does_not_create_issue(status_code: int, label: str) -> None:
+    """A failed search must not be read as proof that no issue exists.
+
+    Without this, a transient 403/5xx during a re-run files a duplicate issue
+    for a fingerprint that was already reported.
+    """
+    respx.get(SEARCH).mock(return_value=httpx.Response(status_code, json={"message": label}))
+    create_route = respx.post(CREATE).mock(
+        return_value=httpx.Response(201, json={"html_url": "should-never-happen"})
+    )
+    sink = GitHubIssueSink(repo=REPO, token="tok")
+
+    result = await sink.emit(make_finding())
+
+    assert result.status == "failed", f"{label} must not be reported as a successful delivery"
+    assert not create_route.called, f"{label} must not fall through to issue creation"
+    assert "dedup" in (result.detail or "").lower()
+
+
+@respx.mock
+async def test_dedup_lookup_non_json_does_not_create_issue() -> None:
+    """A 200 carrying a non-JSON body is also an unproven absence."""
+    respx.get(SEARCH).mock(return_value=httpx.Response(200, text="<html>gateway</html>"))
+    create_route = respx.post(CREATE)
+    sink = GitHubIssueSink(repo=REPO, token="tok")
+
+    result = await sink.emit(make_finding())
+
+    assert result.status == "failed"
+    assert not create_route.called
+
+
+@respx.mock
+async def test_dedup_lookup_unexpected_items_type_does_not_create_issue() -> None:
+    """A 200 whose 'items' is not a list must not be treated as empty."""
+    respx.get(SEARCH).mock(return_value=httpx.Response(200, json={"items": {"unexpected": True}}))
+    create_route = respx.post(CREATE)
+    sink = GitHubIssueSink(repo=REPO, token="tok")
+
+    result = await sink.emit(make_finding())
+
+    assert result.status == "failed"
+    assert not create_route.called
+
+
+@respx.mock
+async def test_recovered_search_still_dedups_after_a_failure() -> None:
+    """Once search recovers, the prior issue is found — no duplicate is filed."""
+    created: list[dict[str, Any]] = []
+    _stateful_github(created)
+    sink = GitHubIssueSink(repo=REPO, token="tok")
+    finding = make_finding()
+
+    assert (await sink.emit(finding)).status == "sent"
+    assert len(created) == 1
+
+    # Search degrades: the finding is held back rather than duplicated.
+    respx.get(SEARCH).mock(return_value=httpx.Response(403, json={"message": "rate limited"}))
+    assert (await sink.emit(finding)).status == "failed"
+    assert len(created) == 1
+
+    # Search recovers: the original issue is found again.
+    _stateful_github(created)
+    recovered = await sink.emit(finding)
+    assert recovered.status == "deduped"
+    assert len(created) == 1
