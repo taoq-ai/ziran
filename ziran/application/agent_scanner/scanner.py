@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from ziran.application.agent_scanner import campaign_telemetry
 from ziran.application.agent_scanner.attack_executor import (
     _ERROR_SENTINELS as _ERROR_SENTINELS,
 )
@@ -241,16 +242,13 @@ class AgentScanner:
                 phases_remaining=len(phases),
             )
 
-        # OTel: root span for the entire campaign
-        self._campaign_span = _tracer.start_span(
-            "ziran.campaign",
-            attributes={
-                "ziran.campaign_id": campaign_id,
-                "ziran.phase_count": len(phases),
-                "ziran.coverage": coverage.value,
-                "ziran.strategy": type(strategy).__name__,
-                "ziran.resumed": _resumed,
-            },
+        # OTel span + campaign-started metric (extracted to keep scanner lean)
+        self._campaign_span = campaign_telemetry.start_campaign_span(
+            campaign_id=campaign_id,
+            phase_count=len(phases),
+            coverage_level=coverage.value,
+            strategy_name=type(strategy).__name__,
+            resumed=_resumed,
         )
 
         bind_campaign(campaign_id)  # merge campaign_id into every log line
@@ -511,15 +509,17 @@ class AgentScanner:
             )
         )
 
-        # OTel: finalize campaign span
-        span = getattr(self, "_campaign_span", None)
-        if span is not None:
-            span.set_attribute("ziran.total_vulnerabilities", campaign_result.total_vulnerabilities)
-            span.set_attribute("ziran.trust_score", campaign_result.final_trust_score)
-            span.set_attribute("ziran.duration_seconds", duration)
-            span.set_attribute("ziran.total_tokens", campaign_tokens.total_tokens)
-            span.set_attribute("ziran.dangerous_chain_count", len(dangerous_chains))
-            span.end()
+        # OTel span finalize + campaign-completed metric (extracted)
+        campaign_telemetry.finish_campaign_span(
+            getattr(self, "_campaign_span", None),
+            campaign_id=campaign_id,
+            coverage_level=coverage.value,
+            total_vulnerabilities=campaign_result.total_vulnerabilities,
+            trust_score=campaign_result.final_trust_score,
+            duration_seconds=duration,
+            total_tokens=campaign_tokens.total_tokens,
+            dangerous_chain_count=len(dangerous_chains),
+        )
 
         # Clean up checkpoint on successful completion
         if checkpoint_manager is not None:

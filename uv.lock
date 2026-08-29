@@ -2929,6 +2929,20 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-exporter-prometheus"
+version = "0.63b1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "prometheus-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ac/2a/dfeddff262b12eff0c72f4ad9e258aab8889f48c4dc1417a0377a13bc427/opentelemetry_exporter_prometheus-0.63b1.tar.gz", hash = "sha256:31902e22c89431058a95b6dcdb644f9309f226aa4872cc755f0a780d2895e97f", size = 15234, upload-time = "2026-05-21T16:32:57.797Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/ec/d7c7435e9000fb69837cf7753b7cbbbdeb5d0585203daf1b6ebf8fa93e02/opentelemetry_exporter_prometheus-0.63b1-py3-none-any.whl", hash = "sha256:0efd00aa6b1939345ddcc6de141b83ebffa2b4401a37a68f880e54217602701d", size = 12466, upload-time = "2026-05-21T16:32:36.622Z" },
+]
+
+[[package]]
 name = "opentelemetry-proto"
 version = "1.42.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3345,6 +3359,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/48/20/60ae67bb9d82f00427946218d49e2e7e80fb41c15dc5019482289ec9ce8d/posthog-5.4.0.tar.gz", hash = "sha256:701669261b8d07cdde0276e5bc096b87f9e200e3b9589c5ebff14df658c5893c", size = 88076, upload-time = "2025-06-20T23:19:23.485Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/98/e480cab9a08d1c09b1c59a93dade92c1bb7544826684ff2acbfd10fcfbd4/posthog-5.4.0-py3-none-any.whl", hash = "sha256:284dfa302f64353484420b52d4ad81ff5c2c2d1d607c4e2db602ac72761831bd", size = 105364, upload-time = "2025-06-20T23:19:22.001Z" },
+]
+
+[[package]]
+name = "prometheus-client"
+version = "0.26.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/52/73/f1334c29c2af4cd9dba6c7817e61b611bd0215e2eb5565c6064a4de18802/prometheus_client-0.26.0.tar.gz", hash = "sha256:04a91bcf94e2cf74a44a1a874d651a2e853ed354b6e822f3b7487751465d5c2b", size = 92910, upload-time = "2026-07-24T19:36:41.893Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/a3/b69efbf4143b5b9859b977770bbbabcc2796b702fa69dc40271e45cd5a56/prometheus_client-0.26.0-py3-none-any.whl", hash = "sha256:fa93d06737aa02bacd05794768508bb97d2fbee28cb3bca04eaae92f0ca953d6", size = 64494, upload-time = "2026-07-24T19:36:40.854Z" },
 ]
 
 [[package]]
@@ -5602,6 +5625,8 @@ all = [
     { name = "litellm" },
     { name = "numpy" },
     { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-exporter-prometheus" },
     { name = "opentelemetry-sdk" },
     { name = "playwright" },
     { name = "psycopg2-binary" },
@@ -5635,6 +5660,8 @@ llm = [
 ]
 otel = [
     { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-exporter-prometheus" },
     { name = "opentelemetry-sdk" },
 ]
 pentest = [
@@ -5717,10 +5744,14 @@ requires-dist = [
     { name = "networkx", specifier = ">=3.2,<4" },
     { name = "numpy", marker = "extra == 'all'", specifier = ">=1.26,<3" },
     { name = "numpy", marker = "extra == 'pentest'", specifier = ">=1.26,<3" },
-    { name = "opentelemetry-api", marker = "extra == 'all'", specifier = ">=1.20,<2" },
-    { name = "opentelemetry-api", marker = "extra == 'otel'", specifier = ">=1.20,<2" },
-    { name = "opentelemetry-sdk", marker = "extra == 'all'", specifier = ">=1.20,<2" },
-    { name = "opentelemetry-sdk", marker = "extra == 'otel'", specifier = ">=1.20,<2" },
+    { name = "opentelemetry-api", marker = "extra == 'all'", specifier = ">=1.23,<2" },
+    { name = "opentelemetry-api", marker = "extra == 'otel'", specifier = ">=1.23,<2" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'all'", specifier = ">=1.23,<2" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'otel'", specifier = ">=1.23,<2" },
+    { name = "opentelemetry-exporter-prometheus", marker = "extra == 'all'", specifier = ">=0.44b0,<1" },
+    { name = "opentelemetry-exporter-prometheus", marker = "extra == 'otel'", specifier = ">=0.44b0,<1" },
+    { name = "opentelemetry-sdk", marker = "extra == 'all'", specifier = ">=1.23,<2" },
+    { name = "opentelemetry-sdk", marker = "extra == 'otel'", specifier = ">=1.23,<2" },
     { name = "playwright", marker = "extra == 'all'", specifier = ">=1.40,<2" },
     { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.40,<2" },
     { name = "psycopg2-binary", marker = "extra == 'all'", specifier = ">=2.9,<3" },

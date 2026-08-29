@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.agent_scanner.progress import (
@@ -19,6 +20,7 @@ from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
 from ziran.infrastructure.logging.context import bind_phase
 from ziran.infrastructure.logging.logger import get_logger
+from ziran.infrastructure.telemetry import metrics
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
@@ -201,8 +203,26 @@ class PhaseExecutor:
 
             try:
                 async with semaphore:
-                    async with asyncio.timeout(self._attack_timeout):
-                        result = await self._attack_executor.execute(attack)
+                    metrics.attack_started(phase.value)
+                    started = perf_counter()
+                    try:
+                        async with asyncio.timeout(self._attack_timeout):
+                            result = await self._attack_executor.execute(attack)
+                    finally:
+                        metrics.attack_finished(phase.value)
+                    elapsed = perf_counter() - started
+
+                # Refused = agent responded but the attack did not succeed
+                # (distinct from an error/timeout where no response came back).
+                metrics.record_attack(
+                    phase=phase.value,
+                    vector_id=result.vector_id,
+                    provider=getattr(self._attack_executor, "provider", "unknown"),
+                    coverage_level=coverage.value,
+                    successful=result.successful,
+                    refused=not result.successful and result.agent_response is not None,
+                    duration_seconds=elapsed,
+                )
 
                 # Tag result with the phase for reporting
                 result.evidence.setdefault("phase", phase.value)
@@ -291,6 +311,14 @@ class PhaseExecutor:
         _phase_span.set_attribute("ziran.phase.duration_seconds", duration)
         _phase_span.set_attribute("ziran.phase.attacks_executed", len(attacks))
         _phase_span.end()
+
+        # Metrics: per-phase duration histogram + tokens-per-phase gauge
+        metrics.record_phase(
+            phase=phase.value,
+            coverage_level=coverage.value,
+            duration_seconds=duration,
+            tokens=phase_tokens.total_tokens,
+        )
 
         return PhaseResult(
             phase=phase,

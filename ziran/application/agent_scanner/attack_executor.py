@@ -82,6 +82,9 @@ class AttackExecutor:
         context_window: int = 200_000,
     ) -> None:
         self._adapter = adapter
+        # Bounded-cardinality provider label for metrics (e.g. "anthropic",
+        # "langchain") derived from the adapter class name.
+        self.provider = type(adapter).__name__.removesuffix("Adapter").lower() or "unknown"
         self._detector_pipeline = detector_pipeline
         self._streaming = streaming
         self._emitter = emitter or ProgressEmitter()
