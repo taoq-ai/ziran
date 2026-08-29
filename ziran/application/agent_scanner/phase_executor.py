@@ -217,7 +217,7 @@ class PhaseExecutor:
                 metrics.record_attack(
                     phase=phase.value,
                     vector_id=result.vector_id,
-                    provider=self._attack_executor.provider,
+                    provider=getattr(self._attack_executor, "provider", "unknown"),
                     coverage_level=coverage.value,
                     successful=result.successful,
                     refused=not result.successful and result.agent_response is not None,

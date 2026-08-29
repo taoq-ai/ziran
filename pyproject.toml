@@ -204,6 +204,7 @@ module = [
     "numpy.*",
     "playwright.*",
     "opentelemetry.*",
+    "prometheus_client.*",
     "langfuse.*",
     "fastapi.*",
     "uvicorn.*",
