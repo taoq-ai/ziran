@@ -52,7 +52,7 @@ agentcore = [
     "boto3>=1.28,<2",
 ]
 anthropic = [
-    "anthropic>=0.39,<1",
+    "anthropic>=0.39,<2",
 ]
 llm = [
     "litellm>=1.84,<2",
@@ -80,7 +80,7 @@ ui = [
     "sqlalchemy[asyncio]>=2.0,<3",
     "asyncpg>=0.29,<1",
     "psycopg2-binary>=2.9,<3",
-    "websockets>=12.0,<17",
+    "websockets>=12.0,<18",
     "alembic>=1.13,<2",
 ]
 all = [
