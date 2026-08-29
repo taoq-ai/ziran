@@ -85,8 +85,7 @@ class RateLimitedClient(BaseLLMClient):
                     raise
                 delay = max(retry_after(exc) or 0.0, backoff_delay(attempt, self._rl))
                 logger.warning(
-                    "provider throttled (provider=%s, status=%s), "
-                    "retrying %d/%d after %.2fs",
+                    "provider throttled (provider=%s, status=%s), retrying %d/%d after %.2fs",
                     exc.provider or self.config.provider,
                     status_code(exc),
                     attempt + 1,

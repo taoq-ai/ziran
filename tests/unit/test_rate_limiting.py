@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import ClassVar
 
 import pytest
 from pydantic import ValidationError
@@ -86,10 +87,10 @@ class TestRetryClassification:
 
         assert is_retryable(RateLimitError()) is True
 
-        class ValueError2(Exception):
+        class BadInputError(Exception):
             pass
 
-        assert is_retryable(ValueError2()) is False
+        assert is_retryable(BadInputError()) is False
 
     def test_retry_after_from_attr(self) -> None:
         exc = _StatusError(429)
@@ -98,7 +99,7 @@ class TestRetryClassification:
 
     def test_retry_after_from_headers(self) -> None:
         class _Resp:
-            headers = {"retry-after": "3"}
+            headers: ClassVar[dict[str, str]] = {"retry-after": "3"}
 
         exc = _StatusError(429)
         exc.response = _Resp()  # type: ignore[attr-defined]
@@ -194,7 +195,15 @@ class _ScriptedClient(BaseLLMClient):
 
 
 def _rl(inner: BaseLLMClient, **rl: object) -> RateLimitedClient:
-    cfg = RateLimitConfig(rpm=0, tpm=0, max_retries=2, base_delay=0.001, max_delay=0.001, **rl)  # type: ignore[arg-type]
+    params: dict[str, object] = {
+        "rpm": 0,
+        "tpm": 0,
+        "max_retries": 2,
+        "base_delay": 0.001,
+        "max_delay": 0.001,
+    }
+    params.update(rl)
+    cfg = RateLimitConfig(**params)  # type: ignore[arg-type]
     return RateLimitedClient(inner, inner.config, cfg)
 
 
@@ -244,3 +253,17 @@ class TestRateLimitedClient:
         inner = _ScriptedClient([None])
         client = _rl(inner)
         assert await client.health_check() is True
+
+    async def test_tpm_bucket_paced(self) -> None:
+        # tpm > 0 exercises the token-estimate + tpm acquire path.
+        inner = _ScriptedClient([None])
+        client = _rl(inner, tpm=100000)
+        resp = await client.complete([{"role": "user", "content": "hello world"}])
+        assert resp.content == "ok"
+
+    async def test_stream_complete_delegates(self) -> None:
+        inner = _ScriptedClient([None])
+        client = _rl(inner)
+        chunks = [c async for c in client.stream_complete([{"role": "user", "content": "hi"}])]
+        assert chunks  # inner's default streaming yields a final chunk
+        assert chunks[-1].is_final is True

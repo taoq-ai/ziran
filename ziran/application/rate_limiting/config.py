@@ -44,7 +44,9 @@ class RateLimitConfig(BaseModel):
         ``None`` overrides are ignored so callers can pass through optional
         CLI/env values without clobbering the provider default.
         """
-        data: dict[str, int] = {"rpm": _PROVIDER_DEFAULT_RPM.get((provider or "").lower(), _DEFAULT_RPM)}
+        data: dict[str, int] = {
+            "rpm": _PROVIDER_DEFAULT_RPM.get((provider or "").lower(), _DEFAULT_RPM)
+        }
         if rpm is not None:
             data["rpm"] = rpm
         if tpm is not None:

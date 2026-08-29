@@ -81,6 +81,7 @@ nav:
     - Framework Adapters: guides/adapters.md
   - Reference:
     - CLI Reference: reference/cli.md
+    - Runtime Configuration: reference/runtime-config.md
     - Python API: reference/api.md
     - Attack Library: reference/attack-library.md
     - Benchmarks:

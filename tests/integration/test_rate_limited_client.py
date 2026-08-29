@@ -16,7 +16,7 @@ from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMError, LL
 from ziran.infrastructure.llm.rate_limited_client import RateLimitedClient
 
 
-class _Throttling429(Exception):
+class _Throttling429Error(Exception):
     """Stand-in for a provider rate-limit error."""
 
     def __init__(self) -> None:
@@ -48,7 +48,7 @@ class _MockProvider(BaseLLMClient):
             key = messages[0]["content"]
             self._attempts[key] = self._attempts.get(key, 0) + 1
             if self._attempts[key] <= self._fail_first:
-                raise LLMError("throttled", provider="litellm", cause=_Throttling429())
+                raise LLMError("throttled", provider="litellm", cause=_Throttling429Error())
             return LLMResponse(content=f"done {key}", model="gpt-4o")
         finally:
             self.in_flight -= 1
