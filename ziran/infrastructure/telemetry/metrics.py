@@ -28,6 +28,7 @@ Example::
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 try:
@@ -128,10 +129,8 @@ def reset_metrics() -> None:
     """Tear down configured metrics (test teardown / reconfigure)."""
     global _METRICS, _PROVIDER
     if _PROVIDER is not None:
-        try:
+        with contextlib.suppress(Exception):  # pragma: no cover - best-effort teardown
             _PROVIDER.shutdown()
-        except Exception:  # pragma: no cover - best-effort teardown
-            pass
     _METRICS = None
     _PROVIDER = None
 

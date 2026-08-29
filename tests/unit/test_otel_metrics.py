@@ -7,8 +7,7 @@ labels using an in-memory metric reader.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +15,9 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 from ziran.infrastructure.telemetry import metrics
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @pytest.fixture
@@ -76,6 +78,25 @@ class TestNoOp:
     def test_get_meter_returns_none_without_otel(self) -> None:
         with patch("ziran.infrastructure.telemetry.metrics._HAS_OTEL", False):
             assert metrics.get_meter("x") is None
+
+    def test_get_meter_returns_meter_with_otel(self) -> None:
+        # OTel SDK is installed in the test env -> a real meter is returned.
+        assert metrics.get_meter("ziran.test") is not None
+
+    def test_finish_span_none_is_noop(self) -> None:
+        """finish_campaign_span with a None span must not raise."""
+        from ziran.application.agent_scanner import campaign_telemetry
+
+        campaign_telemetry.finish_campaign_span(
+            None,
+            campaign_id="c1",
+            coverage_level="standard",
+            total_vulnerabilities=0,
+            trust_score=0.5,
+            duration_seconds=1.0,
+            total_tokens=0,
+            dangerous_chain_count=0,
+        )
 
 
 # ── configure_metrics wiring ──────────────────────────────────────────
@@ -239,3 +260,76 @@ class TestCampaignInstrumentation:
         # provider label derives from the adapter class name (MockAgentAdapter)
         assert pts["ziran.attacks.executed"][0]["provider"] == "mockagent"
         assert pts["ziran.attacks.executed"][0]["phase"] == "reconnaissance"
+
+    async def test_attack_timeout_balances_concurrency(
+        self, captured: InMemoryMetricReader
+    ) -> None:
+        """A timed-out attack still balances the active-concurrent gauge."""
+        from types import SimpleNamespace
+
+        from ziran.application.agent_scanner.phase_executor import PhaseExecutor
+        from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+        from ziran.domain.entities.phase import CoverageLevel, ScanPhase
+
+        attack = SimpleNamespace(id="v1", name="V1")
+
+        class _SlowExecutor:
+            provider = "mockagent"
+
+            async def execute(self, _attack: Any) -> Any:
+                raise TimeoutError
+
+        class _Library:
+            def get_attacks_for_phase(self, _phase: Any, coverage: Any) -> list[Any]:
+                return [attack]
+
+        pe = PhaseExecutor(
+            _SlowExecutor(),  # type: ignore[arg-type]
+            _Library(),  # type: ignore[arg-type]
+            AttackKnowledgeGraph(),
+            attack_timeout=0.01,
+        )
+        await pe.execute(
+            ScanPhase.RECONNAISSANCE,
+            0,
+            1,
+            coverage=CoverageLevel.ESSENTIAL,
+            tested_vector_ids=set(),
+            attack_results=[],
+        )
+        # attack_started then attack_finished (in finally) -> gauge back to 0.
+        assert metrics._METRICS is not None
+        assert metrics._METRICS.inflight["reconnaissance"] == 0
+
+
+# ── CLI wiring ────────────────────────────────────────────────────────
+
+
+class TestCli:
+    def test_metrics_flags_in_scan_help(self) -> None:
+        from click.testing import CliRunner
+
+        from ziran.interfaces.cli.main import cli
+
+        result = CliRunner().invoke(cli, ["scan", "--help"])
+        assert "--metrics-endpoint" in result.output
+        assert "--metrics-port" in result.output
+
+    def test_scan_wires_configure_metrics(self) -> None:
+        from click.testing import CliRunner
+
+        from ziran.interfaces.cli.main import cli
+
+        with patch("ziran.infrastructure.telemetry.metrics.configure_metrics") as configure:
+            # No target given -> validation exits after metrics are configured.
+            CliRunner().invoke(cli, ["scan", "--metrics-port", "9464"])
+            configure.assert_called_once_with(endpoint=None, port=9464)
+
+    def test_scan_wires_push_endpoint(self) -> None:
+        from click.testing import CliRunner
+
+        from ziran.interfaces.cli.main import cli
+
+        with patch("ziran.infrastructure.telemetry.metrics.configure_metrics") as configure:
+            CliRunner().invoke(cli, ["scan", "--metrics-endpoint", "http://collector:4318"])
+            configure.assert_called_once_with(endpoint="http://collector:4318", port=None)

@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from ziran.application.agent_scanner import campaign_telemetry
 from ziran.application.agent_scanner.attack_executor import (
     _ERROR_SENTINELS as _ERROR_SENTINELS,
 )
@@ -24,7 +25,6 @@ from ziran.application.agent_scanner.attack_executor import (
 from ziran.application.agent_scanner.attack_executor import (
     _is_error_response as _is_error_response,
 )
-from ziran.application.agent_scanner import campaign_telemetry
 from ziran.application.agent_scanner.checkpoint import (
     DEFAULT_FLUSH_INTERVAL_SECONDS,
     IncrementalCheckpointer,

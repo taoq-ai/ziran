@@ -263,6 +263,20 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "Exports spans to the console by default.",
 )
 @click.option(
+    "--metrics-endpoint",
+    type=str,
+    default=None,
+    help="OTLP/HTTP collector URL for pushing Prometheus-compatible metrics "
+    "(requires ziran[otel]). Example: http://collector:4318",
+)
+@click.option(
+    "--metrics-port",
+    type=int,
+    default=None,
+    help="TCP port for the Prometheus pull endpoint (/metrics) exposing "
+    "campaign/attack/phase metrics (requires ziran[otel]). Example: 9464",
+)
+@click.option(
     "--resume",
     is_flag=True,
     default=False,
@@ -319,6 +333,8 @@ def scan(
     quality_scoring: bool,
     utility_tasks: str | None,
     otel: bool,
+    metrics_endpoint: str | None,
+    metrics_port: int | None,
     resume: bool,
     checkpoint_flush_interval: float,
     dry_run: bool,
@@ -345,6 +361,21 @@ def scan(
 
         configure_console_exporter()
         console.print("[dim]OpenTelemetry tracing enabled (console exporter)[/dim]")
+
+    # Enable OpenTelemetry metrics export (Prometheus pull and/or OTLP push)
+    if metrics_endpoint is not None or metrics_port is not None:
+        from ziran.infrastructure.telemetry import metrics
+
+        metrics.configure_metrics(endpoint=metrics_endpoint, port=metrics_port)
+        _targets = ", ".join(
+            t
+            for t in (
+                f"pull :{metrics_port}" if metrics_port else "",
+                f"push {metrics_endpoint}" if metrics_endpoint else "",
+            )
+            if t
+        )
+        console.print(f"[dim]OpenTelemetry metrics enabled ({_targets})[/dim]")
 
     # Validate mutually exclusive options
     has_local = framework is not None or agent_path is not None
