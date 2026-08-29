@@ -254,6 +254,27 @@ class TestRateLimitedClient:
         client = _rl(inner)
         assert await client.health_check() is True
 
+    async def test_honors_retry_after_over_backoff(self) -> None:
+        # Retry-After (5s) must win over the tiny computed backoff. Inject a
+        # sleep that records the delay so we can assert which value was used.
+        slept: list[float] = []
+
+        async def rec_sleep(d: float) -> None:
+            slept.append(d)
+
+        cause = _StatusError(429)
+        cause.retry_after = 5  # type: ignore[attr-defined]
+        err = LLMError("throttled", provider="litellm", cause=cause)
+        inner = _ScriptedClient([err, None])
+        cfg = RateLimitConfig(rpm=0, tpm=0, max_retries=2, base_delay=0.001, max_delay=0.001)
+        client = RateLimitedClient(inner, inner.config, cfg, sleep=rec_sleep)
+
+        resp = await client.complete([{"role": "user", "content": "hi"}])
+        assert resp.content == "ok"
+        assert slept  # a backoff sleep happened
+        # The slept delay is the Retry-After value, not the ~0.001s backoff.
+        assert slept[0] == pytest.approx(5.0)
+
     async def test_tpm_bucket_paced(self) -> None:
         # tpm > 0 exercises the token-estimate + tpm acquire path.
         inner = _ScriptedClient([None])

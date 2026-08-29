@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.rate_limiting import (
@@ -23,7 +24,7 @@ from ziran.application.rate_limiting import (
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMError, LLMResponse
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Awaitable, Callable
 
     from ziran.domain.entities.streaming import LLMResponseChunk
 
@@ -38,12 +39,16 @@ class RateLimitedClient(BaseLLMClient):
         inner: BaseLLMClient,
         config: LLMConfig,
         rate_config: RateLimitConfig,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         super().__init__(config)
         self._inner = inner
         self._rl = rate_config
-        self._rpm_bucket = AsyncTokenBucket(rate_config.rpm)
-        self._tpm_bucket = AsyncTokenBucket(rate_config.tpm)
+        self._sleep = sleep  # injectable for deterministic timing tests
+        self._rpm_bucket = AsyncTokenBucket(rate_config.rpm, clock=clock, sleep=sleep)
+        self._tpm_bucket = AsyncTokenBucket(rate_config.tpm, clock=clock, sleep=sleep)
 
     @staticmethod
     def _estimate_tokens(messages: list[dict[str, str]]) -> float:
@@ -92,7 +97,7 @@ class RateLimitedClient(BaseLLMClient):
                     self._rl.max_retries,
                     delay,
                 )
-                await asyncio.sleep(delay)
+                await self._sleep(delay)
                 attempt += 1
 
     async def stream_complete(
@@ -103,8 +108,13 @@ class RateLimitedClient(BaseLLMClient):
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[LLMResponseChunk]:
-        # Rate-limit the slot acquisition; retry does not cover mid-stream
-        # failures (see spec 029 Assumptions).
+        # Rate-limit the slot acquisition. Streaming is not retried at all
+        # (neither pre- nor mid-first-chunk): unwinding a partially consumed
+        # async generator to replay it cleanly is more than a few lines, and
+        # the internal LLM backbone (judge / adaptive strategies) uses
+        # complete(), not streaming.
+        # ponytail: no streaming retry; add pre-first-chunk retry here if a
+        # streaming caller ever needs throttle resilience.
         await self._acquire(messages)
         async for chunk in self._inner.stream_complete(
             messages, temperature=temperature, max_tokens=max_tokens, **kwargs
