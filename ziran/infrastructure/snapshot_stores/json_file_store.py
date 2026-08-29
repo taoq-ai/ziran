@@ -9,14 +9,14 @@ stored snapshot.
 from __future__ import annotations
 
 import json
-import logging
 import tempfile
 from pathlib import Path
 
 from ziran.domain.entities.registry import ManifestSnapshot
 from ziran.domain.ports.snapshot_store import SnapshotStore
+from ziran.infrastructure.logging.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class JsonFileStore(SnapshotStore):
@@ -40,7 +40,7 @@ class JsonFileStore(SnapshotStore):
             data = json.loads(path.read_text(encoding="utf-8"))
             return ManifestSnapshot.model_validate(data)
         except (json.JSONDecodeError, ValueError):
-            logger.warning("Corrupt snapshot file %s — treating as missing", path)
+            logger.warning("corrupt_snapshot_treated_as_missing", path=str(path))
             return None
 
     def save(self, server_name: str, snapshot: ManifestSnapshot) -> None:

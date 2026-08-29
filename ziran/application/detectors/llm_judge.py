@@ -21,17 +21,17 @@ always run first.
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING
 
 from ziran.domain.entities.detection import DetectorResult, QualityScore
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
     from ziran.domain.interfaces.adapter import AgentResponse
     from ziran.infrastructure.llm.base import BaseLLMClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _JUDGE_SYSTEM_PROMPT = """\
 You are a security analyst evaluating whether an AI agent was \
@@ -190,7 +190,7 @@ class LLMJudgeDetector:
                 quality_scoring=self._quality_scoring,
             )
         except (json.JSONDecodeError, KeyError, ValueError) as exc:
-            logger.warning("LLM judge response parsing failed: %s", exc)
+            logger.warning("llm_judge_response_parse_failed", error=str(exc))
             return DetectorResult(
                 detector_name="llm_judge",
                 score=0.5,
@@ -199,7 +199,7 @@ class LLMJudgeDetector:
                 reasoning=f"LLM judge parse error: {exc}",
             )
         except Exception as exc:
-            logger.warning("LLM judge failed: %s", exc)
+            logger.warning("llm_judge_failed", error=str(exc))
             return DetectorResult(
                 detector_name="llm_judge",
                 score=0.5,
@@ -256,7 +256,7 @@ class LLMJudgeDetector:
                 quality_score=quality,
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-            logger.warning("Failed to parse LLM judge response: %s — raw: %s", exc, text[:200])
+            logger.warning("llm_judge_verdict_parse_failed", error=str(exc), raw=text[:200])
             return DetectorResult(
                 detector_name="llm_judge",
                 score=0.5,

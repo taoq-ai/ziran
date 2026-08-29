@@ -8,15 +8,15 @@ regeneration.
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class GraphStorageError(Exception):
@@ -69,7 +69,7 @@ class GraphStorage:
         try:
             with filepath.open("w") as f:
                 json.dump(state, f, indent=2, default=str)
-            logger.info("Graph saved to %s", filepath)
+            logger.info("graph_saved", filepath=str(filepath))
             return filepath
         except (OSError, TypeError, ValueError) as e:
             raise GraphStorageError(f"Failed to save graph to {filepath}: {e}") from e
@@ -98,10 +98,10 @@ class GraphStorage:
             graph = AttackKnowledgeGraph()
             graph.import_state(state)
             logger.info(
-                "Graph loaded from %s (%d nodes, %d edges)",
-                filepath,
-                graph.node_count,
-                graph.edge_count,
+                "graph_loaded",
+                filepath=str(filepath),
+                nodes=graph.node_count,
+                edges=graph.edge_count,
             )
             return graph
         except json.JSONDecodeError as e:
@@ -128,7 +128,7 @@ class GraphStorage:
         try:
             with filepath.open("w") as f:
                 json.dump(result, f, indent=2, default=str)
-            logger.info("Campaign result saved to %s", filepath)
+            logger.info("campaign_result_saved", filepath=str(filepath))
             return filepath
         except (OSError, TypeError, ValueError) as e:
             raise GraphStorageError(f"Failed to save campaign result to {filepath}: {e}") from e

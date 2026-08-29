@@ -9,7 +9,6 @@ multi-turn conversations via contextId/taskId, and SSE streaming.
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from typing import Any
 
@@ -30,8 +29,9 @@ from ziran.infrastructure.adapters.protocols import (
     ProtocolError,
     ProtocolResponse,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _DEFAULT_A2A_VERSION = "1.0"
 _WELL_KNOWN_AGENT_CARD = "/.well-known/agent-card.json"
@@ -199,7 +199,7 @@ class A2AProtocolHandler(BaseProtocolHandler):
             return self._agent_card
 
         card_url = self._resolve_agent_card_url()
-        logger.info("Fetching A2A Agent Card from %s", card_url)
+        logger.info("fetching_agent_card", card_url=card_url)
 
         try:
             response = await self._client.get(card_url)
@@ -221,10 +221,10 @@ class A2AProtocolHandler(BaseProtocolHandler):
             raise ProtocolError(msg) from exc
 
         logger.info(
-            "Agent Card loaded: %s (v%s) with %d skills",
-            self._agent_card.name,
-            self._agent_card.version,
-            len(self._agent_card.skills),
+            "agent_card_loaded",
+            name=self._agent_card.name,
+            version=self._agent_card.version,
+            skill_count=len(self._agent_card.skills),
         )
 
         # Optionally fetch extended card
@@ -241,9 +241,9 @@ class A2AProtocolHandler(BaseProtocolHandler):
             response.raise_for_status()
             data = response.json()
             self._agent_card = A2AAgentCard(**data)
-            logger.info("Extended Agent Card loaded with %d skills", len(self._agent_card.skills))
+            logger.info("extended_agent_card_loaded", skill_count=len(self._agent_card.skills))
         except (httpx.HTTPError, Exception) as exc:
-            logger.warning("Could not fetch extended Agent Card: %s", exc)
+            logger.warning("extended_agent_card_fetch_failed", error=str(exc))
 
     # ── Message Sending ──────────────────────────────────────────
 

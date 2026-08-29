@@ -10,7 +10,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 from rich.console import Console
@@ -25,7 +25,7 @@ from ziran.application.factories import build_strategy, load_agent_adapter, load
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.defence import DefenceProfile
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
-from ziran.infrastructure.logging.logger import setup_logging
+from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli.reports import ReportGenerator
 
@@ -58,8 +58,14 @@ AI Agent Security Testing Framework
     "--verbose", "-v", is_flag=True, default=False, help="Enable verbose (DEBUG) logging."
 )
 @click.option("--log-file", type=click.Path(), default=None, help="Write logs to file.")
+@click.option(
+    "--log-format",
+    type=click.Choice(["json", "text"]),
+    default=None,
+    help="Log output format (default: text on a TTY, json otherwise).",
+)
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
+def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str | None) -> None:
     """ZIRAN — AI Agent Security Testing Framework.
 
     Test AI agents for vulnerabilities using multi-phase scan campaigns
@@ -76,7 +82,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     ctx.ensure_object(dict)
 
     level = "DEBUG" if verbose else "INFO"
-    setup_logging(level=level, log_file=log_file)
+    setup_logging(level=level, log_file=log_file, log_format=cast("LogFormat | None", log_format))
 
 
 # ──────────────────────────────────────────────────────────────────────

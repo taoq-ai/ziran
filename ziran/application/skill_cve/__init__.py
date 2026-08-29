@@ -8,16 +8,17 @@ OWASP LLM Top 10 and framework security documentation.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field
 
+from ziran.infrastructure.logging.logger import get_logger
+
 if TYPE_CHECKING:
     from ziran.domain.entities.capability import AgentCapability
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SkillCVE(BaseModel):
@@ -747,9 +748,9 @@ class SkillCVEDatabase:
         matches.sort(key=lambda c: severity_order.get(c.severity, 4))
 
         logger.info(
-            "CVE check: %d matches found for %d capabilities",
-            len(matches),
-            len(capabilities),
+            "cve_check_complete",
+            match_count=len(matches),
+            capability_count=len(capabilities),
         )
 
         return matches
@@ -769,5 +770,5 @@ class SkillCVEDatabase:
             raise ValueError(f"CVE {cve.cve_id} already exists")
 
         self._cves.append(cve)
-        logger.info("New CVE submitted: %s — %s", cve.cve_id, cve.skill_name)
+        logger.info("cve_submitted", cve_id=cve.cve_id, skill_name=cve.skill_name)
         return cve.cve_id

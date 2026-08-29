@@ -410,10 +410,9 @@ class RefusalDetector:
                 if code in LANGUAGE_PATTERNS:
                     selected.add(code)
                 else:
+                    supported = ", ".join(sorted(LANGUAGE_PATTERNS.keys()))
                     logger.warning(
-                        "Unknown language code %r — ignoring (supported: %s)",
-                        code,
-                        ", ".join(sorted(LANGUAGE_PATTERNS.keys())),
+                        f"Unknown language code {code!r} — ignoring (supported: {supported})"
                     )
 
         # Collect all prefix + substring patterns for selected languages.

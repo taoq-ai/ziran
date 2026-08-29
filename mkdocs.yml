@@ -84,6 +84,7 @@ nav:
     - CLI Reference: reference/cli.md
     - Runtime Configuration: reference/runtime-config.md
     - Python API: reference/api.md
+    - Observability: reference/observability.md
     - Attack Library: reference/attack-library.md
     - Benchmarks:
       - Coverage Comparison: reference/benchmarks/coverage-comparison.md

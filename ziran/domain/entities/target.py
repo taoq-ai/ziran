@@ -89,7 +89,7 @@ class AuthConfig(BaseModel):
         if self.env_var and not self.token:
             self.token = os.environ.get(self.env_var, "")
             if not self.token:
-                logger.warning("Auth env var '%s' not set; token will be empty", self.env_var)
+                logger.warning(f"Auth env var {self.env_var!r} not set; token will be empty")
         return self
 
     def get_resolved_token(self) -> str:
