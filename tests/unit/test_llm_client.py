@@ -172,6 +172,16 @@ class TestCreateLLMClient:
             assert client.config.model == "llama3.2"
             assert client.config.temperature == 0.5
 
+    def test_wraps_in_rate_limited_client(self) -> None:
+        mock_litellm = MagicMock()
+        with patch.dict("sys.modules", {"litellm": mock_litellm}):
+            from ziran.infrastructure.llm.factory import create_llm_client
+            from ziran.infrastructure.llm.rate_limited_client import RateLimitedClient
+
+            client = create_llm_client(provider="anthropic", model="claude-x", rpm=120)
+            assert isinstance(client, RateLimitedClient)
+            assert client._rl.rpm == 120  # override applied
+
 
 @pytest.mark.unit
 class TestCreateLLMClientFromEnv:
@@ -206,6 +216,28 @@ class TestCreateLLMClientFromEnv:
             assert client is not None
             assert client.config.provider == "anthropic"
             assert client.config.model == "claude-sonnet-4-20250514"
+
+    def test_reads_rate_limit_env(self) -> None:
+        mock_litellm = MagicMock()
+        with (
+            patch.dict("sys.modules", {"litellm": mock_litellm}),
+            patch.dict(
+                os.environ,
+                {
+                    "ZIRAN_LLM_PROVIDER": "openai",
+                    "ZIRAN_LLM_MODEL": "gpt-4o",
+                    "ZIRAN_LLM_RPM": "120",
+                    "ZIRAN_LLM_MAX_RETRIES": "5",
+                },
+            ),
+        ):
+            from ziran.infrastructure.llm.factory import create_llm_client_from_env
+            from ziran.infrastructure.llm.rate_limited_client import RateLimitedClient
+
+            client = create_llm_client_from_env()
+            assert isinstance(client, RateLimitedClient)
+            assert client._rl.rpm == 120
+            assert client._rl.max_retries == 5
 
 
 # ══════════════════════════════════════════════════════════════════════

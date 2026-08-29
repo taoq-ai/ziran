@@ -163,6 +163,29 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None) -> None:
     "Env: ZIRAN_LLM_MODEL.",
 )
 @click.option(
+    "--llm-rpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_RPM",
+    help="Client-side LLM requests-per-minute limit (0 disables). "
+    "Defaults per provider. Env: ZIRAN_LLM_RPM.",
+)
+@click.option(
+    "--llm-tpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_TPM",
+    help="Client-side LLM tokens-per-minute limit (0 disables). Env: ZIRAN_LLM_TPM.",
+)
+@click.option(
+    "--llm-max-retries",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_MAX_RETRIES",
+    help="Retries for throttled/transient LLM errors (429, 5xx). "
+    "Default: 3. Env: ZIRAN_LLM_MAX_RETRIES.",
+)
+@click.option(
     "--attack-timeout",
     type=float,
     default=60.0,
@@ -268,6 +291,9 @@ def scan(
     concurrency: int,
     llm_provider: str | None,
     llm_model: str | None,
+    llm_rpm: int | None,
+    llm_tpm: int | None,
+    llm_max_retries: int | None,
     attack_timeout: float,
     phase_timeout: float,
     strategy: str,
@@ -439,6 +465,9 @@ def scan(
             llm_client = create_llm_client(
                 provider=llm_provider or "litellm",
                 model=llm_model or "gpt-4o",
+                rpm=llm_rpm,
+                tpm=llm_tpm,
+                max_retries=llm_max_retries,
             )
             scanner_config["llm_client"] = llm_client
             console.print("[dim]LLM backbone enabled for AI-powered features[/dim]")
@@ -1885,6 +1914,27 @@ def multi_agent_scan(
     help="LLM model name (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'). Required.",
 )
 @click.option(
+    "--llm-rpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_RPM",
+    help="Client-side LLM requests-per-minute limit (0 disables). Env: ZIRAN_LLM_RPM.",
+)
+@click.option(
+    "--llm-tpm",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_TPM",
+    help="Client-side LLM tokens-per-minute limit (0 disables). Env: ZIRAN_LLM_TPM.",
+)
+@click.option(
+    "--llm-max-retries",
+    type=int,
+    default=None,
+    envvar="ZIRAN_LLM_MAX_RETRIES",
+    help="Retries for throttled/transient LLM errors (429, 5xx). Env: ZIRAN_LLM_MAX_RETRIES.",
+)
+@click.option(
     "--embedding-model",
     type=str,
     default="text-embedding-3-small",
@@ -1905,6 +1955,9 @@ def pentest(
     max_iterations: int,
     llm_provider: str,
     llm_model: str,
+    llm_rpm: int | None,
+    llm_tpm: int | None,
+    llm_max_retries: int | None,
     embedding_model: str,
     output: str,
 ) -> None:
@@ -1949,7 +2002,13 @@ def pentest(
     # Create LLM client
     from ziran.infrastructure.llm.factory import create_llm_client
 
-    llm_client = create_llm_client(provider=llm_provider, model=llm_model)
+    llm_client = create_llm_client(
+        provider=llm_provider,
+        model=llm_model,
+        rpm=llm_rpm,
+        tpm=llm_tpm,
+        max_retries=llm_max_retries,
+    )
 
     # Display config
     config_table = Table(title="Pentesting Agent Configuration", show_header=False)
