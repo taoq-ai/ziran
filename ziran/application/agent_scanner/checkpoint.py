@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from ziran.domain.entities.phase import PhaseResult
@@ -33,6 +35,47 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _CHECKPOINT_FILENAME = ".checkpoint.json"
+
+# Completion-count backstop for incremental flushes. The time bound is
+# operator-tunable (``--checkpoint-flush-interval``); this count bound is a
+# fixed weak knob so a burst of fast attacks still flushes periodically.
+DEFAULT_FLUSH_EVERY_N_COMPLETIONS = 25
+DEFAULT_FLUSH_INTERVAL_SECONDS = 10.0
+
+
+class FlushThrottle:
+    """Decides when to flush an incremental checkpoint.
+
+    A flush is due after ``max_completions`` recorded completions OR after
+    ``max_seconds`` have elapsed since the last flush, whichever comes first.
+    This keeps mid-phase checkpoint writes off the per-vector hot path so the
+    write overhead stays within budget.
+    """
+
+    def __init__(
+        self,
+        max_completions: int,
+        max_seconds: float,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._max_completions = max(1, max_completions)
+        self._max_seconds = max_seconds
+        self._clock = clock
+        self._count = 0
+        self._last_flush = clock()
+
+    def record(self) -> bool:
+        """Record one completion; return ``True`` when a flush is due.
+
+        Resets the counter and the elapsed timer when it returns ``True``.
+        """
+        self._count += 1
+        due = self._count >= self._max_completions or (self._clock() - self._last_flush) >= self._max_seconds
+        if due:
+            self._count = 0
+            self._last_flush = self._clock()
+        return due
 
 
 class CampaignCheckpoint(BaseModel):

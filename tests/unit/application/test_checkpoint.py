@@ -12,6 +12,7 @@ import pytest
 from ziran.application.agent_scanner.checkpoint import (
     CampaignCheckpoint,
     CheckpointManager,
+    FlushThrottle,
 )
 
 
@@ -181,6 +182,39 @@ class TestCheckpointManager:
         loaded = mgr.load()
         assert len(loaded.completed_phases) == 1
         assert loaded.remaining_phases == []
+
+
+@pytest.mark.unit
+class TestFlushThrottle:
+    """Tests for the FlushThrottle (incremental-write throttling)."""
+
+    def test_flushes_after_max_completions(self) -> None:
+        clock = [0.0]  # frozen clock — never trips the time bound
+        throttle = FlushThrottle(max_completions=3, max_seconds=1000.0, clock=lambda: clock[0])
+        assert throttle.record() is False  # 1
+        assert throttle.record() is False  # 2
+        assert throttle.record() is True  # 3 -> due
+        # counter resets after a flush
+        assert throttle.record() is False  # 1
+        assert throttle.record() is False  # 2
+        assert throttle.record() is True  # 3 -> due again
+
+    def test_flushes_after_max_seconds_before_count(self) -> None:
+        now = [0.0]
+        throttle = FlushThrottle(max_completions=1000, max_seconds=5.0, clock=lambda: now[0])
+        assert throttle.record() is False  # count small, no time elapsed
+        now[0] = 5.0  # time bound reached
+        assert throttle.record() is True
+
+    def test_time_bound_resets_after_flush(self) -> None:
+        now = [0.0]
+        throttle = FlushThrottle(max_completions=1000, max_seconds=5.0, clock=lambda: now[0])
+        now[0] = 5.0
+        assert throttle.record() is True  # flush, resets last-flush time to 5.0
+        now[0] = 8.0
+        assert throttle.record() is False  # only 3s since last flush
+        now[0] = 10.0
+        assert throttle.record() is True  # 5s since last flush
 
 
 @pytest.mark.unit
