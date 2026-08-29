@@ -25,11 +25,6 @@ def bind_vector(vector_id: str) -> None:
     structlog.contextvars.bind_contextvars(vector_id=vector_id)
 
 
-def unbind(*keys: str) -> None:
-    """Remove specific keys from the current context (ignores missing keys)."""
-    structlog.contextvars.unbind_contextvars(*keys)
-
-
 def clear_context() -> None:
     """Clear all bound context fields."""
     structlog.contextvars.clear_contextvars()

@@ -12,16 +12,16 @@ Requires the ``crewai`` extra::
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from crewai import Crew
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 try:
     pass
@@ -133,9 +133,9 @@ class CrewAIAdapter(BaseAgentAdapter):
             )
 
         logger.info(
-            "Discovered %d capabilities across %d CrewAI agents",
-            len(capabilities),
-            len(self.crew.agents),
+            "crewai_capabilities_discovered",
+            capability_count=len(capabilities),
+            agent_count=len(self.crew.agents),
         )
         return capabilities
 

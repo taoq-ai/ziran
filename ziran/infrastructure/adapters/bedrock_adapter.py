@@ -12,15 +12,15 @@ Requires the ``bedrock`` extra::
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from typing import Any
 
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
+from ziran.infrastructure.logging.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _import_boto3() -> Any:
@@ -207,9 +207,9 @@ class BedrockAdapter(BaseAgentAdapter):
             logger.warning("Failed to list Bedrock agent knowledge bases")
 
         logger.info(
-            "Discovered %d Bedrock capabilities (%d dangerous)",
-            len(capabilities),
-            sum(1 for c in capabilities if c.dangerous),
+            "bedrock_capabilities_discovered",
+            capability_count=len(capabilities),
+            dangerous_count=sum(1 for c in capabilities if c.dangerous),
         )
         return capabilities
 

@@ -8,16 +8,18 @@ context is merged in where the scanner has bound it.
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import pytest
 
+from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.scanner import AgentScanner
-from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.context import clear_context
 from ziran.infrastructure.logging.logger import setup_logging
 
-from tests.conftest import MockAgentAdapter
+if TYPE_CHECKING:
+    from ziran.application.attacks.library import AttackLibrary
 
 REQUIRED_FIELDS = {"timestamp", "level", "logger", "event"}
 
@@ -43,7 +45,7 @@ async def test_json_scan_emits_only_valid_json_lines(
     records = []
     for line in lines:
         record = json.loads(line)  # raises if any line is not valid JSON
-        assert REQUIRED_FIELDS <= record.keys(), f"missing base fields in: {record}"
+        assert record.keys() >= REQUIRED_FIELDS, f"missing base fields in: {record}"
         records.append(record)
 
     # Context binding: campaign_id and phase must appear on campaign-scoped lines.

@@ -1092,7 +1092,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         event_name, event_payload = parse_socketio_frame(raw)
 
         if event_name is not None and event_payload is not None:
-            logger.debug("ws_socketio_event", event=event_name)
+            logger.debug("ws_socketio_event", ws_event=event_name)
 
             # Filter by event name
             target_event = (
@@ -1129,7 +1129,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 self._intercepted_responses.append(response_body)
                 logger.debug(
                     "ws_bot_response_captured",
-                    event=event_name,
+                    ws_event=event_name,
                     content=content[:80],
                 )
 
@@ -1250,7 +1250,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 for frame in self._intercepted_ws_frames:
                     if frame.get("direction") == "received" and frame.get("event"):
                         self._detected_ws_event = frame["event"]
-                        logger.info("ws_event_auto_detected", event=self._detected_ws_event)
+                        logger.info("ws_event_auto_detected", ws_event=self._detected_ws_event)
                         break
             else:
                 logger.warning("No API endpoint detected, falling back to DOM extraction")

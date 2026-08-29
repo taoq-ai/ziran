@@ -76,10 +76,7 @@ class LiteLLMClient(BaseLLMClient):
             if api_key:
                 self._api_key = api_key
             else:
-                logger.warning(
-                    "LLM API key env var '%s' is not set or empty",
-                    config.api_key_env,
-                )
+                logger.warning(f"LLM API key env var {config.api_key_env!r} is not set or empty")
                 self._api_key = None
         else:
             self._api_key = None

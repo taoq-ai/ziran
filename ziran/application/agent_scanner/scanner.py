@@ -253,8 +253,7 @@ class AgentScanner:
             },
         )
 
-        # Bind campaign_id so every log line in this campaign carries it.
-        bind_campaign(campaign_id)
+        bind_campaign(campaign_id)  # merge campaign_id into every log line
 
         # Build sub-components
         emitter = ProgressEmitter(on_progress)
@@ -371,11 +370,7 @@ class AgentScanner:
             self._current_phase = phase
             self._current_decision = decision
 
-            logger.info(
-                "phase_executing",
-                phase=phase.value,
-                reason=decision.reasoning or "none",
-            )
+            logger.info("phase_executing", phase=phase.value, reason=decision.reasoning or "none")
 
             emitter.emit(
                 ProgressEvent(
