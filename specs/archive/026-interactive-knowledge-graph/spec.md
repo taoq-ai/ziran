@@ -2,7 +2,7 @@
 
 **Feature Branch**: `026-interactive-knowledge-graph`
 **Created**: 2026-06-22
-**Status**: Draft
+**Status**: Accepted
 **Input**: User description: "Interactive knowledge graph: richer, less-flat visualization in UI + report (GitHub issue #331). Full feature P1–P4, both surfaces (web UI + embedded HTML report) sharing one styling/mapping source of truth, including temporal phase scrubbing."
 
 ## Overview

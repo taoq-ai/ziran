@@ -6,7 +6,7 @@ sibling ``graph_style.json`` directly) and the self-contained HTML report
 (which loads it through this module) render from the same definition, so the
 two surfaces cannot drift.
 
-See ``specs/026-interactive-knowledge-graph/contracts/graph-style-spec.md``.
+See ``specs/archive/026-interactive-knowledge-graph/contracts/graph-style-spec.md``.
 """
 
 from __future__ import annotations
