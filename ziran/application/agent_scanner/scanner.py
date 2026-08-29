@@ -25,6 +25,11 @@ from ziran.application.agent_scanner.attack_executor import (
 from ziran.application.agent_scanner.attack_executor import (
     _is_error_response as _is_error_response,
 )
+from ziran.application.agent_scanner.checkpoint import (
+    DEFAULT_FLUSH_INTERVAL_SECONDS,
+    IncrementalCheckpointer,
+    load_resume_state,
+)
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
 from ziran.application.agent_scanner.progress import (
     ProgressEmitter as ProgressEmitter,
@@ -176,6 +181,7 @@ class AgentScanner:
         utility_tasks: list[UtilityTask] | None = None,
         checkpoint_manager: CheckpointManager | None = None,
         resume_from_checkpoint: bool = False,
+        checkpoint_flush_interval: float = DEFAULT_FLUSH_INTERVAL_SECONDS,
         defence_profile: DefenceProfile | None = None,
     ) -> CampaignResult:
         """Execute a full scan campaign.
@@ -214,29 +220,18 @@ class AgentScanner:
         campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
         campaign_start = datetime.now(tz=UTC)
 
-        # ── Resume from checkpoint if available ────────────────────
+        # Resume from checkpoint if available.
         _resumed = False
         phase_results: list[PhaseResult] = []
         campaign_tokens = TokenUsage()
-
         if checkpoint_manager and resume_from_checkpoint and checkpoint_manager.exists():
-            checkpoint = checkpoint_manager.load()
-            campaign_id = checkpoint.campaign_id
-            phase_results = [PhaseResult.model_validate(p) for p in checkpoint.completed_phases]
-            campaign_tokens = TokenUsage(
-                prompt_tokens=checkpoint.token_usage.get("prompt_tokens", 0),
-                completion_tokens=checkpoint.token_usage.get("completion_tokens", 0),
-                total_tokens=checkpoint.token_usage.get("total_tokens", 0),
-            )
-            self._tested_vector_ids = set(checkpoint.tested_vector_ids)
-
-            # Restore attack results
-            for ar_dict in checkpoint.attack_results:
-                self._attack_results.append(AttackResult.model_validate(ar_dict))
-
-            # Resume from remaining phases
-            completed_phase_names = {p.phase for p in phase_results}
-            phases = [p for p in phases if p not in completed_phase_names]
+            _rs = load_resume_state(checkpoint_manager, phases)
+            campaign_id = _rs.campaign_id
+            phase_results = _rs.phase_results
+            campaign_tokens = _rs.campaign_tokens
+            phases = _rs.remaining_phases
+            self._tested_vector_ids = _rs.tested_vector_ids
+            self._attack_results.extend(_rs.attack_results)
             _resumed = True
             logger.info(
                 "Resuming campaign %s from checkpoint (%d phases completed, %d remaining)",
@@ -330,6 +325,21 @@ class AgentScanner:
         phase_idx = len(phase_results)  # Continue numbering from checkpoint
         total_phases = len(phase_results) + len(phases)
 
+        # Incremental (mid-phase) checkpoint writer, reading live state by ref.
+        _checkpointer: IncrementalCheckpointer | None = None
+        if checkpoint_manager is not None:
+            _checkpointer = IncrementalCheckpointer(
+                checkpoint_manager,
+                campaign_id=campaign_id,
+                phase_results=phase_results,
+                attack_results=self._attack_results,
+                tested_vector_ids=self._tested_vector_ids,
+                remaining_phases=remaining_phases,
+                coverage=coverage.value,
+                token_provider=lambda: campaign_tokens.model_dump(),
+                flush_interval=checkpoint_flush_interval,
+            )
+
         while True:
             # Build context for strategy decision-making
             context = CampaignContext(
@@ -390,6 +400,7 @@ class AgentScanner:
                 attack_results=self._attack_results,
                 max_results=self._max_results,
                 calculate_trust_score=self._calculate_trust_score,
+                on_vector_complete=_checkpointer.flush if _checkpointer is not None else None,
             )
             phase_results.append(result)
 
@@ -437,19 +448,9 @@ class AgentScanner:
                 result.trust_score,
             )
 
-            # ── Save checkpoint after each phase ──────────────────
-            if checkpoint_manager is not None:
-                ckpt = checkpoint_manager.build_checkpoint(
-                    campaign_id=campaign_id,
-                    phase_results=phase_results,
-                    attack_results=self._attack_results,
-                    tested_vector_ids=self._tested_vector_ids,
-                    token_usage=campaign_tokens.model_dump(),
-                    coverage=coverage.value,
-                    remaining_phases=[p.value for p in remaining_phases],
-                )
-                checkpoint_manager.save(ckpt)
-                logger.debug("Checkpoint saved after phase %s", phase.value)
+            # Force a checkpoint save at the phase boundary.
+            if _checkpointer is not None:
+                _checkpointer.write()
 
             phase_idx += 1
 

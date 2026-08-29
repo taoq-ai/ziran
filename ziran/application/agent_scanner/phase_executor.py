@@ -21,6 +21,8 @@ from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ziran.application.agent_scanner.attack_executor import AttackExecutor
     from ziran.application.attacks.library import AttackLibrary
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
@@ -83,6 +85,7 @@ class PhaseExecutor:
         attack_results: list[AttackResult],
         max_results: int = 10_000,
         calculate_trust_score: Any = None,
+        on_vector_complete: Callable[[], None] | None = None,
     ) -> PhaseResult:
         """Execute a single scan phase.
 
@@ -99,6 +102,10 @@ class PhaseExecutor:
             attack_results: Shared mutable list of attack results.
             max_results: Maximum number of results to store.
             calculate_trust_score: Callable(phase, vulns) -> float.
+            on_vector_complete: Optional hook invoked (under the result lock)
+                after each vector is recorded into ``tested_vector_ids``.
+                Used for incremental checkpointing; ``None`` preserves the
+                original between-phase-only behaviour.
 
         Returns:
             Phase result with all findings.
@@ -223,6 +230,11 @@ class PhaseExecutor:
                                 "phase": phase.value,
                             },
                         )
+
+                    # Incremental checkpoint hook: fire under the lock so the
+                    # snapshot it flushes is consistent with tested_vector_ids.
+                    if on_vector_complete is not None:
+                        on_vector_complete()
 
             except TimeoutError:
                 logger.warning(
