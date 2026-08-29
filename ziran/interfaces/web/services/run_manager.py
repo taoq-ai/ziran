@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -12,13 +11,14 @@ from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.factories import build_strategy, load_remote_adapter
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
+from ziran.infrastructure.logging.logger import get_logger
 from ziran.interfaces.web.schemas import ProgressMessage
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RunManager:
@@ -196,7 +196,7 @@ class RunManager:
                         await extract_findings(extraction_session, run_for_extraction)
                         await extraction_session.commit()
             except Exception:
-                logger.exception("Failed to extract findings for run %s", run_id)
+                logger.exception("extract_findings_failed", run_id=run_id)
 
             # Broadcast completion
             await self._broadcast(
@@ -205,9 +205,9 @@ class RunManager:
             )
 
         except asyncio.CancelledError:
-            logger.info("Scan %s cancelled", run_id)
+            logger.info("scan_cancelled", run_id=run_id)
         except Exception as exc:
-            logger.exception("Scan %s failed", run_id)
+            logger.exception("scan_failed", run_id=run_id)
             async with self._session_factory() as session:
                 run = await session.get(Run, uuid.UUID(run_id))
                 if run:

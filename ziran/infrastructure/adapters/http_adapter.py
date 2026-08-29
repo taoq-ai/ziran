@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import enum
-import logging
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -32,13 +31,14 @@ from ziran.infrastructure.adapters.protocols import (
     ProtocolError,
     ProtocolResponse,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from ziran.domain.entities.streaming import AgentResponseChunk
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Probe prompts for black-box capability discovery
 _DISCOVERY_PROBES = [
@@ -102,8 +102,8 @@ class CircuitBreaker:
         if self._failure_count >= self._failure_threshold:
             self._state = CircuitState.OPEN
             logger.warning(
-                "Circuit breaker opened after %d consecutive failures",
-                self._failure_count,
+                "circuit_breaker_opened",
+                failure_count=self._failure_count,
             )
 
 
@@ -150,7 +150,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         protocol = self._config.protocol
         if protocol == ProtocolType.AUTO:
             protocol = await self._auto_detect_protocol()
-            logger.info("Auto-detected protocol: %s", protocol)
+            logger.info("protocol_auto_detected", protocol=protocol)
 
         self._handler = self._create_handler(protocol)
         self._session_id = f"ziran-{int(time.time())}"
@@ -246,16 +246,16 @@ class HttpAgentAdapter(BaseAgentAdapter):
             for raw in raw_caps:
                 cap = self._raw_to_capability(raw)
                 capabilities[cap.id] = cap
-            logger.info("Structured discovery found %d capabilities", len(capabilities))
+            logger.info("structured_discovery_complete", capability_count=len(capabilities))
         except ProtocolError as exc:
-            logger.warning("Structured discovery failed: %s", exc)
+            logger.warning("structured_discovery_failed", error=str(exc))
 
         # Phase 2: Probe-based discovery
         probe_caps = await self._probe_discover()
         for cap in probe_caps:
             if cap.id not in capabilities:
                 capabilities[cap.id] = cap
-        logger.info("Total capabilities after probe discovery: %d", len(capabilities))
+        logger.info("probe_discovery_complete", capability_count=len(capabilities))
 
         return list(capabilities.values())
 
@@ -422,7 +422,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
                         logger.info("Detected A2A protocol via Agent Card")
                         return ProtocolType.A2A
             except Exception:
-                logger.debug("A2A Agent Card detection failed for %s", card_url, exc_info=True)
+                logger.debug("a2a_detection_failed", card_url=card_url, exc_info=True)
             return None
 
         async def _probe_openai() -> ProtocolType | None:
@@ -435,7 +435,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
                         logger.info("Detected OpenAI-compatible protocol")
                         return ProtocolType.OPENAI
             except Exception:
-                logger.debug("OpenAI protocol detection failed for %s", models_url, exc_info=True)
+                logger.debug("openai_detection_failed", models_url=models_url, exc_info=True)
             return None
 
         async def _probe_mcp() -> ProtocolType | None:
@@ -460,8 +460,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
                         return ProtocolType.MCP
             except Exception:
                 logger.debug(
-                    "MCP protocol detection failed for %s",
-                    self._config.normalized_url,
+                    "mcp_detection_failed",
+                    url=self._config.normalized_url,
                     exc_info=True,
                 )
             return None
@@ -514,11 +514,11 @@ class HttpAgentAdapter(BaseAgentAdapter):
                 if attempt < retry.max_retries:
                     wait = self._compute_retry_wait(exc, retry.backoff_factor, attempt)
                     logger.warning(
-                        "Request failed (attempt %d/%d), retrying in %.1fs: %s",
-                        attempt + 1,
-                        retry.max_retries + 1,
-                        wait,
-                        exc,
+                        "request_retry",
+                        attempt=attempt + 1,
+                        max_attempts=retry.max_retries + 1,
+                        wait_seconds=wait,
+                        error=str(exc),
                     )
                     await asyncio.sleep(wait)
 

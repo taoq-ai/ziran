@@ -6,20 +6,20 @@ the security-utility tradeoff (AgentDojo-style).
 
 from __future__ import annotations
 
-import logging
 import time
 from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from ziran.domain.entities.utility import UtilityMetrics, UtilityTask, UtilityTaskResult
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class UtilityMeasurer:
@@ -70,7 +70,7 @@ class UtilityMeasurer:
             response = await self._adapter.invoke(task.prompt)
             content = response.content
         except Exception as exc:
-            logger.warning("Utility task %s failed: %s", task.id, exc)
+            logger.warning("utility_task_failed", task_id=task.id, error=str(exc))
             return UtilityTaskResult(
                 task_id=task.id,
                 successful=False,
@@ -85,7 +85,7 @@ class UtilityMeasurer:
         # Check failure indicators first
         for indicator in task.failure_indicators:
             if indicator.lower() in content_lower:
-                logger.debug("Utility task %s: failure indicator matched: %s", task.id, indicator)
+                logger.debug("utility_task_failure_indicator", task_id=task.id, indicator=indicator)
                 return UtilityTaskResult(
                     task_id=task.id,
                     successful=False,
@@ -102,11 +102,11 @@ class UtilityMeasurer:
 
         successful = len(matched) > 0
         logger.debug(
-            "Utility task %s: %s (matched %d/%d indicators)",
-            task.id,
-            "passed" if successful else "failed",
-            len(matched),
-            len(task.success_indicators),
+            "utility_task_evaluated",
+            task_id=task.id,
+            outcome="passed" if successful else "failed",
+            matched=len(matched),
+            total_indicators=len(task.success_indicators),
         )
 
         return UtilityTaskResult(

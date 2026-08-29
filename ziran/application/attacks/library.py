@@ -26,7 +26,6 @@ YAML Schema:
 
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -45,8 +44,9 @@ from ziran.domain.entities.attack import (
     Severity,
 )
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
+from ziran.infrastructure.logging.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Severity tiers used by coverage levels
 _COVERAGE_SEVERITIES: dict[CoverageLevel, set[Severity]] = {
@@ -107,17 +107,16 @@ class AttackLibrary:
 
         if self._load_errors:
             logger.info(
-                "Attack library initialized with %d vectors from %d categories "
-                "(%d failed to parse)",
-                len(self._vectors),
-                len(self.categories),
-                len(self._load_errors),
+                "attack_library_initialized",
+                vector_count=len(self._vectors),
+                category_count=len(self.categories),
+                failed_count=len(self._load_errors),
             )
         else:
             logger.info(
-                "Attack library initialized with %d vectors from %d categories",
-                len(self._vectors),
-                len(self.categories),
+                "attack_library_initialized",
+                vector_count=len(self._vectors),
+                category_count=len(self.categories),
             )
 
     def _rebuild_indices(self) -> None:
@@ -322,22 +321,22 @@ class AttackLibrary:
             directory: Path to directory containing YAML vector files.
         """
         if not directory.is_dir():
-            logger.warning("Attack vector directory not found: %s", directory)
+            logger.warning("attack_vector_directory_not_found", directory=str(directory))
             return
 
         yaml_files = sorted(directory.glob("*.yaml")) + sorted(directory.glob("*.yml"))
         if not yaml_files:
-            logger.warning("No YAML files found in: %s", directory)
+            logger.warning("no_yaml_files_found", directory=str(directory))
             return
 
         for yaml_file in yaml_files:
             try:
                 self._load_file(yaml_file)
             except (yaml.YAMLError, ValidationError, KeyError, OSError) as exc:
-                logger.warning("Failed to load attack vectors from %s: %s", yaml_file, exc)
+                logger.warning("attack_vectors_load_failed", path=str(yaml_file), error=str(exc))
                 self._load_errors.append((str(yaml_file), exc))
             except Exception as exc:
-                logger.exception("Unexpected error loading attack vectors from %s", yaml_file)
+                logger.exception("attack_vectors_load_error", path=str(yaml_file))
                 self._load_errors.append((str(yaml_file), exc))
 
     def _load_file(self, filepath: Path) -> None:
@@ -350,7 +349,7 @@ class AttackLibrary:
             data = yaml.load(f, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
 
         if not data or "vectors" not in data:
-            logger.warning("No vectors found in %s", filepath)
+            logger.warning("no_vectors_in_file", path=str(filepath))
             return
 
         for vector_data in data["vectors"]:
@@ -358,26 +357,26 @@ class AttackLibrary:
                 vector = self._parse_vector(vector_data)
                 if vector.id in self._vectors:
                     logger.warning(
-                        "Duplicate vector ID '%s' in %s — overwriting previous definition",
-                        vector.id,
-                        filepath,
+                        "duplicate_vector_id",
+                        vector_id=vector.id,
+                        path=str(filepath),
                     )
                 self._vectors[vector.id] = vector
             except (ValidationError, KeyError, ValueError) as exc:
                 vector_id = vector_data.get("id", "unknown")
                 logger.warning(
-                    "Failed to parse vector '%s' from %s: %s",
-                    vector_id,
-                    filepath,
-                    exc,
+                    "vector_parse_failed",
+                    vector_id=vector_id,
+                    path=str(filepath),
+                    error=str(exc),
                 )
                 self._load_errors.append((str(vector_id), exc))
             except Exception as exc:
                 vector_id = vector_data.get("id", "unknown")
                 logger.exception(
-                    "Unexpected error parsing vector '%s' from %s",
-                    vector_id,
-                    filepath,
+                    "vector_parse_error",
+                    vector_id=vector_id,
+                    path=str(filepath),
                 )
                 self._load_errors.append((str(vector_id), exc))
 

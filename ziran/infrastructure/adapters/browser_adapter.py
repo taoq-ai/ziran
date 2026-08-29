@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import re
 import time
@@ -28,11 +27,12 @@ from ziran.domain.interfaces.adapter import (
     AgentState,
     BaseAgentAdapter,
 )
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from playwright.async_api import Page, Response
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Common JSON response paths for chat APIs (tried in order during auto-detect).
 _COMMON_RESPONSE_PATHS: list[str] = [
@@ -557,10 +557,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
 
         self._session_id = f"ziran-browser-{int(time.time())}"
         logger.info(
-            "Browser adapter initialized: url=%s, api_pattern=%s, dom_fallback=%s",
-            self._config.url,
-            self._detected_api_pattern,
-            self._use_dom_fallback,
+            "browser_adapter_initialized",
+            url=self._config.url,
+            api_pattern=self._detected_api_pattern,
+            dom_fallback=self._use_dom_fallback,
         )
 
     async def _execute_login(self) -> None:
@@ -613,7 +613,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             5. Handle initial option menus (always runs)
         """
         assert self._page is not None
-        logger.info("Starting chat UI auto-discovery on %s", self._config.url)
+        logger.info("chat_ui_autodiscovery_start", url=self._config.url)
 
         # Phase 1: Dismiss cookie/consent banners
         await self._dismiss_cookie_banner()
@@ -623,7 +623,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         input_found = await self._is_element_visible(input_sel, timeout_ms=3000)
 
         if input_found:
-            logger.info("Chat input already visible with selector: %s", input_sel)
+            logger.info("chat_input_visible", selector=input_sel)
         else:
             # Phase 3: Find and click chat launcher
             logger.info("Chat input not visible, searching for launcher button...")
@@ -637,8 +637,8 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 input_found = await self._is_element_visible(input_sel, timeout_ms=5000)
                 if input_found:
                     logger.info(
-                        "Chat input visible after clicking launcher: %s",
-                        input_sel,
+                        "chat_input_visible_after_launcher",
+                        selector=input_sel,
                     )
 
             if not input_found:
@@ -647,15 +647,15 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 discovered_input = await self._discover_input_selector()
                 if discovered_input:
                     self._discovered_input_selector = discovered_input
-                    logger.info("Discovered chat input selector: %s", discovered_input)
+                    logger.info("chat_input_selector_discovered", selector=discovered_input)
 
                     # Also try to discover submit button
                     discovered_submit = await self._discover_submit_selector()
                     if discovered_submit:
                         self._discovered_submit_selector = discovered_submit
                         logger.info(
-                            "Discovered submit button selector: %s",
-                            discovered_submit,
+                            "submit_selector_discovered",
+                            selector=discovered_submit,
                         )
                 else:
                     logger.warning(
@@ -677,12 +677,12 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 locator = self._page.locator(selector).first
                 if await locator.is_visible(timeout=500):
                     await locator.click(timeout=2000)
-                    logger.info("Dismissed cookie banner via: %s", selector)
+                    logger.info("cookie_banner_dismissed", selector=selector)
                     # Wait briefly for banner to disappear
                     await self._page.wait_for_timeout(1000)
                     return
             except Exception:
-                logger.debug("Failed to dismiss cookie banner via: %s", selector, exc_info=True)
+                logger.debug("cookie_banner_dismiss_failed", selector=selector, exc_info=True)
                 continue
 
     async def _find_and_click_launcher(self) -> bool:
@@ -701,10 +701,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                     tag = await locator.evaluate("el => el.tagName.toLowerCase()")
                     if tag in ("button", "a", "div", "span", "label"):
                         await locator.click(timeout=3000)
-                        logger.info("Clicked chat launcher: %s (<%s>)", selector, tag)
+                        logger.info("chat_launcher_clicked", selector=selector, tag=tag)
                         return True
             except Exception:
-                logger.debug("Failed to probe chat launcher: %s", selector, exc_info=True)
+                logger.debug("chat_launcher_probe_failed", selector=selector, exc_info=True)
                 continue
 
         return False
@@ -726,7 +726,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                     if is_editable:
                         return selector
             except Exception:
-                logger.debug("Failed to probe input selector: %s", selector, exc_info=True)
+                logger.debug("input_selector_probe_failed", selector=selector, exc_info=True)
                 continue
 
         return None
@@ -745,7 +745,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 if await locator.is_visible(timeout=500):
                     return selector
             except Exception:
-                logger.debug("Failed to probe submit selector: %s", selector, exc_info=True)
+                logger.debug("submit_selector_probe_failed", selector=selector, exc_info=True)
                 continue
 
         return None
@@ -766,7 +766,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             await locator.wait_for(state="visible", timeout=timeout_ms)
             return True
         except Exception:
-            logger.debug("Element not visible for selector: %s", selector, exc_info=True)
+            logger.debug("element_not_visible", selector=selector, exc_info=True)
             return False
 
     # ------------------------------------------------------------------
@@ -805,16 +805,14 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                                 found.append((selector, text))
                     except Exception:
                         logger.debug(
-                            "Failed to read option button at index %d for selector: %s",
-                            i,
-                            selector,
+                            "option_button_read_failed",
+                            index=i,
+                            selector=selector,
                             exc_info=True,
                         )
                         continue
             except Exception:
-                logger.debug(
-                    "Failed to detect option buttons for selector: %s", selector, exc_info=True
-                )
+                logger.debug("option_buttons_detect_failed", selector=selector, exc_info=True)
                 continue
 
         # Deduplicate by text
@@ -847,7 +845,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
 
         strategy = self._browser_config.initial_options
         if strategy in ("skip", "type_through"):
-            logger.debug("Option handling strategy=%s, skipping", strategy)
+            logger.debug("option_handling_skipped", strategy=strategy)
             return
 
         max_depth = self._browser_config.max_option_depth
@@ -861,15 +859,15 @@ class BrowserAgentAdapter(BaseAgentAdapter):
 
             options = await self._detect_option_buttons()
             if not options:
-                logger.debug("No option buttons detected at depth %d", depth)
+                logger.debug("no_option_buttons", depth=depth)
                 return
 
             option_texts = [text for _, text in options]
             logger.info(
-                "Detected %d option buttons at depth %d: %s",
-                len(options),
-                depth,
-                option_texts[:5],
+                "option_buttons_detected",
+                count=len(options),
+                depth=depth,
+                option_texts=option_texts[:5],
             )
 
             # Strategy: try user-configured preferred options first,
@@ -888,16 +886,16 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 clicked = await self._click_best_option(options)
 
             if not clicked:
-                logger.warning("Could not click any option at depth %d, stopping", depth)
+                logger.warning("option_click_failed", depth=depth)
                 return
 
             # Wait for response after clicking option
             await self._page.wait_for_timeout(2000)
 
         logger.info(
-            "Navigated %d option levels (max_option_depth=%d)",
-            max_depth,
-            max_depth,
+            "option_levels_navigated",
+            levels=max_depth,
+            max_option_depth=max_depth,
         )
 
     async def _click_preferred_option(self, options: list[tuple[str, str]]) -> bool:
@@ -918,7 +916,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             pattern_lower = pattern.lower().strip()
             for _sel, text in options:
                 if pattern_lower in text.lower().strip():
-                    logger.info("Clicking preferred option %r (matched %r)", text, pattern)
+                    logger.info("clicking_preferred_option", text=text, pattern=pattern)
                     return await self._click_option_by_text(text)
 
         return False
@@ -1005,10 +1003,10 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 locator = self._page.locator(selector).first
                 if await locator.is_visible(timeout=500):
                     await locator.click(timeout=3000)
-                    logger.info("Clicked option: '%s' via %s", text, selector)
+                    logger.info("option_clicked", text=text, selector=selector)
                     return True
             except Exception:
-                logger.debug("Failed to click option '%s' via %s", text, selector, exc_info=True)
+                logger.debug("option_click_error", text=text, selector=selector, exc_info=True)
                 continue
 
         return False
@@ -1040,9 +1038,9 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         try:
             body = await response.json()
             self._intercepted_responses.append(body)
-            logger.debug("Intercepted API response from %s", url)
+            logger.debug("api_response_intercepted", url=url)
         except Exception:
-            logger.debug("Failed to parse JSON from intercepted response: %s", url)
+            logger.debug("intercepted_response_parse_failed", url=url)
 
     @staticmethod
     def _url_matches_pattern(url: str, pattern: str) -> bool:
@@ -1065,16 +1063,16 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         Filters by ``websocket_url_pattern`` if configured.
         """
         url: str = ws.url
-        logger.debug("WebSocket connection opened: %s", url)
+        logger.debug("ws_connection_opened", url=url)
 
         # Filter by URL pattern if configured
         pattern = self._detected_ws_pattern or self._browser_config.websocket_url_pattern
         if pattern and not self._url_matches_pattern(url, pattern):
-            logger.debug("WebSocket URL does not match pattern %s, ignoring", pattern)
+            logger.debug("ws_url_pattern_mismatch", pattern=pattern)
             return
 
         self._ws_capture_active = True
-        logger.info("Capturing WebSocket frames from: %s", url)
+        logger.info("ws_frame_capture_start", url=url)
 
         ws.on("framereceived", lambda payload: self._on_ws_frame_received(payload))
         ws.on("framesent", lambda payload: self._on_ws_frame_sent(payload))
@@ -1094,7 +1092,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
         event_name, event_payload = parse_socketio_frame(raw)
 
         if event_name is not None and event_payload is not None:
-            logger.debug("WebSocket Socket.IO event: %s", event_name)
+            logger.debug("ws_socketio_event", event=event_name)
 
             # Filter by event name
             target_event = (
@@ -1130,9 +1128,9 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 }
                 self._intercepted_responses.append(response_body)
                 logger.debug(
-                    "WebSocket captured bot response: event=%s, content=%s...",
-                    event_name,
-                    content[:80],
+                    "ws_bot_response_captured",
+                    event=event_name,
+                    content=content[:80],
                 )
 
             # Store raw frame for detailed logging
@@ -1155,7 +1153,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                     data["_ws_event"] = "raw"
                     data["_ws_content"] = content
                     self._intercepted_responses.append(data)
-                    logger.debug("WebSocket captured plain JSON response: %s...", content[:80])
+                    logger.debug("ws_plain_json_captured", content=content[:80])
         except (json.JSONDecodeError, ValueError):
             pass
 
@@ -1178,7 +1176,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             )
             if text:
                 self._last_ws_sent_text = str(text)
-                logger.debug("WebSocket captured outgoing message: %s...", str(text)[:80])
+                logger.debug("ws_outgoing_message_captured", message=str(text)[:80])
 
             self._intercepted_ws_frames.append(
                 {
@@ -1190,7 +1188,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
 
     def _on_ws_close(self, url: str) -> None:
         """Handle WebSocket connection close."""
-        logger.debug("WebSocket connection closed: %s", url)
+        logger.debug("ws_connection_closed", url=url)
 
     # ------------------------------------------------------------------
     # API auto-detection
@@ -1216,9 +1214,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                 body = await response.json()
                 candidates.append((response.url, body))
             except Exception:
-                logger.debug(
-                    "Failed to parse JSON from captured response: %s", response.url, exc_info=True
-                )
+                logger.debug("captured_response_parse_failed", url=response.url, exc_info=True)
 
         self._page.on("response", capture)
 
@@ -1239,21 +1235,22 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             if content and len(content) > 5:
                 parsed = urlparse(url)
                 self._detected_api_pattern = f"**{parsed.path}"
-                logger.info("Auto-detected API endpoint: %s -> %s", url, self._detected_api_pattern)
+                logger.info(
+                    "api_endpoint_auto_detected", url=url, api_pattern=self._detected_api_pattern
+                )
                 break
         else:
             # No HTTP API detected — check if WebSocket captured anything
             if self._intercepted_responses and self._ws_capture_active:
                 logger.info(
-                    "No HTTP API detected, but WebSocket captured %d responses. "
-                    "Using WebSocket capture mode.",
-                    len(self._intercepted_responses),
+                    "ws_capture_mode",
+                    response_count=len(self._intercepted_responses),
                 )
                 # Auto-detect the event name from captured frames
                 for frame in self._intercepted_ws_frames:
                     if frame.get("direction") == "received" and frame.get("event"):
                         self._detected_ws_event = frame["event"]
-                        logger.info("Auto-detected WebSocket event: %s", self._detected_ws_event)
+                        logger.info("ws_event_auto_detected", event=self._detected_ws_event)
                         break
             else:
                 logger.warning("No API endpoint detected, falling back to DOM extraction")
@@ -1348,9 +1345,9 @@ class BrowserAgentAdapter(BaseAgentAdapter):
             option_texts = [text for _, text in options]
             response.metadata["option_buttons"] = option_texts
             logger.debug(
-                "Response included %d option buttons: %s",
-                len(options),
-                option_texts[:5],
+                "response_option_buttons",
+                count=len(options),
+                option_texts=option_texts[:5],
             )
 
         # Track conversation
@@ -1410,7 +1407,7 @@ class BrowserAgentAdapter(BaseAgentAdapter):
                                 dangerous=_is_dangerous_tool(name),
                             )
             except Exception:
-                logger.debug("Discovery probe failed: %s", probe[:50])
+                logger.debug("discovery_probe_failed", probe=probe[:50])
                 continue
 
         return list(capabilities.values())

@@ -19,7 +19,6 @@ Usage::
 from __future__ import annotations
 
 import json
-import logging
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -29,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import PhaseResult
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
     from ziran.domain.entities.phase import ScanPhase
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _CHECKPOINT_FILENAME = ".checkpoint.json"
 
@@ -142,7 +142,7 @@ class CheckpointManager:
             data = checkpoint.model_dump(mode="json")
             tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
             tmp_path.replace(self._path)
-            logger.debug("Checkpoint saved to %s", self._path)
+            logger.debug("checkpoint_saved", path=str(self._path))
         except Exception:
             # Clean up temp file on failure
             tmp_path.unlink(missing_ok=True)
@@ -171,7 +171,7 @@ class CheckpointManager:
         """Remove the checkpoint file after a successful campaign."""
         if self._path.is_file():
             self._path.unlink()
-            logger.debug("Checkpoint cleaned up: %s", self._path)
+            logger.debug("checkpoint_cleaned_up", path=str(self._path))
 
     def build_checkpoint(
         self,

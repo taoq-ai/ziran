@@ -20,11 +20,11 @@ Usage::
 
 from __future__ import annotations
 
-import logging
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from ziran.domain.entities.attack import AttackResult, TokenUsage
+from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TacticType(StrEnum):
@@ -131,10 +131,10 @@ class TacticExecutor:
                 # (earlier prompts are just setup/context building)
                 if not prompt_spec.success_indicators:
                     logger.debug(
-                        "Turn %d/%d for %s: context building (no indicators)",
-                        i + 1,
-                        len(attack.prompts),
-                        attack.id,
+                        "turn_context_building",
+                        turn=i + 1,
+                        total_turns=len(attack.prompts),
+                        vector_id=attack.id,
                     )
                     continue
 
@@ -179,16 +179,16 @@ class TacticExecutor:
                     )
 
             except TimeoutError:
-                logger.warning("Turn %d for %s timed out", i + 1, attack.id)
+                logger.warning("turn_timed_out", turn=i + 1, vector_id=attack.id)
             except (ConnectionError, OSError) as exc:
                 logger.warning(
-                    "Connection error on turn %d for %s: %s",
-                    i + 1,
-                    attack.id,
-                    exc,
+                    "turn_connection_error",
+                    turn=i + 1,
+                    vector_id=attack.id,
+                    error=str(exc),
                 )
             except Exception as exc:
-                logger.warning("Error on turn %d for %s: %s", i + 1, attack.id, exc)
+                logger.warning("turn_error", turn=i + 1, vector_id=attack.id, error=str(exc))
 
         return AttackResult(
             vector_id=attack.id,
