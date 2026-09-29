@@ -1075,7 +1075,14 @@ def _display_policy_verdict(verdict: Any) -> None:
     default=None,
     help="Only show findings at this severity or above.",
 )
-def audit(path: str, severity: str | None) -> None:
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["text", "json"], case_sensitive=False),
+    default="text",
+    help="Output format. json exits 1 if any finding remains after --severity.",
+)
+def audit(path: str, severity: str | None, fmt: str) -> None:
     """Static security analysis of agent source code.
 
     Scans Python files for common agent security anti-patterns such as
@@ -1088,6 +1095,7 @@ def audit(path: str, severity: str | None) -> None:
     Examples:
         ziran audit ./my_agent.py
         ziran audit ./agents/ --severity high
+        ziran audit ./agents/ --format json --severity high
     """
     from ziran.application.static_analysis.analyzer import (
         AnalysisReport,
@@ -1108,6 +1116,24 @@ def audit(path: str, severity: str | None) -> None:
     if severity:
         min_level = severity_order[severity]
         report.findings = [f for f in report.findings if severity_order[f.severity] <= min_level]
+
+    if fmt == "json":
+        # Explicit keys only: `context` holds the matched source line and may contain a secret.
+        rows = [
+            {
+                "rule": f.check_id,
+                "severity": f.severity,
+                "file": f.file_path,
+                "line": f.line_number,
+                "message": f.message,
+            }
+            for f in report.findings
+        ]
+        click.echo(
+            json.dumps({"files_analyzed": report.files_analyzed, "findings": rows}, indent=2)
+        )
+        failed = bool(report.findings) if severity else not report.passed
+        sys.exit(1 if failed else 0)
 
     _display_audit_report(report)
 

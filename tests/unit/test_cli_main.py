@@ -353,6 +353,37 @@ class TestAuditCommand:
             result = runner.invoke(cli, ["audit", f.name, "--severity", "critical"])
         assert result.exit_code == 0
 
+    def test_audit_json_output_shape(self, runner: CliRunner, tmp_path: Path) -> None:
+        src = tmp_path / "agent.py"
+        src.write_text('api_key = "abcdefghijklmnop"\n')
+        result = runner.invoke(cli, ["audit", str(src), "--format", "json"])
+        assert result.exit_code == 1
+        assert "abcdefghijklmnop" not in result.stdout
+        data = json.loads(result.stdout)
+        assert data["files_analyzed"] == 1
+        [finding] = data["findings"]
+        assert set(finding) == {"rule", "severity", "file", "line", "message"}
+        assert finding["rule"] == "SA001"
+        assert finding["severity"] == "critical"
+        assert finding["line"] == 1
+
+    def test_audit_json_exit_nonzero_at_severity(self, runner: CliRunner, tmp_path: Path) -> None:
+        src = tmp_path / "agent.py"
+        src.write_text('def q(cur, x):\n    cur.execute(f"SELECT * FROM t WHERE id = {x}")\n')
+        high = runner.invoke(cli, ["audit", str(src), "--format", "json", "--severity", "high"])
+        assert high.exit_code == 1
+        assert len(json.loads(high.stdout)["findings"]) == 1
+        crit = runner.invoke(cli, ["audit", str(src), "--format", "json", "--severity", "critical"])
+        assert crit.exit_code == 0
+        assert json.loads(crit.stdout)["findings"] == []
+
+    def test_audit_json_clean_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        src = tmp_path / "agent.py"
+        src.write_text("x = 1\n")
+        result = runner.invoke(cli, ["audit", str(src), "--format", "json"])
+        assert result.exit_code == 0
+        assert json.loads(result.stdout) == {"files_analyzed": 1, "findings": []}
+
 
 # ── ci command ──────────────────────────────────────────────────────
 
