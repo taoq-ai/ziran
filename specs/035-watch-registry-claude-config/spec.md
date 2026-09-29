@@ -2,7 +2,7 @@
 
 **Feature Branch**: `035-watch-registry-claude-config`
 **Created**: 2026-09-29
-**Status**: Draft
+**Status**: Active
 **Issue**: [#422](https://github.com/taoq-ai/ziran/issues/422) (part of #415; WUWEI #35 depends on it)
 **Input**: `ziran watch-registry` watches MCP servers for drift, but only from a ZIRAN
 `RegistryConfig` YAML whose `ServerEntry` has `name`, `url`, `transport`. Claude Code declares MCP
