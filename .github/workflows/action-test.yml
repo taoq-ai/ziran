@@ -8,6 +8,7 @@ on:
       - "ziran/**"
       - ".github/workflows/action-test.yml"
       - "tests/fixtures/sample_campaign_result.json"
+      - "examples/07-cicd-quality-gate/claude-code-plugin/**"
   pull_request:
     branches: [main, develop]
     paths:
@@ -15,6 +16,7 @@ on:
       - "ziran/**"
       - ".github/workflows/action-test.yml"
       - "tests/fixtures/sample_campaign_result.json"
+      - "examples/07-cicd-quality-gate/claude-code-plugin/**"
 
 permissions:
   contents: read
@@ -78,3 +80,89 @@ jobs:
         shell: bash
         run: |
           echo "Audit completed with status: ${{ steps.ziran.outputs.status }}"
+
+  test-audit-claude-code-plugin:
+    name: "Test: audit a Claude Code plugin against its baseline"
+    runs-on: ubuntu-latest
+    env:
+      SAMPLE: examples/07-cicd-quality-gate/claude-code-plugin
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Audit the unchanged sample plugin (must pass)
+        id: clean
+        uses: ./
+        with:
+          command: audit
+          path: examples/07-cicd-quality-gate/claude-code-plugin
+          baseline: examples/07-cicd-quality-gate/claude-code-plugin/ziran-baseline.json
+          sarif-output: ""
+          ziran-version: "."
+
+      - name: Verify the clean run passed
+        shell: bash
+        run: |
+          [ "${{ steps.clean.outputs.exit-code }}" = "0" ] || { echo "::error::exit-code=${{ steps.clean.outputs.exit-code }}"; exit 1; }
+          [ "${{ steps.clean.outputs.status }}" = "passed" ] || { echo "::error::status=${{ steps.clean.outputs.status }}"; exit 1; }
+
+      - name: Widen the builder agent with WebFetch
+        shell: bash
+        run: |
+          cp -r "$SAMPLE" widened-plugin
+          sed -i '4s/$/, WebFetch/' widened-plugin/agents/builder.md
+          grep -qx 'tools: Read, Glob, Grep, Bash, Write, Edit, WebFetch' widened-plugin/agents/builder.md
+
+      - name: Audit the widened plugin (must fail)
+        id: widened
+        uses: ./
+        with:
+          command: audit
+          path: widened-plugin
+          baseline: widened-plugin/ziran-baseline.json
+          sarif-output: ziran-audit.sarif
+          ziran-version: "."
+        continue-on-error: true
+
+      - name: Verify the widened run failed with BL001/BL003 in SARIF
+        shell: bash
+        run: |
+          [ "${{ steps.widened.outcome }}" = "failure" ] || { echo "::error::outcome=${{ steps.widened.outcome }}"; exit 1; }
+          [ "${{ steps.widened.outputs.exit-code }}" = "1" ] || { echo "::error::exit-code=${{ steps.widened.outputs.exit-code }}"; exit 1; }
+          [ "${{ steps.widened.outputs.status }}" = "failed" ] || { echo "::error::status=${{ steps.widened.outputs.status }}"; exit 1; }
+          [ "${{ steps.widened.outputs.sarif-file }}" = "ziran-audit.sarif" ] || { echo "::error::sarif-file=${{ steps.widened.outputs.sarif-file }}"; exit 1; }
+          python3 - <<'PYEOF'
+          import json
+          results = json.load(open("ziran-audit.sarif"))["runs"][0]["results"]
+          [bl001] = [r for r in results if r["ruleId"] == "BL001"]
+          assert bl001["message"]["text"] == "Agent 'builder' gains tool 'WebFetch' not in the baseline", bl001
+          loc = bl001["locations"][0]["physicalLocation"]
+          assert loc["artifactLocation"]["uri"] == "widened-plugin/agents/builder.md", loc
+          assert loc["region"]["startLine"] == 4, loc
+          bl003 = [r["message"]["text"] for r in results if r["ruleId"] == "BL003"]
+          want = ("Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
+                  "not in the baseline")
+          assert want in bl003, bl003
+          print(f"OK: {len(results)} SARIF results, BL001 and BL003 present")
+          PYEOF
+
+      - name: Verify the SARIF was uploaded
+        if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        shell: bash
+        run: |
+          [ -n "${{ steps.widened.outputs.sarif-id }}" ] || { echo "::error::sarif-id is empty"; exit 1; }
+
+      - name: Audit with a missing baseline (must exit 2)
+        id: misconfigured
+        uses: ./
+        with:
+          command: audit
+          path: examples/07-cicd-quality-gate/claude-code-plugin
+          baseline: does-not-exist.json
+          sarif-output: ""
+          ziran-version: "."
+        continue-on-error: true
+
+      - name: Verify the misconfigured run exited 2
+        shell: bash
+        run: |
+          [ "${{ steps.misconfigured.outputs.exit-code }}" = "2" ] || { echo "::error::exit-code=${{ steps.misconfigured.outputs.exit-code }}"; exit 1; }

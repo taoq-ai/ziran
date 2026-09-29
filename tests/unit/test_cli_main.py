@@ -11,17 +11,16 @@ mocked so these tests are fast and deterministic.
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
 from ziran.interfaces.cli.main import cli
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture()
@@ -383,6 +382,408 @@ class TestAuditCommand:
         result = runner.invoke(cli, ["audit", str(src), "--format", "json"])
         assert result.exit_code == 0
         assert json.loads(result.stdout) == {"files_analyzed": 1, "findings": []}
+
+    # ── Claude Code plugins (spec 038) ──
+
+    def _json(self, runner: CliRunner, *args: str) -> tuple[int, dict[str, Any], str]:
+        result = runner.invoke(cli, ["audit", *args, "--format", "json"])
+        return result.exit_code, json.loads(result.stdout), result.stdout
+
+    def test_audit_claude_code_vulnerable_json(self, runner: CliRunner) -> None:
+        code, data, _ = self._json(runner, str(CC_FIXTURES / "vulnerable_plugin"))
+        assert code == 1
+        assert data["files_analyzed"] == 5
+        rows = data["findings"]
+        assert all(set(r) == CC_KEYS for r in rows)
+        [chain] = [
+            r
+            for r in rows
+            if r["rule"] == "CC001"
+            and r["agent"] == "researcher"
+            and r["tools"] == ["Read", "WebFetch"]
+        ]
+        assert chain["severity"] == "critical"
+        assert chain["line"] == 4
+        assert chain["file"].endswith("researcher.md")
+        assert "data_exfiltration" in chain["message"]
+        assert "Read -> WebFetch" in chain["message"]
+        [sa007] = [r for r in rows if r["rule"] == "SA007"]
+        assert (sa007["agent"], sa007["line"], sa007["severity"]) == ("generalist", 1, "high")
+        assert any(
+            r["rule"] == "CC001" and r["agent"] == "generalist" and r["tools"] == ["Bash"]
+            for r in rows
+        )
+
+    def test_audit_claude_code_vulnerable_text(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["audit", str(CC_FIXTURES / "vulnerable_plugin")])
+        assert result.exit_code == 1
+        assert "CC001" in result.output
+        assert "SA007" in result.output
+
+    def test_audit_claude_code_safe(self, runner: CliRunner) -> None:
+        safe = str(CC_FIXTURES / "safe_plugin")
+        assert runner.invoke(cli, ["audit", safe]).exit_code == 0
+        for extra in ([], ["--severity", "low"]):
+            code, data, _ = self._json(runner, safe, *extra)
+            assert code == 0
+            assert data == {"files_analyzed": 5, "findings": []}
+
+    def test_audit_claude_code_malformed(self, runner: CliRunner) -> None:
+        code, data, out = self._json(runner, str(CC_FIXTURES / "malformed"), "--severity", "high")
+        assert code == 1
+        [row] = data["findings"]
+        assert row["rule"] == "CC000"
+        assert row["line"] == 3
+        assert row["file"].endswith("broken.md")
+        assert row["agent"] is None
+        assert row["tools"] == []
+        assert "ziran-fake-secret-0416" not in out
+
+    def test_audit_claude_code_secret_redacted(self, runner: CliRunner, tmp_path: Path) -> None:
+        _write_agent(tmp_path / "agents", "leaky", "Read", 'api_key = "ziran-fake-secret-0418"')
+        code, data, out = self._json(runner, str(tmp_path))
+        assert code == 1
+        [row] = [r for r in data["findings"] if r["rule"] == "SA001"]
+        assert row["line"] == 6
+        assert row["agent"] == "leaky"
+        assert "ziran-fake-secret-0418" not in out
+
+    def test_audit_claude_code_single_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        md = _write_agent(tmp_path, "shell", "Bash")
+        _, data, _ = self._json(runner, str(md))
+        assert data["files_analyzed"] == 1
+        sa003 = [r for r in data["findings"] if r["rule"] == "SA003"]
+        assert [r["tools"] for r in sa003] == [["Bash"]]
+
+    def test_audit_mixed_python_and_agents(self, runner: CliRunner, tmp_path: Path) -> None:
+        (tmp_path / "agent.py").write_text('api_key = "abcdefghijklmnop"\n')
+        _write_agent(tmp_path / ".claude" / "agents", "a", "Read, WebFetch")
+        code, data, _ = self._json(runner, str(tmp_path))
+        assert code == 1
+        rules = [r["rule"] for r in data["findings"]]
+        py = data["findings"][rules.index("SA001")]
+        assert py["file"].endswith("agent.py")
+        assert (py["agent"], py["tools"]) == (None, [])
+        assert rules.index("SA001") < rules.index("CC001")
+
+    def test_audit_json_python_keys_unchanged(self, runner: CliRunner, tmp_path: Path) -> None:
+        (tmp_path / "agent.py").write_text('api_key = "abcdefghijklmnop"\n')
+        _, data, _ = self._json(runner, str(tmp_path))
+        assert data["findings"]
+        assert all(
+            set(r) == {"rule", "severity", "file", "line", "message"} for r in data["findings"]
+        )
+
+    def test_audit_wuwei_agents_dir_widening(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", "Read, Grep")
+        code, data, _ = self._json(runner, str(agents), "--severity", "high")
+        assert code == 0
+        assert not [r for r in data["findings"] if r["rule"] == "CC001"]
+        _write_agent(agents, "builder", "Read, Grep, WebFetch")
+        code, data, _ = self._json(runner, str(agents), "--severity", "high")
+        assert code == 1
+        assert any(
+            r["rule"] == "CC001"
+            and r["severity"] == "critical"
+            and r["agent"] == "builder"
+            and "Read -> WebFetch" in r["message"]
+            for r in data["findings"]
+        )
+
+
+CC_FIXTURES = Path(__file__).parents[1] / "fixtures" / "claude_code"
+CC_KEYS = {"rule", "severity", "file", "line", "message", "agent", "tools"}
+
+
+def _write_agent(directory: Path, name: str, tools: str, body: str = "Do the job.") -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    md = directory / f"{name}.md"
+    md.write_text(f"---\nname: {name}\ndescription: test agent\ntools: {tools}\n---\n{body}\n")
+    return md
+
+
+class TestAuditBaseline:
+    """Allowlist baseline (spec 039)."""
+
+    BUILDER = "Read, Glob, Grep, Bash, Write, Edit"
+
+    def _run(self, runner: CliRunner, *args: str) -> tuple[int, dict[str, Any], str]:
+        result = runner.invoke(cli, ["audit", *args, "--format", "json"])
+        return result.exit_code, json.loads(result.stdout), result.output
+
+    def _plugin(self, tmp_path: Path) -> Path:
+        dst = tmp_path / "plugin"
+        shutil.copytree(CC_FIXTURES / "vulnerable_plugin", dst)
+        return dst
+
+    def _record(self, runner: CliRunner, target: Path, baseline: Path) -> int:
+        args = ["audit", str(target), "--write-baseline", str(baseline)]
+        return runner.invoke(cli, args).exit_code
+
+    @staticmethod
+    def _bl(data: dict[str, Any]) -> list[dict[str, Any]]:
+        return [r for r in data["findings"] if r["rule"].startswith("BL")]
+
+    def test_write_baseline(self, runner: CliRunner, tmp_path: Path) -> None:
+        plugin = self._plugin(tmp_path)
+        b = tmp_path / "baseline.json"
+        for extra in ([], ["--severity", "low"]):
+            code, data, out = self._run(runner, str(plugin), "--write-baseline", str(b), *extra)
+            assert code == 0
+            assert data["findings"] == []
+            assert data["baseline"] == {"narrowed": []}
+            assert "Baseline written to" in out
+        first = b.read_bytes()
+        assert self._record(runner, plugin, b) == 0
+        assert b.read_bytes() == first
+        doc = json.loads(first)
+        assert doc["version"] == 1
+        assert list(doc["agents"]) == ["generalist", "researcher"]
+        assert doc["agents"]["generalist"]["tools"] is None
+        assert {
+            "tools": ["Read", "WebFetch"],
+            "vulnerability_type": "data_exfiltration",
+            "severity": "critical",
+        } in doc["agents"]["researcher"]["chains"]
+        assert "summary to the team channel" not in first.decode()
+
+    def test_wuwei_widening_fails(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        md = _write_agent(agents, "builder", self.BUILDER)
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        md.write_text(md.read_text().replace(self.BUILDER, self.BUILDER + ", WebFetch"))
+        for extra in ([], ["--severity", "critical"], ["--severity", "high"]):
+            code, data, _ = self._run(runner, str(agents), "--baseline", str(b), *extra)
+            assert code == 1
+            bl = self._bl(data)
+            [bl001] = [r for r in bl if r["rule"] == "BL001"]
+            assert (bl001["tools"], bl001["line"], bl001["agent"]) == (["WebFetch"], 4, "builder")
+            assert bl001["severity"] == "critical"
+            [rw] = [r for r in bl if r["rule"] == "BL003" and r["tools"] == ["Read", "WebFetch"]]
+            assert rw["message"] == (
+                "Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
+                "not in the baseline"
+            )
+            assert all(set(r) == CC_KEYS for r in data["findings"])
+        text = runner.invoke(cli, ["audit", str(agents), "--baseline", str(b)])
+        assert text.exit_code == 1
+        for needle in ("builder", "WebFetch", "Read -> WebFetch"):
+            assert needle in text.output
+
+    def test_narrowing_passes(self, runner: CliRunner, tmp_path: Path) -> None:
+        plugin = self._plugin(tmp_path)
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, plugin, b) == 0
+        md = plugin / "agents" / "researcher.md"
+        md.write_text(md.read_text().replace("WebFetch, ", ""))
+        for extra in ([], ["--severity", "low"]):
+            code, data, _ = self._run(runner, str(plugin), "--baseline", str(b), *extra)
+            assert code == 0
+            assert not self._bl(data)
+            assert {
+                "agent": "researcher",
+                "change": "tool_removed",
+                "tools": ["WebFetch"],
+            } in data["baseline"]["narrowed"]
+        text = runner.invoke(cli, ["audit", str(plugin), "--baseline", str(b)])
+        assert text.exit_code == 0
+        for needle in ("Baseline narrowed", "researcher", "tool_removed", "WebFetch"):
+            assert needle in text.output
+
+    def test_tools_key_removed(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        md = _write_agent(agents, "builder", "Read")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        md.write_text(md.read_text().replace("tools: Read\n", ""))
+        code, data, _ = self._run(runner, str(agents), "--baseline", str(b))
+        assert code == 1
+        assert self._bl(data)[0]["rule"] == "BL002"
+
+    def test_new_agent(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", "Read")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        _write_agent(agents, "helper", "Grep")
+        code, data, _ = self._run(runner, str(agents), "--baseline", str(b))
+        assert code == 1
+        assert [(r["rule"], r["agent"]) for r in self._bl(data)] == [("BL004", "helper")]
+
+    def test_chain_deleted_from_baseline(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", self.BUILDER)
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        doc = json.loads(b.read_text())
+        dropped = doc["agents"]["builder"]["chains"].pop(0)
+        b.write_text(json.dumps(doc))
+        code, data, _ = self._run(runner, str(agents), "--baseline", str(b))
+        assert code == 1
+        assert [(r["rule"], r["tools"]) for r in self._bl(data)] == [("BL003", dropped["tools"])]
+
+    def test_malformed_escalated(self, runner: CliRunner, tmp_path: Path) -> None:
+        malformed = str(CC_FIXTURES / "malformed")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, CC_FIXTURES / "malformed", b) == 1
+        assert runner.invoke(cli, ["audit", malformed, "--baseline", str(b)]).exit_code == 1
+        code, data, out = self._run(runner, malformed, "--baseline", str(b))
+        assert code == 1
+        [cc000] = [r for r in data["findings"] if r["rule"] == "CC000"]
+        assert cc000["severity"] == "critical"
+        assert "ziran-fake-secret-0416" not in out
+
+    def test_usage_errors(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", "Read")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+
+        def run(*args: str) -> tuple[int, str]:
+            r = runner.invoke(cli, ["audit", *args])
+            return r.exit_code, r.output
+
+        assert run(str(agents), "--baseline", str(b), "--write-baseline", str(b))[0] == 2
+        assert run(str(agents), "--baseline", str(tmp_path / "missing.json"))[0] == 2
+        bad = tmp_path / "bad.json"
+        bad.write_text("{not json ziran-fake-secret-0419")
+        rc, out = run(str(agents), "--baseline", str(bad))
+        assert rc == 2
+        assert "ziran-fake-secret-0419" not in out
+        bad.write_text('{"agents": {}}')
+        rc, out = run(str(agents), "--baseline", str(bad))
+        assert rc == 2
+        assert "version" in out
+        bad.write_text('{"version": 1, "agents": {"x": {"tools": "ziran-fake-secret-0419"}}}')
+        rc, out = run(str(agents), "--baseline", str(bad))
+        assert rc == 2
+        assert "ziran-fake-secret-0419" not in out
+        py = tmp_path / "py"
+        py.mkdir()
+        (py / "agent.py").write_text("x = 1\n")
+        assert run(str(py), "--baseline", str(b))[0] == 2
+        never = tmp_path / "never.json"
+        assert run(str(py), "--write-baseline", str(never))[0] == 2
+        assert not never.exists()
+        assert run(str(agents), "--write-baseline", str(tmp_path / "no" / "dir.json"))[0] == 2
+
+    def test_no_baseline_key_without_flags(self, runner: CliRunner, tmp_path: Path) -> None:
+        _, data, _ = self._run(runner, str(CC_FIXTURES / "safe_plugin"))
+        assert "baseline" not in data
+        (tmp_path / "agent.py").write_text("x = 1\n")
+        _, data, _ = self._run(runner, str(tmp_path))
+        assert "baseline" not in data
+
+
+SAMPLE_PLUGIN = Path(__file__).parents[2] / "examples/07-cicd-quality-gate/claude-code-plugin"
+
+
+class TestAuditSarif:
+    """``ziran audit --sarif`` (spec 040)."""
+
+    @pytest.fixture(autouse=True)
+    def _cwd(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.chdir(tmp_path)
+
+    @staticmethod
+    def _plug(widen: bool = False) -> Path:
+        dst = Path("plug")
+        shutil.copytree(SAMPLE_PLUGIN, dst)
+        if widen:
+            md = dst / "agents" / "builder.md"
+            lines = md.read_text().splitlines(keepends=True)
+            lines[3] = lines[3].rstrip("\n") + ", WebFetch\n"
+            md.write_text("".join(lines))
+        return dst
+
+    @staticmethod
+    def _sarif(path: str = "out.sarif") -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = json.loads(Path(path).read_text())["runs"][0]["results"]
+        return results
+
+    def _audit(self, runner: CliRunner, *args: str) -> Any:
+        return runner.invoke(
+            cli, ["audit", "plug", "--baseline", "plug/ziran-baseline.json", *args]
+        )
+
+    def test_sample_passes_with_baseline(self, runner: CliRunner) -> None:
+        self._plug()
+        result = self._audit(runner, "--format", "json")
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["findings"] == []
+
+    def test_sample_baseline_is_current(self, runner: CliRunner, tmp_path: Path) -> None:
+        out = tmp_path / "b.json"
+        result = runner.invoke(cli, ["audit", str(SAMPLE_PLUGIN), "--write-baseline", str(out)])
+        assert result.exit_code == 0
+        assert out.read_bytes() == (SAMPLE_PLUGIN / "ziran-baseline.json").read_bytes()
+
+    def test_widened_agent_in_sarif(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        result = self._audit(runner, "--sarif", "out.sarif")
+        assert result.exit_code == 1
+        results = self._sarif()
+        [bl001] = [r for r in results if r["ruleId"] == "BL001"]
+        assert bl001["message"]["text"] == (
+            "Agent 'builder' gains tool 'WebFetch' not in the baseline"
+        )
+        loc = bl001["locations"][0]["physicalLocation"]
+        assert loc["artifactLocation"]["uri"] == "plug/agents/builder.md"
+        assert loc["region"]["startLine"] == 4
+        assert (
+            "Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
+            "not in the baseline"
+            in [r["message"]["text"] for r in results if r["ruleId"] == "BL003"]
+        )
+
+    def test_json_stdout_unchanged(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        plain = self._audit(runner, "--format", "json")
+        with_sarif = self._audit(runner, "--format", "json", "--sarif", "out.sarif")
+        assert with_sarif.exit_code == plain.exit_code == 1
+        assert json.loads(with_sarif.stdout) == json.loads(plain.stdout)
+        assert "SARIF written to out.sarif" in with_sarif.stderr
+        rows = json.loads(plain.stdout)["findings"]
+        assert [r["ruleId"] for r in self._sarif()] == [r["rule"] for r in rows]
+
+    def test_text_mode_writes_before_exit(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        assert self._audit(runner, "--sarif", "out.sarif").exit_code == 1
+        assert Path("out.sarif").exists()
+
+    def test_severity_filter_applies(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        runner.invoke(cli, ["audit", "plug", "--severity", "critical", "--sarif", "out.sarif"])
+        results = self._sarif()
+        assert results
+        assert "SA003" not in {r["ruleId"] for r in results}
+
+    def test_narrowing_gives_empty_results(self, runner: CliRunner) -> None:
+        plug = self._plug()
+        md = plug / "agents" / "researcher.md"
+        md.write_text(md.read_text().replace(", Glob", ""))
+        result = self._audit(runner, "--sarif", "out.sarif")
+        assert result.exit_code == 0
+        assert self._sarif() == []
+
+    def test_unwritable_sarif_is_usage_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        self._plug()
+        result = self._audit(runner, "--sarif", str(tmp_path / "missing-dir" / "x.sarif"))
+        assert result.exit_code == 2
+        assert "Traceback" not in result.output
+        assert "--sarif" in result.output
+
+    def test_python_rows(self, runner: CliRunner) -> None:
+        Path("py").mkdir()
+        Path("py/agent.py").write_text('api_key = "abcdefghijklmnop"\n')
+        result = runner.invoke(cli, ["audit", "py", "--format", "json", "--sarif", "out.sarif"])
+        assert result.exit_code == 1
+        rows = json.loads(result.stdout)["findings"]
+        results = self._sarif()
+        assert [r["ruleId"] for r in results] == [r["rule"] for r in rows] == ["SA001"]
+        assert "abcdefghijklmnop" not in Path("out.sarif").read_text()
 
 
 # ── ci command ──────────────────────────────────────────────────────

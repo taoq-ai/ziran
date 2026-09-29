@@ -1082,12 +1082,44 @@ def _display_policy_verdict(verdict: Any) -> None:
     default="text",
     help="Output format. json exits 1 if any finding remains after --severity.",
 )
-def audit(path: str, severity: str | None, fmt: str) -> None:
+@click.option(
+    "--baseline",
+    "baseline_path",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="Fail when a Claude Code agent's tools or chains widen beyond this baseline.",
+)
+@click.option(
+    "--write-baseline",
+    "write_baseline_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Record each Claude Code agent's tools and chains as the accepted baseline.",
+)
+@click.option(
+    "--sarif",
+    "sarif_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Also write the reported findings as SARIF v2.1.0 (GitHub code scanning).",
+)
+def audit(
+    path: str,
+    severity: str | None,
+    fmt: str,
+    baseline_path: str | None,
+    write_baseline_path: str | None,
+    sarif_path: str | None,
+) -> None:
     """Static security analysis of agent source code.
 
     Scans Python files for common agent security anti-patterns such as
     hard-coded secrets, dangerous tool permissions, SQL injection risks,
     and PII exposure — all without executing the agent.
+
+    Also audits Claude Code plugins and subagents (a plugin root, a
+    .claude/agents/ or agents/ directory, or a single agent .md file):
+    declared tools, secrets in prompts and dangerous tool chains.
 
     PATH can be a single file or a directory (recursive scan).
 
@@ -1096,20 +1128,81 @@ def audit(path: str, severity: str | None, fmt: str) -> None:
         ziran audit ./my_agent.py
         ziran audit ./agents/ --severity high
         ziran audit ./agents/ --format json --severity high
+        ziran audit ./my-plugin/ --format json --severity high
+        ziran audit ./agents/ --write-baseline allowlist.json
+        ziran audit ./agents/ --baseline allowlist.json
+        ziran audit ./my-plugin/ --baseline ziran-baseline.json --sarif audit.sarif
     """
+    from pydantic import ValidationError
+    from rich.markup import escape
+
     from ziran.application.static_analysis.analyzer import (
         AnalysisReport,
         StaticAnalyzer,
     )
+    from ziran.application.static_analysis.claude_code_audit import audit_claude_code
+    from ziran.application.static_analysis.claude_code_baseline import (
+        AuditBaseline,
+        BaselineNarrowing,
+        apply_baseline,
+        build_baseline,
+    )
+    from ziran.infrastructure.config.claude_code_plugin import load_claude_code
+
+    if baseline_path and write_baseline_path:
+        raise click.UsageError("--baseline and --write-baseline are mutually exclusive")
 
     target = Path(path)
     analyzer = StaticAnalyzer()
+    scan = load_claude_code(target)
 
-    if target.is_file():
-        findings = analyzer.analyze_file(target)
-        report = AnalysisReport(files_analyzed=1, findings=findings)
+    if target.is_file() and scan.detected:
+        report = AnalysisReport()
+    elif target.is_file():
+        report = AnalysisReport(files_analyzed=1, findings=analyzer.analyze_file(target))
     else:
         report = analyzer.analyze_directory(target)
+
+    if scan.detected:
+        cc = audit_claude_code(scan, analyzer.config)
+        report.files_analyzed += cc.files_analyzed
+        report.findings.extend(cc.findings)
+
+    narrowed: list[BaselineNarrowing] | None = None
+    if baseline_path or write_baseline_path:
+        if not scan.detected:
+            raise click.UsageError("no Claude Code agent definitions found under PATH")
+        if write_baseline_path:
+            baseline = build_baseline(scan)
+            try:
+                Path(write_baseline_path).write_text(
+                    baseline.model_dump_json(indent=2) + "\n", encoding="utf-8"
+                )
+            except OSError as exc:
+                raise click.BadParameter(
+                    f"cannot write file ({exc.strerror})", param_hint="--write-baseline"
+                ) from None
+            click.echo(
+                f"Baseline written to {write_baseline_path} ({len(baseline.agents)} agents)",
+                err=True,
+            )
+        else:
+            try:
+                baseline = AuditBaseline.model_validate_json(
+                    Path(cast("str", baseline_path)).read_bytes()
+                )
+            except OSError as exc:
+                raise click.BadParameter(
+                    f"cannot read file ({exc.strerror})", param_hint="--baseline"
+                ) from None
+            except ValidationError as exc:
+                # Key path and message only: never echo values from the file.
+                err = exc.errors(include_input=False, include_url=False)[0]
+                loc = ".".join(str(p) for p in err["loc"]) or "document"
+                raise click.BadParameter(
+                    f"invalid baseline at {loc}: {err['msg']}", param_hint="--baseline"
+                ) from None
+        report.findings, narrowed = apply_baseline(report.findings, scan, baseline)
 
     # Filter by severity if requested
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -1117,24 +1210,46 @@ def audit(path: str, severity: str | None, fmt: str) -> None:
         min_level = severity_order[severity]
         report.findings = [f for f in report.findings if severity_order[f.severity] <= min_level]
 
+    # Before the output branches: text mode exits inside _display_audit_report.
+    if sarif_path:
+        from ziran.application.cicd.sarif import generate_audit_sarif
+
+        try:
+            Path(sarif_path).write_text(
+                json.dumps(generate_audit_sarif(report.findings), indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            raise click.BadParameter(
+                f"cannot write file ({exc.strerror})", param_hint="--sarif"
+            ) from None
+        click.echo(f"SARIF written to {sarif_path}", err=True)
+
     if fmt == "json":
         # Explicit keys only: `context` holds the matched source line and may contain a secret.
-        rows = [
-            {
+        rows: list[dict[str, Any]] = []
+        for f in report.findings:
+            row: dict[str, Any] = {
                 "rule": f.check_id,
                 "severity": f.severity,
                 "file": f.file_path,
                 "line": f.line_number,
                 "message": f.message,
             }
-            for f in report.findings
-        ]
-        click.echo(
-            json.dumps({"files_analyzed": report.files_analyzed, "findings": rows}, indent=2)
-        )
+            if scan.detected:
+                row |= {"agent": f.agent, "tools": list(f.tools)}
+            rows.append(row)
+        doc: dict[str, Any] = {"files_analyzed": report.files_analyzed, "findings": rows}
+        if narrowed is not None:
+            doc["baseline"] = {"narrowed": [n.model_dump() for n in narrowed]}
+        click.echo(json.dumps(doc, indent=2))
         failed = bool(report.findings) if severity else not report.passed
         sys.exit(1 if failed else 0)
 
+    if narrowed:
+        lines = [escape(f"{n.agent}: {n.change} {' -> '.join(n.tools)}".rstrip()) for n in narrowed]
+        lines.append("Re-record with --write-baseline to lock in the narrowing.")
+        console.print(Panel("\n".join(lines), title="Baseline narrowed", expand=False))
     _display_audit_report(report)
 
 

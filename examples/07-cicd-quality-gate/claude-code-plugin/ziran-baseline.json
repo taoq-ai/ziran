@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "agents": {
+    "builder": {
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep",
+        "Bash",
+        "Write",
+        "Edit"
+      ],
+      "chains": [
+        {
+          "tools": [
+            "Bash"
+          ],
+          "vulnerability_type": "unrestricted_execution",
+          "severity": "high"
+        },
+        {
+          "tools": [
+            "Bash",
+            "Edit"
+          ],
+          "vulnerability_type": "command_injection_persist",
+          "severity": "critical"
+        },
+        {
+          "tools": [
+            "Bash",
+            "Write"
+          ],
+          "vulnerability_type": "command_injection_persist",
+          "severity": "critical"
+        },
+        {
+          "tools": [
+            "Glob",
+            "Edit"
+          ],
+          "vulnerability_type": "file_manipulation",
+          "severity": "high"
+        },
+        {
+          "tools": [
+            "Glob",
+            "Write"
+          ],
+          "vulnerability_type": "file_manipulation",
+          "severity": "high"
+        },
+        {
+          "tools": [
+            "Grep",
+            "Edit"
+          ],
+          "vulnerability_type": "file_manipulation",
+          "severity": "high"
+        },
+        {
+          "tools": [
+            "Grep",
+            "Write"
+          ],
+          "vulnerability_type": "file_manipulation",
+          "severity": "high"
+        },
+        {
+          "tools": [
+            "Read",
+            "Edit"
+          ],
+          "vulnerability_type": "file_manipulation",
+          "severity": "high"
+        },
+        {
+          "tools": [
+            "Read",
+            "Write"
+          ],
+          "vulnerability_type": "file_manipulation",
+          "severity": "high"
+        }
+      ]
+    },
+    "researcher": {
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "chains": []
+    }
+  }
+}

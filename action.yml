@@ -28,6 +28,20 @@ inputs:
     required: false
     default: "."
 
+  path:
+    description: >
+      Path to audit (a Claude Code plugin root, an agents/ directory, a .md agent file, or Python
+      source). Used by: audit. Overrides source-path when set.
+    required: false
+    default: ""
+
+  baseline:
+    description: >
+      Allowlist baseline JSON written by `ziran audit PATH --write-baseline FILE`. Used by: audit.
+      The step fails (exit 1) when an agent's tools or chains widen beyond it.
+    required: false
+    default: ""
+
   # ── Live scan inputs ──────────────────────────────────────────────
   framework:
     description: >
@@ -85,8 +99,8 @@ inputs:
 
   sarif-output:
     description: >
-      Path where the SARIF report will be written.
-      Set to empty string to disable SARIF generation.
+      Path where the SARIF report will be written. Used by: ci, scan, audit.
+      Set to empty string to disable SARIF generation and upload.
     required: false
     default: "ziran-results.sarif"
 
@@ -125,6 +139,12 @@ outputs:
   sarif-file:
     description: "Path to the generated SARIF file"
     value: ${{ steps.run.outputs.sarif_file }}
+  exit-code:
+    description: "ziran exit code. audit: 0 passed, 1 findings or widened agent, 2 could not run (bad path/baseline/input)"
+    value: ${{ steps.run.outputs.exit_code }}
+  sarif-id:
+    description: "Code scanning upload id; empty when no SARIF was uploaded"
+    value: ${{ steps.upload.outputs.sarif-id }}
 
 runs:
   using: "composite"
@@ -142,6 +162,12 @@ runs:
     - name: Run ZIRAN
       id: run
       shell: bash
+      env:
+        ZIRAN_INPUT_PATH: ${{ inputs.path }}
+        ZIRAN_INPUT_SOURCE_PATH: ${{ inputs.source-path }}
+        ZIRAN_INPUT_BASELINE: ${{ inputs.baseline }}
+        ZIRAN_INPUT_SEVERITY: ${{ inputs.severity-threshold }}
+        ZIRAN_INPUT_SARIF: ${{ inputs.sarif-output }}
       run: |
         set +e
 
@@ -219,9 +245,14 @@ runs:
             fi
             ;;
           audit)
-            EXTRA_ARGS="${{ inputs.source-path }}"
-            if [ -n "${{ inputs.severity-threshold }}" ]; then
-              EXTRA_ARGS="$EXTRA_ARGS --severity ${{ inputs.severity-threshold }}"
+            AUDIT_ARGS=("${ZIRAN_INPUT_PATH:-$ZIRAN_INPUT_SOURCE_PATH}")
+            [ -n "$ZIRAN_INPUT_SEVERITY" ] && AUDIT_ARGS+=(--severity "$ZIRAN_INPUT_SEVERITY")
+            [ -n "$ZIRAN_INPUT_BASELINE" ] && AUDIT_ARGS+=(--baseline "$ZIRAN_INPUT_BASELINE")
+            [ -n "$ZIRAN_INPUT_SARIF" ] && AUDIT_ARGS+=(--sarif "$ZIRAN_INPUT_SARIF")
+            ziran audit "${AUDIT_ARGS[@]}"
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 2 ]; then
+              echo "::error::ziran audit could not run (exit 2): check the path, baseline and severity-threshold inputs"
             fi
             ;;
           policy)
@@ -236,11 +267,13 @@ runs:
             ;;
         esac
 
-        # For scan, EXIT_CODE is already set above; skip the generic run
-        if [ "$CMD" != "scan" ]; then
+        # For scan and audit, EXIT_CODE is already set above; skip the generic run
+        if [ "$CMD" != "scan" ] && [ "$CMD" != "audit" ]; then
           ziran $CMD $EXTRA_ARGS
           EXIT_CODE=$?
         fi
+
+        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
 
         if [ $EXIT_CODE -eq 0 ]; then
           echo "status=passed" >> "$GITHUB_OUTPUT"
@@ -256,6 +289,7 @@ runs:
         exit $EXIT_CODE
 
     - name: Upload SARIF
+      id: upload
       if: always() && inputs.sarif-output != '' && hashFiles(inputs.sarif-output) != ''
       uses: github/codeql-action/upload-sarif@v4
       with:
