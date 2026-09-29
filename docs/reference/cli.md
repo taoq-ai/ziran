@@ -226,6 +226,8 @@ ziran audit PATH [OPTIONS]
 |--------|-------------|
 | `--severity` | Minimum severity filter: `critical`, `high`, `medium`, `low` |
 | `--format` | Output format: `text` (default) or `json` |
+| `--baseline FILE` | Fail when a Claude Code agent's tools or chains widen beyond this baseline (see [Allowlist baseline](#allowlist-baseline)) |
+| `--write-baseline FILE` | Record each Claude Code agent's tools and chains as the accepted baseline, then report as if `--baseline FILE` was given |
 
 **Examples:**
 
@@ -305,6 +307,90 @@ above. Each `CC001` row is unique per `(agent, tools)`.
 
 Exit codes are unchanged and apply to the merged report. SARIF output for `audit` is not
 provided yet.
+
+#### Allowlist baseline
+
+A baseline records what each Claude Code agent is allowed to have today, so CI fails only when an
+agent's tools widen. The loop:
+
+```bash
+ziran audit agents/ --write-baseline agents/ziran-baseline.json   # record
+git add agents/ziran-baseline.json && git commit -m "chore: record agent baseline"
+ziran audit agents/ --baseline agents/ziran-baseline.json          # check (in CI)
+# after a reviewed change to an agent's tools: record again and commit
+```
+
+`--baseline` and `--write-baseline` are mutually exclusive. `--write-baseline` writes the file and
+then reports as if `--baseline` pointed at it (so it exits `0` unless there is another critical
+finding, such as a parse issue). The line `Baseline written to FILE (N agents)` goes to stderr.
+
+The file (version `1`) holds, per agent name, the declared `tools` (`null` when the agent has no
+`tools` key) and every dangerous chain found over them. Agents are sorted by name and chains by
+`tools`, so recording the same agents twice gives identical bytes. It never contains prompts,
+descriptions, hook commands or MCP config.
+
+```json
+{
+  "version": 1,
+  "agents": {
+    "generalist": {
+      "tools": null,
+      "chains": [
+        {"tools": ["Bash"], "vulnerability_type": "unrestricted_execution", "severity": "high"}
+      ]
+    },
+    "researcher": {
+      "tools": ["Read", "Grep", "WebFetch", "mcp__slack__send_message"],
+      "chains": [
+        {"tools": ["Read", "WebFetch"], "vulnerability_type": "data_exfiltration", "severity": "critical"}
+      ]
+    }
+  }
+}
+```
+
+Comparison uses agent names, `tools` and chain `tools`, verbatim and case-sensitive
+(`vulnerability_type` and `severity` are for reviewers). Scoping `Bash` to `Bash(npm test:*)` is
+therefore reported as a new tool.
+
+With a baseline, recorded grants are accepted: `CC001` rows for recorded chains and `SA003` /
+`SA004` / `SA007` rows for recorded grants are dropped. `SA001` secrets and Python findings are
+never accepted, and `CC000` parse issues become `critical`, so a broken agent file cannot pass as
+a removed agent. Each widening is appended as a `critical` row:
+
+| Rule | Widening | `tools` | Message |
+|------|----------|---------|---------|
+| `BL001` | a restricted agent gains a tool | `[tool]` | `Agent '<name>' gains tool '<tool>' not in the baseline` |
+| `BL002` | a restricted agent loses its `tools` key | `[]` | `Agent '<name>' lost its 'tools' key and now inherits every tool` |
+| `BL003` | a dangerous chain not in the baseline | chain tools | `Agent '<name>': new <risk> chain <type> via <A -> B> not in the baseline` |
+| `BL004` | an agent not in the baseline | its tools | `Agent '<name>' is not in the baseline` |
+
+Rows use the same seven keys as other Claude Code rows, on the agent's `tools:` line. Narrowings
+(a tool, chain, `tools` key restriction or agent removed) never fail. In JSON, whenever either flag
+is given, the document gains a `baseline` key (without the flags there is none):
+
+```json
+{
+  "files_analyzed": 5,
+  "findings": [],
+  "baseline": {
+    "narrowed": [{"agent": "researcher", "change": "tool_removed", "tools": ["WebFetch"]}]
+  }
+}
+```
+
+`change` is one of `tool_removed`, `tools_key_added`, `chain_removed` or `agent_removed`. Text
+mode prints a "Baseline narrowed" panel. A narrowed baseline is not rewritten: record it again, or
+a removed tool can come back without failing.
+
+Exit codes follow the rules above, applied after the baseline step. Every `BL00x` row is
+`critical`, so any widening exits `1` under every `--severity`; narrowings never change the exit
+code. Exit `2` also covers: both flags given, a baseline file that is missing, unreadable, not
+JSON or not matching the format (the error names the key path, never the value), a write failure,
+and either flag on a `PATH` without Claude Code agent definitions.
+
+Upgrading ZIRAN can add chain patterns and so new `BL003` rows for unchanged agents; record the
+baseline again when you bump the pinned release. Proposing a narrower allowlist is not provided.
 
 ---
 

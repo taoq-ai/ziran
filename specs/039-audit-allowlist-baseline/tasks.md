@@ -18,7 +18,7 @@ Write, Edit\n---\nBuild things.\n"` (`tools` on line 4).
 
 ## Phase 1 — Models and `build_baseline` (FR-002, FR-003, US1)
 
-- [ ] T001 [P] Failing tests in `tests/unit/test_claude_code_baseline.py` (new), in-memory
+- [x] T001 [P] Failing tests in `tests/unit/test_claude_code_baseline.py` (new), in-memory
       `ClaudeCodeAgent` / `ClaudeCodeScan`:
       - `build_baseline(scan)` for agents `researcher` (`Read, Grep, WebFetch,
         mcp__slack__send_message`) and `generalist` (no `tools`) -> `version == 1`, agent keys
@@ -32,13 +32,13 @@ Write, Edit\n---\nBuild things.\n"` (`tools` on line 4).
         top-level key, an unknown agent key, `tools: "Read"`, a chain with `tools: []`; accepts
         `{"version": 1, "agents": {}}` and `tools: null`.
       Confirm they fail (`ModuleNotFoundError`).
-- [ ] T002 Implement `ziran/application/static_analysis/claude_code_baseline.py`: the four models
+- [x] T002 Implement `ziran/application/static_analysis/claude_code_baseline.py`: the four models
       and `build_baseline` per plan §1-§2 (module docstring: purpose, rule table, "never serialise
       a scan wholesale"). T001 passes; mypy strict clean.
 
 ## Phase 2 — `apply_baseline` (FR-004..FR-006, US2-US4)
 
-- [ ] T003 Failing tests in `tests/unit/test_claude_code_baseline.py` for
+- [x] T003 Failing tests in `tests/unit/test_claude_code_baseline.py` for
       `apply_baseline(findings, scan, baseline)`, with `findings =
       audit_claude_code(scan).findings` (#418) and `baseline = build_baseline(<earlier scan>)`:
       - Unchanged scan -> no `CC001`, `SA003`, `SA004`, `SA007` rows; no `BL*`; narrowings `[]`.
@@ -61,12 +61,12 @@ Write, Edit\n---\nBuild things.\n"` (`tools` on line 4).
         agent `SA001` row -> unchanged; the input list is not mutated.
       - `Bash` recorded, `Bash(npm test:*)` declared -> `BL001` for `Bash(npm test:*)` and a
         `tool_removed` narrowing for `Bash`.
-- [ ] T004 Implement `apply_baseline` per plan §1 (kept-findings filter, violations, narrowings,
+- [x] T004 Implement `apply_baseline` per plan §1 (kept-findings filter, violations, narrowings,
       fixed recommendations, `dataclasses.replace` for `CC000`). T003 passes.
 
 ## Phase 3 — CLI (FR-001, FR-007..FR-009, US1-US6)
 
-- [ ] T005 Failing tests in `tests/unit/test_cli_main.py`, new class `TestAuditBaseline`
+- [x] T005 Failing tests in `tests/unit/test_cli_main.py`, new class `TestAuditBaseline`
       (`CliRunner`, JSON parsed from `result.stdout`):
       - US1: `--write-baseline B` over a `tmp_path` copy of `vulnerable_plugin` -> exit `0`, file
         content per spec US1.1, stdout JSON has `"baseline": {"narrowed": []}` and `findings == []`
@@ -92,7 +92,7 @@ Write, Edit\n---\nBuild things.\n"` (`tools` on line 4).
         over a `tmp_path` holding only `agent.py` -> exit `2` and no file written.
       - US6: a Claude Code run and a Python-only run without the flags have no `baseline` key
         (existing `TestAuditCommand` tests stay unmodified and green).
-- [ ] T006 Implement plan §3 in `ziran/interfaces/cli/main.py`: the two options, the
+- [x] T006 Implement plan §3 in `ziran/interfaces/cli/main.py`: the two options, the
       mutual-exclusion check, the baseline block after #418's merge block and before the
       `--severity` filter, the `baseline` JSON key, the text panel (escaped), and a docstring
       example (`ziran audit ./agents/ --baseline allowlist.json`). T005 passes; full
@@ -100,7 +100,7 @@ Write, Edit\n---\nBuild things.\n"` (`tools` on line 4).
 
 ## Phase 4 — Docs (FR-011)
 
-- [ ] T007 `docs/reference/cli.md`, `ziran audit`: add `--baseline` / `--write-baseline` to the
+- [x] T007 `docs/reference/cli.md`, `ziran audit`: add `--baseline` / `--write-baseline` to the
       option table and an "Allowlist baseline" subsection after #418's "Claude Code plugins"
       subsection: the record/commit/check loop, the file format (plan §2 example), the BL rule
       table with exact messages, what a baseline accepts (CC001, SA003/SA004/SA007 for recorded
