@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-06-23
+Auto-generated from all feature plans. Last updated: 2026-09-29
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -35,6 +35,10 @@ Auto-generated from all feature plans. Last updated: 2026-06-23
 - PostgreSQL via asyncpg (`ZIRAN_DATABASE_URL`). New: `graph_state_json` JSONB column on `phase_results`. (026-interactive-knowledge-graph)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (entities/config), PyYAML (vector loading), `re` (stdlib). No new dependencies. (027-detector-indicator-false-positives)
 - N/A — attack vectors are YAML files under `ziran/application/attacks/vectors/`; benchmark artifacts under `benchmarks/`. (027-detector-indicator-false-positives)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `re`; existing PyYAML (pattern loading), Pydantic v2 (`DangerousChain`), NetworkX. No new dependencies. (033-claude-code-chain-patterns)
+- N/A — patterns in `ziran/application/knowledge_graph/chain_patterns.yaml`; benchmark YAML under `benchmarks/ground_truth/`. (033-claude-code-chain-patterns)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), Pydantic v2 (existing entities), stdlib `re`/`functools`; reuses `canonical_tool_name` (#417) and SA001 secret rules. No new dependencies. (034-claude-code-otel-traces)
+- N/A. Report file `trace_analysis.json` in `--out` (existing). (034-claude-code-otel-traces)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -54,9 +58,10 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 033-claude-code-chain-patterns: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `re`; existing PyYAML (pattern loading), Pydantic v2 (`DangerousChain`), NetworkX. No new dependencies.
+- 034-claude-code-otel-traces: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), Pydantic v2 (existing entities), stdlib `re`/`functools`; reuses `canonical_tool_name` (#417) and SA001 secret rules. No new dependencies.
 - 027-detector-indicator-false-positives: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (entities/config), PyYAML (vector loading), `re` (stdlib). No new dependencies.
 - 026-interactive-knowledge-graph: Added Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / React 18 frontend. + Backend — FastAPI, SQLAlchemy 2.0 (async), Alembic, asyncpg, Pydantic v2, NetworkX, mdutils/f-string HTML report. Frontend — React 18, Vite, TanStack Query v5, vis-network v10.0.2 + vis-data v8, Tailwind/shadcn. Report — vis-network via CDN (currently v9.1.9). No new runtime dependencies anticipated (vis-network clustering + hierarchical layout already available).
-- 025-dependency-modernization: Added Python 3.11+ (CI matrix 3.11/3.12/3.13); TypeScript frontend unaffected.
 
 
 <!-- MANUAL ADDITIONS START -->

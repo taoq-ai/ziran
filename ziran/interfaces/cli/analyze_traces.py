@@ -13,6 +13,7 @@ from typing import Any
 
 import click
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -116,68 +117,80 @@ def analyze_traces(
 
         setup_logging(level="DEBUG")
 
-    # Build ingestor
-    ingestor = _build_ingestor(source)
+    try:
+        # Build ingestor
+        ingestor = _build_ingestor(source)
 
-    # Determine source path or API mode
-    ingest_source: Path | str
-    kwargs: dict[str, Any] = {}
+        # Determine source path or API mode
+        ingest_source: Path | str
+        kwargs: dict[str, Any] = {}
 
-    if input_path:
-        ingest_source = Path(input_path)
-    elif source == "langfuse":
-        ingest_source = "api"
-        if project_id:
-            kwargs["project_id"] = project_id
-        kwargs["since"] = since
-    else:
-        console.print("[red]Error:[/red] --input is required for OTel traces.")
+        if input_path:
+            ingest_source = Path(input_path)
+        elif source == "langfuse":
+            ingest_source = "api"
+            if project_id:
+                kwargs["project_id"] = project_id
+            kwargs["since"] = since
+        else:
+            console.print("[red]Error:[/red] --input is required for OTel traces.")
+            raise SystemExit(2)
+
+        service = AnalyzerService(ingestor)
+
+        console.print(
+            Panel(
+                f"Analyzing [bold]{source}[/bold] traces...",
+                title="Trace Analysis",
+            )
+        )
+
+        result = asyncio.run(service.analyze(ingest_source, **kwargs))
+
+        # Display summary
+        _display_summary(result)
+
+        # Save report
+        output_dir = Path(out)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        if output_format == "json":
+            report_path = output_dir / "trace_analysis.json"
+            report_path.write_text(json.dumps(result.model_dump(mode="json"), indent=2))
+        elif output_format == "markdown":
+            report_path = output_dir / "trace_analysis.md"
+            report_path.write_text(_render_markdown(result))
+        else:
+            report_path = output_dir / "trace_analysis.json"
+            report_path.write_text(json.dumps(result.model_dump(mode="json"), indent=2))
+
+        console.print(f"\n[dim]Report saved to {report_path}[/dim]")
+
+        # Deliver dangerous-chain matches to configured alert sinks
+        if alert:
+            if config_path is None:
+                console.print(
+                    "[red]Error:[/red] --alert requires --config with an 'alerts:' block."
+                )
+                raise SystemExit(2)
+            _emit_alerts(
+                service,
+                ingest_source,
+                kwargs,
+                config_path=config_path,
+                predeploy_path=predeploy_path,
+                digest=digest,
+                dry_run_alerts=dry_run_alerts,
+            )
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        if verbose:
+            console.print_exception()
+        raise SystemExit(2) from exc
+
+    # Exit 1 on a critical match, after the report is written and alerts are sent.
+    if result.critical_chain_count:
         raise SystemExit(1)
-
-    service = AnalyzerService(ingestor)
-
-    console.print(
-        Panel(
-            f"Analyzing [bold]{source}[/bold] traces...",
-            title="Trace Analysis",
-        )
-    )
-
-    result = asyncio.run(service.analyze(ingest_source, **kwargs))
-
-    # Display summary
-    _display_summary(result)
-
-    # Save report
-    output_dir = Path(out)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    if output_format == "json":
-        report_path = output_dir / "trace_analysis.json"
-        report_path.write_text(json.dumps(result.model_dump(mode="json"), indent=2))
-    elif output_format == "markdown":
-        report_path = output_dir / "trace_analysis.md"
-        report_path.write_text(_render_markdown(result))
-    else:
-        report_path = output_dir / "trace_analysis.json"
-        report_path.write_text(json.dumps(result.model_dump(mode="json"), indent=2))
-
-    console.print(f"\n[dim]Report saved to {report_path}[/dim]")
-
-    # Deliver dangerous-chain matches to configured alert sinks
-    if alert:
-        if config_path is None:
-            console.print("[red]Error:[/red] --alert requires --config with an 'alerts:' block.")
-            raise SystemExit(1)
-        _emit_alerts(
-            service,
-            ingest_source,
-            kwargs,
-            config_path=config_path,
-            predeploy_path=predeploy_path,
-            digest=digest,
-            dry_run_alerts=dry_run_alerts,
-        )
 
 
 def _emit_alerts(
