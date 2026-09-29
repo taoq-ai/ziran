@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from ziran.application.alerting.dispatch import dispatch
 from ziran.application.registry_watch.typosquat_detector import detect as detect_typosquat
+from ziran.application.static_analysis.mcp_metadata_analyzer import MCPMetadataAnalyzer
 from ziran.domain.entities.registry import (
     DriftFinding,
     ManifestSnapshot,
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from ziran.domain.ports.snapshot_store import SnapshotStore
 
 logger = get_logger(__name__)
+_METADATA_ANALYZER = MCPMetadataAnalyzer()
 
 
 class ManifestFetcher(Protocol):
@@ -132,6 +134,25 @@ def _diff_manifests(
     return findings
 
 
+def _metadata_findings(server_name: str, tools: list[dict[str, Any]]) -> list[DriftFinding]:
+    """Map ``MCPMetadataAnalyzer`` findings on raw ``tools/list`` entries to drift findings."""
+    return [
+        DriftFinding(
+            server_name=server_name,
+            drift_type="tool_poisoning",
+            severity=f.severity,
+            tool_name=f.tool_id,
+            field=f.field,
+            current_value=f.snippet,
+            message=(
+                f"Suspicious tool metadata ({f.pattern_matched}) on server "
+                f"'{server_name}': {f.recommendation}"
+            ),
+        )
+        for f in _METADATA_ANALYZER.analyze_capabilities(tools)
+    ]
+
+
 def _raw_to_snapshot(server_name: str, raw: dict[str, Any]) -> ManifestSnapshot:
     """Convert a raw manifest dict into a ``ManifestSnapshot``."""
     tools: list[ToolDescriptor] = []
@@ -164,25 +185,34 @@ async def watch(
     config: RegistryConfig,
     snapshot_store: SnapshotStore,
     fetcher: ManifestFetcher,
-) -> list[DriftFinding]:
+) -> tuple[list[DriftFinding], list[str]]:
     """Run a single watch cycle across all configured servers.
 
     For each server the service:
     1. Fetches the current manifest via *fetcher*.
     2. Loads the previously stored snapshot.
-    3. Diffs the two manifests to detect drift.
+    3. Diffs the two manifests to detect drift, or, on first registration
+       (no stored snapshot), runs ``MCPMetadataAnalyzer`` over ``tools/list``.
     4. Runs typosquat detection against the allowlist.
     5. Saves the new snapshot (only on success).
 
-    Network errors are logged but do **not** corrupt stored snapshots.
+    Fetch errors are logged (exception type only) and do **not** corrupt
+    stored snapshots.
+
+    Returns:
+        ``(findings, unreachable)`` where *unreachable* lists the names of
+        servers whose manifest could not be fetched.
     """
     all_findings: list[DriftFinding] = []
+    unreachable: list[str] = []
 
     for server in config.servers:
         try:
             raw = await fetcher.fetch(server)
-        except Exception:
-            logger.warning("manifest_fetch_failed", server=server.name)
+        except Exception as exc:
+            # Type name only: exception text may carry URLs, args or payloads.
+            logger.warning("manifest_fetch_failed", server=server.name, error=type(exc).__name__)
+            unreachable.append(server.name)
             continue
 
         new_snapshot = _raw_to_snapshot(server.name, raw)
@@ -191,6 +221,8 @@ async def watch(
         if old_snapshot is not None:
             drift = _diff_manifests(server.name, old_snapshot, new_snapshot)
             all_findings.extend(drift)
+        else:
+            all_findings.extend(_metadata_findings(server.name, raw.get("tools", [])))
 
         # Typosquat detection
         typo_findings = detect_typosquat(server.name, config.allowlist, config.exemptions)
@@ -206,7 +238,7 @@ async def watch(
         # Save new snapshot only after successful fetch
         snapshot_store.save(server.name, new_snapshot)
 
-    return all_findings
+    return all_findings, unreachable
 
 
 async def emit_findings(
