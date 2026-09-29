@@ -39,6 +39,8 @@ Auto-generated from all feature plans. Last updated: 2026-09-29
 - N/A — patterns in `ziran/application/knowledge_graph/chain_patterns.yaml`; benchmark YAML under `benchmarks/ground_truth/`. (033-claude-code-chain-patterns)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), Pydantic v2 (existing entities), stdlib `re`/`functools`; reuses `canonical_tool_name` (#417) and SA001 secret rules. No new dependencies. (034-claude-code-otel-traces)
 - N/A. Report file `trace_analysis.json` in `--out` (existing). (034-claude-code-otel-traces)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (models), PyYAML `safe_load`/`compose` (frontmatter), stdlib `json`/`re`; reuses `load_claude_mcp_config` (#422) and the domain `is_dangerous` classifier. No new dependencies. (037-claude-code-plugin-parser)
+- N/A — reads plugin files only. (037-claude-code-plugin-parser)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -58,10 +60,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 037-claude-code-plugin-parser: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (models), PyYAML `safe_load`/`compose` (frontmatter), stdlib `json`/`re`; reuses `load_claude_mcp_config` (#422) and the domain `is_dangerous` classifier. No new dependencies.
 - 033-claude-code-chain-patterns: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `re`; existing PyYAML (pattern loading), Pydantic v2 (`DangerousChain`), NetworkX. No new dependencies.
 - 034-claude-code-otel-traces: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), Pydantic v2 (existing entities), stdlib `re`/`functools`; reuses `canonical_tool_name` (#417) and SA001 secret rules. No new dependencies.
-- 027-detector-indicator-false-positives: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (entities/config), PyYAML (vector loading), `re` (stdlib). No new dependencies.
-- 026-interactive-knowledge-graph: Added Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / React 18 frontend. + Backend — FastAPI, SQLAlchemy 2.0 (async), Alembic, asyncpg, Pydantic v2, NetworkX, mdutils/f-string HTML report. Frontend — React 18, Vite, TanStack Query v5, vis-network v10.0.2 + vis-data v8, Tailwind/shadcn. Report — vis-network via CDN (currently v9.1.9). No new runtime dependencies anticipated (vis-network clustering + hierarchical layout already available).
 
 
 <!-- MANUAL ADDITIONS START -->
