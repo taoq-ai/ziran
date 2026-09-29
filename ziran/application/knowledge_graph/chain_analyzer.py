@@ -103,13 +103,14 @@ class ToolChainAnalyzer:
 
     # ── Public API ─────────────────────────────────────────────────
 
-    def analyze(self) -> list[DangerousChain]:
+    def analyze(self, *, include_cycles: bool = True) -> list[DangerousChain]:
         """Run full chain analysis and return all dangerous chains found.
 
         Steps:
             1. Discover direct 2-tool chains (A → B).
             2. Discover indirect chains (A → … → B, up to 3 hops).
-            3. Discover cycles (A → B → … → A).
+            3. Discover cycles (A → B → … → A), unless *include_cycles* is False
+               (cycle enumeration is exponential on dense, e.g. complete, graphs).
             4. Flag unscoped shell tools (bare ``Bash``) as single-tool findings.
             5. De-duplicate, score, and sort by risk.
 
@@ -131,7 +132,8 @@ class ToolChainAnalyzer:
 
         chains.extend(self._find_direct_chains(tool_nodes, pattern_cache))
         chains.extend(self._find_indirect_chains(tool_nodes, pattern_cache, max_hops=3))
-        chains.extend(self._find_chain_cycles(tool_nodes, pattern_cache))
+        if include_cycles:
+            chains.extend(self._find_chain_cycles(tool_nodes, pattern_cache))
         chains.extend(self._find_unrestricted_execution(tool_nodes))
 
         # Deduplicate by (tools tuple, vulnerability_type)

@@ -61,6 +61,8 @@ class StaticFinding:
     line_number: int | None = None
     context: str = ""
     recommendation: str = ""
+    agent: str | None = None  # Claude Code agent name; None for Python findings and CC000
+    tools: tuple[str, ...] = ()  # verbatim Claude Code tool strings (chain order for CC001)
 
 
 @dataclass

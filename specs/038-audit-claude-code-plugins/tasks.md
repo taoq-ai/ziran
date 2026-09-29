@@ -13,7 +13,7 @@ exactly those in [plan.md §Public contract](plan.md#public-contract).
 
 ## Phase 1 — Foundations (FR-006, FR-007)
 
-- [ ] T001 [P] Failing test in `tests/unit/test_chain_analyzer.py`: build an
+- [x] T001 [P] Failing test in `tests/unit/test_chain_analyzer.py`: build an
       `AttackKnowledgeGraph` with one `add_capability` node per tool of
       `["Agent", "Bash", "Edit", "Glob", "Grep", "NotebookEdit", "Read", "Skill", "TodoWrite",
       "WebFetch", "WebSearch", "Write"]` and `add_tool_chain([a, b], 0.5)` for every ordered pair;
@@ -23,11 +23,11 @@ exactly those in [plan.md §Public contract](plan.md#public-contract).
       Second test: on a 4-tool complete graph (`Read, Grep, WebFetch, mcp__slack__send_message`)
       `analyze()` (default) still returns `cycle` chains (default unchanged). Confirm the first
       fails (`TypeError: unexpected keyword argument`).
-- [ ] T002 Implement `ToolChainAnalyzer.analyze(self, *, include_cycles: bool = True)` in
+- [x] T002 Implement `ToolChainAnalyzer.analyze(self, *, include_cycles: bool = True)` in
       `ziran/application/knowledge_graph/chain_analyzer.py`: guard the
       `_find_chain_cycles` call with `if include_cycles:`; update the docstring step list. T001
       passes; the rest of `test_chain_analyzer.py` passes unmodified.
-- [ ] T003 [P] Failing test in `tests/unit/test_claude_code_audit.py` (new file):
+- [x] T003 [P] Failing test in `tests/unit/test_claude_code_audit.py` (new file):
       `StaticFinding(check_id="X", message="m", severity="low", file_path="f")` has
       `agent is None` and `tools == ()`; `StaticFinding(..., agent="a", tools=("Read",))` keeps them.
       Then add the two defaulted fields `agent: str | None = None`,
@@ -41,7 +41,7 @@ All in `tests/unit/test_claude_code_audit.py` against in-memory models
 (`ClaudeCodeAgent(name=..., tools=..., file="agents/x.md", key_lines={"name": 2, "tools": 4,
 "description": 3}, system_prompt=..., body_line=7)`, `ClaudeCodeScan(root=".", ...)`).
 
-- [ ] T004 Failing tests for `agent_chains(agent)`:
+- [x] T004 Failing tests for `agent_chains(agent)`:
       - tools `"Read, Grep, WebFetch, mcp__slack__send_message"` -> exactly the four direct critical
         `data_exfiltration` chains (`[Read, WebFetch]`, `[Read, mcp__slack__send_message]`,
         `[Grep, WebFetch]`, `[Grep, mcp__slack__send_message]`), none of `chain_type "cycle"`;
@@ -49,7 +49,7 @@ All in `tests/unit/test_claude_code_audit.py` against in-memory models
       - tools `"Bash"` -> one `unrestricted_execution` chain `["Bash"]`, `risk_level == "high"`;
       - unrestricted agent (no `tools`) -> contains `["Read", "WebFetch"]` critical and `["Bash"]`,
         completes in under 1 s.
-- [ ] T005 Failing tests for `audit_claude_code(scan)` rule by rule:
+- [x] T005 Failing tests for `audit_claude_code(scan)` rule by rule:
       - SA007: unrestricted agent without `tools` key -> one `SA007`, `high`, `line_number == 1`,
         `agent == name`, `tools == ()`, exact message; no SA003 for that agent.
       - SA003: declared `"Read, WebFetch, mcp__slack__send_message"` -> two `SA003` `high` at the
@@ -70,7 +70,7 @@ All in `tests/unit/test_claude_code_audit.py` against in-memory models
         `report.files_analyzed == scan.files_analyzed`.
       - A custom `StaticAnalysisConfig` passed as `config` is used for SA001 (a config with an extra
         secret pattern flags a line the default does not).
-- [ ] T006 Implement `ziran/application/static_analysis/claude_code_audit.py` with
+- [x] T006 Implement `ziran/application/static_analysis/claude_code_audit.py` with
       `agent_chains` and `audit_claude_code` per plan §3 (virtual-file SA001 via `_run_check` +
       `dataclasses.replace`, fixed recommendations, `itertools.permutations` for edges,
       `analyze(include_cycles=False)`). Module docstring states the rule table and the
@@ -81,7 +81,7 @@ All in `tests/unit/test_claude_code_audit.py` against in-memory models
 In `tests/unit/test_cli_main.py::TestAuditCommand`; fixture root
 `Path(__file__).parents[1] / "fixtures" / "claude_code"`; parse `result.stdout`.
 
-- [ ] T007 Failing CLI tests:
+- [x] T007 Failing CLI tests:
       - `test_audit_claude_code_vulnerable_json`: `audit vulnerable_plugin --format json` -> exit 1;
         `files_analyzed == 5`; every row has keys exactly
         `{rule, severity, file, line, message, agent, tools}`; a row
@@ -116,17 +116,17 @@ In `tests/unit/test_cli_main.py::TestAuditCommand`; fixture root
         `tools: Read, Grep, WebFetch` exits 1 with a critical CC001 row naming `builder` and
         `Read -> WebFetch`. (US5)
       Confirm they fail (Claude Code files not audited today).
-- [ ] T008 Implement the `audit` wiring in `ziran/interfaces/cli/main.py` per plan §4: local
+- [x] T008 Implement the `audit` wiring in `ziran/interfaces/cli/main.py` per plan §4: local
       `scan = load_claude_code(target)`, file/dir branches, merge, `row |= {"agent", "tools"}` only
       when `scan.detected`; docstring: mention Claude Code plugins, `.claude/agents/` and `agents/`
       and add `ziran audit ./my-plugin/ --format json --severity high`. Do not modify
       `_display_audit_report`. T007 passes.
-- [ ] T009 Regression: all pre-existing `TestAuditCommand`, `test_static_analysis.py` and
+- [x] T009 Regression: all pre-existing `TestAuditCommand`, `test_static_analysis.py` and
       `test_chain_analyzer.py` tests pass unmodified (US3.1, SC-002).
 
 ## Phase 4 — Docs (FR-011)
 
-- [ ] T010 `docs/reference/cli.md`, `ziran audit` section: "Claude Code plugins" subsection with
+- [x] T010 `docs/reference/cli.md`, `ziran audit` section: "Claude Code plugins" subsection with
       detection rules (plugin root, `.claude/agents/`, a directory named `agents`, a single agent
       `.md`), the rule table from plan §3 (rule, severity, what, line), the Claude Code JSON row
       example with `agent`/`tools` and when those keys appear, and "exit codes unchanged". Note
@@ -134,7 +134,7 @@ In `tests/unit/test_cli_main.py::TestAuditCommand`; fixture root
 
 ## Phase 5 — Gates
 
-- [ ] T011 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T011 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%). Revert any `uv.lock` drift before committing. Commit
       `feat(audit): audit Claude Code plugins with static checks and declared-tool chains`; PR
       against `develop` linking #418; check `gh pr checks` until green.
