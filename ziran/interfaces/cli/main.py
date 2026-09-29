@@ -1089,6 +1089,10 @@ def audit(path: str, severity: str | None, fmt: str) -> None:
     hard-coded secrets, dangerous tool permissions, SQL injection risks,
     and PII exposure — all without executing the agent.
 
+    Also audits Claude Code plugins and subagents (a plugin root, a
+    .claude/agents/ or agents/ directory, or a single agent .md file):
+    declared tools, secrets in prompts and dangerous tool chains.
+
     PATH can be a single file or a directory (recursive scan).
 
     \b
@@ -1096,20 +1100,30 @@ def audit(path: str, severity: str | None, fmt: str) -> None:
         ziran audit ./my_agent.py
         ziran audit ./agents/ --severity high
         ziran audit ./agents/ --format json --severity high
+        ziran audit ./my-plugin/ --format json --severity high
     """
     from ziran.application.static_analysis.analyzer import (
         AnalysisReport,
         StaticAnalyzer,
     )
+    from ziran.application.static_analysis.claude_code_audit import audit_claude_code
+    from ziran.infrastructure.config.claude_code_plugin import load_claude_code
 
     target = Path(path)
     analyzer = StaticAnalyzer()
+    scan = load_claude_code(target)
 
-    if target.is_file():
-        findings = analyzer.analyze_file(target)
-        report = AnalysisReport(files_analyzed=1, findings=findings)
+    if target.is_file() and scan.detected:
+        report = AnalysisReport()
+    elif target.is_file():
+        report = AnalysisReport(files_analyzed=1, findings=analyzer.analyze_file(target))
     else:
         report = analyzer.analyze_directory(target)
+
+    if scan.detected:
+        cc = audit_claude_code(scan, analyzer.config)
+        report.files_analyzed += cc.files_analyzed
+        report.findings.extend(cc.findings)
 
     # Filter by severity if requested
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -1119,16 +1133,18 @@ def audit(path: str, severity: str | None, fmt: str) -> None:
 
     if fmt == "json":
         # Explicit keys only: `context` holds the matched source line and may contain a secret.
-        rows = [
-            {
+        rows: list[dict[str, Any]] = []
+        for f in report.findings:
+            row: dict[str, Any] = {
                 "rule": f.check_id,
                 "severity": f.severity,
                 "file": f.file_path,
                 "line": f.line_number,
                 "message": f.message,
             }
-            for f in report.findings
-        ]
+            if scan.detected:
+                row |= {"agent": f.agent, "tools": list(f.tools)}
+            rows.append(row)
         click.echo(
             json.dumps({"files_analyzed": report.files_analyzed, "findings": rows}, indent=2)
         )

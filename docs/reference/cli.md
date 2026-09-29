@@ -264,6 +264,48 @@ source line is never included, so secrets that trigger a finding are not echoed.
 Text mode (the default) keeps its existing behaviour and exits `1` only on `critical`
 findings, even when `--severity` is lower.
 
+#### Claude Code plugins
+
+`ziran audit` also audits Claude Code subagent definitions, without running them. They are
+detected when `PATH` is:
+
+- a plugin root (`.claude-plugin/plugin.json`, `agents/`, and any `agents` paths in the manifest),
+- a directory containing `.claude/agents/`,
+- a directory named `agents` (e.g. `ziran audit ./agents/`),
+- a single agent `.md` file (frontmatter starting with `---`); only the Claude Code checks run on it.
+
+Agent files are the `*.md` files in those directories (not recursive) whose first line is `---`.
+In a directory, Python files are still analysed as before and the Claude Code findings are appended.
+
+| Rule | Severity | Finding | Line |
+|------|----------|---------|------|
+| `CC000` | high | The agent/plugin file could not be parsed | the problem line (or none) |
+| `SA001` | critical | Secret pattern in the system prompt, `description` or `tools` | the matching line |
+| `SA003` | high | A declared tool is dangerous (e.g. `Bash`, `WebFetch`, `Write`) | `tools:` line |
+| `SA004` | medium | A declared tool is a wildcard (`Bash(*)`, `mcp__server`, `mcp__server__*`) | `tools:` line |
+| `SA007` | high | No `tools` key: the agent inherits every tool | `1` |
+| `CC001` | the chain's risk | A dangerous tool chain over the agent's tools (e.g. `Read -> WebFetch`) | `tools:` line (`1` when absent) |
+
+When Claude Code definitions are detected, every JSON row (Python rows included) gains two keys:
+`agent` (the agent name, `null` for Python rows and `CC000`) and `tools` (the tool strings, in
+chain order for `CC001`; `[]` when not applicable). Otherwise rows keep exactly the five keys
+above. Each `CC001` row is unique per `(agent, tools)`.
+
+```json
+{
+  "rule": "CC001",
+  "severity": "critical",
+  "file": "my-plugin/agents/researcher.md",
+  "line": 4,
+  "message": "Agent 'researcher': data_exfiltration via Read -> WebFetch",
+  "agent": "researcher",
+  "tools": ["Read", "WebFetch"]
+}
+```
+
+Exit codes are unchanged and apply to the merged report. SARIF output for `audit` is not
+provided yet.
+
 ---
 
 ### `ziran watch-registry`
