@@ -12,16 +12,14 @@ from __future__ import annotations
 
 import json
 import tempfile
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
 from ziran.interfaces.cli.main import cli
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture()
@@ -383,6 +381,125 @@ class TestAuditCommand:
         result = runner.invoke(cli, ["audit", str(src), "--format", "json"])
         assert result.exit_code == 0
         assert json.loads(result.stdout) == {"files_analyzed": 1, "findings": []}
+
+    # ── Claude Code plugins (spec 038) ──
+
+    def _json(self, runner: CliRunner, *args: str) -> tuple[int, dict[str, Any], str]:
+        result = runner.invoke(cli, ["audit", *args, "--format", "json"])
+        return result.exit_code, json.loads(result.stdout), result.stdout
+
+    def test_audit_claude_code_vulnerable_json(self, runner: CliRunner) -> None:
+        code, data, _ = self._json(runner, str(CC_FIXTURES / "vulnerable_plugin"))
+        assert code == 1
+        assert data["files_analyzed"] == 5
+        rows = data["findings"]
+        assert all(set(r) == CC_KEYS for r in rows)
+        [chain] = [
+            r
+            for r in rows
+            if r["rule"] == "CC001"
+            and r["agent"] == "researcher"
+            and r["tools"] == ["Read", "WebFetch"]
+        ]
+        assert chain["severity"] == "critical"
+        assert chain["line"] == 4
+        assert chain["file"].endswith("researcher.md")
+        assert "data_exfiltration" in chain["message"]
+        assert "Read -> WebFetch" in chain["message"]
+        [sa007] = [r for r in rows if r["rule"] == "SA007"]
+        assert (sa007["agent"], sa007["line"], sa007["severity"]) == ("generalist", 1, "high")
+        assert any(
+            r["rule"] == "CC001" and r["agent"] == "generalist" and r["tools"] == ["Bash"]
+            for r in rows
+        )
+
+    def test_audit_claude_code_vulnerable_text(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["audit", str(CC_FIXTURES / "vulnerable_plugin")])
+        assert result.exit_code == 1
+        assert "CC001" in result.output
+        assert "SA007" in result.output
+
+    def test_audit_claude_code_safe(self, runner: CliRunner) -> None:
+        safe = str(CC_FIXTURES / "safe_plugin")
+        assert runner.invoke(cli, ["audit", safe]).exit_code == 0
+        for extra in ([], ["--severity", "low"]):
+            code, data, _ = self._json(runner, safe, *extra)
+            assert code == 0
+            assert data == {"files_analyzed": 5, "findings": []}
+
+    def test_audit_claude_code_malformed(self, runner: CliRunner) -> None:
+        code, data, out = self._json(runner, str(CC_FIXTURES / "malformed"), "--severity", "high")
+        assert code == 1
+        [row] = data["findings"]
+        assert row["rule"] == "CC000"
+        assert row["line"] == 3
+        assert row["file"].endswith("broken.md")
+        assert row["agent"] is None
+        assert row["tools"] == []
+        assert "ziran-fake-secret-0416" not in out
+
+    def test_audit_claude_code_secret_redacted(self, runner: CliRunner, tmp_path: Path) -> None:
+        _write_agent(tmp_path / "agents", "leaky", "Read", 'api_key = "ziran-fake-secret-0418"')
+        code, data, out = self._json(runner, str(tmp_path))
+        assert code == 1
+        [row] = [r for r in data["findings"] if r["rule"] == "SA001"]
+        assert row["line"] == 6
+        assert row["agent"] == "leaky"
+        assert "ziran-fake-secret-0418" not in out
+
+    def test_audit_claude_code_single_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        md = _write_agent(tmp_path, "shell", "Bash")
+        _, data, _ = self._json(runner, str(md))
+        assert data["files_analyzed"] == 1
+        sa003 = [r for r in data["findings"] if r["rule"] == "SA003"]
+        assert [r["tools"] for r in sa003] == [["Bash"]]
+
+    def test_audit_mixed_python_and_agents(self, runner: CliRunner, tmp_path: Path) -> None:
+        (tmp_path / "agent.py").write_text('api_key = "abcdefghijklmnop"\n')
+        _write_agent(tmp_path / ".claude" / "agents", "a", "Read, WebFetch")
+        code, data, _ = self._json(runner, str(tmp_path))
+        assert code == 1
+        rules = [r["rule"] for r in data["findings"]]
+        py = data["findings"][rules.index("SA001")]
+        assert py["file"].endswith("agent.py")
+        assert (py["agent"], py["tools"]) == (None, [])
+        assert rules.index("SA001") < rules.index("CC001")
+
+    def test_audit_json_python_keys_unchanged(self, runner: CliRunner, tmp_path: Path) -> None:
+        (tmp_path / "agent.py").write_text('api_key = "abcdefghijklmnop"\n')
+        _, data, _ = self._json(runner, str(tmp_path))
+        assert data["findings"]
+        assert all(
+            set(r) == {"rule", "severity", "file", "line", "message"} for r in data["findings"]
+        )
+
+    def test_audit_wuwei_agents_dir_widening(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", "Read, Grep")
+        code, data, _ = self._json(runner, str(agents), "--severity", "high")
+        assert code == 0
+        assert not [r for r in data["findings"] if r["rule"] == "CC001"]
+        _write_agent(agents, "builder", "Read, Grep, WebFetch")
+        code, data, _ = self._json(runner, str(agents), "--severity", "high")
+        assert code == 1
+        assert any(
+            r["rule"] == "CC001"
+            and r["severity"] == "critical"
+            and r["agent"] == "builder"
+            and "Read -> WebFetch" in r["message"]
+            for r in data["findings"]
+        )
+
+
+CC_FIXTURES = Path(__file__).parents[1] / "fixtures" / "claude_code"
+CC_KEYS = {"rule", "severity", "file", "line", "message", "agent", "tools"}
+
+
+def _write_agent(directory: Path, name: str, tools: str, body: str = "Do the job.") -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    md = directory / f"{name}.md"
+    md.write_text(f"---\nname: {name}\ndescription: test agent\ntools: {tools}\n---\n{body}\n")
+    return md
 
 
 # ── ci command ──────────────────────────────────────────────────────

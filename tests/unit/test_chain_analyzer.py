@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 from unittest.mock import patch
 
 import pytest
@@ -440,3 +441,37 @@ class TestUnrestrictedExecution:
 
     def test_read_only_tools_have_no_single_tool_finding(self) -> None:
         assert ToolChainAnalyzer(_cc_graph(["Read", "Grep", "Glob"], [])).analyze() == []
+
+
+def _complete_graph(tools: list[str]) -> AttackKnowledgeGraph:
+    return _cc_graph(tools, list(itertools.permutations(tools, 2)))
+
+
+@pytest.mark.unit
+class TestIncludeCycles:
+    def test_cycles_off_on_complete_builtin_graph(self) -> None:
+        tools = [
+            "Agent",
+            "Bash",
+            "Edit",
+            "Glob",
+            "Grep",
+            "NotebookEdit",
+            "Read",
+            "Skill",
+            "TodoWrite",
+            "WebFetch",
+            "WebSearch",
+            "Write",
+        ]
+        chains = ToolChainAnalyzer(_complete_graph(tools)).analyze(include_cycles=False)
+        assert all(c.chain_type != "cycle" for c in chains)
+        read_fetch = next(c for c in chains if c.tools == ["Read", "WebFetch"])
+        assert read_fetch.risk_level == "critical"
+        bash = next(c for c in chains if c.tools == ["Bash"])
+        assert bash.vulnerability_type == "unrestricted_execution"
+
+    def test_default_still_finds_cycles(self) -> None:
+        tools = ["Read", "Grep", "WebFetch", "mcp__slack__send_message"]
+        chains = ToolChainAnalyzer(_complete_graph(tools)).analyze()
+        assert any(c.chain_type == "cycle" for c in chains)
