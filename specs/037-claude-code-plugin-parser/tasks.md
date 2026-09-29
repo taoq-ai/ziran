@@ -11,7 +11,7 @@ tests, `@pytest.mark.integration` for tests over the committed fixtures. Fake va
 
 ## Phase 1 — Domain models and tool vocabulary (FR-003, FR-006)
 
-- [ ] T001 [US1][US3][US4] Failing tests in `tests/unit/test_claude_code_entities.py`:
+- [x] T001 [US1][US3][US4] Failing tests in `tests/unit/test_claude_code_entities.py`:
       - `CLAUDE_CODE_BUILTIN_TOOLS` keys are exactly the 12 names in plan.md, in that order, and
         include every key of `tool_aliases._BUILTIN_ALIASES` (guards drift from #417);
       - `claude_code_tool_capability` (parametrized): `Bash` -> (`tool`, dangerous, permission);
@@ -32,19 +32,19 @@ tests, `@pytest.mark.integration` for tests over the committed fixtures. Fake va
         unknown key -> `1`);
       - `name` missing or `""` -> `ValidationError` with `loc[0] == "name"`;
       - `ClaudeCodeScan().detected` false when empty; true with a plugin, an agent, or an issue.
-- [ ] T002 [US1][US3][US4] Implement `ziran/domain/entities/claude_code.py` exactly per plan.md §A
+- [x] T002 [US1][US3][US4] Implement `ziran/domain/entities/claude_code.py` exactly per plan.md §A
       (imports: `capability`, `registry.ServerEntry`, `tool_classifier.is_dangerous`; nothing from
       `application` or `infrastructure`). T001 green; `uv run mypy ziran/` clean.
 
 ## Phase 2 — Fixtures (FR-010)
 
-- [ ] T003 [P] [US1][US2] Add the 13 fixture files under `tests/fixtures/claude_code/` byte-for-byte
+- [x] T003 [P] [US1][US2] Add the 13 fixture files under `tests/fixtures/claude_code/` byte-for-byte
       as listed in plan.md §Fixtures (`safe_plugin/`, `vulnerable_plugin/`, `malformed/agents/`).
       Keep `researcher.md` line layout (`tools` on line 4, body on line 7) and `broken.md` line 3.
 
 ## Phase 3 — Parser (FR-001, FR-002, FR-004, FR-005, FR-007, FR-008, FR-009)
 
-- [ ] T004 [US1][US2][US3] Failing tests in `tests/unit/test_claude_code_plugin_parser.py`.
+- [x] T004 [US1][US2][US3] Failing tests in `tests/unit/test_claude_code_plugin_parser.py`.
       Integration class (committed fixtures; issue acceptance):
       - `vulnerable_plugin`: every "Expected parse results" bullet in plan.md §Fixtures, plus
         `generalist.unrestricted`, `generalist.effective_tools == list(CLAUDE_CODE_BUILTIN_TOOLS)`,
@@ -83,14 +83,14 @@ tests, `@pytest.mark.integration` for tests over the committed fixtures. Fake va
       - secret hygiene: frontmatter `name: 5\ndescription: ziran-fake-secret-0417` and
         `tools: ziran-fake-secret-0418: x` -> no issue message contains either value;
       - `files_analyzed` counts per plan.md (README and failed reads not counted).
-- [ ] T005 [US1][US2][US3] Implement `ziran/infrastructure/config/claude_code_plugin.py` per
+- [x] T005 [US1][US2][US3] Implement `ziran/infrastructure/config/claude_code_plugin.py` per
       plan.md §B (`load_claude_code`, `MAX_FILE_BYTES`; private helpers for reading, agent files,
       manifest, hooks; `load_claude_mcp_config` reused). Module docstring states the discovery
       rules and the "never serialise a scan wholesale" warning. T004 green.
 
 ## Phase 4 — Gates
 
-- [ ] T006 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T006 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%, both new modules at 100% line coverage). Existing tests
       (`tests/unit/test_claude_mcp_config.py`, `tests/unit/test_static_analysis.py`,
       `tests/unit/test_cli_main.py`) pass unchanged. Do not commit `uv.lock` drift.

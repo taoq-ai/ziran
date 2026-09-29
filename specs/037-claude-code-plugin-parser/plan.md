@@ -180,6 +180,10 @@ outside `root.resolve()`, larger than `MAX_FILE_BYTES`, or raises `OSError` /
 `UnicodeDecodeError`. Encoding `utf-8-sig`. `files_analyzed` counts every successfully read
 manifest, hooks and MCP file and every agent file (step 4: a `.md` without the opening fence is
 read but not counted). A file that fails the read helper is not counted.
+Implementation note (no contract change): existence/type checks use `os.path.isfile`/`isdir`/
+`exists` and resolution uses `os.path.realpath`, which never raise; pathlib's predicates propagate
+`PermissionError`. A directory that cannot be listed contributes no files (silently, like a
+missing one); a file that cannot be read is an issue.
 
 **Agent file parsing**:
 - `lines = text.splitlines()`; closing fence = first `i >= 1` with `lines[i].rstrip() == "---"`;
