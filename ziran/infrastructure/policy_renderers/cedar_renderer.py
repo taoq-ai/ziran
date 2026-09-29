@@ -29,8 +29,8 @@ class CedarRenderer(PolicyRenderer):
     ) -> GuardrailPolicy:
         tools = finding.tools
 
-        # Cedar cannot express multi-step sequences natively
-        if len(tools) > 2:
+        # Cedar cannot express multi-step sequences natively; one tool is not a sequence
+        if len(tools) != 2:
             return GuardrailPolicy(
                 finding_id=finding_id,
                 format=GuardrailPolicyFormat.CEDAR,
@@ -38,7 +38,7 @@ class CedarRenderer(PolicyRenderer):
                 tool_chain=list(tools),
                 severity=finding.risk_level,
                 skipped=True,
-                skip_reason=("Cedar does not support multi-step sequence detection natively"),
+                skip_reason="Cedar policy generation supports exactly two-tool sequences",
             )
 
         tool_a = tools[0]
