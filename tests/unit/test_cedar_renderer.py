@@ -69,6 +69,12 @@ class TestCedarRenderer:
         assert policy.skipped is True
         assert policy.skip_reason is not None
 
+    def test_render_skipped_for_single_tool(self, renderer: CedarRenderer) -> None:
+        chain = _make_chain(tools=["Bash"], vulnerability_type="unrestricted_execution")
+        policy = renderer.render(chain, finding_id="ZIR-0003")
+        assert policy.skipped is True
+        assert policy.skip_reason is not None
+
     def test_render_sets_correct_format(
         self, renderer: CedarRenderer, chain: DangerousChain
     ) -> None:

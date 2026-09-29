@@ -22,8 +22,53 @@
 #   cicd_pipeline        — CI/CD and deployment tool chains
 #   browser_scraping     — browser automation and scraping chains
 #   crypto_wallet        — cryptocurrency and key material chains
+#   claude_code          — Claude Code built-in / MCP tool names (via tool_aliases)
 
 patterns:
+  # ── Claude Code ────────────────────────────────────────────────────
+  # Keywords come from tool_aliases.canonical_tool_name. Keep this section
+  # FIRST: the first matching pattern wins and read_secret_file also matches
+  # the generic read_file patterns below.
+  - source: read_secret_file
+    target: send_email
+    type: secret_file_exfiltration
+    risk: critical
+    category: claude_code
+    description: Secret files (.env, SSH keys, cloud credentials) can be read and sent in an outbound message
+    remediation: Deny Read on secret paths in permission rules; restrict outbound message tools
+
+  - source: read_file
+    target: git_push
+    type: code_exfiltration
+    risk: critical
+    category: claude_code
+    description: Repository or local file contents can be committed and pushed to a remote
+    remediation: Deny Bash(git push:*) or require approval; restrict configured git remotes
+
+  - source: spawn_subagent
+    target: shell_execute
+    type: delegation_to_rce
+    risk: critical
+    category: claude_code
+    description: A spawned subagent can run shell commands on the host
+    remediation: Restrict subagent tool sets; deny Bash to subagents or scope it with permission rules
+
+  - source: spawn_subagent
+    target: http_request
+    type: cross_agent_exfiltration
+    risk: high
+    category: claude_code
+    description: A spawned subagent can send data to external URLs
+    remediation: Restrict subagent tool sets; allowlist WebFetch domains
+
+  - source: spawn_subagent
+    target: write_file
+    type: cross_agent_persist
+    risk: high
+    category: claude_code
+    description: A spawned subagent can write or modify files on the host
+    remediation: Restrict subagent tool sets; scope Write/Edit to project paths
+
   # ── Data Exfiltration ──────────────────────────────────────────────
   - source: read_file
     target: http_request
