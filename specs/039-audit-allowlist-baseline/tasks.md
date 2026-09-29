@@ -111,7 +111,7 @@ Write, Edit\n---\nBuild things.\n"` (`tools` on line 4).
 
 ## Phase 5 — Gates
 
-- [ ] T008 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T008 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%). Do not commit `uv.lock` drift. Commit
       `feat(audit): allowlist baseline so CI fails when an agent's tools widen` (no `!`, no
       `BREAKING CHANGE`, no `Co-Authored-By`); PR to `develop` linking #419.
