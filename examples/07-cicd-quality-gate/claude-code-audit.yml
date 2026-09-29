@@ -1,0 +1,41 @@
+# ZIRAN audit for a Claude Code plugin repository
+#
+# Copy to .github/workflows/claude-code-audit.yml in the plugin repo.
+#
+# The loop:
+#   1. Record the accepted tools and chains (from the plugin root):
+#        pip install "ziran==0.40.0"
+#        ziran audit . --write-baseline ziran-baseline.json
+#   2. Commit ziran-baseline.json next to the plugin.
+#   3. CI (this workflow) fails when an agent gains a tool, loses its `tools:` key,
+#      appears new, or forms a new dangerous chain that the baseline does not accept.
+#   4. After reviewing an intended change, re-record with step 1 and commit.
+#
+# Outputs: status (passed|failed), exit-code (0 passed, 1 findings or a widened agent,
+# 2 could not run: bad path, baseline or input), sarif-file, sarif-id.
+
+name: Claude Code plugin audit
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  security-events: write  # SARIF upload to code scanning
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Audit agents against the committed baseline
+        id: ziran
+        uses: taoq-ai/ziran@v0
+        with:
+          command: audit
+          path: "."
+          baseline: ziran-baseline.json
+          # severity-threshold: low        # default; baseline widenings are critical and always fail
+          # sarif-output: ""               # disable SARIF and the code-scanning upload
+          ziran-version: "ziran==0.40.0"   # pin the release you recorded the baseline with

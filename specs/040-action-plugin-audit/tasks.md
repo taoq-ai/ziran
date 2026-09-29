@@ -64,7 +64,7 @@ against the unmodified `action.yml` first). No network, no LLM in pytest. The co
 
 ## Phase 3 — Action contract (FR-003..FR-005)
 
-- [ ] T005 [US1][US3] Failing test `tests/unit/test_action_yml.py` (`@pytest.mark.unit`, PyYAML
+- [x] T005 [US1][US3] Failing test `tests/unit/test_action_yml.py` (`@pytest.mark.unit`, PyYAML
       `safe_load` of the repo-root `action.yml`):
       - inputs `path` and `baseline` exist with `default == ""`; every pre-existing input keeps its
         default (`command "ci"`, `source-path "."`, `sarif-output "ziran-results.sarif"`,
@@ -76,26 +76,26 @@ against the unmodified `action.yml` first). No network, no LLM in pytest. The co
         `ZIRAN_INPUT_BASELINE`, `ZIRAN_INPUT_SEVERITY`, `ZIRAN_INPUT_SARIF` to the inputs, and the
         `audit)` branch of its script contains no `${{ inputs.` text;
       - the upload step has `id: upload`.
-- [ ] T006 [US1][US3] Edit `action.yml` per plan §3. T005 green. Check the script locally with
+- [x] T006 [US1][US3] Edit `action.yml` per plan §3. T005 green. Check the script locally with
       `bash -n` on the extracted `run` block (and `shellcheck` if installed).
 
 ## Phase 4 — CI acceptance and example (FR-006, FR-008)
 
-- [ ] T007 [US1][US2][US3] Add job `test-audit-claude-code-plugin` and the new `paths` entries to
+- [x] T007 [US1][US2][US3] Add job `test-audit-claude-code-plugin` and the new `paths` entries to (job written and its bash/python assertions run locally against a simulated run step; first real run happens on the PR)
       `.github/workflows/action-test.yml` (plan §5). It is the end-to-end test: push it first with
       the T006 change reverted (or observe it red in a draft commit) to see it fail on the missing
       inputs, then with T006 and see it green. Assertions use bash `[ ]` and `python3` only.
-- [ ] T008 [US1] Add `examples/07-cicd-quality-gate/claude-code-audit.yml` (plan §4) and add it to
+- [x] T008 [US1] Add `examples/07-cicd-quality-gate/claude-code-audit.yml` (plan §4) and add it to
       the `templates` list in `.github/workflows/lint-ci-templates.yml`. Verify locally with
       `uv run python -c "import yaml; yaml.safe_load(open('examples/07-cicd-quality-gate/claude-code-audit.yml'))"`.
 
 ## Phase 5 — Docs (FR-009)
 
-- [ ] T009 [P] `docs/guides/ci-integrations.md`: subsection "Claude Code plugin audit" under GitHub
+- [x] T009 [P] `docs/guides/ci-integrations.md`: subsection "Claude Code plugin audit" under GitHub
       Actions with the plan §3 contract summary, the inputs table rows (`path`, `baseline`,
       `sarif-output`), outputs (`exit-code`, `sarif-id`), exit codes `0`/`1`/`2`, permissions, and a
       link to the example; update the **Outputs** line.
-- [ ] T010 [P] `docs/reference/cli.md` (`ziran audit` options table, after #419's rows): `--sarif
+- [x] T010 [P] `docs/reference/cli.md` (`ziran audit` options table, after #419's rows): `--sarif
       FILE`; `examples/07-cicd-quality-gate/README.md`: list `claude-code-audit.yml` and
       `claude-code-plugin/`.
 

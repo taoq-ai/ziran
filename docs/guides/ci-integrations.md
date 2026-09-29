@@ -43,9 +43,58 @@ jobs:
           sarif_file: results.sarif
 ```
 
-**Outputs:** `status`, `trust-score`, `total-findings`, `critical-findings`, `sarif-file`.
+**Outputs:** `status`, `trust-score`, `total-findings`, `critical-findings`, `sarif-file`,
+`exit-code`, `sarif-id`.
 
 Full example: [`examples/07-cicd-quality-gate/ziran-scan.yml`](https://github.com/taoq-ai/ziran/blob/main/examples/07-cicd-quality-gate/ziran-scan.yml)
+
+### Claude Code plugin audit
+
+`command: audit` runs `ziran audit` over a Claude Code plugin root, an `agents/` directory, a
+single agent `.md` file or Python source. With a committed allowlist baseline the step fails when
+an agent gains a tool, loses its `tools:` key, appears new, or forms a new dangerous chain; the
+findings are uploaded to code scanning as SARIF.
+
+```yaml
+permissions:
+  contents: read
+  security-events: write   # SARIF upload
+  actions: read
+
+steps:
+  - uses: actions/checkout@v7
+  - uses: taoq-ai/ziran@v0
+    with:
+      command: audit
+      path: agents                          # or "." for a plugin root
+      baseline: agents/ziran-baseline.json
+      severity-threshold: low               # default; widenings are critical and always fail
+      sarif-output: ziran-results.sarif     # default; "" disables SARIF and the upload
+      ziran-version: "ziran==<pinned>"
+```
+
+| Input | Default | Used by `audit` as |
+|-------|---------|--------------------|
+| `path` | `""` | The audit target; overrides `source-path` when set |
+| `source-path` | `.` | The audit target when `path` is empty |
+| `baseline` | `""` | `--baseline FILE` (record it with `ziran audit PATH --write-baseline FILE`) |
+| `severity-threshold` | `low` | `--severity` |
+| `sarif-output` | `ziran-results.sarif` | `--sarif FILE`, then uploaded to code scanning; `""` disables both |
+
+| Output | Value |
+|--------|-------|
+| `status` | `passed` or `failed` |
+| `exit-code` | `0` passed; `1` findings at or above the threshold, or a widened agent; `2` could not run (bad path, missing or invalid baseline, unwritable SARIF path) |
+| `sarif-file` | The SARIF path, when it was written |
+| `sarif-id` | The code-scanning upload id; empty when nothing was uploaded |
+
+The loop: record the baseline with `--write-baseline`, commit it, let CI check against it with
+the `baseline:` input, and re-record after reviewing an intended change. Narrowing an agent never
+fails the build. The upload step is `continue-on-error`, so a repository without code scanning
+still gets the pass/fail result.
+
+Full example: [`examples/07-cicd-quality-gate/claude-code-audit.yml`](https://github.com/taoq-ai/ziran/blob/main/examples/07-cicd-quality-gate/claude-code-audit.yml)
+(sample plugin and baseline in [`claude-code-plugin/`](https://github.com/taoq-ai/ziran/tree/main/examples/07-cicd-quality-gate/claude-code-plugin)).
 
 ---
 
