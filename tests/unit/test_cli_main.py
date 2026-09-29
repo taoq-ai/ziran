@@ -677,6 +677,115 @@ class TestAuditBaseline:
         assert "baseline" not in data
 
 
+SAMPLE_PLUGIN = Path(__file__).parents[2] / "examples/07-cicd-quality-gate/claude-code-plugin"
+
+
+class TestAuditSarif:
+    """``ziran audit --sarif`` (spec 040)."""
+
+    @pytest.fixture(autouse=True)
+    def _cwd(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.chdir(tmp_path)
+
+    @staticmethod
+    def _plug(widen: bool = False) -> Path:
+        dst = Path("plug")
+        shutil.copytree(SAMPLE_PLUGIN, dst)
+        if widen:
+            md = dst / "agents" / "builder.md"
+            lines = md.read_text().splitlines(keepends=True)
+            lines[3] = lines[3].rstrip("\n") + ", WebFetch\n"
+            md.write_text("".join(lines))
+        return dst
+
+    @staticmethod
+    def _sarif(path: str = "out.sarif") -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = json.loads(Path(path).read_text())["runs"][0]["results"]
+        return results
+
+    def _audit(self, runner: CliRunner, *args: str) -> Any:
+        return runner.invoke(
+            cli, ["audit", "plug", "--baseline", "plug/ziran-baseline.json", *args]
+        )
+
+    def test_sample_passes_with_baseline(self, runner: CliRunner) -> None:
+        self._plug()
+        result = self._audit(runner, "--format", "json")
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["findings"] == []
+
+    def test_sample_baseline_is_current(self, runner: CliRunner, tmp_path: Path) -> None:
+        out = tmp_path / "b.json"
+        result = runner.invoke(cli, ["audit", str(SAMPLE_PLUGIN), "--write-baseline", str(out)])
+        assert result.exit_code == 0
+        assert out.read_bytes() == (SAMPLE_PLUGIN / "ziran-baseline.json").read_bytes()
+
+    def test_widened_agent_in_sarif(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        result = self._audit(runner, "--sarif", "out.sarif")
+        assert result.exit_code == 1
+        results = self._sarif()
+        [bl001] = [r for r in results if r["ruleId"] == "BL001"]
+        assert bl001["message"]["text"] == (
+            "Agent 'builder' gains tool 'WebFetch' not in the baseline"
+        )
+        loc = bl001["locations"][0]["physicalLocation"]
+        assert loc["artifactLocation"]["uri"] == "plug/agents/builder.md"
+        assert loc["region"]["startLine"] == 4
+        assert (
+            "Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
+            "not in the baseline"
+            in [r["message"]["text"] for r in results if r["ruleId"] == "BL003"]
+        )
+
+    def test_json_stdout_unchanged(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        plain = self._audit(runner, "--format", "json")
+        with_sarif = self._audit(runner, "--format", "json", "--sarif", "out.sarif")
+        assert with_sarif.exit_code == plain.exit_code == 1
+        assert json.loads(with_sarif.stdout) == json.loads(plain.stdout)
+        assert "SARIF written to out.sarif" in with_sarif.stderr
+        rows = json.loads(plain.stdout)["findings"]
+        assert [r["ruleId"] for r in self._sarif()] == [r["rule"] for r in rows]
+
+    def test_text_mode_writes_before_exit(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        assert self._audit(runner, "--sarif", "out.sarif").exit_code == 1
+        assert Path("out.sarif").exists()
+
+    def test_severity_filter_applies(self, runner: CliRunner) -> None:
+        self._plug(widen=True)
+        runner.invoke(cli, ["audit", "plug", "--severity", "critical", "--sarif", "out.sarif"])
+        results = self._sarif()
+        assert results
+        assert "SA003" not in {r["ruleId"] for r in results}
+
+    def test_narrowing_gives_empty_results(self, runner: CliRunner) -> None:
+        plug = self._plug()
+        md = plug / "agents" / "researcher.md"
+        md.write_text(md.read_text().replace(", Glob", ""))
+        result = self._audit(runner, "--sarif", "out.sarif")
+        assert result.exit_code == 0
+        assert self._sarif() == []
+
+    def test_unwritable_sarif_is_usage_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        self._plug()
+        result = self._audit(runner, "--sarif", str(tmp_path / "missing-dir" / "x.sarif"))
+        assert result.exit_code == 2
+        assert "Traceback" not in result.output
+        assert "--sarif" in result.output
+
+    def test_python_rows(self, runner: CliRunner) -> None:
+        Path("py").mkdir()
+        Path("py/agent.py").write_text('api_key = "abcdefghijklmnop"\n')
+        result = runner.invoke(cli, ["audit", "py", "--format", "json", "--sarif", "out.sarif"])
+        assert result.exit_code == 1
+        rows = json.loads(result.stdout)["findings"]
+        results = self._sarif()
+        assert [r["ruleId"] for r in results] == [r["rule"] for r in rows] == ["SA001"]
+        assert "abcdefghijklmnop" not in Path("out.sarif").read_text()
+
+
 # ── ci command ──────────────────────────────────────────────────────
 
 

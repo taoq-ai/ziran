@@ -228,6 +228,7 @@ ziran audit PATH [OPTIONS]
 | `--format` | Output format: `text` (default) or `json` |
 | `--baseline FILE` | Fail when a Claude Code agent's tools or chains widen beyond this baseline (see [Allowlist baseline](#allowlist-baseline)) |
 | `--write-baseline FILE` | Record each Claude Code agent's tools and chains as the accepted baseline, then report as if `--baseline FILE` was given |
+| `--sarif FILE` | Also write the reported findings (after the baseline step and `--severity`) as SARIF v2.1.0 for GitHub code scanning; `json` stdout is unchanged, `SARIF written to FILE` goes to stderr. An unwritable `FILE` exits `2` |
 
 **Examples:**
 
@@ -261,7 +262,7 @@ source line is never included, so secrets that trigger a finding are not echoed.
 |------|---------|
 | `0` | No failing findings |
 | `1` | Failing findings: with `--format json --severity X`, any finding at or above `X`; otherwise any `critical` finding |
-| `2` | Usage error (for example `PATH` does not exist or an invalid option) |
+| `2` | Usage error (for example `PATH` does not exist, an invalid option, or an unwritable `--sarif FILE`) |
 
 Text mode (the default) keeps its existing behaviour and exits `1` only on `critical`
 findings, even when `--severity` is lower.

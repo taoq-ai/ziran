@@ -32,6 +32,8 @@ uv run python main.py
 | [main.py](main.py) | Example script — quality gate + SARIF demos |
 | [gate_config.yaml](gate_config.yaml) | Lenient quality-gate config (1 critical allowed) |
 | [run.sh](run.sh) | One-command launcher |
+| [claude-code-audit.yml](claude-code-audit.yml) | GitHub Actions workflow that audits a Claude Code plugin against its allowlist baseline |
+| [claude-code-plugin/](claude-code-plugin/) | Sample plugin (`builder`, `researcher` agents) with its recorded `ziran-baseline.json` |
 
 ## GitHub Action
 

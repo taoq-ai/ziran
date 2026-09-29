@@ -44,6 +44,8 @@ Auto-generated from all feature plans. Last updated: 2026-09-29
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (models), PyYAML `safe_load`/`compose` (frontmatter), stdlib `json`/`re`; reuses `load_claude_mcp_config` (#422) and the domain `is_dangerous` classifier. No new dependencies. (037-claude-code-plugin-parser)
 - N/A — reads plugin files only. (037-claude-code-plugin-parser)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), existing `StaticAnalyzer`, `ToolChainAnalyzer` (NetworkX) and #416 `load_claude_code`. No new dependencies. (038-audit-claude-code-plugins)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13); composite action in bash. + Click, stdlib `json`/`pathlib`, existing `ziran/application/cicd/sarif.py`, #419 `--baseline`; action uses setup-python + upload-sarif (already used). No new dependencies. (040-action-plugin-audit)
+- N/A. Files: the SARIF output, the user-committed baseline. (040-action-plugin-audit)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -63,11 +65,10 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 040-action-plugin-audit: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); composite action in bash. + Click, stdlib `json`/`pathlib`, existing `ziran/application/cicd/sarif.py`, #419 `--baseline`; action uses setup-python + upload-sarif (already used). No new dependencies.
 - 039-audit-allowlist-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click, Pydantic v2 (baseline file models); reuses #418 `agent_chains`. No new dependencies.
 - 038-audit-claude-code-plugins: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), existing `StaticAnalyzer`, `ToolChainAnalyzer` (NetworkX) and #416 `load_claude_code`. No new dependencies.
 - 037-claude-code-plugin-parser: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (models), PyYAML `safe_load`/`compose` (frontmatter), stdlib `json`/`re`; reuses `load_claude_mcp_config` (#422) and the domain `is_dangerous` classifier. No new dependencies.
-- 033-claude-code-chain-patterns: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `re`; existing PyYAML (pattern loading), Pydantic v2 (`DangerousChain`), NetworkX. No new dependencies.
-- 034-claude-code-otel-traces: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), Pydantic v2 (existing entities), stdlib `re`/`functools`; reuses `canonical_tool_name` (#417) and SA001 secret rules. No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->
