@@ -11,6 +11,7 @@ mocked so these tests are fast and deterministic.
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -500,6 +501,180 @@ def _write_agent(directory: Path, name: str, tools: str, body: str = "Do the job
     md = directory / f"{name}.md"
     md.write_text(f"---\nname: {name}\ndescription: test agent\ntools: {tools}\n---\n{body}\n")
     return md
+
+
+class TestAuditBaseline:
+    """Allowlist baseline (spec 039)."""
+
+    BUILDER = "Read, Glob, Grep, Bash, Write, Edit"
+
+    def _run(self, runner: CliRunner, *args: str) -> tuple[int, dict[str, Any], str]:
+        result = runner.invoke(cli, ["audit", *args, "--format", "json"])
+        return result.exit_code, json.loads(result.stdout), result.output
+
+    def _plugin(self, tmp_path: Path) -> Path:
+        dst = tmp_path / "plugin"
+        shutil.copytree(CC_FIXTURES / "vulnerable_plugin", dst)
+        return dst
+
+    def _record(self, runner: CliRunner, target: Path, baseline: Path) -> int:
+        args = ["audit", str(target), "--write-baseline", str(baseline)]
+        return runner.invoke(cli, args).exit_code
+
+    @staticmethod
+    def _bl(data: dict[str, Any]) -> list[dict[str, Any]]:
+        return [r for r in data["findings"] if r["rule"].startswith("BL")]
+
+    def test_write_baseline(self, runner: CliRunner, tmp_path: Path) -> None:
+        plugin = self._plugin(tmp_path)
+        b = tmp_path / "baseline.json"
+        for extra in ([], ["--severity", "low"]):
+            code, data, out = self._run(runner, str(plugin), "--write-baseline", str(b), *extra)
+            assert code == 0
+            assert data["findings"] == []
+            assert data["baseline"] == {"narrowed": []}
+            assert "Baseline written to" in out
+        first = b.read_bytes()
+        assert self._record(runner, plugin, b) == 0
+        assert b.read_bytes() == first
+        doc = json.loads(first)
+        assert doc["version"] == 1
+        assert list(doc["agents"]) == ["generalist", "researcher"]
+        assert doc["agents"]["generalist"]["tools"] is None
+        assert {
+            "tools": ["Read", "WebFetch"],
+            "vulnerability_type": "data_exfiltration",
+            "severity": "critical",
+        } in doc["agents"]["researcher"]["chains"]
+        assert "summary to the team channel" not in first.decode()
+
+    def test_wuwei_widening_fails(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        md = _write_agent(agents, "builder", self.BUILDER)
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        md.write_text(md.read_text().replace(self.BUILDER, self.BUILDER + ", WebFetch"))
+        for extra in ([], ["--severity", "critical"], ["--severity", "high"]):
+            code, data, _ = self._run(runner, str(agents), "--baseline", str(b), *extra)
+            assert code == 1
+            bl = self._bl(data)
+            [bl001] = [r for r in bl if r["rule"] == "BL001"]
+            assert (bl001["tools"], bl001["line"], bl001["agent"]) == (["WebFetch"], 4, "builder")
+            assert bl001["severity"] == "critical"
+            [rw] = [r for r in bl if r["rule"] == "BL003" and r["tools"] == ["Read", "WebFetch"]]
+            assert rw["message"] == (
+                "Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
+                "not in the baseline"
+            )
+            assert all(set(r) == CC_KEYS for r in data["findings"])
+        text = runner.invoke(cli, ["audit", str(agents), "--baseline", str(b)])
+        assert text.exit_code == 1
+        for needle in ("builder", "WebFetch", "Read -> WebFetch"):
+            assert needle in text.output
+
+    def test_narrowing_passes(self, runner: CliRunner, tmp_path: Path) -> None:
+        plugin = self._plugin(tmp_path)
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, plugin, b) == 0
+        md = plugin / "agents" / "researcher.md"
+        md.write_text(md.read_text().replace("WebFetch, ", ""))
+        for extra in ([], ["--severity", "low"]):
+            code, data, _ = self._run(runner, str(plugin), "--baseline", str(b), *extra)
+            assert code == 0
+            assert not self._bl(data)
+            assert {
+                "agent": "researcher",
+                "change": "tool_removed",
+                "tools": ["WebFetch"],
+            } in data["baseline"]["narrowed"]
+        text = runner.invoke(cli, ["audit", str(plugin), "--baseline", str(b)])
+        assert text.exit_code == 0
+        for needle in ("Baseline narrowed", "researcher", "tool_removed", "WebFetch"):
+            assert needle in text.output
+
+    def test_tools_key_removed(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        md = _write_agent(agents, "builder", "Read")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        md.write_text(md.read_text().replace("tools: Read\n", ""))
+        code, data, _ = self._run(runner, str(agents), "--baseline", str(b))
+        assert code == 1
+        assert self._bl(data)[0]["rule"] == "BL002"
+
+    def test_new_agent(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", "Read")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        _write_agent(agents, "helper", "Grep")
+        code, data, _ = self._run(runner, str(agents), "--baseline", str(b))
+        assert code == 1
+        assert [(r["rule"], r["agent"]) for r in self._bl(data)] == [("BL004", "helper")]
+
+    def test_chain_deleted_from_baseline(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", self.BUILDER)
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+        doc = json.loads(b.read_text())
+        dropped = doc["agents"]["builder"]["chains"].pop(0)
+        b.write_text(json.dumps(doc))
+        code, data, _ = self._run(runner, str(agents), "--baseline", str(b))
+        assert code == 1
+        assert [(r["rule"], r["tools"]) for r in self._bl(data)] == [("BL003", dropped["tools"])]
+
+    def test_malformed_escalated(self, runner: CliRunner, tmp_path: Path) -> None:
+        malformed = str(CC_FIXTURES / "malformed")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, CC_FIXTURES / "malformed", b) == 1
+        assert runner.invoke(cli, ["audit", malformed, "--baseline", str(b)]).exit_code == 1
+        code, data, out = self._run(runner, malformed, "--baseline", str(b))
+        assert code == 1
+        [cc000] = [r for r in data["findings"] if r["rule"] == "CC000"]
+        assert cc000["severity"] == "critical"
+        assert "ziran-fake-secret-0416" not in out
+
+    def test_usage_errors(self, runner: CliRunner, tmp_path: Path) -> None:
+        agents = tmp_path / "agents"
+        _write_agent(agents, "builder", "Read")
+        b = tmp_path / "baseline.json"
+        assert self._record(runner, agents, b) == 0
+
+        def run(*args: str) -> tuple[int, str]:
+            r = runner.invoke(cli, ["audit", *args])
+            return r.exit_code, r.output
+
+        assert run(str(agents), "--baseline", str(b), "--write-baseline", str(b))[0] == 2
+        assert run(str(agents), "--baseline", str(tmp_path / "missing.json"))[0] == 2
+        bad = tmp_path / "bad.json"
+        bad.write_text("{not json ziran-fake-secret-0419")
+        rc, out = run(str(agents), "--baseline", str(bad))
+        assert rc == 2
+        assert "ziran-fake-secret-0419" not in out
+        bad.write_text('{"agents": {}}')
+        rc, out = run(str(agents), "--baseline", str(bad))
+        assert rc == 2
+        assert "version" in out
+        bad.write_text('{"version": 1, "agents": {"x": {"tools": "ziran-fake-secret-0419"}}}')
+        rc, out = run(str(agents), "--baseline", str(bad))
+        assert rc == 2
+        assert "ziran-fake-secret-0419" not in out
+        py = tmp_path / "py"
+        py.mkdir()
+        (py / "agent.py").write_text("x = 1\n")
+        assert run(str(py), "--baseline", str(b))[0] == 2
+        never = tmp_path / "never.json"
+        assert run(str(py), "--write-baseline", str(never))[0] == 2
+        assert not never.exists()
+        assert run(str(agents), "--write-baseline", str(tmp_path / "no" / "dir.json"))[0] == 2
+
+    def test_no_baseline_key_without_flags(self, runner: CliRunner, tmp_path: Path) -> None:
+        _, data, _ = self._run(runner, str(CC_FIXTURES / "safe_plugin"))
+        assert "baseline" not in data
+        (tmp_path / "agent.py").write_text("x = 1\n")
+        _, data, _ = self._run(runner, str(tmp_path))
+        assert "baseline" not in data
 
 
 # ── ci command ──────────────────────────────────────────────────────
