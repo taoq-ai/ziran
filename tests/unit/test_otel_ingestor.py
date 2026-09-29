@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -12,6 +14,9 @@ from ziran.infrastructure.trace_ingestors.otel_ingestor import (
     _get_attribute,
     _nano_to_datetime,
 )
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.trace import TraceSession
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 OTEL_FIXTURE = FIXTURES_DIR / "sample_otel_traces.jsonl"
@@ -150,3 +155,119 @@ class TestOTelErrorHandling:
         bad_file.write_text("not valid json\n{}\n")
         sessions = _run(ingestor.ingest(bad_file))
         assert sessions == []
+
+
+# ── Unit: session.id grouping (#421) ─────────────────────────────────
+
+
+def _span_line(
+    tool: str,
+    start: int,
+    *,
+    trace_id: str | None = "a" * 32,
+    session_id: str | None = None,
+    resource_session_id: str | None = None,
+) -> str:
+    """Build one OTLP-JSON ResourceSpans line with a single tool span."""
+    attrs = [{"key": "gen_ai.tool.name", "value": {"stringValue": tool}}]
+    if session_id is not None:
+        attrs.append({"key": "session.id", "value": {"stringValue": session_id}})
+    resource_attrs = [{"key": "service.name", "value": {"stringValue": "claude-code"}}]
+    if resource_session_id is not None:
+        resource_attrs.append({"key": "session.id", "value": {"stringValue": resource_session_id}})
+    span: dict[str, object] = {
+        "spanId": f"{start:016x}",
+        "name": tool,
+        "startTimeUnixNano": str(start),
+        "endTimeUnixNano": str(start),
+        "attributes": attrs,
+    }
+    if trace_id is not None:
+        span["traceId"] = trace_id
+    batch = {
+        "resourceSpans": [
+            {"resource": {"attributes": resource_attrs}, "scopeSpans": [{"spans": [span]}]}
+        ]
+    }
+    return json.dumps(batch)
+
+
+def _ingest_lines(ingestor: OTelIngestor, tmp_path: Path, lines: list[str]) -> list[TraceSession]:
+    path = tmp_path / "traces.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    result: list[TraceSession] = _run(ingestor.ingest(path))
+    return result
+
+
+@pytest.mark.unit
+class TestOTelSessionIdGrouping:
+    def test_session_id_groups_across_trace_ids(
+        self, ingestor: OTelIngestor, tmp_path: Path
+    ) -> None:
+        sessions = _ingest_lines(
+            ingestor,
+            tmp_path,
+            [
+                _span_line("WebFetch", 2_000, trace_id="b" * 32, session_id="s1"),
+                _span_line("Read", 1_000, trace_id="a" * 32, session_id="s1"),
+            ],
+        )
+        assert len(sessions) == 1
+        assert sessions[0].session_id == "s1"
+        assert [c.tool_name for c in sessions[0].tool_calls] == ["Read", "WebFetch"]
+
+    def test_shared_trace_id_split_by_session_id(
+        self, ingestor: OTelIngestor, tmp_path: Path
+    ) -> None:
+        sessions = _ingest_lines(
+            ingestor,
+            tmp_path,
+            [
+                _span_line("Read", 1_000, session_id="s1"),
+                _span_line("WebFetch", 2_000, session_id="s2"),
+            ],
+        )
+        assert sorted(s.session_id for s in sessions) == ["s1", "s2"]
+
+    def test_resource_session_id_used(self, ingestor: OTelIngestor, tmp_path: Path) -> None:
+        sessions = _ingest_lines(
+            ingestor, tmp_path, [_span_line("Read", 1_000, resource_session_id="r1")]
+        )
+        assert [s.session_id for s in sessions] == ["r1"]
+
+    def test_span_session_id_wins_over_resource(
+        self, ingestor: OTelIngestor, tmp_path: Path
+    ) -> None:
+        sessions = _ingest_lines(
+            ingestor,
+            tmp_path,
+            [_span_line("Read", 1_000, session_id="span", resource_session_id="res")],
+        )
+        assert [s.session_id for s in sessions] == ["span"]
+
+    def test_session_id_without_trace_id_kept(self, ingestor: OTelIngestor, tmp_path: Path) -> None:
+        sessions = _ingest_lines(
+            ingestor,
+            tmp_path,
+            [
+                _span_line("Read", 1_000, trace_id=None, session_id="s1"),
+                _span_line("Grep", 2_000, trace_id=None),
+            ],
+        )
+        assert [s.session_id for s in sessions] == ["s1"]
+        assert len(sessions[0].tool_calls) == 1
+
+    def test_trace_id_fallback(self, ingestor: OTelIngestor, tmp_path: Path) -> None:
+        sessions = _ingest_lines(ingestor, tmp_path, [_span_line("Read", 1_000)])
+        assert [s.session_id for s in sessions] == ["a" * 32]
+
+    def test_all_lines_invalid_raises(self, ingestor: OTelIngestor, tmp_path: Path) -> None:
+        path = tmp_path / "garbage.jsonl"
+        path.write_text("not json\nalso not json\n")
+        with pytest.raises(ValueError, match="No valid OTLP JSON"):
+            _run(ingestor.ingest(path))
+
+    def test_empty_file_returns_empty(self, ingestor: OTelIngestor, tmp_path: Path) -> None:
+        path = tmp_path / "empty.jsonl"
+        path.write_text("\n")
+        assert _run(ingestor.ingest(path)) == []

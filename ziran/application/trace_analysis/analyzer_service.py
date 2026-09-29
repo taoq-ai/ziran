@@ -6,7 +6,9 @@ Orchestrates trace ingestion and chain analysis to produce
 
 from __future__ import annotations
 
+import functools
 import logging
+import re
 import uuid
 from typing import TYPE_CHECKING, Any
 
@@ -15,6 +17,8 @@ from ziran.application.knowledge_graph.chain_analyzer import (
     ToolChainAnalyzer,
 )
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
+from ziran.application.static_analysis.config import StaticAnalysisConfig
 from ziran.application.trace_analysis.alerting import (
     build_digest,
     chain_to_alertable,
@@ -32,6 +36,46 @@ if TYPE_CHECKING:
     from ziran.domain.ports.trace_ingestor import TraceIngestor
 
 logger = logging.getLogger(__name__)
+
+_MAX_COMMANDS = 10
+_MAX_COMMAND_CHARS = 500
+_REDACTED = "[REDACTED]"
+# Command-line shapes the SA001 source-code rules miss (unquoted assignment / flag, URL userinfo).
+_EXTRA_SECRET_PATTERNS = (
+    re.compile(r"(?i)[\w.-]*(?:key|secret|token|passw(?:or)?d|pwd|credential)[\w.-]*=[^\s'\"]+"),
+    re.compile(r"(?i)--?[\w-]*(?:key|secret|token|passw(?:or)?d|credential)[\w-]*\s+[^\s-]\S*"),
+    re.compile(r"(?<=://)[^\s/@:]+:[^\s/@]+(?=@)"),
+)
+
+
+@functools.cache
+def _secret_patterns() -> tuple[re.Pattern[str], ...]:
+    """SA001 secret rules (reused, not copied) plus the command-line rules."""
+    sa001 = StaticAnalysisConfig.default().secret_checks
+    return tuple(p.compiled for check in sa001 for p in check.patterns) + _EXTRA_SECRET_PATTERNS
+
+
+def redact_secrets(text: str) -> str:
+    """Replace every secret-looking substring in *text* with ``[REDACTED]``."""
+    for pattern in _secret_patterns():
+        text = pattern.sub(_REDACTED, text)
+    return text
+
+
+def _shell_commands(session: TraceSession, chain: DangerousChain) -> list[str]:
+    """Redacted, truncated shell commands of *session* calls to tools in *chain*.
+
+    Only the ``command`` string of shell tools is kept; no other argument value
+    (file paths, URLs, ...) is ever emitted.
+    """
+    commands = [
+        redact_secrets(call.arguments["command"])[:_MAX_COMMAND_CHARS]
+        for call in session.tool_calls
+        if call.tool_name in chain.tools
+        and canonical_tool_name(call.tool_name) == "shell_execute"
+        and isinstance(call.arguments.get("command"), str)
+    ]
+    return commands[:_MAX_COMMANDS]
 
 
 class AnalyzerService:
@@ -157,6 +201,9 @@ class AnalyzerService:
             chain.first_seen = session.start_time
             chain.last_seen = session.end_time
             chain.occurrence_count = 1
+            chain.evidence["sessions"] = [
+                {"session_id": session.session_id, "commands": _shell_commands(session, chain)}
+            ]
 
         return chains
 
@@ -183,6 +230,9 @@ class AnalyzerService:
                     existing.last_seen = chain.last_seen
                 # Keep the higher risk score
                 existing.risk_score = max(existing.risk_score, chain.risk_score)
+                existing.evidence.setdefault("sessions", []).extend(
+                    chain.evidence.get("sessions", [])
+                )
             else:
                 seen[key] = chain
 

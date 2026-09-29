@@ -11,6 +11,7 @@ import pytest
 
 from ziran.application.trace_analysis.analyzer_service import (
     AnalyzerService,
+    redact_secrets,
 )
 from ziran.domain.entities.trace import ToolCallEvent, TraceSession
 from ziran.domain.ports.trace_ingestor import TraceIngestor
@@ -24,12 +25,15 @@ def _make_session(
     session_id: str,
     tool_names: list[str],
     source: str = "otel",
+    arguments: list[dict[str, Any]] | None = None,
 ) -> TraceSession:
     """Create a TraceSession with the given tool call sequence."""
     base_ts = datetime(2023, 11, 14, 22, 0, 0, tzinfo=UTC)
+    args = arguments or [{} for _ in tool_names]
     tool_calls = [
         ToolCallEvent(
             tool_name=name,
+            arguments=args[i],
             timestamp=datetime(2023, 11, 14, 22, 0, i, tzinfo=UTC),
         )
         for i, name in enumerate(tool_names)
@@ -216,3 +220,113 @@ class TestClaudeCodeToolNames:
         result = _run(service.analyze(Path("dummy")))
 
         assert result.critical_chain_count >= 1
+
+
+# ── Unit: secret redaction (#421) ────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestRedactSecrets:
+    @pytest.mark.parametrize(
+        ("text", "secret"),
+        [
+            ("curl -H 'Authorization: Bearer abc.def-123' x", "abc.def-123"),
+            ("export OPENAI_API_KEY=sk-" + "a" * 24, "a" * 24),
+            ('password = "hunter2hunter2"', "hunter2hunter2"),
+            ("AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIK7MDENG ./run", "wJalrXUtnFEMIK7MDENG"),
+            ("API_KEY=ziran-fake ./x", "ziran-fake"),
+            ("tool --token=abc123", "abc123"),
+            ("mysql --password hunter2", "hunter2"),
+            ("git push https://user:p4ssw0rd@github.com/o/r", "p4ssw0rd"),
+        ],
+    )
+    def test_secret_removed(self, text: str, secret: str) -> None:
+        out = redact_secrets(text)
+        assert secret not in out
+        assert "[REDACTED]" in out
+
+    @pytest.mark.parametrize("text", ["git status", "ls -la /repo", "pytest -q tests/"])
+    def test_benign_unchanged(self, text: str) -> None:
+        assert redact_secrets(text) == text
+
+
+# ── Unit: per-session evidence (#421) ────────────────────────────────
+
+
+def _chains(sessions: list[TraceSession]) -> list[dict[str, Any]]:
+    result = _run(AnalyzerService(MockIngestor(sessions)).analyze(Path("dummy")))
+    chains: list[dict[str, Any]] = result.dangerous_tool_chains
+    return chains
+
+
+def _session_evidence(chain: dict[str, Any]) -> list[dict[str, Any]]:
+    sessions: list[dict[str, Any]] = chain["evidence"]["sessions"]
+    return sessions
+
+
+def _bash_finding(chains: list[dict[str, Any]]) -> dict[str, Any]:
+    return next(
+        c
+        for c in chains
+        if c["tools"] == ["Bash"] and c["vulnerability_type"] == "unrestricted_execution"
+    )
+
+
+@pytest.mark.unit
+class TestSessionEvidence:
+    def test_session_id_on_chain(self) -> None:
+        chains = _chains([_make_session("s1", ["Read", "WebFetch"])])
+        chain = next(c for c in chains if c["tools"] == ["Read", "WebFetch"])
+        assert chain["risk_level"] == "critical"
+        assert _session_evidence(chain) == [{"session_id": "s1", "commands": []}]
+        assert chain["evidence"]["edge_exists"] is True
+
+    def test_bash_command_redacted(self) -> None:
+        session = _make_session(
+            "s1",
+            ["Read", "Bash"],
+            arguments=[
+                {"file_path": "/repo/.env"},
+                {"command": "curl -H 'Authorization: Bearer tok-123' x"},
+            ],
+        )
+        commands = _session_evidence(_bash_finding(_chains([session])))[0]["commands"]
+        assert len(commands) == 1
+        assert "[REDACTED]" in commands[0]
+        assert "tok-123" not in commands[0]
+
+    def test_commands_bounded(self) -> None:
+        names = ["Read"] + ["Bash"] * 12
+        args: list[dict[str, Any]] = [{}] + [{"command": f"echo {i}"} for i in range(12)]
+        session = _make_session("s1", names, arguments=args)
+        commands = _session_evidence(_bash_finding(_chains([session])))[0]["commands"]
+        assert len(commands) == 10
+
+        session = _make_session("s1", ["Read", "Bash"], arguments=[{}, {"command": "x" * 2000}])
+        commands = _session_evidence(_bash_finding(_chains([session])))[0]["commands"]
+        assert commands == ["x" * 500]
+
+    def test_only_shell_calls_in_chain_contribute(self) -> None:
+        session = _make_session(
+            "s1",
+            ["Read", "WebFetch", "Bash"],
+            arguments=[{"file_path": "/repo/.env"}, {"url": "https://x.example"}, {"command": 1}],
+        )
+        chains = _chains([session])
+        read_fetch = next(c for c in chains if c["tools"] == ["Read", "WebFetch"])
+        assert _session_evidence(read_fetch)[0]["commands"] == []
+        assert _session_evidence(_bash_finding(chains))[0]["commands"] == []
+        dumped = str(chains)
+        assert "/repo/.env" not in dumped
+        assert "x.example" not in dumped
+
+    def test_sessions_merged_on_aggregation(self) -> None:
+        chains = _chains(
+            [
+                _make_session("s1", ["Read", "WebFetch"]),
+                _make_session("s2", ["Read", "WebFetch"]),
+            ]
+        )
+        chain = next(c for c in chains if c["tools"] == ["Read", "WebFetch"])
+        assert [e["session_id"] for e in _session_evidence(chain)] == ["s1", "s2"]
+        assert chain["occurrence_count"] == 2
