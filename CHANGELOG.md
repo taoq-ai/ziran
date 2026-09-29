@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.39.0](https://github.com/taoq-ai/ziran/compare/v0.38.0...v0.39.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **watch-registry:** an unreachable server or an unreadable/invalid config now exits 2 (could not run) instead of 0 / a crash; --config is no longer required on its own but exactly one of --config / --from-claude-config must be passed. HttpManifestFetcher is renamed MCPManifestFetcher and watch() returns (findings, unreachable).
+
+### Features
+
+* **chains:** tool-chain patterns for Claude Code built-in and MCP tool names ([ceaeb4e](https://github.com/taoq-ai/ziran/commit/ceaeb4edcaaf7f949ae4067425009fd95e7ddde7))
+* **chains:** tool-chain patterns for Claude Code built-in and MCP tool names ([7f41499](https://github.com/taoq-ai/ziran/commit/7f41499c88f3492a241febae73429838a1d28c4e)), closes [#417](https://github.com/taoq-ai/ziran/issues/417)
+* **cli:** add --format json to audit ([7132d51](https://github.com/taoq-ai/ziran/commit/7132d516f0216cb01e4f63405624326a5a8ff8be))
+* **cli:** add --format json to audit ([7776f1f](https://github.com/taoq-ai/ziran/commit/7776f1f61cd92c9b7d6e5a3bec27ae15870acc4d))
+* **traces:** recognise Claude Code tool calls in OTel traces ([b3d64ad](https://github.com/taoq-ai/ziran/commit/b3d64ad572c929d703f3b2e4020cc9b2bae16e80))
+* **traces:** recognise Claude Code tool calls in OTel traces ([0b6b80a](https://github.com/taoq-ai/ziran/commit/0b6b80add98bb2348e1e4e256343585d7349574d)), closes [#421](https://github.com/taoq-ai/ziran/issues/421)
+* **watch-registry:** import MCP servers from Claude Code configuration ([d3e77b7](https://github.com/taoq-ai/ziran/commit/d3e77b7558462b58424916dc0b411d520d9c384e))
+
+
+### Bug Fixes
+
+* **deps:** bump anyio to 4.14.2 for CVE-2026-63374, CVE-2026-64847, CVE-2026-63349 ([0c6c863](https://github.com/taoq-ai/ziran/commit/0c6c863ddf1970c6b7917f09a39dd9ca42594b68))
+
 ## [0.38.0](https://github.com/taoq-ai/ziran/compare/v0.37.1...v0.38.0) (2026-08-29)
 
 
