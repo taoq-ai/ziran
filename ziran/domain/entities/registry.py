@@ -7,9 +7,9 @@ drift detection, and typosquat findings.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr, model_validator
 
 from ziran.domain.entities.alerting import (
     AlertableFinding,
@@ -43,7 +43,7 @@ class DriftFinding(BaseModel):
     """A single drift or typosquat finding from registry comparison."""
 
     server_name: str
-    drift_type: str  # tool_added, tool_removed, description_changed, schema_changed, permission_changed, typosquat
+    drift_type: str  # tool_added, tool_removed, description_changed, schema_changed, permission_changed, typosquat, tool_poisoning
     severity: Severity
     tool_name: str | None = None
     field: str | None = None
@@ -89,11 +89,26 @@ class DriftFinding(BaseModel):
 
 
 class ServerEntry(BaseModel):
-    """Configuration entry for an MCP server to monitor."""
+    """Configuration entry for an MCP server to monitor.
+
+    ``env`` and ``headers`` carry connection secrets: they are excluded from
+    every serialisation and masked in ``repr`` so they never reach snapshots,
+    reports or logs.
+    """
 
     name: str
-    url: str
+    url: str | None = None
     transport: str = "streamable-http"  # stdio, sse, streamable-http
+    command: str | None = None
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, SecretStr] = Field(default_factory=dict, exclude=True, repr=False)
+    headers: dict[str, SecretStr] = Field(default_factory=dict, exclude=True, repr=False)
+
+    @model_validator(mode="after")
+    def _require_endpoint(self) -> Self:
+        if self.url is None and self.command is None:
+            raise ValueError("server requires 'url' or 'command'")
+        return self
 
 
 class RegistryConfig(BaseModel):
