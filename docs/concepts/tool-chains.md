@@ -33,6 +33,47 @@ ZIRAN ships with 30+ dangerous tool chain patterns:
 | Session Hijacking | `get_session` -> `http_request` | Critical |
 | MCP Exploitation | `mcp_list_servers` -> `mcp_invoke` | High |
 
+## Claude Code tool names
+
+Claude Code tools (`Read`, `Bash`, `mcp__slack__slack_send_message`, ...) do not share keywords
+with the patterns above. Before matching, the analyzer resolves each tool id with
+`canonical_tool_name` from `ziran.application.knowledge_graph.tool_aliases`, the single alias
+map shared with trace analysis. Reported chains keep the original tool names.
+
+| Claude Code tool | Matched as |
+|------------------|------------|
+| `Read`, `Grep`, `Glob` | `read_file` |
+| `Write`, `Edit`, `NotebookEdit` | `write_file` |
+| `Bash` | `shell_execute` |
+| `WebFetch` | `http_request` |
+| `WebSearch` | `browse_url` |
+| `Agent` | `spawn_subagent` |
+| `mcp__<server>__<tool>` whose first tool word (ignoring server words) is `send`, `post`, `create`, `reply`, `publish` or `update` | `send_email` (outbound message) |
+
+Matching is exact and case-sensitive; any other id is left unchanged. Tool lists carry no call
+arguments, so argument-specific risks use the Claude Code permission-rule form `Name(specifier)`:
+
+- `Read(./.env)`, `Read(~/.ssh/id_rsa)`, `Grep(.aws/credentials)`, `Read(*.pem)` and other secret
+  paths match as `read_secret_file`.
+- `Bash(git push:*)` matches as `git_push`. Other scoped rules such as `Bash(npm test:*)` match as
+  `shell_execute`.
+
+Claude Code patterns (checked before the generic ones):
+
+| Chain | Type | Risk |
+|-------|------|------|
+| `read_secret_file` -> `send_email` | `secret_file_exfiltration` | Critical |
+| `read_file` -> `git_push` | `code_exfiltration` | Critical |
+| `spawn_subagent` -> `shell_execute` | `delegation_to_rce` | Critical |
+| `spawn_subagent` -> `http_request` | `cross_agent_exfiltration` | High |
+| `spawn_subagent` -> `write_file` | `cross_agent_persist` | High |
+
+An unscoped `Bash` (or `Bash(*)`) tool is also reported on its own as a single-tool
+`unrestricted_execution` finding with risk `high`. Scoped `Bash(...)` rules are not. Cedar policy
+generation skips single-tool findings.
+
+`ziran analyze-traces` builds the same graph from trace tool calls, so it uses the same names.
+
 ## Risk Scoring
 
 Each chain receives a 0.0--1.0 risk score based on:

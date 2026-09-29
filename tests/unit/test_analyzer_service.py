@@ -204,3 +204,15 @@ class TestEmptySessions:
         assert result.total_vulnerabilities == 0
         assert result.source == "trace-analysis"
         assert result.campaign_id.startswith("trace-")
+
+
+# ── Unit: Claude Code tool names reach the chain analyzer (#417) ─────
+
+
+@pytest.mark.unit
+class TestClaudeCodeToolNames:
+    def test_read_then_webfetch_is_critical(self) -> None:
+        service = AnalyzerService(MockIngestor([_make_session("s1", ["Read", "WebFetch"])]))
+        result = _run(service.analyze(Path("dummy")))
+
+        assert result.critical_chain_count >= 1

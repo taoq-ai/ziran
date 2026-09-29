@@ -364,3 +364,79 @@ class TestDangerousPatterns:
             "mcp_resource_exfiltration",
         }
         assert expected.issubset(types), f"Missing types: {expected - types}"
+
+
+# ── Claude Code tool names (#417) ──────────────────────────────────────
+
+
+def _cc_graph(tools: list[str], edges: list[tuple[str, str]]) -> AttackKnowledgeGraph:
+    g = AttackKnowledgeGraph()
+    for t in tools:
+        g.add_tool(t)
+    for a, b in edges:
+        g.add_tool_chain([a, b], 0.5)
+    return g
+
+
+@pytest.mark.unit
+class TestClaudeCodeToolNames:
+    def _find(
+        self, tools: list[str], edges: list[tuple[str, str]], expected: list[str]
+    ) -> DangerousChain:
+        chains = ToolChainAnalyzer(_cc_graph(tools, edges)).analyze()
+        return next(c for c in chains if c.tools == expected)
+
+    def test_read_webfetch_is_critical_exfiltration(self) -> None:
+        chain = self._find(["Read", "WebFetch"], [("Read", "WebFetch")], ["Read", "WebFetch"])
+        assert chain.risk_level == "critical"
+        assert chain.vulnerability_type == "data_exfiltration"
+        assert chain.graph_path == ["Read", "WebFetch"]
+
+    def test_read_only_tools_produce_no_chain(self) -> None:
+        tools = ["Read", "Grep", "Glob"]
+        edges = [(a, b) for a in tools for b in tools if a != b]
+        assert ToolChainAnalyzer(_cc_graph(tools, edges)).analyze() == []
+
+    def test_read_mcp_send_is_critical_exfiltration(self) -> None:
+        send = "mcp__slack__slack_send_message"
+        chain = self._find(["Read", send], [("Read", send)], ["Read", send])
+        assert chain.risk_level == "critical"
+        assert chain.vulnerability_type == "data_exfiltration"
+
+    def test_agent_bash_is_delegation_to_rce(self) -> None:
+        chain = self._find(["Agent", "Bash"], [("Agent", "Bash")], ["Agent", "Bash"])
+        assert chain.risk_level == "critical"
+        assert chain.vulnerability_type == "delegation_to_rce"
+
+    def test_read_git_push_is_code_exfiltration(self) -> None:
+        push = "Bash(git push:*)"
+        chain = self._find(["Read", push], [("Read", push)], ["Read", push])
+        assert chain.risk_level == "critical"
+        assert chain.vulnerability_type == "code_exfiltration"
+
+    def test_secret_read_beats_generic_exfiltration(self) -> None:
+        env, send = "Read(./.env)", "mcp__slack__slack_send_message"
+        chain = self._find([env, send], [(env, send)], [env, send])
+        assert chain.risk_level == "critical"
+        assert chain.vulnerability_type == "secret_file_exfiltration"
+        assert chain.graph_path == [env, send]
+
+
+@pytest.mark.unit
+class TestUnrestrictedExecution:
+    @pytest.mark.parametrize("tool", ["Bash", "Bash(*)"])
+    def test_unscoped_bash_alone_is_flagged(self, tool: str) -> None:
+        chains = ToolChainAnalyzer(_cc_graph([tool], [])).analyze()
+        assert len(chains) == 1
+        assert chains[0].tools == [tool]
+        assert chains[0].vulnerability_type == "unrestricted_execution"
+        assert chains[0].risk_level == "high"
+        assert chains[0].chain_type == "direct"
+
+    @pytest.mark.parametrize("tool", ["Bash(git push:*)", "Bash(npm test:*)"])
+    def test_scoped_bash_is_not_flagged(self, tool: str) -> None:
+        chains = ToolChainAnalyzer(_cc_graph([tool], [])).analyze()
+        assert all(c.vulnerability_type != "unrestricted_execution" for c in chains)
+
+    def test_read_only_tools_have_no_single_tool_finding(self) -> None:
+        assert ToolChainAnalyzer(_cc_graph(["Read", "Grep", "Glob"], [])).analyze() == []
