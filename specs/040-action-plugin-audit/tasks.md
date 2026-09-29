@@ -101,7 +101,7 @@ against the unmodified `action.yml` first). No network, no LLM in pytest. The co
 
 ## Phase 6 — Gates
 
-- [ ] T011 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T011 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%). Do not commit `uv.lock` drift. Push, open the PR against
       `develop`, and wait for `gh pr checks` (including `Action Self-Test` and `Lint CI Templates`)
       to be green.
