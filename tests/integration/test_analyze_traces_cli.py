@@ -247,3 +247,11 @@ class TestClaudeCodeTraces:
         )
         assert result.exit_code == 2, result.output
         assert "Error" in result.output
+
+
+@pytest.mark.integration
+def test_contract_doc_example_matches_fixture() -> None:
+    """The span contract v1 example in the docs is line 1 of the critical fixture."""
+    doc = (FIXTURES_DIR.parents[1] / "docs/guides/analyze-traces.md").read_text().splitlines()
+    fixture = (CC_DIR / "read_env_then_webfetch.jsonl").read_text().splitlines()
+    assert fixture[0] in doc
