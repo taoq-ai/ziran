@@ -225,13 +225,44 @@ ziran audit PATH [OPTIONS]
 | Option | Description |
 |--------|-------------|
 | `--severity` | Minimum severity filter: `critical`, `high`, `medium`, `low` |
+| `--format` | Output format: `text` (default) or `json` |
 
 **Examples:**
 
 ```bash
 ziran audit my_agent.py
 ziran audit ./src/agents/ --severity high
+ziran audit ./src/agents/ --format json --severity high
 ```
+
+With `--format json`, stdout is a single JSON document (logs go to stderr). The matched
+source line is never included, so secrets that trigger a finding are not echoed.
+
+```json
+{
+  "files_analyzed": 1,
+  "findings": [
+    {
+      "rule": "SA001",
+      "severity": "critical",
+      "file": "my_agent.py",
+      "line": 1,
+      "message": "..."
+    }
+  ]
+}
+```
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | No failing findings |
+| `1` | Failing findings: with `--format json --severity X`, any finding at or above `X`; otherwise any `critical` finding |
+| `2` | Usage error (for example `PATH` does not exist or an invalid option) |
+
+Text mode (the default) keeps its existing behaviour and exits `1` only on `critical`
+findings, even when `--severity` is lower.
 
 ---
 
