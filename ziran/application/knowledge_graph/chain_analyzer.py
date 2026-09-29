@@ -21,6 +21,10 @@ from ziran.application.knowledge_graph.chain_patterns import (
     ChainPatternRegistry,
 )
 from ziran.application.knowledge_graph.graph import NodeType
+from ziran.application.knowledge_graph.tool_aliases import (
+    UNRESTRICTED_EXEC_TOOLS,
+    canonical_tool_name,
+)
 from ziran.domain.entities.capability import DangerousChain
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
@@ -106,7 +110,8 @@ class ToolChainAnalyzer:
             1. Discover direct 2-tool chains (A → B).
             2. Discover indirect chains (A → … → B, up to 3 hops).
             3. Discover cycles (A → B → … → A).
-            4. De-duplicate, score, and sort by risk.
+            4. Flag unscoped shell tools (bare ``Bash``) as single-tool findings.
+            5. De-duplicate, score, and sort by risk.
 
         Returns:
             Sorted list of :class:`DangerousChain` objects (highest risk first).
@@ -127,6 +132,7 @@ class ToolChainAnalyzer:
         chains.extend(self._find_direct_chains(tool_nodes, pattern_cache))
         chains.extend(self._find_indirect_chains(tool_nodes, pattern_cache, max_hops=3))
         chains.extend(self._find_chain_cycles(tool_nodes, pattern_cache))
+        chains.extend(self._find_unrestricted_execution(tool_nodes))
 
         # Deduplicate by (tools tuple, vulnerability_type)
         seen: set[tuple[tuple[str, ...], str]] = set()
@@ -206,8 +212,8 @@ class ToolChainAnalyzer:
         # Pre-compute keywords and lowercase forms for all tool IDs so
         # that pattern matching can quickly determine candidate pairs.
         tool_ids = [tid for tid, _ in tool_nodes]
-        tool_lower = {tid: tid.lower() for tid in tool_ids}
-        tool_kw = {tid: self._to_keywords(tid) for tid in tool_ids}
+        tool_lower = {tid: canonical_tool_name(tid).lower() for tid in tool_ids}
+        tool_kw = {tid: self._to_keywords(canonical_tool_name(tid)) for tid in tool_ids}
 
         # Build candidate (source, target) pairs by checking which tools
         # could match each pattern role.  This avoids the full O(T²) loop
@@ -335,6 +341,33 @@ class ToolChainAnalyzer:
 
         return chains
 
+    # ── Single-tool findings ───────────────────────────────────────
+
+    @staticmethod
+    def _find_unrestricted_execution(
+        tool_nodes: list[tuple[str, dict[str, Any]]],
+    ) -> list[DangerousChain]:
+        """Flag unscoped shell tools (bare ``Bash`` / ``Bash(*)``) on their own."""
+        return [
+            DangerousChain(
+                tools=[tid],
+                risk_level="high",
+                vulnerability_type="unrestricted_execution",
+                exploit_description=(
+                    "Unscoped shell access: the agent can read any file, reach the "
+                    "network and run arbitrary code with a single tool"
+                ),
+                remediation=(
+                    "Scope Bash with permission rules such as Bash(npm test:*) or deny it; "
+                    "run the agent in a sandbox"
+                ),
+                graph_path=[tid],
+                chain_type="direct",
+            )
+            for tid, _ in tool_nodes
+            if tid in UNRESTRICTED_EXEC_TOOLS
+        ]
+
     # ── Scoring ────────────────────────────────────────────────────
 
     def _calculate_risk_score(
@@ -408,10 +441,12 @@ class ToolChainAnalyzer:
         if key in cache:
             return cache[key]
 
-        source_lower = source_id.lower()
-        target_lower = target_id.lower()
-        source_kw = self._to_keywords(source_id)
-        target_kw = self._to_keywords(target_id)
+        source = canonical_tool_name(source_id)
+        target = canonical_tool_name(target_id)
+        source_lower = source.lower()
+        target_lower = target.lower()
+        source_kw = self._to_keywords(source)
+        target_kw = self._to_keywords(target)
 
         for (pat_src, pat_tgt), info in self._patterns.items():
             src_match = self._pattern_matches(pat_src, source_lower, source_kw)

@@ -1,14 +1,14 @@
 # Ground Truth Dataset for Accuracy Measurement
 
-A labeled dataset of 54 scenarios (29 true-positive, 25 true-negative) for measuring ZIRAN's detection precision, recall, and F1 score.
+A labeled dataset of 56 scenarios (30 true-positive, 26 true-negative) for measuring ZIRAN's detection precision, recall, and F1 score.
 
 ## Dataset Structure
 
 ```
 ground_truth/
-    agents/                    # 14 agent definitions (7 vulnerable + 7 safe)
+    agents/                    # 22 agent definitions (11 vulnerable + 11 safe)
     scenarios/
-        tool_chain/            # 18 scenarios (10 TP, 8 TN)
+        tool_chain/            # 20 scenarios (11 TP, 9 TN)
         side_effect/           # 18 scenarios (10 TP, 8 TN)
         campaign/              # 18 scenarios (9 TP, 9 TN)
     schema.py                  # Pydantic validation models
@@ -28,6 +28,7 @@ Each archetype has a vulnerable and safe (mitigated) version:
 | RAG Knowledge Base | LangChain | CVE-2025-65106, CVE-2025-46059, CVE-2023-46229 |
 | Multi-Agent System | CrewAI/LangGraph | CrewAI pentest research, MCPTox benchmark |
 | DevOps Automation | LangChain+MCP | CVE-2025-6514, CI/CD pipeline patterns |
+| Claude Code | Claude Code (built-in + MCP tools) | OWASP LLM06, OWASP LLM08 (design risk) |
 
 ## Labeling Methodology
 
