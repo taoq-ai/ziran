@@ -1096,12 +1096,20 @@ def _display_policy_verdict(verdict: Any) -> None:
     default=None,
     help="Record each Claude Code agent's tools and chains as the accepted baseline.",
 )
+@click.option(
+    "--sarif",
+    "sarif_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Also write the reported findings as SARIF v2.1.0 (GitHub code scanning).",
+)
 def audit(
     path: str,
     severity: str | None,
     fmt: str,
     baseline_path: str | None,
     write_baseline_path: str | None,
+    sarif_path: str | None,
 ) -> None:
     """Static security analysis of agent source code.
 
@@ -1123,6 +1131,7 @@ def audit(
         ziran audit ./my-plugin/ --format json --severity high
         ziran audit ./agents/ --write-baseline allowlist.json
         ziran audit ./agents/ --baseline allowlist.json
+        ziran audit ./my-plugin/ --baseline ziran-baseline.json --sarif audit.sarif
     """
     from pydantic import ValidationError
     from rich.markup import escape
@@ -1200,6 +1209,21 @@ def audit(
     if severity:
         min_level = severity_order[severity]
         report.findings = [f for f in report.findings if severity_order[f.severity] <= min_level]
+
+    # Before the output branches: text mode exits inside _display_audit_report.
+    if sarif_path:
+        from ziran.application.cicd.sarif import generate_audit_sarif
+
+        try:
+            Path(sarif_path).write_text(
+                json.dumps(generate_audit_sarif(report.findings), indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            raise click.BadParameter(
+                f"cannot write file ({exc.strerror})", param_hint="--sarif"
+            ) from None
+        click.echo(f"SARIF written to {sarif_path}", err=True)
 
     if fmt == "json":
         # Explicit keys only: `context` holds the matched source line and may contain a secret.

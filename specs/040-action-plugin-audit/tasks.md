@@ -12,7 +12,7 @@ against the unmodified `action.yml` first). No network, no LLM in pytest. The co
 
 ## Phase 1 — SARIF for audit rows (FR-002)
 
-- [ ] T001 [US1][US4] Failing tests, new class `TestAuditSarif` in `tests/unit/test_cicd.py`
+- [x] T001 [US1][US4] Failing tests, new class `TestAuditSarif` in `tests/unit/test_cicd.py`
       (in-memory `StaticFinding`s, `monkeypatch.chdir(tmp_path)`):
       - envelope: `version == "2.1.0"`, one run, driver `name == "ZIRAN"`, same `$schema` as
         `generate_sarif`;
@@ -30,13 +30,13 @@ against the unmodified `action.yml` first). No network, no LLM in pytest. The co
       - rule `help.text` is the first non-empty recommendation; omitted when none;
       - `[]` -> `results == []`, `rules == []`;
       - existing `TestSarif` passes unchanged (envelope refactor is byte-neutral).
-- [ ] T002 [US1][US4] Implement `generate_audit_sarif` and `_sarif_document` in
+- [x] T002 [US1][US4] Implement `generate_audit_sarif` and `_sarif_document` in
       `ziran/application/cicd/sarif.py`; refactor `generate_sarif` to use `_sarif_document`
       (plan §1). T001 green.
 
 ## Phase 2 — `ziran audit --sarif` and the sample plugin (FR-001, FR-007)
 
-- [ ] T003 [US1][US2][US3][US4] Failing tests, new class `TestAuditSarif` in
+- [x] T003 [US1][US2][US3][US4] Failing tests, new class `TestAuditSarif` in
       `tests/unit/test_cli_main.py` (no markers; `CliRunner`, `monkeypatch.chdir(tmp_path)`,
       sample copied with `shutil.copytree` from `examples/07-cicd-quality-gate/claude-code-plugin`):
       - sample + committed baseline, `--format json`: exit `0`, `findings == []`;
@@ -57,7 +57,7 @@ against the unmodified `action.yml` first). No network, no LLM in pytest. The co
         `results == []`;
       - `--sarif tmp_path/missing-dir/x.sarif`: exit `2`, no traceback in output;
       - Python-only dir with `--sarif`: file written, results match the JSON rows.
-- [ ] T004 [US1][US2] Add the sample plugin files (plan §4) and record `ziran-baseline.json` with
+- [x] T004 [US1][US2] Add the sample plugin files (plan §4) and record `ziran-baseline.json` with
       `ziran audit . --write-baseline ziran-baseline.json` from inside the sample directory; add the
       `--sarif` option and block to `audit` in `ziran/interfaces/cli/main.py` (plan §2), plus the
       docstring example. T003 green; all existing `audit` tests pass unchanged.

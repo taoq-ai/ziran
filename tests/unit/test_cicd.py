@@ -14,7 +14,8 @@ from ziran.application.cicd.github_actions import (
     set_output,
     write_step_summary,
 )
-from ziran.application.cicd.sarif import generate_sarif, write_sarif
+from ziran.application.cicd.sarif import generate_audit_sarif, generate_sarif, write_sarif
+from ziran.application.static_analysis.analyzer import StaticFinding
 from ziran.domain.entities.ci import (
     FindingCount,
     GateResult,
@@ -381,3 +382,114 @@ class TestCompositionFindingGating:
 
     def test_clean_campaign_has_no_findings(self, clean_campaign: CampaignResult) -> None:
         assert QualityGate._count_findings(clean_campaign).total == 0
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Tests — SARIF for ``ziran audit`` rows
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _row(check_id: str = "BL001", severity: str = "critical", **kw: Any) -> StaticFinding:
+    base: dict[str, Any] = {
+        "check_id": check_id,
+        "message": f"{check_id} message",
+        "severity": severity,
+        "file_path": "plug/agents/builder.md",
+    }
+    return StaticFinding(**{**base, **kw})
+
+
+class TestAuditSarif:
+    @pytest.fixture(autouse=True)
+    def _cwd(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.chdir(tmp_path)
+
+    def test_envelope_matches_generate_sarif(self, clean_campaign: CampaignResult) -> None:
+        doc = generate_audit_sarif([])
+        assert doc["version"] == "2.1.0"
+        assert doc["$schema"] == generate_sarif(clean_campaign)["$schema"]
+        assert len(doc["runs"]) == 1
+        assert doc["runs"][0]["tool"]["driver"]["name"] == "ZIRAN"
+        assert doc["runs"][0]["results"] == []
+        assert doc["runs"][0]["tool"]["driver"]["rules"] == []
+
+    def test_baseline_row_maps_to_result(self) -> None:
+        row = _row(
+            message="Agent 'builder' gains tool 'WebFetch' not in the baseline",
+            agent="builder",
+            tools=("WebFetch",),
+            line_number=4,
+        )
+        (result,) = generate_audit_sarif([row])["runs"][0]["results"]
+        assert result == {
+            "ruleId": "BL001",
+            "level": "error",
+            "message": {"text": "Agent 'builder' gains tool 'WebFetch' not in the baseline"},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {
+                            "uri": "plug/agents/builder.md",
+                            "uriBaseId": "%SRCROOT%",
+                        },
+                        "region": {"startLine": 4},
+                    }
+                }
+            ],
+            "properties": {"agent": "builder", "tools": ["WebFetch"]},
+        }
+
+    @pytest.mark.parametrize(
+        ("severity", "level"), [("high", "error"), ("medium", "warning"), ("low", "note")]
+    )
+    def test_level_map(self, severity: str, level: str) -> None:
+        (result,) = generate_audit_sarif([_row(severity=severity)])["runs"][0]["results"]
+        assert result["level"] == level
+
+    def test_python_row_has_no_properties_region_or_context(self) -> None:
+        row = _row("SA001", "critical", file_path="app.py", context="sk-secret-value")
+        doc = generate_audit_sarif([row])
+        (result,) = doc["runs"][0]["results"]
+        assert "properties" not in result
+        assert "region" not in result["locations"][0]["physicalLocation"]
+        assert "sk-secret-value" not in json.dumps(doc)
+
+    def test_absolute_path_under_cwd_is_relative(self, tmp_path: Path) -> None:
+        row = _row(file_path=str(tmp_path / "plug" / "agents" / "builder.md"))
+        (result,) = generate_audit_sarif([row])["runs"][0]["results"]
+        loc = result["locations"][0]["physicalLocation"]["artifactLocation"]
+        assert loc == {"uri": "plug/agents/builder.md", "uriBaseId": "%SRCROOT%"}
+
+    def test_absolute_path_outside_cwd_is_file_uri(self, tmp_path: Path) -> None:
+        outside = tmp_path.parent / "elsewhere" / "a.md"
+        (result,) = generate_audit_sarif([_row(file_path=str(outside))])["runs"][0]["results"]
+        loc = result["locations"][0]["physicalLocation"]["artifactLocation"]
+        assert loc == {"uri": outside.as_uri()}
+
+    def test_one_rule_per_id_with_highest_severity(self) -> None:
+        rows = [
+            _row("CC001", "high", message="first"),
+            _row("CC001", "critical", message="second"),
+        ]
+        run = generate_audit_sarif(rows)["runs"][0]
+        (rule,) = run["tool"]["driver"]["rules"]
+        assert rule["id"] == "CC001"
+        assert rule["shortDescription"] == {"text": "CC001"}
+        assert rule["properties"] == {"security-severity": "9.0"}
+        assert rule["defaultConfiguration"] == {"level": "error"}
+        assert [r["message"]["text"] for r in run["results"]] == ["first", "second"]
+        assert [r["level"] for r in run["results"]] == ["error", "error"]
+
+    def test_rules_first_seen_order_and_help(self) -> None:
+        rows = [
+            _row("SA003", "medium"),
+            _row("BL001", "critical", recommendation=""),
+            _row("SA003", "low", recommendation="Restrict tools."),
+            _row("SA003", "low", recommendation="Other."),
+        ]
+        rules = generate_audit_sarif(rows)["runs"][0]["tool"]["driver"]["rules"]
+        assert [r["id"] for r in rules] == ["SA003", "BL001"]
+        assert rules[0]["help"] == {"text": "Restrict tools."}
+        assert rules[0]["properties"] == {"security-severity": "5.0"}
+        assert rules[0]["defaultConfiguration"] == {"level": "warning"}
+        assert "help" not in rules[1]
