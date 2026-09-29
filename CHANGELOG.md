@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.40.0](https://github.com/taoq-ai/ziran/compare/v0.39.0...v0.40.0) (2026-09-29)
+
+
+### Features
+
+* **audit:** allowlist baseline so CI fails when an agent's tools widen ([9ff37ec](https://github.com/taoq-ai/ziran/commit/9ff37ece87d37f0e0735dbac0fd68016fa872c88))
+* **audit:** allowlist baseline so CI fails when an agent's tools widen ([6e1aaad](https://github.com/taoq-ai/ziran/commit/6e1aaad80db1b1e9571beb3b14c64f45938e9f57))
+* **audit:** audit Claude Code plugins with static checks and declared-tool chains ([9a045b1](https://github.com/taoq-ai/ziran/commit/9a045b1cca8a5849b0b135d54fb876efadeb8188))
+* **audit:** audit Claude Code plugins with static checks and declared-tool chains ([a6a4a39](https://github.com/taoq-ai/ziran/commit/a6a4a39761de1fbfacdbf6da68b87adff4c700ee))
+* **audit:** write SARIF from ziran audit ([92b9cb3](https://github.com/taoq-ai/ziran/commit/92b9cb327311cba04ff0d5cfb6375b07c16d7a86))
+* **claude-code:** parse plugin manifests and subagent files into capabilities ([5af3f8c](https://github.com/taoq-ai/ziran/commit/5af3f8c31e6e7651a4ca8c12af52ece4209acd74))
+* **claude-code:** parse plugin manifests and subagent files into capabilities ([e423647](https://github.com/taoq-ai/ziran/commit/e42364724aca74fde499ec90527fabbad28b28ea))
+
 ## [0.39.0](https://github.com/taoq-ai/ziran/compare/v0.38.0...v0.39.0) (2026-09-29)
 
 
