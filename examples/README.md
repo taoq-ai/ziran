@@ -38,6 +38,7 @@ These examples use ZIRAN's built-in scanner without calling any LLM.
 | 06 | [Policy Engine](06-policy-engine/) | Define a YAML security policy and evaluate findings against it |
 | 07 | [CI/CD Quality Gate](07-cicd-quality-gate/) | Fail a build when findings exceed a YAML-configured threshold |
 | 08 | [Custom Adapter](08-custom-adapter/) | Implement `AgentAdapter` for any agent framework |
+| 24 | [Claude Code Agent Audit](24-claude-code-agent-audit/) | `ziran audit` on a subagent whose `Read` + `WebFetch` tools form an exfiltration chain |
 
 ## LLM scans (API key required)
 

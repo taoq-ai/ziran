@@ -1,6 +1,6 @@
 # ZIRAN -- AI Agent Security Testing
 
-**Find vulnerabilities in AI agents -- not just LLMs, but agents with tools, memory, and multi-step reasoning.**
+**ZIRAN finds the vulnerabilities in AI agents that come from tools combining, not from any single prompt.**
 
 ---
 
@@ -32,11 +32,15 @@ ZIRAN discovers these composition-level risks through knowledge graph analysis, 
 
 ```bash
 pip install ziran
-git clone https://github.com/taoq-ai/ziran.git && cd ziran
-uv sync --extra langchain
+git clone https://github.com/taoq-ai/ziran.git
+cd ziran/examples/24-claude-code-agent-audit
 
-# Scan a vulnerable example agent
-uv run python examples/10-vulnerable-agent/main.py
+# Audit a Claude Code subagent with Read + WebFetch; no API key needed
+ziran audit agents/
+# CC001  critical  Agent 'researcher': data_exfiltration via Read -> WebFetch
+
+# Full campaign against a deliberately vulnerable LangChain agent (needs OPENAI_API_KEY)
+cd ../.. && uv sync --extra langchain && uv run python examples/10-vulnerable-agent/main.py
 ```
 
 ## How It Compares
