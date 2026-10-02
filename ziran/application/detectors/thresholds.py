@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, model_validator
 
+from ziran.application.detectors.prefilter import PrefilterConfig
+
 
 class DetectorThresholds(BaseModel):
     """Decision thresholds applied by :class:`DetectorPipeline`.
@@ -86,6 +88,10 @@ class DetectorThresholds(BaseModel):
         ge=0.0,
         le=1.0,
         description="Min LLM-judge confidence before its score is trusted.",
+    )
+    prefilter: PrefilterConfig = Field(
+        default_factory=PrefilterConfig,
+        description="Cheap-model prefilter before the LLM judge (spec 043). Off by default.",
     )
 
     @model_validator(mode="after")
