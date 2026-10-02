@@ -53,6 +53,8 @@ FAILED — critical issues found
 
 **What just happened.** ZIRAN mapped each declared tool to a capability (`Read` is `read_file`, `WebFetch` is `http_request`), put them in a graph and walked the edges against its library of dangerous chain patterns. `read_file -> http_request` matches a data exfiltration path: a prompt injection in any file the agent reads can tell it to send that file, or your `.env`, to a URL of the attacker's choosing. Neither tool trips a per-tool check, which is why list-based scanners report this agent as clean. The same analysis runs on LangChain, CrewAI, MCP and A2A agents, and on live agents over HTTPS, where ZIRAN also attacks the chain it found.
 
+Auditing a whole plugin, gating CI on an allowlist baseline, scoring hook traces and checking its MCP servers: see the [Claude Code guide](https://taoq-ai.github.io/ziran/guides/claude-code/) and [examples/25-claude-code-plugin/](examples/25-claude-code-plugin/).
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">

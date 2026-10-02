@@ -1,0 +1,11 @@
+[
+  {
+    "name": "search_docs",
+    "description": "Search the project documentation by keyword and return matching page titles.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {"query": {"type": "string"}},
+      "required": ["query"]
+    }
+  }
+]
