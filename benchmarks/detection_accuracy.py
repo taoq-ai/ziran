@@ -131,13 +131,17 @@ def load_examples(dataset_dir: Path) -> list[DetectionExample]:
 
 
 async def _score(
-    examples: list[DetectionExample], thresholds: DetectorThresholds
+    examples: list[DetectionExample],
+    thresholds: DetectorThresholds,
+    *,
+    pipeline: DetectorPipeline | None = None,
 ) -> DetectorAccuracyResult:
-    replay = ReplayLLMClient(examples)
-    pipeline = DetectorPipeline(
-        llm_client=replay,
-        detector_config=DetectorConfig(thresholds=thresholds),
-    )
+    # A caller-built pipeline (spec 043 harness) is used as-is.
+    if pipeline is None:
+        pipeline = DetectorPipeline(
+            llm_client=ReplayLLMClient(examples),
+            detector_config=DetectorConfig(thresholds=thresholds),
+        )
 
     det_cm: dict[str, ConfusionMatrix] = {d: ConfusionMatrix() for d in IN_SCOPE_DETECTORS}
     det_applicable: dict[str, int] = dict.fromkeys(IN_SCOPE_DETECTORS, 0)

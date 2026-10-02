@@ -78,3 +78,12 @@ async def test_examples_without_judge_are_skipped() -> None:
     client = ReplayLLMClient([ex])
     resp = await client.complete(_user_msg("I refuse."))
     assert json.loads(resp.content)["confidence"] == 0.0
+
+
+async def test_calls_counts_recorded_and_unrecorded() -> None:
+    """spec 043: the harness counts frontier/cheap judge calls."""
+    client = ReplayLLMClient([_example("known", "success")])
+    assert client.calls == 0
+    await client.complete(_user_msg("known"))
+    await client.complete(_user_msg("unknown"))
+    assert client.calls == 2

@@ -28,10 +28,14 @@ _IGNORED_VERDICT = {"verdict": "ambiguous", "confidence": 0.0, "reasoning": "no 
 
 
 class ReplayLLMClient(BaseLLMClient):
-    """Returns recorded llm_judge verdicts keyed by recorded response text."""
+    """Returns recorded llm_judge verdicts keyed by recorded response text.
+
+    ``calls`` counts ``complete`` invocations (spec 043).
+    """
 
     def __init__(self, examples: list[DetectionExample]) -> None:
         super().__init__(LLMConfig(provider="replay", model="replay"))
+        self.calls: int = 0
         # Map recorded response text → its judge verdict (only examples that
         # actually carry one). Later duplicates overwrite earlier ones.
         self._by_response: dict[str, RecordedJudgeVerdict] = {
@@ -39,6 +43,7 @@ class ReplayLLMClient(BaseLLMClient):
         }
 
     async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
+        self.calls += 1
         user_message = next(
             (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
         )
