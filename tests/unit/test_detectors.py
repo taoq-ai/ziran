@@ -778,3 +778,113 @@ class TestQualityScoringPipeline:
             reasoning="Pattern match",
         )
         assert verdict.quality_score is None
+
+
+# ──────────────────────────────────────────────────────────────────────
+# LLM judge ensemble in the pipeline (spec 041)
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _stub_client(verdict: str, confidence: float = 0.9) -> Any:
+    from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+    client = AsyncMock(spec=BaseLLMClient)
+    client.config = LLMConfig()
+    body = f'{{"verdict": "{verdict}", "confidence": {confidence}, "reasoning": "r"}}'
+    client.complete = AsyncMock(return_value=LLMResponse(content=body, model="stub"))
+    return client
+
+
+def _ensemble_pipeline(*verdicts: str, **config: Any) -> DetectorPipeline:
+    from ziran.application.detectors.ensemble import EnsembleConfig
+    from ziran.application.detectors.pipeline import DetectorConfig
+    from ziran.application.detectors.thresholds import DetectorThresholds
+
+    names = [f"j{i}" for i in range(len(verdicts))]
+    ensemble = EnsembleConfig(
+        enabled=True,
+        judges=[{"name": n, "model": "m"} for n in names],  # type: ignore[arg-type]
+    )
+    return DetectorPipeline(
+        llm_client=_stub_client("failure"),
+        detector_config=DetectorConfig(
+            thresholds=DetectorThresholds(ensemble=ensemble),
+            judge_clients={n: _stub_client(v) for n, v in zip(names, verdicts, strict=True)},
+            **config,
+        ),
+    )
+
+
+_NEUTRAL = "Some generic response about the weather."
+
+
+@pytest.mark.unit
+class TestJudgeEnsemblePipeline:
+    def test_judge_construction(self) -> None:
+        from ziran.application.detectors.ensemble import EnsembleJudge
+        from ziran.application.detectors.llm_judge import LLMJudgeDetector
+
+        assert isinstance(
+            DetectorPipeline(llm_client=_stub_client("failure"))._llm_judge, LLMJudgeDetector
+        )
+        assert isinstance(_ensemble_pipeline("success", "failure")._llm_judge, EnsembleJudge)
+        disabled = _ensemble_pipeline("success", "failure", disabled={"llm_judge"})
+        assert disabled._llm_judge is None
+
+    async def test_judge_returns_none_without_judge(self) -> None:
+        prompt = _make_prompt()
+        disabled = _ensemble_pipeline("success", "failure", disabled={"llm_judge"})
+        assert await disabled.judge("t", _make_response(_NEUTRAL), prompt) is None
+        assert await DetectorPipeline().judge("t", _make_response(_NEUTRAL), prompt) is None
+
+    async def test_single_judge_matches_evaluate(self) -> None:
+        pipeline = DetectorPipeline(llm_client=_stub_client("success"))
+        prompt = _make_prompt(success_indicators=["impossible_xyz"])
+        direct = await pipeline.judge("t", _make_response(_NEUTRAL), prompt)
+        verdict = await pipeline.evaluate("t", _make_response(_NEUTRAL), prompt)
+        appended = next(r for r in verdict.detector_results if r.detector_name == "llm_judge")
+        assert direct == appended
+
+    async def test_single_judge_timeout_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import asyncio
+
+        client = _stub_client("success")
+
+        async def _slow(*args: Any, **kwargs: Any) -> Any:
+            await asyncio.sleep(1)
+
+        client.complete = _slow
+        pipeline = DetectorPipeline(llm_client=client)
+        monkeypatch.setattr("ziran.application.detectors.pipeline._LLM_JUDGE_TIMEOUT", 0.01)
+        assert await pipeline.judge("t", _make_response(_NEUTRAL), _make_prompt()) is None
+
+    async def test_split_ensemble_needs_review(self) -> None:
+        pipeline = _ensemble_pipeline("success", "failure")
+        verdict = await pipeline.evaluate("t", _make_response(_NEUTRAL), _make_prompt())
+        assert verdict.successful is False
+        assert verdict.needs_review is True
+        judge = next(r for r in verdict.detector_results if r.detector_name == "llm_judge")
+        assert len(judge.judge_votes) == 2
+
+    async def test_unanimous_ensemble_decides(self) -> None:
+        pipeline = _ensemble_pipeline("success", "success")
+        verdict = await pipeline.evaluate("t", _make_response(_NEUTRAL), _make_prompt())
+        assert verdict.successful is True
+        assert verdict.reasoning.startswith("LLM judge determined attack success")
+        assert verdict.needs_review is False
+
+    async def test_refusal_wins_without_review(self) -> None:
+        pipeline = _ensemble_pipeline("success", "failure")
+        response = _make_response("I cannot help with that request.")
+        verdict = await pipeline.evaluate("t", response, _make_prompt())
+        assert verdict.successful is False
+        assert verdict.reasoning.startswith("Refusal detected")
+        assert verdict.needs_review is False
+
+    async def test_single_judge_has_no_review_fields(self) -> None:
+        pipeline = DetectorPipeline(llm_client=_stub_client("success"))
+        verdict = await pipeline.evaluate("t", _make_response(_NEUTRAL), _make_prompt())
+        assert verdict.needs_review is False
+        judge = next(r for r in verdict.detector_results if r.detector_name == "llm_judge")
+        assert judge.agreement is None
+        assert judge.judge_votes == []

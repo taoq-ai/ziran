@@ -6,41 +6,14 @@ it before T005 (it provides `DetectorPipeline.judge`, `DetectorConfig.judge_clie
 only need `develop`. #397 is independent: if it merged first, place the `prefilter` field and the
 pipeline blocks after its own (plan §7); nothing else changes.
 
-**Draft status (implemented in parallel with #396/#397, before either merged).** Done and green
-on `develop`: T001, T002, T005 tests, T007, the `prefilter`-independent parts of T004/T006/T008,
-T009 apart from the `compare` table. Blocked on #396 (integration step):
-- T004: `_two_tier_judge` escalates via `self.judge(...)` (#396). mypy reports
-  `"DetectorPipeline" has no attribute "judge"` + `no-any-return` at that line until #396 lands.
-  The evaluate step on this draft is `if self._prefilter is not None: ... elif <develop's inline
-  judge block>`; after merging #396 it MUST become plan §3's if/else around `self.judge(...)`.
-- T003 `TestEscalation` (10 tests): need `DetectorPipeline.judge`; `test_escalation_uses_ensemble`
-  also needs `ziran.application.detectors.ensemble`. All but the ensemble one were verified
-  locally against a scratch single-mode `judge` shim (not committed).
-- T006: `_scan_detector_config` prefilter client + `scan` console lines (plan §5) — the helper is
-  created by #396, so it cannot be extended here. `TestScanDetectorConfigPrefilter` (7 tests in
-  `tests/unit/test_cli_main.py`) is written and fails only for that reason.
-- T008: `benchmarks/results/two_tier_judging.json` must be produced by
-  `uv run python benchmarks/two_tier_judging.py compare` after #396 merges (the
-  `deterministic_only` run escalates); 2 harness tests (`test_compare_without_cassette`,
-  `test_compare_with_synthetic_cassette`) need the same.
-- T009: paste that `compare` table into `docs/reference/benchmarks/detection-accuracy.md`
-  (marked with a TODO comment).
-- The scanner test builds the pipeline directly and assigns `scanner._detector_pipeline`, because
-  the `detector_config` passthrough lands with #396; it stays valid after the merge.
-
-**Scratch integration check (2026-10-02, local throwaway branch, not committed or pushed).** This
-branch @ 0a52775 was merged with `origin/041-judge-ensemble-calibration` @ 2097586, conflicts were
-resolved as in plan §3/§5/§7, and plan §5's helper edit was applied verbatim, with one
-`assert prefilter.model is not None` added for mypy. Results: `mypy ziran/` clean. All 19 blocked
-tests above pass. #396's own `test_cli_main.py`, `test_scanner.py`, `test_detector_thresholds.py`
-and `test_detectors_config.py` also pass against the merged helper.
-`detection_regression.py` passes with pipeline F1 1.0. `two_tier_judging.py compare` gives:
-`single` 222 frontier calls, and `deterministic_only` 118 (deterministic=104, escalated=118,
-reduction 0.4685, F1 delta 0.0, confusion 78/0/0/144 for both). Adding
-`origin/042-semantic-embedding-detection` @ 4e19536 on top (semantic block as step 6, judge as
-step 7, `_score(..., embedder, disabled, pipeline)`, `prefilter` field after `semantic` and
-`ensemble`) gave: mypy clean, `pytest tests/unit tests/integration` 2924 passed, and the same
-`compare` numbers. The results JSON is still committed only after #396 really merges (T008).
+**Integration status (2026-10-02).** #396 (PR #444) and #397 (PR #443) are merged into
+`develop`; this branch merged `origin/develop` and the integration steps of plan §3/§5/§7 are
+done: the evaluate judge step is the if/else around `self.judge(...)` (step 7, after #397's
+semantic step 6), `_scan_detector_config` builds the prefilter client and prints the console
+lines, the scanner test goes through the real `detector_config` passthrough, `compare` was run and
+its JSON committed, and the table is in the benchmark docs. The previously blocked tests
+(`TestEscalation`, the prefilter tests in `TestScanDetectorConfig`, the two `compare` harness tests)
+pass. Still unverified: SC-004 (live cheap-model parity and reduction) — no cassette recorded.
 
 Test-first: every implementation task is preceded by a test task that MUST be run and seen failing
 before the implementation lands. No network, no LLM, no API keys. New unit tests carry
@@ -122,7 +95,7 @@ the sea."` with `success_indicators=["password"]` (both verified on d8e21e4, spe
         - US4.2: enabled with `llm_client=None`, with `disabled={"llm_judge"}`, and with no
           `prefilter_client` -> one `prefilter_unavailable` warning each (reason as in plan §3),
           `tier_counts == {}`, behaviour as disabled.
-- [ ] T004 (partial; escalation blocked on #396) Implement plan §3 in `ziran/application/detectors/pipeline.py`: `prefilter_client`,
+- [x] T004 Implement plan §3 in `ziran/application/detectors/pipeline.py`: `prefilter_client`,
       the init block, `tier_counts`, the step-7 if/else, `_two_tier_judge`,
       `_NO_SIGNAL_REASONING`; update the module and class docstrings (tier order, counters). T003
       passes; `tests/unit/test_detectors.py` and `tests/unit/test_llm_judge.py` pass unmodified;
@@ -154,7 +127,7 @@ the sea."` with `success_indicators=["password"]` (both verified on d8e21e4, spe
         - `scan` with a prefilter-enabled `.ziran/detectors.yaml`, patched client creation and a
           patched `AgentScanner` -> `scanner_config["detector_config"].prefilter_client` set,
           output contains `LLM judge prefilter: m` and no ensemble line.
-- [ ] T006 (partial; §5 CLI helper blocked on #396) Implement plan §4-§5 in `scanner.py` and `cli/main.py`. T005 passes; existing
+- [x] T006 Implement plan §4-§5 in `scanner.py` and `cli/main.py`. T005 passes; existing
       `test_scanner.py` and `test_cli_main.py` tests pass unmodified.
 
 ## Phase 4 — Benchmark harness (FR-012, US7)
@@ -183,7 +156,7 @@ the sea."` with `success_indicators=["password"]` (both verified on d8e21e4, spe
           `complete` -> exit 1, no file written.
       - `run_benchmark()` default result has the same detectors and pipeline metrics as before
         (existing `test_detection_accuracy_harness.py` unmodified and green).
-- [ ] T008 (partial; results JSON blocked on #396) Implement plan §6: the `calls` counter, `_score(pipeline=...)`, and
+- [x] T008 Implement plan §6: the `calls` counter, `_score(pipeline=...)`, and
       `benchmarks/two_tier_judging.py`. T007 passes. Then run
       `uv run python benchmarks/two_tier_judging.py compare` and commit
       `benchmarks/results/two_tier_judging.json` exactly as produced. Do NOT run `record` unless a
@@ -191,7 +164,7 @@ the sea."` with `success_indicators=["password"]` (both verified on d8e21e4, spe
 
 ## Phase 5 — Docs (FR-013)
 
-- [ ] T009 (partial; compare table blocked on #396) `docs/concepts/detection-pipeline.md`: section `## Two-Tier Judging (prefilter)` after
+- [x] T009 `docs/concepts/detection-pipeline.md`: section `## Two-Tier Judging (prefilter)` after
       #396's ensemble section (after `## Semantic Tier (optional)` if #397 merged): tier order
       diagram, the three routing rules (decided -> no call; cheap decides iff success/failure,
       confidence >= `max(escalate_below, llm_judge_confidence)`, no conflict; else escalate via
@@ -204,7 +177,7 @@ the sea."` with `success_indicators=["password"]` (both verified on d8e21e4, spe
 
 ## Phase 6 — Gates
 
-- [ ] T010 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T010 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%), `uv run python benchmarks/detection_regression.py`.
       Do not commit `uv.lock` drift. Commit `feat(detectors): two-tier judging with cheap-model
       prefilter` (no `!`, no `BREAKING CHANGE`, no `Co-Authored-By`); PR to `develop` linking

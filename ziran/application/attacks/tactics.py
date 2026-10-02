@@ -21,8 +21,9 @@ Usage::
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from ziran.application.detectors.ensemble import review_evidence
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.infrastructure.logging.logger import get_logger
 
@@ -110,6 +111,7 @@ class TacticExecutor:
         total_tokens = TokenUsage()
         last_response_content: str | None = None
         last_prompt_used: str | None = None
+        review: dict[str, Any] = {}
 
         for i, prompt_spec in enumerate(attack.prompts):
             rendered_prompt = render_fn(prompt_spec)
@@ -144,6 +146,8 @@ class TacticExecutor:
                     prompt_spec,
                     attack,
                 )
+                if verdict.needs_review:
+                    review = review_evidence(verdict)
 
                 if verdict.successful:
                     from ziran.application.detectors.side_effect import (
@@ -169,6 +173,7 @@ class TacticExecutor:
                             "tactic": attack.tactic,
                             "turn": i + 1,
                             "total_turns": len(attack.prompts),
+                            **review_evidence(verdict),
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
@@ -200,6 +205,7 @@ class TacticExecutor:
                 "note": "Multi-turn sequence completed without success",
                 "tactic": attack.tactic,
                 "turns_attempted": len(attack.prompts),
+                **review,
             },
             agent_response=last_response_content,
             prompt_used=last_prompt_used,

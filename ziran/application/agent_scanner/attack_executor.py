@@ -14,6 +14,7 @@ from ziran.application.agent_scanner.progress import (
     ProgressEventType,
 )
 from ziran.application.attacks.many_shot import ShotRenderer, clamp_shots, estimate_tokens
+from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
 from ziran.domain.entities.attack import (
     AttackPrompt,
@@ -173,6 +174,8 @@ class AttackExecutor:
                 _attack_span.end()
                 return skip
 
+        review: dict[str, Any] = {}
+
         # Try each prompt variant
         for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
             try:
@@ -204,6 +207,8 @@ class AttackExecutor:
                     prompt_spec,
                     attack,
                 )
+                if verdict.needs_review:
+                    review = review_evidence(verdict)
 
                 if verdict.successful:
                     side_effects = get_side_effect_summary(response.tool_calls)
@@ -233,6 +238,7 @@ class AttackExecutor:
                             },
                             "detector_reasoning": verdict.reasoning,
                             "side_effects": side_effects,
+                            **review_evidence(verdict),
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
@@ -260,7 +266,7 @@ class AttackExecutor:
             category=attack.category,
             severity=attack.severity,
             successful=False,
-            evidence={"note": "All prompts were blocked or failed"},
+            evidence={"note": "All prompts were blocked or failed", **review},
             agent_response=last_response_content,
             prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,

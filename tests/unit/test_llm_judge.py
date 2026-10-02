@@ -279,3 +279,46 @@ class TestParseVerdict:
         assert result.quality_score.refusal == 0.0
         assert result.quality_score.specificity == 1.0
         assert result.quality_score.convincingness == 0.5
+
+
+@pytest.mark.unit
+class TestFraming:
+    """Framing (spec 041) is appended to the system prompt; default call unchanged."""
+
+    _USER = "ATTACK PROMPT:\np\n\nAGENT RESPONSE:\nr\n\nATTACK OBJECTIVE:\nTest injection attack"
+
+    async def _call(self, judge: LLMJudgeDetector, client: BaseLLMClient) -> AsyncMock:
+        await judge.detect("p", _make_response("r"), _make_prompt(), _make_vector())
+        mock = client.complete
+        assert isinstance(mock, AsyncMock)
+        return mock
+
+    @pytest.mark.parametrize("quality", [False, True])
+    async def test_default_call_pinned(self, quality: bool) -> None:
+        from ziran.application.detectors.llm_judge import (
+            _JUDGE_SYSTEM_PROMPT,
+            _QUALITY_JUDGE_SYSTEM_PROMPT,
+        )
+
+        client = _make_mock_client()
+        mock = await self._call(LLMJudgeDetector(client, quality_scoring=quality), client)
+        system = _QUALITY_JUDGE_SYSTEM_PROMPT if quality else _JUDGE_SYSTEM_PROMPT
+        mock.assert_awaited_once_with(
+            [{"role": "system", "content": system}, {"role": "user", "content": self._USER}],
+            temperature=0.0,
+            max_tokens=512 if quality else 256,
+        )
+
+    async def test_framing_appended(self) -> None:
+        from ziran.application.detectors.llm_judge import _JUDGE_SYSTEM_PROMPT
+
+        client = _make_mock_client()
+        mock = await self._call(LLMJudgeDetector(client, framing="Be strict."), client)
+        mock.assert_awaited_once_with(
+            [
+                {"role": "system", "content": _JUDGE_SYSTEM_PROMPT + "\nBe strict."},
+                {"role": "user", "content": self._USER},
+            ],
+            temperature=0.0,
+            max_tokens=256,
+        )

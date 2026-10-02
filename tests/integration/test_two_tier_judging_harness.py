@@ -2,7 +2,6 @@
 
 Offline only: replayed frontier verdicts, stub or synthetic cheap verdicts. The
 synthetic cassette is a harness-correctness check, not an accuracy claim.
-``compare`` runs that escalate need ``DetectorPipeline.judge`` from #396.
 """
 
 from __future__ import annotations

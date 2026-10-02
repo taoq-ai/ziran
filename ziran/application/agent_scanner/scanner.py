@@ -142,7 +142,7 @@ class AgentScanner:
                 Supported keys:
                 - ``attack_timeout`` (float): Per-attack timeout in seconds.
                 - ``phase_timeout`` (float): Per-phase timeout in seconds.
-                - ``llm_client``: LLM client for AI-powered detectors.
+                - ``llm_client`` / ``detector_config``: LLM client / DetectorConfig for detectors.
         """
         self.adapter = adapter
         self.config = config or {}
@@ -166,6 +166,7 @@ class AgentScanner:
         self._detector_pipeline = DetectorPipeline(
             llm_client=self.config.get("llm_client"),
             quality_scoring=bool(self.config.get("quality_scoring")),
+            detector_config=self.config.get("detector_config"),
         )
 
     async def run_campaign(

@@ -212,7 +212,7 @@ class TestRouting:
 
 
 class TestEscalation:
-    """Escalation goes through ``DetectorPipeline.judge`` — blocked on #396."""
+    """Escalation goes through ``DetectorPipeline.judge`` (single or ensemble, spec 041)."""
 
     async def _assert_escalates(self, p: DetectorPipeline, frontier: _CountingClient) -> None:
         await _eval(p)
