@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, model_validator
 
+from ziran.application.detectors.ensemble import EnsembleConfig
+
 
 class DetectorThresholds(BaseModel):
     """Decision thresholds applied by :class:`DetectorPipeline`.
@@ -86,6 +88,10 @@ class DetectorThresholds(BaseModel):
         ge=0.0,
         le=1.0,
         description="Min LLM-judge confidence before its score is trusted.",
+    )
+    ensemble: EnsembleConfig = Field(
+        default_factory=EnsembleConfig,
+        description="LLM judge ensemble (spec 041). Disabled by default.",
     )
 
     @model_validator(mode="after")

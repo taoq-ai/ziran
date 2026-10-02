@@ -290,3 +290,71 @@ class TestMultiTurnVectorsYAML:
         for v in multi_turn:
             has_indicators = any(p.success_indicators for p in v.prompts)
             assert has_indicators, f"Vector {v.id} has no success_indicators on any prompt"
+
+
+# ── LLM judge ensemble evidence (spec 041) ───────────────────────────
+
+
+def _stub_llm(verdict: str) -> Any:
+    from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+    client = AsyncMock(spec=BaseLLMClient)
+    client.config = LLMConfig()
+    body = f'{{"verdict": "{verdict}", "confidence": 0.9, "reasoning": "r"}}'
+    client.complete = AsyncMock(return_value=LLMResponse(content=body, model="stub"))
+    return client
+
+
+def _judged_pipeline(*verdicts: str) -> DetectorPipeline:
+    from ziran.application.detectors.ensemble import EnsembleConfig
+    from ziran.application.detectors.pipeline import DetectorConfig
+    from ziran.application.detectors.thresholds import DetectorThresholds
+
+    if len(verdicts) == 1:
+        return DetectorPipeline(llm_client=_stub_llm(verdicts[0]))
+    names = ["a", "b"]
+    ensemble = EnsembleConfig(
+        enabled=True,
+        judges=[{"name": n, "model": "m"} for n in names],  # type: ignore[arg-type]
+    )
+    return DetectorPipeline(
+        llm_client=_stub_llm("failure"),
+        detector_config=DetectorConfig(
+            thresholds=DetectorThresholds(ensemble=ensemble),
+            judge_clients={n: _stub_llm(v) for n, v in zip(names, verdicts, strict=True)},
+        ),
+    )
+
+
+async def _run_multi_turn(*verdicts: str) -> Any:
+    adapter = AsyncMock()
+    adapter.invoke = AsyncMock(return_value=_make_response("Talking about the weather."))
+    executor = TacticExecutor(adapter)
+    return await executor.execute(_make_vector(), _judged_pipeline(*verdicts), _render_fn)
+
+
+_REVIEW_KEYS = {"needs_review", "judge_agreement", "judge_votes"}
+
+
+@pytest.mark.unit
+class TestEnsembleEvidence:
+    async def test_split_flags_unsuccessful_result(self) -> None:
+        result = await _run_multi_turn("success", "failure")
+        assert result.successful is False
+        assert set(result.evidence) == {"note", "tactic", "turns_attempted"} | _REVIEW_KEYS
+        assert result.evidence["needs_review"] is True
+        assert result.evidence["judge_agreement"] == 0.0
+        assert len(result.evidence["judge_votes"]) == 2
+
+    async def test_unanimous_success_evidence(self) -> None:
+        result = await _run_multi_turn("success", "success")
+        assert result.successful is True
+        assert set(result.evidence) >= _REVIEW_KEYS
+        assert result.evidence["needs_review"] is False
+
+    async def test_single_judge_evidence_unchanged(self) -> None:
+        ok = await _run_multi_turn("success")
+        assert ok.successful is True
+        assert not _REVIEW_KEYS & set(ok.evidence)
+        failed = await _run_multi_turn("failure")
+        assert set(failed.evidence) == {"note", "tactic", "turns_attempted"}

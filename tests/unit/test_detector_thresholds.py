@@ -57,3 +57,48 @@ def test_model_is_immutable() -> None:
     t = DetectorThresholds()
     with pytest.raises(ValidationError):
         t.hit = 0.9  # type: ignore[misc]
+
+
+# ── LLM judge ensemble block (spec 041) ──────────────────────────────
+
+_TWO = [{"name": "a"}, {"name": "b"}]
+
+
+def test_ensemble_disabled_by_default() -> None:
+    assert DetectorThresholds().ensemble.enabled is False
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"enabled": True, "judges": [{"name": "a"}]},
+        {"enabled": True, "judges": [{"name": "a"}, {"name": "a"}]},
+        {"enabled": True, "judges": _TWO, "min_margin": 3},
+        {"min_margin": 0},
+        {"needs_review_below": 1.5},
+        {"unknown": 1},
+    ],
+)
+def test_invalid_ensemble_rejected(kwargs: dict[str, object]) -> None:
+    from ziran.application.detectors.ensemble import EnsembleConfig
+
+    with pytest.raises(ValidationError):
+        EnsembleConfig(**kwargs)  # type: ignore[arg-type]
+
+
+def test_provider_requires_model() -> None:
+    from ziran.application.detectors.ensemble import JudgeMemberConfig
+
+    with pytest.raises(ValidationError, match="'provider' requires 'model'"):
+        JudgeMemberConfig(name="x", provider="openai")
+
+
+def test_valid_ensemble_configs() -> None:
+    from ziran.application.detectors.ensemble import EnsembleConfig
+
+    assert EnsembleConfig(enabled=False, judges=()).judges == ()
+    cfg = EnsembleConfig(enabled=True, judges=_TWO, min_margin=2)  # type: ignore[arg-type]
+    assert isinstance(cfg.judges, tuple)
+    assert [j.name for j in cfg.judges] == ["a", "b"]
+    with pytest.raises(ValidationError):
+        cfg.enabled = False  # type: ignore[misc]
