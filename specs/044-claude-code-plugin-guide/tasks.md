@@ -70,7 +70,7 @@ and its stdout pasted unchanged except trims marked `...`. Never type expected o
 - [x] T012 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%) all pass. `git diff --name-only origin/develop` lists
       only the files in plan §Project Structure (plus this spec dir). Revert any `uv.lock` drift.
-- [ ] T013 Commit (`docs(claude-code): guide and example for auditing Claude Code plugins`; the
+- [x] T013 Commit (`docs(claude-code): guide and example for auditing Claude Code plugins`; the
       test may be a separate `test(claude-code): ...` commit; no `Co-Authored-By`), push, open the
       PR against `develop` linking #423 / #415, list the commands run (FR-003) and state what is
       unverified (a real Claude Code hook producing traces; the Action on GitHub, covered by spec
