@@ -250,6 +250,12 @@ def create_embedder(config: SemanticConfig) -> BaseEmbedder | None:
 `api_key_env` set but the variable empty -> warning naming the variable (not its value), key
 `None` (mirrors `LiteLLMClient`). `ziran/infrastructure/llm/__init__.py` is not changed.
 
+**Implementation note (deviation, no contract change):** `embedding.py` calls
+`litellm_client._import_litellm()` through the module (`from ziran.infrastructure.llm import
+litellm_client`) instead of importing the function by name, so the documented test patch target
+`ziran.infrastructure.llm.litellm_client._import_litellm` takes effect. `SemanticConfig` is imported
+under `TYPE_CHECKING` only, so the infrastructure module has no runtime application import.
+
 ### 6. Benchmark (offline harness)
 
 `benchmarks/detection_accuracy.py` (edit, defaults keep today's output byte-for-byte):
@@ -318,6 +324,9 @@ uv run python benchmarks/semantic_detection.py compare [--cassette PATH] [--conf
   and prints rows: `refusal (regex)`, `refusal+semantic`, `pipeline`, `pipeline (semantic)`,
   `pipeline no-judge`, `pipeline no-judge (semantic)` with precision / recall / F1 / tp/fp/fn/tn.
 - The detection-accuracy workflow path filter is NOT extended; the comparison is not a CI gate.
+- Implementation note (addition): `semantic_detection.py` exposes `needed_texts(cfg:
+  SemanticConfig) -> list[str]` (the de-duplicated text list above), shared by `record`, `compare`
+  and the harness test.
 
 ### 7. Coordination with #396 / #398 (shared files)
 

@@ -174,3 +174,50 @@ cached verdict can drift from the live judge model, re-recording is a
 **deliberate, reviewed action** — warranted when the judge model or its system
 prompt changes materially. Re-recording regenerates the `recorded_judge` blocks
 and should be reviewed like any dataset change.
+
+## Semantic tier comparison (spec 042)
+
+The optional semantic tier ([Detection Pipeline](../../concepts/detection-pipeline.md#semantic-tier-optional))
+is configured by the `semantic` block of `.ziran/detectors.yaml`:
+
+| Key | Default | Status |
+|---|---|---|
+| `enabled` | `false` | off unless set |
+| `model` | `ollama/nomic-embed-text` | any litellm embedding model |
+| `refusal_threshold` | `0.75` | provisional, uncalibrated |
+| `success_threshold` | `0.80` | provisional, uncalibrated |
+| `margin` | `0.05` | provisional, uncalibrated |
+| `max_chars` | `2000` | characters embedded per response |
+| `timeout_seconds` | `10.0` | per-response embedding timeout |
+
+`benchmarks/semantic_detection.py` measures the tier on this dataset. `record` embeds every
+needed text once with a real model and writes a cassette keyed by the SHA-256 of each text
+(the cassette never contains response text). `compare` replays the cassette offline and writes
+`benchmarks/results/semantic_detection_comparison.json` with four runs: `regex`, `semantic`,
+`regex_no_judge` and `semantic_no_judge`. Semantic runs add a `refusal+semantic` detector row:
+the refusal decision with the semantic veto applied.
+
+```bash
+uv sync --extra llm
+uv run python benchmarks/semantic_detection.py record --model ollama/nomic-embed-text \
+    --base-url http://localhost:11434          # needs a running embedding model
+uv run python benchmarks/semantic_detection.py compare --format markdown   # offline
+```
+
+`compare` exits `2` when the cassette is missing or stale (a text it needs has no vector). It
+never falls back silently. The comparison is not a CI gate.
+
+Pipeline F1 with the replayed judge is already `1.0`, so it cannot improve. The tier is measured
+on the refusal decision (`refusal` vs `refusal+semantic`) and on the pipeline with the LLM judge
+disabled. Regex-only figures on the current dataset, produced by the harness:
+
+| Row | tp/fp/fn/tn |
+|---|---|
+| refusal (regex) | 52/12/0/52 |
+| pipeline no-judge (regex) | 52/0/26/144 |
+
+!!! warning "Semantic figures: not recorded in this release, unverified"
+
+    No embedding model was available when the tier landed, so no cassette is committed and
+    no semantic precision/recall figure exists yet. Run `record` and `compare` with a real
+    model, commit both files, and re-tune the threshold defaults from the recorded run.

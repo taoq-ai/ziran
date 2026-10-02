@@ -15,7 +15,7 @@ and can be told to raise or sleep.
 
 ## Phase 1 — Port and detector (FR-001, FR-004, FR-008)
 
-- [ ] T001 [P] Failing tests in `tests/unit/test_semantic_detector.py`:
+- [x] T001 [P] Failing tests in `tests/unit/test_semantic_detector.py`:
       - `cosine`: identical -> 1.0, orthogonal -> 0.0, zero vector -> 0.0, length mismatch ->
         `ValueError`.
       - `embedding_input("  abc  ", 2) == "ab"`.
@@ -31,24 +31,24 @@ and can be told to raise or sleep.
       - Leakage: no exemplar equals or is a case-insensitive substring of any
         `load_examples(DATASET_DIR)` `response_text`.
       Confirm they fail (`ModuleNotFoundError`).
-- [ ] T002 Implement `ziran/domain/interfaces/embedder.py` and
+- [x] T002 Implement `ziran/domain/interfaces/embedder.py` and
       `ziran/application/detectors/semantic.py` per plan §1-§2 (module docstring: tier purpose,
       decision table, "exemplars must never be copied from the benchmark dataset"). T001 passes;
       mypy strict clean.
 
 ## Phase 2 — Config block (FR-007, US5)
 
-- [ ] T003 [P] Failing tests in `tests/unit/test_detectors_config.py` (extend):
+- [x] T003 [P] Failing tests in `tests/unit/test_detectors_config.py` (extend):
       `load_detector_thresholds` on a YAML with a `semantic:` block -> `t.semantic.enabled is True`
       and given thresholds; partial block -> rest default; `semantic: {bogus: 1}` and
       `semantic: {refusal_threshold: 2}` -> `DetectorConfigError` whose message contains
       `semantic.`; a file without the block -> `t.semantic == SemanticConfig()`.
-- [ ] T004 Add the `semantic` field to `DetectorThresholds` per plan §3 (and the docstring line).
+- [x] T004 Add the `semantic` field to `DetectorThresholds` per plan §3 (and the docstring line).
       T003 passes; existing threshold tests pass unmodified.
 
 ## Phase 3 — Pipeline tier and resolution (FR-005, FR-006, US1, US2, US3.2-3.4, US5.2)
 
-- [ ] T005 Failing tests in `tests/unit/test_pipeline_semantic.py` (new), with
+- [x] T005 Failing tests in `tests/unit/test_pipeline_semantic.py` (new), with
       `DetectorConfig(thresholds=DetectorThresholds(semantic=SemanticConfig(enabled=True)))`:
       - US1.1/US1.2: the `admin password` paraphrase -> regex `RefusalDetector` score `1.0`;
         tier on -> `successful=False`, reasoning starts `"Semantic refusal detected: "`, a
@@ -74,16 +74,16 @@ and can be told to raise or sleep.
       - US5.2 `disabled={"semantic"}` with tier enabled -> embedder never called.
       - With an LLM judge stub (`ReplayLLMClient`-style returning failure) and a semantic success,
         the verdict is the semantic success (tier order).
-- [ ] T006 Implement the pipeline edits per plan §4 (constructor kwarg, init block, evaluate
+- [x] T006 Implement the pipeline edits per plan §4 (constructor kwarg, init block, evaluate
       block 6, two `_resolve` branches). T005 passes; all existing pipeline/detector tests pass
       unmodified; module docstring gains one line on the optional tier.
-- [ ] T007 Run the gate: `uv run python benchmarks/detection_regression.py` -> OK, pipeline F1
+- [x] T007 Run the gate: `uv run python benchmarks/detection_regression.py` -> OK, pipeline F1
       `1.0` delta `+0.0`, refusal F1 `0.8966`. `benchmarks/results/detection_accuracy_baseline.json`
       unchanged (`git diff --exit-code` on it).
 
 ## Phase 4 — LiteLLM adapter and graceful absence (FR-002, FR-003, US3.1, US3.4)
 
-- [ ] T008 [P] Failing tests in `tests/unit/test_embedding_client.py` (new), fake litellm via
+- [x] T008 [P] Failing tests in `tests/unit/test_embedding_client.py` (new), fake litellm via
       `patch("ziran.infrastructure.llm.litellm_client._import_litellm")` returning an object whose
       `aembedding` is an `AsyncMock` returning `SimpleNamespace(data=[{"embedding": [...]}, ...])`:
       - `LiteLLMEmbedder("ollama/nomic-embed-text", base_url="http://localhost:11434")` passes
@@ -97,15 +97,15 @@ and can be told to raise or sleep.
         and one warning containing `uv sync --extra llm`.
       - With `sys.modules["litellm"] = None` (monkeypatch), importing
         `ziran.application.detectors.pipeline` and `ziran.infrastructure.llm.embedding` succeeds.
-- [ ] T009 Implement `ziran/infrastructure/llm/embedding.py` per plan §5. T008 passes.
+- [x] T009 Implement `ziran/infrastructure/llm/embedding.py` per plan §5. T008 passes.
 
 ## Phase 5 — Benchmark harness (FR-009, FR-010, US4)
 
-- [ ] T010 [P] Failing tests in `tests/unit/test_replay_embedder.py` (new): `text_key` is SHA-256
+- [x] T010 [P] Failing tests in `tests/unit/test_replay_embedder.py` (new): `text_key` is SHA-256
       hex; `ReplayEmbedder.embed` returns cassette vectors in order; unknown text ->
       `MissingEmbeddingError` whose message does not contain the text; `missing()` lists absent
       keys; `EmbeddingCassette` rejects `version: 2` and unknown keys.
-- [ ] T011 [P] Failing tests in `tests/integration/test_semantic_detection_harness.py` (new):
+- [x] T011 [P] Failing tests in `tests/integration/test_semantic_detection_harness.py` (new):
       - `run_benchmark(DATASET_DIR)` keys are still exactly the four in-scope detectors and its
         pipeline/detector metrics equal the pre-change values (52/12/0/52 refusal).
       - A synthetic cassette in `tmp_path` covering every needed text (deterministic fake vectors,
@@ -118,13 +118,13 @@ and can be told to raise or sleep.
       - `record` with `_import_litellm` raising `ImportError` -> exit `2`; with a fake litellm
         returning fixed vectors -> writes a valid cassette containing every needed key and no
         dataset text.
-- [ ] T012 Implement `benchmarks/replay_embedder.py`, the `benchmarks/detection_accuracy.py`
+- [x] T012 Implement `benchmarks/replay_embedder.py`, the `benchmarks/detection_accuracy.py`
       kwargs + `refusal+semantic` row, and `benchmarks/semantic_detection.py` per plan §6.
       T010-T011 pass; T007 gate still OK.
 
 ## Phase 6 — Real-model measurement (US4.4-4.5) — only if possible
 
-- [ ] T013 If a local embedding model is reachable without API keys (e.g. `ollama pull
+- [x] T013 (no model available: harness only, criterion UNVERIFIED) If a local embedding model is reachable without API keys (e.g. `ollama pull
       nomic-embed-text` then `ollama serve`): run `record --model ollama/nomic-embed-text`, then
       `compare`; commit the cassette and `benchmarks/results/semantic_detection_comparison.json`;
       if the numbers justify it, re-tune the `SemanticConfig` threshold defaults from the recorded
@@ -134,17 +134,17 @@ and can be told to raise or sleep.
 
 ## Phase 7 — Docs and gates (FR-011, SC-005)
 
-- [ ] T014 [P] `docs/concepts/detection-pipeline.md`: section `## Semantic Tier (optional)` after
+- [x] T014 [P] `docs/concepts/detection-pipeline.md`: section `## Semantic Tier (optional)` after
       `## Priority Resolution` — placement in the tier order, when it runs, the two resolution
       branches, the `semantic` YAML block, `create_embedder` / `DetectorPipeline(embedder=...)`
       library usage, fallback without the `llm` extra, and that `ziran scan` does not yet read
       `.ziran/detectors.yaml`.
-- [ ] T015 [P] `docs/reference/benchmarks/detection-accuracy.md`: `semantic` thresholds table
+- [x] T015 [P] `docs/reference/benchmarks/detection-accuracy.md`: `semantic` thresholds table
       (defaults, calibrated or "provisional, uncalibrated"), `semantic_detection.py record/compare`
       usage, and the comparison table copied from the committed artifact, or an explicit
       "not recorded in this release: unverified" note.
-- [ ] T016 Run `.specify/scripts/bash/update-agent-context.sh claude` and commit the `CLAUDE.md`
+- [x] T016 Run `.specify/scripts/bash/update-agent-context.sh claude` and commit the `CLAUDE.md`
       line for this feature with the implementation.
-- [ ] T017 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T017 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%), `uv run python benchmarks/detection_regression.py`;
       `git diff origin/develop -- uv.lock pyproject.toml` empty.
