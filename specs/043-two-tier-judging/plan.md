@@ -249,17 +249,25 @@ Body (exact semantics):
 6. Else: `self._tier_counts["escalated"] += 1`; `logger.debug("prefilter_escalated",
    reason=reason)`; `return await self.judge(prompt, response, prompt_spec, vector)`.
 
+Correction found during implementation: `LLMJudgeDetector.detect` catches client exceptions itself
+and returns score `0.5` / confidence `0.0` ("LLM judge error: ..."), so a cheap client that raises
+escalates with reason `"ambiguous"`, not `"error"`. `prefilter_failed(error_type=...)` fires only
+for an exception escaping `detect`; the US3.2 "type only" log test therefore patches
+`_prefilter.detect` to raise. (`LLMJudgeDetector`'s own `llm_judge_failed` log still carries
+`str(exc)` — pre-existing behaviour, out of scope.)
+
 `_resolve`: the conservative-default return uses `reasoning=_NO_SIGNAL_REASONING` (same string as
 today; #396 adds `needs_review=review` to the same return). Nothing else in `_resolve` changes.
 
 ### 4. Campaign summary
 
-`ziran/application/agent_scanner/scanner.py`, `run_campaign`, right after
-`campaign_result, dangerous_chains = result_builder.build(...)`:
-```python
-if tiers := self._detector_pipeline.tier_counts:
-    campaign_result.metadata["judge_tiers"] = tiers
-```
+`ziran/application/agent_scanner/scanner.py`, `run_campaign`: one kwarg on the existing
+`result_builder.build(...)` call, `judge_tiers=self._detector_pipeline.tier_counts`; and
+`ResultBuilder.build(..., judge_tiers: dict[str, int] | None = None)` sets
+`metadata["judge_tiers"]` only when it is non-empty. (Changed during implementation:
+`tests/unit/application/test_scanner_size.py` caps `scanner.py` at 750 lines; develop is at
+749 and #396 adds one, so the scanner edit has to be net zero. The redundant
+`# Build final result via ResultBuilder` comment was dropped to pay for the kwarg line.)
 
 `ziran/interfaces/cli/main.py`, `_display_results`, after the token rows:
 ```python
