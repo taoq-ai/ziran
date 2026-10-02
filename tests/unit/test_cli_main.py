@@ -1076,3 +1076,83 @@ class TestValidateCommand:
             result = runner.invoke(cli, ["validate", f.name])
 
         assert result.exit_code != 0
+
+
+@pytest.mark.unit
+class TestScanDetectorConfig:
+    """`_scan_detector_config` builds the ensemble config for `ziran scan` (spec 041)."""
+
+    _ENSEMBLE = (
+        "hit: 0.8\n"
+        "ensemble:\n"
+        "  enabled: true\n"
+        "  judges:\n"
+        "    - name: primary\n"
+        "    - name: second\n"
+        "      model: m2\n"
+    )
+
+    @pytest.fixture
+    def calls(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[dict[str, Any]]:
+        recorded: list[dict[str, Any]] = []
+
+        def _create(**kwargs: Any) -> Any:
+            recorded.append(kwargs)
+            return MagicMock(name=f"client-{kwargs['model']}")
+
+        monkeypatch.setattr("ziran.infrastructure.llm.create_llm_client", _create)
+        monkeypatch.chdir(tmp_path)
+        return recorded
+
+    @staticmethod
+    def _write(text: str) -> None:
+        Path(".ziran").mkdir(exist_ok=True)
+        Path(".ziran/detectors.yaml").write_text(text, encoding="utf-8")
+
+    @staticmethod
+    def _call() -> Any:
+        from ziran.interfaces.cli.main import _scan_detector_config
+
+        return _scan_detector_config(
+            llm_provider="litellm", llm_rpm=10, llm_tpm=1000, llm_max_retries=2
+        )
+
+    def test_no_file_returns_none(self, calls: list[dict[str, Any]]) -> None:
+        assert self._call() is None
+
+    def test_disabled_returns_none(self, calls: list[dict[str, Any]]) -> None:
+        self._write("hit: 0.8\nensemble:\n  enabled: false\n")
+        assert self._call() is None
+
+    def test_enabled_builds_config(self, calls: list[dict[str, Any]]) -> None:
+        from ziran.application.detectors.thresholds import DetectorThresholds
+        from ziran.infrastructure.config.detectors import load_detector_thresholds
+
+        self._write(self._ENSEMBLE)
+        config = self._call()
+        assert config.thresholds.ensemble == load_detector_thresholds().ensemble
+        assert config.thresholds.hit == DetectorThresholds().hit
+        assert list(config.judge_clients) == ["second"]
+        assert calls == [
+            {"provider": "litellm", "model": "m2", "rpm": 10, "tpm": 1000, "max_retries": 2}
+        ]
+
+    def test_invalid_file_raises(self, calls: list[dict[str, Any]]) -> None:
+        import click
+
+        self._write("ensemble:\n  enabled: true\n  judges:\n    - name: a\n")
+        with pytest.raises(click.ClickException, match="ensemble"):
+            self._call()
+
+    def test_client_failure_raises(
+        self, calls: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import click
+
+        def _boom(**kwargs: Any) -> Any:
+            raise RuntimeError("no key")
+
+        monkeypatch.setattr("ziran.infrastructure.llm.create_llm_client", _boom)
+        self._write(self._ENSEMBLE)
+        with pytest.raises(click.ClickException, match="no key"):
+            self._call()

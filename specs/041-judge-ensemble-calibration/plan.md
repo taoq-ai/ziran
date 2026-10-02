@@ -321,7 +321,8 @@ both evidence dicts are exactly today's.
 
 `ziran/application/agent_scanner/scanner.py`, `AgentScanner.__init__`: pass
 `detector_config=self.config.get("detector_config")` to `DetectorPipeline(...)`; add the key to the
-docstring's supported keys.
+docstring's supported keys. (Implementation note: merged into the existing `llm_client` docstring
+line, because `tests/unit/application/test_scanner_size.py` caps `scanner.py` at 750 lines.)
 
 `ziran/interfaces/cli/main.py`, new helper next to the other `_` helpers:
 ```python
