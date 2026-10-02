@@ -481,6 +481,8 @@ class AgentScanner:
             defence_profile=defence_profile,
         )
         self._discovered_chains = dangerous_chains
+        if tiers := self._detector_pipeline.tier_counts:
+            campaign_result.metadata["judge_tiers"] = tiers
 
         duration = campaign_result.metadata["duration_seconds"]
 

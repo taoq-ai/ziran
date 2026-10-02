@@ -1757,6 +1757,13 @@ def _display_results(result: CampaignResult) -> None:
         summary_table.add_row("Prompt Tokens", f"{tokens['prompt_tokens']:,}")
         summary_table.add_row("Completion Tokens", f"{tokens['completion_tokens']:,}")
         summary_table.add_row("Total Tokens", f"[bold]{tokens['total_tokens']:,}[/bold]")
+    tiers = result.metadata.get("judge_tiers")
+    if tiers:
+        summary_table.add_row(
+            "Judge Routing",
+            f"deterministic {tiers['deterministic']} · cheap {tiers['cheap']} · "
+            f"escalated {tiers['escalated']}",
+        )
     if result.coverage_level:
         summary_table.add_row("Coverage Level", result.coverage_level)
 

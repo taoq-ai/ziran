@@ -913,6 +913,23 @@ class TestDisplayResults:
         result = CampaignResult.model_validate(_vulnerable_campaign_result())
         _display_results(result)  # Should not raise
 
+    @pytest.mark.parametrize("with_tiers", [True, False])
+    def test_display_judge_routing_row(self, with_tiers: bool) -> None:
+        from rich.console import Console
+
+        from ziran.domain.entities.phase import CampaignResult
+        from ziran.interfaces.cli.main import _display_results
+
+        data = _minimal_campaign_result()
+        if with_tiers:
+            data["metadata"] = {"judge_tiers": {"deterministic": 3, "cheap": 2, "escalated": 1}}
+        rec = Console(record=True, width=200)
+        with patch("ziran.interfaces.cli.main.console", rec):
+            _display_results(CampaignResult.model_validate(data))
+        out = rec.export_text()
+        assert ("Judge Routing" in out) is with_tiers
+        assert ("deterministic 3 · cheap 2 · escalated 1" in out) is with_tiers
+
 
 # ── dry-run mode ──────────────────────────────────────────────────────
 
@@ -1076,3 +1093,118 @@ class TestValidateCommand:
             result = runner.invoke(cli, ["validate", f.name])
 
         assert result.exit_code != 0
+
+
+@pytest.mark.unit
+class TestScanDetectorConfigPrefilter:
+    """`_scan_detector_config` prefilter wiring (spec 043; helper lands with #396)."""
+
+    @pytest.fixture
+    def calls(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[dict[str, Any]]:
+        recorded: list[dict[str, Any]] = []
+
+        def _create(**kwargs: Any) -> Any:
+            recorded.append(kwargs)
+            return MagicMock(name=f"client-{kwargs['model']}")
+
+        monkeypatch.setattr("ziran.infrastructure.llm.create_llm_client", _create)
+        monkeypatch.chdir(tmp_path)
+        return recorded
+
+    @staticmethod
+    def _write(text: str) -> None:
+        Path(".ziran").mkdir(exist_ok=True)
+        Path(".ziran/detectors.yaml").write_text(text, encoding="utf-8")
+
+    @staticmethod
+    def _call() -> Any:
+        from ziran.interfaces.cli.main import _scan_detector_config
+
+        return _scan_detector_config(
+            llm_provider="litellm", llm_rpm=10, llm_tpm=1000, llm_max_retries=2
+        )
+
+    def test_prefilter_only(self, calls: list[dict[str, Any]]) -> None:
+        self._write("prefilter:\n  enabled: true\n  model: m\n")
+        config = self._call()
+        assert config.thresholds.prefilter.model == "m"
+        assert config.judge_clients == {}
+        assert config.prefilter_client is not None
+        assert calls == [
+            {"provider": "litellm", "model": "m", "rpm": 10, "tpm": 1000, "max_retries": 2}
+        ]
+
+    def test_prefilter_provider_override(self, calls: list[dict[str, Any]]) -> None:
+        self._write("prefilter:\n  enabled: true\n  model: m\n  provider: other\n")
+        self._call()
+        assert calls[0]["provider"] == "other"
+
+    def test_both_disabled_returns_none(self, calls: list[dict[str, Any]]) -> None:
+        self._write("prefilter:\n  enabled: false\nensemble:\n  enabled: false\n")
+        assert self._call() is None
+        assert calls == []
+
+    def test_prefilter_without_model_raises(self, calls: list[dict[str, Any]]) -> None:
+        import click
+
+        self._write("prefilter:\n  enabled: true\n")
+        with pytest.raises(click.ClickException, match="prefilter"):
+            self._call()
+
+    def test_prefilter_client_failure_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import click
+
+        def _boom(**kwargs: Any) -> Any:
+            raise ImportError("litellm missing")
+
+        monkeypatch.setattr("ziran.infrastructure.llm.create_llm_client", _boom)
+        self._write("prefilter:\n  enabled: true\n  model: m\n")
+        with pytest.raises(click.ClickException, match=r"^cannot create prefilter client:"):
+            self._call()
+
+    def test_disabled_ensemble_members_not_built(self, calls: list[dict[str, Any]]) -> None:
+        self._write(
+            "ensemble:\n  enabled: false\n  judges:\n    - name: a\n      model: ma\n"
+            "    - name: b\n      model: mb\n"
+            "prefilter:\n  enabled: true\n  model: m\n"
+        )
+        config = self._call()
+        assert config.judge_clients == {}
+        assert [c["model"] for c in calls] == ["m"]
+
+    @patch("ziran.interfaces.cli.main.load_agent_adapter")
+    @patch("ziran.interfaces.cli.main.AgentScanner")
+    @patch("ziran.interfaces.cli.main.asyncio")
+    def test_scan_wires_prefilter(
+        self,
+        mock_asyncio: MagicMock,
+        mock_scanner_cls: MagicMock,
+        mock_load: MagicMock,
+        calls: list[dict[str, Any]],
+        tmp_path: Path,
+    ) -> None:
+        from ziran.domain.entities.phase import CampaignResult
+
+        self._write("prefilter:\n  enabled: true\n  model: m\n")
+        mock_asyncio.run.return_value = CampaignResult.model_validate(_minimal_campaign_result())
+        agent = tmp_path / "agent.py"
+        agent.write_text("agent_executor = None\n", encoding="utf-8")
+        result = CliRunner().invoke(
+            cli,
+            [
+                "scan",
+                "--framework",
+                "langchain",
+                "--agent-path",
+                str(agent),
+                "--llm-provider",
+                "litellm",
+                "--output",
+                str(tmp_path / "out"),
+            ],
+            catch_exceptions=False,
+        )
+        scanner_config = mock_scanner_cls.call_args.kwargs["config"]
+        assert scanner_config["detector_config"].prefilter_client is not None
+        assert "LLM judge prefilter: m" in result.output
+        assert "LLM judge ensemble" not in result.output
