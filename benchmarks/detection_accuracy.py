@@ -30,6 +30,7 @@ from benchmarks.ground_truth.schema import (
     DetectionExample,
 )
 from benchmarks.replay_llm_client import ReplayLLMClient
+from ziran.application.detectors.ensemble import EnsembleConfig
 from ziran.application.detectors.pipeline import DetectorConfig, DetectorPipeline
 from ziran.application.detectors.thresholds import DetectorThresholds
 from ziran.domain.entities.attack import AttackPrompt
@@ -144,9 +145,11 @@ async def _score(
     disabled: frozenset[str] = frozenset(),
 ) -> DetectorAccuracyResult:
     replay = ReplayLLMClient(examples)
+    # Fixtures replay one judge verdict per example, so always score the single judge.
+    single = thresholds.model_copy(update={"ensemble": EnsembleConfig()})
     pipeline = DetectorPipeline(
         llm_client=replay,
-        detector_config=DetectorConfig(thresholds=thresholds, disabled=set(disabled)),
+        detector_config=DetectorConfig(thresholds=single, disabled=set(disabled)),
         embedder=embedder,
     )
 

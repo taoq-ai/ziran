@@ -21,6 +21,7 @@ from ziran import __version__
 from ziran.application.agent_scanner.checkpoint import DEFAULT_FLUSH_INTERVAL_SECONDS
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
+from ziran.application.detectors.pipeline import DetectorConfig
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.defence import DefenceProfile
@@ -527,6 +528,19 @@ def scan(
             )
         except Exception as e:
             console.print(f"[yellow]Warning:[/yellow] Failed to initialize LLM client: {e}")
+
+    if llm_client is not None:
+        detector_config = _scan_detector_config(
+            llm_provider=llm_provider or "litellm",
+            llm_rpm=llm_rpm,
+            llm_tpm=llm_tpm,
+            llm_max_retries=llm_max_retries,
+        )
+        if detector_config is not None:
+            scanner_config["detector_config"] = detector_config
+            assert detector_config.thresholds is not None
+            n_judges = len(detector_config.thresholds.ensemble.judges)
+            console.print(f"[dim]LLM judge ensemble: {n_judges} judges[/dim]")
 
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
     coverage_level = CoverageLevel(coverage.lower())
@@ -1605,6 +1619,48 @@ def _display_gate_result(gate: Any) -> None:
 # ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
+
+
+def _scan_detector_config(
+    *,
+    llm_provider: str,
+    llm_rpm: int | None,
+    llm_tpm: int | None,
+    llm_max_retries: int | None,
+) -> DetectorConfig | None:
+    """Ensemble detector config for ``ziran scan`` from ``.ziran/detectors.yaml`` (spec 041).
+
+    None unless ``ensemble.enabled``. Raises :class:`click.ClickException` on an invalid
+    file or a member client that cannot be created.
+    """
+    from ziran.application.detectors.thresholds import DetectorThresholds
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+    from ziran.infrastructure.llm import create_llm_client
+
+    try:
+        ensemble = load_detector_thresholds().ensemble
+    except DetectorConfigError as exc:
+        raise click.ClickException(str(exc)) from None
+    if not ensemble.enabled:
+        return None
+    try:
+        clients = {
+            j.name: create_llm_client(
+                provider=j.provider or llm_provider,
+                model=j.model,
+                rpm=llm_rpm,
+                tpm=llm_tpm,
+                max_retries=llm_max_retries,
+            )
+            for j in ensemble.judges
+            if j.model
+        }
+    except Exception as exc:
+        raise click.ClickException(f"cannot create ensemble judge client: {exc}") from None
+    return DetectorConfig(thresholds=DetectorThresholds(ensemble=ensemble), judge_clients=clients)
 
 
 def _warn_config_issues(

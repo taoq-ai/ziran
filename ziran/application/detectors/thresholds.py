@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, model_validator
 
+from ziran.application.detectors.ensemble import EnsembleConfig
 from ziran.application.detectors.semantic import SemanticConfig
 
 
@@ -93,6 +94,10 @@ class DetectorThresholds(BaseModel):
     semantic: SemanticConfig = Field(
         default_factory=SemanticConfig,
         description="Optional embedding-similarity tier (spec 042). Off by default.",
+    )
+    ensemble: EnsembleConfig = Field(
+        default_factory=EnsembleConfig,
+        description="LLM judge ensemble (spec 041). Disabled by default.",
     )
 
     @model_validator(mode="after")

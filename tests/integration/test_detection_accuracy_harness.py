@@ -42,3 +42,15 @@ def test_seed_pipeline_classifies_correctly() -> None:
     # Seed is constructed so the pipeline agrees with every overall label.
     assert result.pipeline.confusion.fp == 0
     assert result.pipeline.confusion.fn == 0
+
+
+def test_harness_ignores_ensemble_block() -> None:
+    """Spec 041: the benchmark always scores the single replayed judge."""
+    from ziran.application.detectors.ensemble import EnsembleConfig, JudgeMemberConfig
+
+    ensemble = EnsembleConfig(
+        enabled=True,
+        judges=(JudgeMemberConfig(name="primary"), JudgeMemberConfig(name="second", model="m2")),
+    )
+    result = run_benchmark(DATASET_DIR, DetectorThresholds(ensemble=ensemble))
+    assert result.pipeline.model_dump() == run_benchmark(DATASET_DIR).pipeline.model_dump()

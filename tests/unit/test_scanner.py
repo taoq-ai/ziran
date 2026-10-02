@@ -564,3 +564,91 @@ class TestScannerLLMClientWiring:
             config={},
         )
         assert scanner._detector_pipeline._llm_judge is None
+
+
+# ── LLM judge ensemble evidence (spec 041) ───────────────────────────
+
+
+def _stub_llm(verdict: str) -> Any:
+    from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+    client = AsyncMock(spec=BaseLLMClient)
+    client.config = LLMConfig()
+    body = f'{{"verdict": "{verdict}", "confidence": 0.9, "reasoning": "r"}}'
+    client.complete = AsyncMock(return_value=LLMResponse(content=body, model="stub"))
+    return client
+
+
+def _ensemble_scanner(*verdicts: str) -> AgentScanner:
+    from ziran.application.detectors.ensemble import EnsembleConfig
+    from ziran.application.detectors.pipeline import DetectorConfig
+    from ziran.application.detectors.thresholds import DetectorThresholds
+
+    config: dict[str, Any] = {"llm_client": _stub_llm(verdicts[0])}
+    if len(verdicts) > 1:
+        names = ["a", "b"]
+        ensemble = EnsembleConfig(
+            enabled=True,
+            judges=[{"name": n, "model": "m"} for n in names],  # type: ignore[arg-type]
+        )
+        config["detector_config"] = DetectorConfig(
+            thresholds=DetectorThresholds(ensemble=ensemble),
+            judge_clients={n: _stub_llm(v) for n, v in zip(names, verdicts, strict=True)},
+        )
+    adapter = MockAgentAdapter(responses=["Some generic response about the weather."])
+    return AgentScanner(adapter=adapter, attack_library=AttackLibrary(), config=config)
+
+
+def _vector() -> Any:
+    from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
+
+    return AttackVector(
+        id="ens",
+        name="Ensemble",
+        category=AttackCategory.PROMPT_INJECTION,
+        target_phase=ScanPhase.VULNERABILITY_DISCOVERY,
+        description="d",
+        severity="high",
+        prompts=[AttackPrompt(template="t", success_indicators=["impossible_xyz"])],
+    )
+
+
+_SUCCESS_KEYS = {
+    "response_snippet",
+    "tool_calls",
+    "matched_indicators",
+    "detector_scores",
+    "detector_reasoning",
+    "side_effects",
+}
+_REVIEW_KEYS = {"needs_review", "judge_agreement", "judge_votes"}
+
+
+@pytest.mark.unit
+class TestEnsembleEvidence:
+    def test_detector_config_passthrough(self) -> None:
+        from ziran.application.detectors.ensemble import EnsembleJudge
+
+        assert isinstance(
+            _ensemble_scanner("success", "failure")._detector_pipeline._llm_judge, EnsembleJudge
+        )
+
+    async def test_split_flags_unsuccessful_result(self) -> None:
+        result = await _ensemble_scanner("success", "failure")._execute_attack(_vector())
+        assert result.successful is False
+        assert result.evidence["note"] == "All prompts were blocked or failed"
+        assert result.evidence["needs_review"] is True
+        assert result.evidence["judge_agreement"] == 0.0
+        assert len(result.evidence["judge_votes"]) == 2
+
+    async def test_unanimous_success_evidence(self) -> None:
+        result = await _ensemble_scanner("success", "success")._execute_attack(_vector())
+        assert result.successful is True
+        assert set(result.evidence) == _SUCCESS_KEYS | _REVIEW_KEYS
+        assert result.evidence["needs_review"] is False
+
+    async def test_single_judge_evidence_unchanged(self) -> None:
+        ok = await _ensemble_scanner("success")._execute_attack(_vector())
+        assert set(ok.evidence) == _SUCCESS_KEYS
+        failed = await _ensemble_scanner("failure")._execute_attack(_vector())
+        assert set(failed.evidence) == {"note"}
