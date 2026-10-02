@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-09-29
+Auto-generated from all feature plans. Last updated: 2026-10-02
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -46,6 +46,8 @@ Auto-generated from all feature plans. Last updated: 2026-09-29
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), existing `StaticAnalyzer`, `ToolChainAnalyzer` (NetworkX) and #416 `load_claude_code`. No new dependencies. (038-audit-claude-code-plugins)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13); composite action in bash. + Click, stdlib `json`/`pathlib`, existing `ziran/application/cicd/sarif.py`, #419 `--baseline`; action uses setup-python + upload-sarif (already used). No new dependencies. (040-action-plugin-audit)
 - N/A. Files: the SARIF output, the user-committed baseline. (040-action-plugin-audit)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (config + benchmark models), stdlib `asyncio`; reuses `LLMJudgeDetector`, `create_llm_client`, `ReplayLLMClient`. No new dependencies. (043-two-tier-judging)
+- N/A at runtime. Benchmark: optional cheap-model cassette `benchmarks/ground_truth/prefilter_verdicts.json`, result `benchmarks/results/two_tier_judging.json`. (043-two-tier-judging)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -65,10 +67,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 043-two-tier-judging: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (config + benchmark models), stdlib `asyncio`; reuses `LLMJudgeDetector`, `create_llm_client`, `ReplayLLMClient`. No new dependencies.
 - 040-action-plugin-audit: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); composite action in bash. + Click, stdlib `json`/`pathlib`, existing `ziran/application/cicd/sarif.py`, #419 `--baseline`; action uses setup-python + upload-sarif (already used). No new dependencies.
 - 039-audit-allowlist-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click, Pydantic v2 (baseline file models); reuses #418 `agent_chains`. No new dependencies.
-- 038-audit-claude-code-plugins: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click (CLI), existing `StaticAnalyzer`, `ToolChainAnalyzer` (NetworkX) and #416 `load_claude_code`. No new dependencies.
-- 037-claude-code-plugin-parser: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (models), PyYAML `safe_load`/`compose` (frontmatter), stdlib `json`/`re`; reuses `load_claude_mcp_config` (#422) and the domain `is_dangerous` classifier. No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->
