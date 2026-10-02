@@ -1151,7 +1151,9 @@ class TestScanDetectorConfigPrefilter:
         with pytest.raises(click.ClickException, match="prefilter"):
             self._call()
 
-    def test_prefilter_client_failure_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_prefilter_client_failure_raises(
+        self, calls: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         import click
 
         def _boom(**kwargs: Any) -> Any:

@@ -462,7 +462,6 @@ class AgentScanner:
             _post_score, _post_results = await measurer.measure()
             logger.info("post_attack_utility_measured", score_pct=round(_post_score * 100, 1))
 
-        # Build final result via ResultBuilder
         result_builder = ResultBuilder(self.graph, type(self.adapter).__name__)
         campaign_result, dangerous_chains = result_builder.build(
             campaign_id=campaign_id,
@@ -479,10 +478,9 @@ class AgentScanner:
             post_results=_post_results,
             utility_tasks_count=len(utility_tasks or []),
             defence_profile=defence_profile,
+            judge_tiers=self._detector_pipeline.tier_counts,
         )
         self._discovered_chains = dangerous_chains
-        if tiers := self._detector_pipeline.tier_counts:
-            campaign_result.metadata["judge_tiers"] = tiers
 
         duration = campaign_result.metadata["duration_seconds"]
 
