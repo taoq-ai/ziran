@@ -652,3 +652,59 @@ class TestEnsembleEvidence:
         assert set(ok.evidence) == _SUCCESS_KEYS
         failed = await _ensemble_scanner("failure")._execute_attack(_vector())
         assert set(failed.evidence) == {"note"}
+
+
+@pytest.mark.unit
+class TestJudgeTierMetadata:
+    """Two-tier judging counters in the campaign summary (spec 043)."""
+
+    async def test_judge_tiers_recorded(
+        self, vulnerable_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
+        from ziran.application.detectors.pipeline import DetectorConfig
+        from ziran.application.detectors.prefilter import PrefilterConfig
+        from ziran.application.detectors.thresholds import DetectorThresholds
+        from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+        class _Stub(BaseLLMClient):
+            def __init__(self) -> None:
+                super().__init__(LLMConfig())
+
+            async def complete(self, messages: list[dict[str, str]], **kw: Any) -> LLMResponse:
+                return LLMResponse(content='{"verdict":"failure","confidence":0.95}')
+
+            async def health_check(self) -> bool:
+                return True
+
+        detector_config = DetectorConfig(
+            thresholds=DetectorThresholds(prefilter=PrefilterConfig(enabled=True, model="cheap")),
+            prefilter_client=_Stub(),
+        )
+        scanner = AgentScanner(
+            adapter=vulnerable_adapter,
+            attack_library=shared_attack_library,
+            config={"llm_client": _Stub(), "detector_config": detector_config},
+        )
+        pipeline = scanner._detector_pipeline
+        assert pipeline.tier_counts == {"deterministic": 0, "cheap": 0, "escalated": 0}
+        evaluate = pipeline.evaluate
+        calls = 0
+
+        async def spy(*a: Any, **k: Any) -> Any:
+            nonlocal calls
+            calls += 1
+            return await evaluate(*a, **k)
+
+        pipeline.evaluate = spy  # type: ignore[method-assign]
+        result = await scanner.run_campaign(phases=[ScanPhase.VULNERABILITY_DISCOVERY])
+        tiers = result.metadata["judge_tiers"]
+        assert set(tiers) == {"deterministic", "cheap", "escalated"}
+        assert calls > 0
+        assert sum(tiers.values()) == calls
+
+    async def test_judge_tiers_absent_when_prefilter_off(
+        self, mock_adapter: MockAgentAdapter, shared_attack_library: AttackLibrary
+    ) -> None:
+        scanner = AgentScanner(adapter=mock_adapter, attack_library=shared_attack_library)
+        result = await scanner.run_campaign(phases=[ScanPhase.VULNERABILITY_DISCOVERY])
+        assert "judge_tiers" not in result.metadata

@@ -143,15 +143,17 @@ async def _score(
     *,
     embedder: BaseEmbedder | None = None,
     disabled: frozenset[str] = frozenset(),
+    pipeline: DetectorPipeline | None = None,
 ) -> DetectorAccuracyResult:
-    replay = ReplayLLMClient(examples)
-    # Fixtures replay one judge verdict per example, so always score the single judge.
-    single = thresholds.model_copy(update={"ensemble": EnsembleConfig()})
-    pipeline = DetectorPipeline(
-        llm_client=replay,
-        detector_config=DetectorConfig(thresholds=single, disabled=set(disabled)),
-        embedder=embedder,
-    )
+    # A caller-built pipeline (spec 043 harness) is used as-is.
+    if pipeline is None:
+        # Fixtures replay one judge verdict per example, so always score the single judge.
+        single = thresholds.model_copy(update={"ensemble": EnsembleConfig()})
+        pipeline = DetectorPipeline(
+            llm_client=ReplayLLMClient(examples),
+            detector_config=DetectorConfig(thresholds=single, disabled=set(disabled)),
+            embedder=embedder,
+        )
 
     keys = list(IN_SCOPE_DETECTORS)
     if embedder is not None and thresholds.semantic.enabled and "semantic" not in disabled:

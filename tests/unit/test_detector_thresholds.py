@@ -102,3 +102,38 @@ def test_valid_ensemble_configs() -> None:
     assert [j.name for j in cfg.judges] == ["a", "b"]
     with pytest.raises(ValidationError):
         cfg.enabled = False  # type: ignore[misc]
+
+
+# ── Prefilter block (spec 043) ────────────────────────────────────────
+
+
+def test_prefilter_disabled_by_default() -> None:
+    assert DetectorThresholds().prefilter.enabled is False
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"enabled": True},
+        {"provider": "openai"},
+        {"model": ""},
+        {"model": "m", "escalate_below": 1.5},
+        {"model": "m", "escalate_below": -0.1},
+        {"model": "m", "bogus": 1},
+    ],
+)
+def test_prefilter_invalid(kwargs: dict[str, object]) -> None:
+    from ziran.application.detectors.prefilter import PrefilterConfig
+
+    with pytest.raises(ValidationError):
+        PrefilterConfig(**kwargs)  # type: ignore[arg-type]
+
+
+def test_prefilter_valid_and_frozen() -> None:
+    from ziran.application.detectors.prefilter import PrefilterConfig
+
+    assert PrefilterConfig(enabled=True, model="m").model == "m"
+    cfg = PrefilterConfig(model="m", provider="p")
+    assert cfg.provider == "p"
+    with pytest.raises(ValidationError):
+        cfg.escalate_below = 0.1  # type: ignore[misc]

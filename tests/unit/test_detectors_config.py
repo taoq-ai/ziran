@@ -147,3 +147,35 @@ def test_flat_thresholds_keep_ensemble_disabled(tmp_path: Path) -> None:
     cfg = tmp_path / "detectors.yaml"
     cfg.write_text("hit: 0.65\n", encoding="utf-8")
     assert load_detector_thresholds(cfg).ensemble.enabled is False
+
+
+# ── Prefilter block (spec 043) ────────────────────────────────────────
+
+
+def test_prefilter_block_loads(tmp_path: Path) -> None:
+    cfg = tmp_path / "detectors.yaml"
+    cfg.write_text(
+        "prefilter:\n  enabled: true\n  model: gpt-4o-mini\n  provider: litellm\n"
+        "  escalate_below: 0.7\n",
+        encoding="utf-8",
+    )
+    pre = load_detector_thresholds(cfg).prefilter
+    assert (pre.enabled, pre.model, pre.provider, pre.escalate_below) == (
+        True,
+        "gpt-4o-mini",
+        "litellm",
+        0.7,
+    )
+
+
+def test_prefilter_enabled_without_model_names_block(tmp_path: Path) -> None:
+    cfg = tmp_path / "detectors.yaml"
+    cfg.write_text("prefilter:\n  enabled: true\n", encoding="utf-8")
+    with pytest.raises(DetectorConfigError, match="prefilter"):
+        load_detector_thresholds(cfg)
+
+
+def test_flat_thresholds_leave_prefilter_disabled(tmp_path: Path) -> None:
+    cfg = tmp_path / "detectors.yaml"
+    cfg.write_text("hit: 0.65\n", encoding="utf-8")
+    assert load_detector_thresholds(cfg).prefilter.enabled is False

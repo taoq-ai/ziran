@@ -19,6 +19,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, model_validator
 
 from ziran.application.detectors.ensemble import EnsembleConfig
+from ziran.application.detectors.prefilter import PrefilterConfig
 from ziran.application.detectors.semantic import SemanticConfig
 
 
@@ -98,6 +99,10 @@ class DetectorThresholds(BaseModel):
     ensemble: EnsembleConfig = Field(
         default_factory=EnsembleConfig,
         description="LLM judge ensemble (spec 041). Disabled by default.",
+    )
+    prefilter: PrefilterConfig = Field(
+        default_factory=PrefilterConfig,
+        description="Cheap-model prefilter before the LLM judge (spec 043). Off by default.",
     )
 
     @model_validator(mode="after")

@@ -70,6 +70,7 @@ class ResultBuilder:
         post_results: list[Any] | None = None,
         utility_tasks_count: int = 0,
         defence_profile: DefenceProfile | None = None,
+        judge_tiers: dict[str, int] | None = None,
     ) -> tuple[CampaignResult, list[Any]]:
         """Build the final campaign result.
 
@@ -106,6 +107,8 @@ class ResultBuilder:
             "coverage_level": coverage_value,
             "max_concurrent_attacks": max_concurrent_attacks,
         }
+        if judge_tiers:  # two-tier judging routing counts (spec 043); absent when off
+            metadata["judge_tiers"] = judge_tiers
 
         if baseline_score is not None and post_score is not None:
             metadata["utility"] = _compute_utility(

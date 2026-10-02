@@ -538,9 +538,13 @@ def scan(
         )
         if detector_config is not None:
             scanner_config["detector_config"] = detector_config
-            assert detector_config.thresholds is not None
-            n_judges = len(detector_config.thresholds.ensemble.judges)
-            console.print(f"[dim]LLM judge ensemble: {n_judges} judges[/dim]")
+            thresholds = detector_config.thresholds
+            assert thresholds is not None
+            if thresholds.ensemble.enabled:
+                n_judges = len(thresholds.ensemble.judges)
+                console.print(f"[dim]LLM judge ensemble: {n_judges} judges[/dim]")
+            if thresholds.prefilter.enabled:
+                console.print(f"[dim]LLM judge prefilter: {thresholds.prefilter.model}[/dim]")
 
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
     coverage_level = CoverageLevel(coverage.lower())
@@ -1628,10 +1632,10 @@ def _scan_detector_config(
     llm_tpm: int | None,
     llm_max_retries: int | None,
 ) -> DetectorConfig | None:
-    """Ensemble detector config for ``ziran scan`` from ``.ziran/detectors.yaml`` (spec 041).
+    """Ensemble and prefilter detector config for ``ziran scan`` from ``.ziran/detectors.yaml``.
 
-    None unless ``ensemble.enabled``. Raises :class:`click.ClickException` on an invalid
-    file or a member client that cannot be created.
+    Specs 041/043. None unless ``ensemble.enabled`` or ``prefilter.enabled``. Raises
+    :class:`click.ClickException` on an invalid file or a client that cannot be created.
     """
     from ziran.application.detectors.thresholds import DetectorThresholds
     from ziran.infrastructure.config.detectors import (
@@ -1641,10 +1645,11 @@ def _scan_detector_config(
     from ziran.infrastructure.llm import create_llm_client
 
     try:
-        ensemble = load_detector_thresholds().ensemble
+        thresholds = load_detector_thresholds()
     except DetectorConfigError as exc:
         raise click.ClickException(str(exc)) from None
-    if not ensemble.enabled:
+    ensemble, prefilter = thresholds.ensemble, thresholds.prefilter
+    if not (ensemble.enabled or prefilter.enabled):
         return None
     try:
         clients = {
@@ -1656,11 +1661,28 @@ def _scan_detector_config(
                 max_retries=llm_max_retries,
             )
             for j in ensemble.judges
-            if j.model
+            if j.model and ensemble.enabled
         }
     except Exception as exc:
         raise click.ClickException(f"cannot create ensemble judge client: {exc}") from None
-    return DetectorConfig(thresholds=DetectorThresholds(ensemble=ensemble), judge_clients=clients)
+    prefilter_client = None
+    if prefilter.enabled:
+        assert prefilter.model is not None  # PrefilterConfig requires it when enabled
+        try:
+            prefilter_client = create_llm_client(
+                provider=prefilter.provider or llm_provider,
+                model=prefilter.model,
+                rpm=llm_rpm,
+                tpm=llm_tpm,
+                max_retries=llm_max_retries,
+            )
+        except Exception as exc:
+            raise click.ClickException(f"cannot create prefilter client: {exc}") from None
+    return DetectorConfig(
+        thresholds=DetectorThresholds(ensemble=ensemble, prefilter=prefilter),
+        judge_clients=clients,
+        prefilter_client=prefilter_client,
+    )
 
 
 def _warn_config_issues(
@@ -1813,6 +1835,13 @@ def _display_results(result: CampaignResult) -> None:
         summary_table.add_row("Prompt Tokens", f"{tokens['prompt_tokens']:,}")
         summary_table.add_row("Completion Tokens", f"{tokens['completion_tokens']:,}")
         summary_table.add_row("Total Tokens", f"[bold]{tokens['total_tokens']:,}[/bold]")
+    tiers = result.metadata.get("judge_tiers")
+    if tiers:
+        summary_table.add_row(
+            "Judge Routing",
+            f"deterministic {tiers['deterministic']} · cheap {tiers['cheap']} · "
+            f"escalated {tiers['escalated']}",
+        )
     if result.coverage_level:
         summary_table.add_row("Coverage Level", result.coverage_level)
 

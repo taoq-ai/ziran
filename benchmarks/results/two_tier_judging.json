@@ -1,0 +1,225 @@
+{
+  "timestamp": "2026-10-02T12:29:49.526187+00:00",
+  "dataset_size": 222,
+  "escalate_below": 0.8,
+  "cheap_model": null,
+  "cassette_sha256": null,
+  "runs": {
+    "single": {
+      "accuracy": {
+        "timestamp": "2026-10-02T12:29:49.498137+00:00",
+        "dataset_size": 222,
+        "per_category_counts": {
+          "clear_refusal": 64,
+          "partial_compliance": 52,
+          "full_compliance": 52,
+          "borderline": 54
+        },
+        "per_detector_applicable": {
+          "refusal": 116,
+          "indicator": 118,
+          "side_effect": 52,
+          "llm_judge": 104
+        },
+        "detectors": {
+          "refusal": {
+            "applicable": 116,
+            "confusion": {
+              "tp": 52,
+              "fp": 12,
+              "fn": 0,
+              "tn": 52
+            },
+            "precision": 0.8125,
+            "recall": 1.0,
+            "f1": 0.8966,
+            "recall_ci": [
+              0.9312,
+              1.0
+            ]
+          },
+          "indicator": {
+            "applicable": 118,
+            "confusion": {
+              "tp": 52,
+              "fp": 0,
+              "fn": 0,
+              "tn": 66
+            },
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "recall_ci": [
+              0.9312,
+              1.0
+            ]
+          },
+          "side_effect": {
+            "applicable": 52,
+            "confusion": {
+              "tp": 36,
+              "fp": 0,
+              "fn": 0,
+              "tn": 16
+            },
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "recall_ci": [
+              0.9036,
+              1.0
+            ]
+          },
+          "llm_judge": {
+            "applicable": 104,
+            "confusion": {
+              "tp": 26,
+              "fp": 0,
+              "fn": 0,
+              "tn": 78
+            },
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "recall_ci": [
+              0.8713,
+              1.0
+            ]
+          }
+        },
+        "pipeline": {
+          "applicable": 222,
+          "confusion": {
+            "tp": 78,
+            "fp": 0,
+            "fn": 0,
+            "tn": 144
+          },
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "recall_ci": [
+            0.9531,
+            1.0
+          ]
+        },
+        "below_floor": []
+      },
+      "frontier_calls": 222,
+      "cheap_calls": 0,
+      "tiers": {},
+      "pipeline_f1_delta": 0.0,
+      "frontier_call_reduction": 0.0
+    },
+    "deterministic_only": {
+      "accuracy": {
+        "timestamp": "2026-10-02T12:29:49.525991+00:00",
+        "dataset_size": 222,
+        "per_category_counts": {
+          "clear_refusal": 64,
+          "partial_compliance": 52,
+          "full_compliance": 52,
+          "borderline": 54
+        },
+        "per_detector_applicable": {
+          "refusal": 116,
+          "indicator": 118,
+          "side_effect": 52,
+          "llm_judge": 104
+        },
+        "detectors": {
+          "refusal": {
+            "applicable": 116,
+            "confusion": {
+              "tp": 52,
+              "fp": 12,
+              "fn": 0,
+              "tn": 52
+            },
+            "precision": 0.8125,
+            "recall": 1.0,
+            "f1": 0.8966,
+            "recall_ci": [
+              0.9312,
+              1.0
+            ]
+          },
+          "indicator": {
+            "applicable": 118,
+            "confusion": {
+              "tp": 52,
+              "fp": 0,
+              "fn": 0,
+              "tn": 66
+            },
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "recall_ci": [
+              0.9312,
+              1.0
+            ]
+          },
+          "side_effect": {
+            "applicable": 52,
+            "confusion": {
+              "tp": 36,
+              "fp": 0,
+              "fn": 0,
+              "tn": 16
+            },
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "recall_ci": [
+              0.9036,
+              1.0
+            ]
+          },
+          "llm_judge": {
+            "applicable": 104,
+            "confusion": {
+              "tp": 26,
+              "fp": 0,
+              "fn": 0,
+              "tn": 78
+            },
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "recall_ci": [
+              0.8713,
+              1.0
+            ]
+          }
+        },
+        "pipeline": {
+          "applicable": 222,
+          "confusion": {
+            "tp": 78,
+            "fp": 0,
+            "fn": 0,
+            "tn": 144
+          },
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "recall_ci": [
+            0.9531,
+            1.0
+          ]
+        },
+        "below_floor": []
+      },
+      "frontier_calls": 118,
+      "cheap_calls": 118,
+      "tiers": {
+        "deterministic": 104,
+        "cheap": 0,
+        "escalated": 118
+      },
+      "pipeline_f1_delta": 0.0,
+      "frontier_call_reduction": 0.4685
+    }
+  }
+}

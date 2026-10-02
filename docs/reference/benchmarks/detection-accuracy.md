@@ -221,3 +221,42 @@ disabled. Regex-only figures on the current dataset, produced by the harness:
     No embedding model was available when the tier landed, so no cassette is committed and
     no semantic precision/recall figure exists yet. Run `record` and `compare` with a real
     model, commit both files, and re-tune the threshold defaults from the recorded run.
+
+## Two-tier judging comparison
+
+`benchmarks/two_tier_judging.py` measures the cheap-model prefilter (spec 043,
+see [Detection Pipeline](../../concepts/detection-pipeline.md#two-tier-judging-prefilter))
+against today's single judge. It is offline and not a CI gate.
+
+```bash
+uv run python benchmarks/two_tier_judging.py compare                 # offline
+uv run python benchmarks/two_tier_judging.py compare --format markdown
+uv run python benchmarks/two_tier_judging.py record --model gpt-4o-mini   # LIVE, never in CI
+```
+
+`compare` scores the dataset three ways, with frontier verdicts replayed from
+`recorded_judge`:
+
+- `single`: prefilter off.
+- `deterministic_only`: prefilter on with a cheap client that never decides, so
+  the only saving is skipping cases the detectors already decide.
+- `two_tier`: cheap verdicts replayed from `benchmarks/ground_truth/prefilter_verdicts.json`.
+  This run is skipped when the cassette is absent. A stale or invalid cassette exits 2.
+
+Each run reports pipeline precision/recall/F1, the confusion matrix, frontier
+calls, the call reduction vs `single`, the F1 delta and the tier counts. Results
+go to `benchmarks/results/two_tier_judging.json`. The per-detector `llm_judge`
+row covers fewer judge results when the prefilter is on, so compare only the
+pipeline row.
+
+Output of `compare --format markdown` on the current dataset (no cheap-model cassette, so
+no `two_tier` run):
+
+| run | precision | recall | f1 | tp/fp/fn/tn | frontier calls | reduction | f1 delta | tiers |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| single | 1.0 | 1.0 | 1.0 | 78/0/0/144 | 222 | 0.0 | 0.0 | - |
+| deterministic_only | 1.0 | 1.0 | 1.0 | 78/0/0/144 | 118 | 0.4685 | 0.0 | deterministic=104 cheap=0 escalated=118 |
+
+**Unverified:** no cheap-model cassette has been recorded yet, so cheap-tier
+accuracy parity and its extra frontier-call reduction are unproven. They need
+`record` run against a live cheap model.

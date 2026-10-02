@@ -263,6 +263,68 @@ stage, single or ensemble, and returns its `DetectorResult` (or `None` when no j
 configured). It never raises. Pass `DetectorConfig(thresholds=DetectorThresholds(ensemble=...),
 judge_clients={name: client})` to enable the ensemble outside the CLI.
 
+## Two-Tier Judging (prefilter)
+
+Off by default. When enabled, a cheap model sits in front of the LLM judge (single or
+ensemble), and each evaluation takes one of three routes:
+
+```
+deterministic detectors (+ semantic tier) ──decided──▶ verdict, no model call
+        │ undecided
+        ▼
+cheap model ──confident & consistent──▶ verdict
+        │ otherwise
+        ▼
+full LLM judge (single or ensemble) ──▶ verdict
+```
+
+1. **Deterministic**: if the detector results already decide the verdict, meaning the
+   pipeline would not fall back to its conservative default, neither model is called.
+2. **Cheap**: otherwise the cheap model judges with the same prompt as the full judge.
+   Its verdict stands when all of these hold:
+    - it is `success` or `failure`, not `ambiguous`;
+    - its confidence is at least `max(escalate_below, llm_judge_confidence)`;
+    - it does not conflict with the deterministic lean.
+3. **Escalated**: anything else goes to the full judge, exactly as without the prefilter.
+   That covers ambiguous, low-confidence, conflicting, failed or timed-out cheap verdicts.
+
+The **deterministic lean** is the direction of the signals that did not decide the
+verdict:
+
+- A failure signal is a refusal, indicator, side-effect or authorization score at or
+  below `safe`.
+- A success signal is an indicator, side-effect or authorization score at or above `hit`.
+  Refusal is excluded here because its 1.0 means "no refusal phrase found", not compliance.
+
+The lean exists only when all signals agree.
+
+```yaml
+# .ziran/detectors.yaml
+prefilter:
+  enabled: true           # default false
+  model: gpt-4o-mini      # required when enabled
+  provider: litellm       # optional; defaults to the scan's --llm-provider
+  escalate_below: 0.8     # cheap verdicts below this confidence escalate
+```
+
+The prefilter needs an LLM backbone (`--llm-provider` / `--llm-model`). Without one, or
+when `llm_judge` is disabled, it logs `prefilter_unavailable` and the pipeline behaves
+as if the prefilter were off. A disabled prefilter gives exactly the single-judge behaviour.
+
+Routing counts are written to `CampaignResult.metadata["judge_tiers"]`
+(`deterministic` / `cheap` / `escalated`), and the campaign summary shows a
+`Judge Routing` row. Both are absent when the prefilter is off. A cheap verdict is
+stored as the `llm_judge` result with reasoning `Prefilter LLM judge: ...`.
+
+Caveats:
+
+- Deterministically decided evaluations carry no `llm_judge` result, so their
+  `quality_score` is empty even with quality scoring on.
+- The default `escalate_below: 0.8` is untuned. No live cheap model was available to
+  calibrate it.
+- The counts cover only evaluations run in the current process. Results restored from
+  a checkpoint are not counted.
+
 ## Extending the Pipeline
 
 All detectors implement the `BaseDetector` interface:
