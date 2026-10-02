@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "docs": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/../mcp_server.py", "${CLAUDE_PLUGIN_ROOT}/mcp-tools.json"]
+    }
+  }
+}

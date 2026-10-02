@@ -39,6 +39,7 @@ These examples use ZIRAN's built-in scanner without calling any LLM.
 | 07 | [CI/CD Quality Gate](07-cicd-quality-gate/) | Fail a build when findings exceed a YAML-configured threshold |
 | 08 | [Custom Adapter](08-custom-adapter/) | Implement `AgentAdapter` for any agent framework |
 | 24 | [Claude Code Agent Audit](24-claude-code-agent-audit/) | `ziran audit` on a subagent whose `Read` + `WebFetch` tools form an exfiltration chain |
+| 25 | [Claude Code Plugin](25-claude-code-plugin/) | Safe vs. vulnerable plugin: `ziran audit`, allowlist baseline, hook traces and MCP registry import, offline |
 
 ## LLM scans (API key required)
 
