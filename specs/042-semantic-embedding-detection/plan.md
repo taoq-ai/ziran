@@ -256,6 +256,11 @@ litellm_client`) instead of importing the function by name, so the documented te
 `ziran.infrastructure.llm.litellm_client._import_litellm` takes effect. `SemanticConfig` is imported
 under `TYPE_CHECKING` only, so the infrastructure module has no runtime application import.
 
+**Deviation (log text):** when `api_key_env` names an empty variable, the warning refers to the
+config field `semantic.api_key_env` instead of echoing the variable name. CodeQL
+(`py/clear-text-logging-sensitive-data`) flags the name as sensitive, the same false positive that
+was dismissed for `litellm_client.py`. Not echoing it keeps the scan clean without a dismissal.
+
 ### 6. Benchmark (offline harness)
 
 `benchmarks/detection_accuracy.py` (edit, defaults keep today's output byte-for-byte):

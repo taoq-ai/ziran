@@ -56,7 +56,7 @@ async def test_empty_api_key_env_warns(
     fake = _fake_litellm()
     with caplog.at_level(logging.WARNING), patch(_PATCH, return_value=fake):
         emb = LiteLLMEmbedder("m", api_key_env="ZIRAN_TEST_EMBED_KEY")
-    assert "ZIRAN_TEST_EMBED_KEY" in caplog.text
+    assert "semantic.api_key_env" in caplog.text
     await emb.embed(["a", "b"])
     assert "api_key" not in fake.aembedding.call_args.kwargs
 

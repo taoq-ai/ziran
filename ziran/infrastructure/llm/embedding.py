@@ -37,7 +37,11 @@ class LiteLLMEmbedder(BaseEmbedder):
         if api_key_env:
             self._api_key = os.environ.get(api_key_env) or None
             if self._api_key is None:
-                logger.warning(f"Embedding API key env var {api_key_env!r} is not set or empty")
+                # The variable name is not echoed (CodeQL flags it as sensitive); the
+                # operator finds it under ``semantic.api_key_env`` in their config.
+                logger.warning(
+                    "Embedding API key env var (semantic.api_key_env) is not set or empty"
+                )
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:

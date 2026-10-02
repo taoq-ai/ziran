@@ -89,7 +89,7 @@ and can be told to raise or sleep.
       - `LiteLLMEmbedder("ollama/nomic-embed-text", base_url="http://localhost:11434")` passes
         `model`, `input` list and `api_base`; omits `api_key` when no env var; passes it when
         `api_key_env` names a set variable (monkeypatch); empty variable -> warning naming the
-        variable, no key passed.
+        config field `semantic.api_key_env` (see plan §5 deviation), no key passed.
       - `embed([])` -> `[]` without calling litellm; provider exception -> `LLMError` whose message
         contains the exception type only; count mismatch -> `LLMError`.
       - `create_embedder(SemanticConfig())` -> `None` (disabled, litellm never imported);
