@@ -131,7 +131,10 @@ judges. An invalid block fails `ziran scan` with exit code 1 instead of silently
 to a single judge.
 
 Only `ziran scan` reads the block, and only when `--llm-provider` or `--llm-model` is set.
-Other threshold keys in the same file still apply to the detection benchmark only.
+In that case `scan` validates the whole file, so an invalid threshold key or an unset `!env`
+variable anywhere in it also fails the scan with exit code 1. Other threshold keys still
+apply to the detection benchmark only. The benchmark ignores the `ensemble` block and always
+scores the single replayed judge, because its fixtures hold one judge verdict per example.
 
 ### Voting and confidence
 
@@ -147,8 +150,8 @@ With `n` judges, `s` success votes, `f` failure votes and `k = |s - f|`:
   side's judges (`0` on a tie). Confidence rises strictly with `k` whatever the judges'
   self-reported confidence, so unanimous > split > tie;
 - `agreement = k / n`;
-- `needs_review` is set when the ensemble is not decisive or its confidence is below
-  `needs_review_below`.
+- `needs_review` is set when the ensemble is not decisive, its confidence is below
+  `needs_review_below`, or any judge cast an `error` vote.
 
 The confidence is a deterministic formula, not fitted to data. Values for `min_margin: 1`,
 `needs_review_below: 0.6` and per-judge confidence 0.8 (computed from the formula):

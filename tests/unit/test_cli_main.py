@@ -1156,3 +1156,54 @@ class TestScanDetectorConfig:
         self._write(self._ENSEMBLE)
         with pytest.raises(click.ClickException, match="no key"):
             self._call()
+
+
+@pytest.mark.unit
+class TestScanEnsembleWiring:
+    """`ziran scan` passes the ensemble config to the scanner (spec 041 US4.4, US5.1, US5.2)."""
+
+    @pytest.fixture
+    def scanner_cls(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock:
+        from ziran.domain.entities.phase import CampaignResult
+
+        monkeypatch.chdir(tmp_path)
+        Path("agent.py").write_text("agent_executor = None\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "ziran.infrastructure.llm.create_llm_client", lambda **kw: MagicMock(name="client")
+        )
+        monkeypatch.setattr("ziran.interfaces.cli.main.load_agent_adapter", MagicMock())
+        mock_asyncio = MagicMock()
+        mock_asyncio.run.return_value = CampaignResult.model_validate(_minimal_campaign_result())
+        monkeypatch.setattr("ziran.interfaces.cli.main.asyncio", mock_asyncio)
+        cls = MagicMock()
+        monkeypatch.setattr("ziran.interfaces.cli.main.AgentScanner", cls)
+        return cls
+
+    @staticmethod
+    def _scan(runner: CliRunner, yaml_text: str, *extra: str) -> Any:
+        Path(".ziran").mkdir()
+        Path(".ziran/detectors.yaml").write_text(yaml_text, encoding="utf-8")
+        args = ["scan", "--framework", "langchain", "--agent-path", "agent.py", *extra]
+        return runner.invoke(cli, [*args, "--output", "out"])
+
+    def test_enabled_block_reaches_scanner(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        result = self._scan(runner, TestScanDetectorConfig._ENSEMBLE, "--llm-model", "m1")
+        assert result.exit_code == 0, result.output
+        config = scanner_cls.call_args.kwargs["config"]
+        assert [j.name for j in config["detector_config"].thresholds.ensemble.judges] == [
+            "primary",
+            "second",
+        ]
+        assert list(config["detector_config"].judge_clients) == ["second"]
+
+    def test_invalid_block_exits_1(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        bad = "ensemble:\n  enabled: true\n  min_margin: 0\n"
+        result = self._scan(runner, bad, "--llm-model", "m1")
+        assert result.exit_code == 1
+        assert "min_margin" in result.output
+        scanner_cls.assert_not_called()
+
+    def test_file_not_read_without_llm(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        result = self._scan(runner, "ensemble: [not, a, mapping\n")
+        assert result.exit_code == 0, result.output
+        assert "detector_config" not in scanner_cls.call_args.kwargs["config"]

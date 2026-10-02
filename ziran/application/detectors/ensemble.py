@@ -13,7 +13,7 @@ abstain) and ``k = |s - f|``: the ensemble is decisive iff ``k >= min_margin``;
 ``confidence = (k + q/2) / (n + 0.5)`` where ``q`` is the winning side's mean member
 confidence (0 on a tie). The formula is strictly monotonic in ``k`` for any ``q``, so
 unanimous > split > tie. ``agreement = k / n``. ``needs_review`` is set when the ensemble
-is not decisive or its confidence is below ``needs_review_below``.
+is not decisive, its confidence is below ``needs_review_below``, or any member erred.
 """
 
 from __future__ import annotations
@@ -100,6 +100,8 @@ class EnsembleJudge:
         needs_review_below: float = 0.6,
         timeout: float = 30.0,
     ) -> None:
+        if not members:
+            raise ValueError("EnsembleJudge needs at least one member")
         self._members = dict(members)
         self._min_margin = min_margin
         self._needs_review_below = needs_review_below
@@ -123,6 +125,7 @@ class EnsembleJudge:
         except Exception as exc:
             logger.warning("llm_judge_member_failed", judge=name, error=str(exc))
             return _error_vote(name, f"error: {type(exc).__name__}"), None
+        # Fixed cut-offs, not t.hit/t.safe: the judge only emits 0.0, 0.5 or 1.0 today.
         verdict: Literal["success", "failure", "ambiguous"] = (
             "success" if r.score >= 0.7 else "failure" if r.score <= 0.3 else "ambiguous"
         )
@@ -181,7 +184,11 @@ class EnsembleJudge:
                 + "; ".join(f"{v.judge}={v.verdict}" for v in votes)
             ),
             quality_score=quality,
-            needs_review=not decisive or confidence < self._needs_review_below,
+            needs_review=(
+                not decisive
+                or confidence < self._needs_review_below
+                or any(v.verdict == "error" for v in votes)
+            ),
             agreement=k / n,
             judge_votes=votes,
         )

@@ -237,6 +237,17 @@ class TestFailures:
         assert r.judge_votes[0].verdict == "error"
         assert "RuntimeError" in r.judge_votes[0].reasoning
 
+    async def test_error_vote_needs_review(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        broken = _judge("success")
+        monkeypatch.setattr(broken, "detect", AsyncMock(side_effect=RuntimeError("x")))
+        r = await _run(_ensemble(broken, _judge("success", confidence=1.0)))
+        assert (r.score, r.confidence) == (1.0, pytest.approx(0.6))
+        assert r.needs_review is True
+
+    def test_empty_members_rejected(self) -> None:
+        with pytest.raises(ValueError, match="at least one member"):
+            EnsembleJudge({})
+
     async def test_all_members_error(self) -> None:
         slow = (LLMJudgeDetector(_SlowClient()), LLMJudgeDetector(_SlowClient()))
         r = await _run(_ensemble(*slow, timeout=0.01))

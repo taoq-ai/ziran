@@ -845,10 +845,8 @@ class TestJudgeEnsemblePipeline:
         appended = next(r for r in verdict.detector_results if r.detector_name == "llm_judge")
         assert direct == appended
 
-    async def test_single_judge_timeout_returns_none(self) -> None:
+    async def test_single_judge_timeout_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import asyncio
-
-        import ziran.application.detectors.pipeline as pipeline_mod
 
         client = _stub_client("success")
 
@@ -857,12 +855,8 @@ class TestJudgeEnsemblePipeline:
 
         client.complete = _slow
         pipeline = DetectorPipeline(llm_client=client)
-        original = pipeline_mod._LLM_JUDGE_TIMEOUT
-        pipeline_mod._LLM_JUDGE_TIMEOUT = 0.01
-        try:
-            assert await pipeline.judge("t", _make_response(_NEUTRAL), _make_prompt()) is None
-        finally:
-            pipeline_mod._LLM_JUDGE_TIMEOUT = original
+        monkeypatch.setattr("ziran.application.detectors.pipeline._LLM_JUDGE_TIMEOUT", 0.01)
+        assert await pipeline.judge("t", _make_response(_NEUTRAL), _make_prompt()) is None
 
     async def test_split_ensemble_needs_review(self) -> None:
         pipeline = _ensemble_pipeline("success", "failure")
