@@ -28,6 +28,20 @@ T009 apart from the `compare` table. Blocked on #396 (integration step):
 - The scanner test builds the pipeline directly and assigns `scanner._detector_pipeline`, because
   the `detector_config` passthrough lands with #396; it stays valid after the merge.
 
+**Scratch integration check (2026-10-02, local throwaway branch, not committed or pushed).** This
+branch @ 0a52775 was merged with `origin/041-judge-ensemble-calibration` @ 2097586, conflicts were
+resolved as in plan §3/§5/§7, and plan §5's helper edit was applied verbatim, with one
+`assert prefilter.model is not None` added for mypy. Results: `mypy ziran/` clean. All 19 blocked
+tests above pass. #396's own `test_cli_main.py`, `test_scanner.py`, `test_detector_thresholds.py`
+and `test_detectors_config.py` also pass against the merged helper.
+`detection_regression.py` passes with pipeline F1 1.0. `two_tier_judging.py compare` gives:
+`single` 222 frontier calls, and `deterministic_only` 118 (deterministic=104, escalated=118,
+reduction 0.4685, F1 delta 0.0, confusion 78/0/0/144 for both). Adding
+`origin/042-semantic-embedding-detection` @ 4e19536 on top (semantic block as step 6, judge as
+step 7, `_score(..., embedder, disabled, pipeline)`, `prefilter` field after `semantic` and
+`ensemble`) gave: mypy clean, `pytest tests/unit tests/integration` 2924 passed, and the same
+`compare` numbers. The results JSON is still committed only after #396 really merges (T008).
+
 Test-first: every implementation task is preceded by a test task that MUST be run and seen failing
 before the implementation lands. No network, no LLM, no API keys. New unit tests carry
 `@pytest.mark.unit`, integration tests `@pytest.mark.integration`; tests added to
