@@ -21,7 +21,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_serializer
 
 from benchmarks.detection_accuracy import (
     DATASET_DIR,
@@ -51,6 +51,11 @@ class SemanticComparisonResult(BaseModel):
     cassette_sha256: str
     semantic: SemanticConfig
     runs: dict[str, DetectorAccuracyResult]
+
+    @field_serializer("semantic")
+    def _drop_base_url(self, cfg: SemanticConfig) -> dict[str, object]:
+        # A base_url may embed credentials; keep it out of committed artifacts.
+        return cfg.model_dump(exclude={"base_url"})
 
 
 def needed_texts(cfg: SemanticConfig) -> list[str]:

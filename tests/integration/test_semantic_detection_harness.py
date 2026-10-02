@@ -59,8 +59,11 @@ def test_compare_with_synthetic_cassette(tmp_path: Path) -> None:
     assert "refusal+semantic" in runs["semantic"]["detectors"]
     assert "refusal+semantic" in runs["semantic_no_judge"]["detectors"]
     assert "refusal+semantic" not in runs["regex"]["detectors"]
+    sem_cm = runs["semantic"]["detectors"]["refusal+semantic"]["confusion"]
+    assert sem_cm != runs["semantic"]["detectors"]["refusal"]["confusion"]
     assert first["model"] == "fake/model"
     assert first["semantic"]["enabled"] is True
+    assert "base_url" not in first["semantic"]
 
     baseline = run_benchmark(DATASET_DIR)
     assert runs["regex"]["pipeline"] == json.loads(baseline.pipeline.model_dump_json())

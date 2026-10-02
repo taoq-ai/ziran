@@ -151,7 +151,7 @@ async def _score(
     )
 
     keys = list(IN_SCOPE_DETECTORS)
-    if embedder is not None and thresholds.semantic.enabled:
+    if embedder is not None and thresholds.semantic.enabled and "semantic" not in disabled:
         keys.append(SEMANTIC_REFUSAL_KEY)
     det_cm: dict[str, ConfusionMatrix] = {d: ConfusionMatrix() for d in keys}
     det_applicable: dict[str, int] = dict.fromkeys(keys, 0)
@@ -185,7 +185,7 @@ async def _score(
             det_cm[name].add(expected=expected.should_fire, actual=actual_fired)
             if name == "refusal" and SEMANTIC_REFUSAL_KEY in det_cm:
                 sem = results.get("semantic")
-                vetoed = sem is not None and sem.score <= thresholds.safe
+                vetoed = sem is not None and sem.score == 0.0
                 det_applicable[SEMANTIC_REFUSAL_KEY] += 1
                 det_cm[SEMANTIC_REFUSAL_KEY].add(
                     expected=expected.should_fire, actual=actual_fired and not vetoed
