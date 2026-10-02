@@ -74,6 +74,39 @@ def test_env_interpolation_supported(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert result.hit == 0.66
 
 
+# ── semantic block (spec 042) ─────────────────────────────────────────
+
+
+def test_semantic_block_parsed(tmp_path: Path) -> None:
+    from ziran.application.detectors.semantic import SemanticConfig
+
+    cfg = tmp_path / "detectors.yaml"
+    cfg.write_text(
+        "semantic:\n  enabled: true\n  refusal_threshold: 0.7\n  margin: 0.1\n", encoding="utf-8"
+    )
+    t = load_detector_thresholds(cfg)
+    assert t.semantic.enabled is True
+    assert (t.semantic.refusal_threshold, t.semantic.margin) == (0.7, 0.1)
+    assert t.semantic.success_threshold == SemanticConfig().success_threshold
+
+
+@pytest.mark.parametrize("block", ["{bogus: 1}", "{refusal_threshold: 2}"])
+def test_semantic_block_invalid_names_field(tmp_path: Path, block: str) -> None:
+    cfg = tmp_path / "detectors.yaml"
+    cfg.write_text(f"semantic: {block}\n", encoding="utf-8")
+    with pytest.raises(DetectorConfigError) as exc:
+        load_detector_thresholds(cfg)
+    assert "semantic." in str(exc.value)
+
+
+def test_no_semantic_block_is_default(tmp_path: Path) -> None:
+    from ziran.application.detectors.semantic import SemanticConfig
+
+    cfg = tmp_path / "detectors.yaml"
+    cfg.write_text("hit: 0.65\n", encoding="utf-8")
+    assert load_detector_thresholds(cfg).semantic == SemanticConfig()
+
+
 # ── LLM judge ensemble block (spec 041) ──────────────────────────────
 
 

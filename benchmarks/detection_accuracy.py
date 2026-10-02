@@ -19,6 +19,7 @@ import asyncio
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -36,12 +37,17 @@ from ziran.domain.entities.attack import AttackPrompt
 from ziran.domain.interfaces.adapter import AgentResponse
 from ziran.infrastructure.config.detectors import load_detector_thresholds
 
+if TYPE_CHECKING:
+    from ziran.domain.interfaces.embedder import BaseEmbedder
+
 DATASET_DIR = Path(__file__).parent / "ground_truth" / "detection"
 DEFAULT_OUTPUT = Path(__file__).parent / "results" / "detection_accuracy.json"
 
 CATEGORIES = ("clear_refusal", "partial_compliance", "full_compliance", "borderline")
 MIN_PER_CATEGORY = 50
 MIN_APPLICABLE_PER_DETECTOR = 30
+#: Extra detectors row (spec 042): the refusal decision with the semantic tier's veto.
+SEMANTIC_REFUSAL_KEY = "refusal+semantic"
 
 
 # ── Result models ─────────────────────────────────────────────────────
@@ -132,18 +138,26 @@ def load_examples(dataset_dir: Path) -> list[DetectionExample]:
 
 
 async def _score(
-    examples: list[DetectionExample], thresholds: DetectorThresholds
+    examples: list[DetectionExample],
+    thresholds: DetectorThresholds,
+    *,
+    embedder: BaseEmbedder | None = None,
+    disabled: frozenset[str] = frozenset(),
 ) -> DetectorAccuracyResult:
     replay = ReplayLLMClient(examples)
     # Fixtures replay one judge verdict per example, so always score the single judge.
     single = thresholds.model_copy(update={"ensemble": EnsembleConfig()})
     pipeline = DetectorPipeline(
         llm_client=replay,
-        detector_config=DetectorConfig(thresholds=single),
+        detector_config=DetectorConfig(thresholds=single, disabled=set(disabled)),
+        embedder=embedder,
     )
 
-    det_cm: dict[str, ConfusionMatrix] = {d: ConfusionMatrix() for d in IN_SCOPE_DETECTORS}
-    det_applicable: dict[str, int] = dict.fromkeys(IN_SCOPE_DETECTORS, 0)
+    keys = list(IN_SCOPE_DETECTORS)
+    if embedder is not None and thresholds.semantic.enabled and "semantic" not in disabled:
+        keys.append(SEMANTIC_REFUSAL_KEY)
+    det_cm: dict[str, ConfusionMatrix] = {d: ConfusionMatrix() for d in keys}
+    det_applicable: dict[str, int] = dict.fromkeys(keys, 0)
     pipeline_cm = ConfusionMatrix()
     per_category: dict[str, int] = defaultdict(int)
 
@@ -172,6 +186,13 @@ async def _score(
             det_applicable[name] += 1
             actual_fired = name in results and results[name].score >= thresholds.hit
             det_cm[name].add(expected=expected.should_fire, actual=actual_fired)
+            if name == "refusal" and SEMANTIC_REFUSAL_KEY in det_cm:
+                sem = results.get("semantic")
+                vetoed = sem is not None and sem.score == 0.0
+                det_applicable[SEMANTIC_REFUSAL_KEY] += 1
+                det_cm[SEMANTIC_REFUSAL_KEY].add(
+                    expected=expected.should_fire, actual=actual_fired and not vetoed
+                )
 
     below_floor = [d for d in IN_SCOPE_DETECTORS if det_applicable[d] < MIN_APPLICABLE_PER_DETECTOR]
 
@@ -180,7 +201,7 @@ async def _score(
         dataset_size=len(examples),
         per_category_counts=dict(per_category),
         per_detector_applicable=det_applicable,
-        detectors={d: _metrics(det_cm[d], det_applicable[d]) for d in IN_SCOPE_DETECTORS},
+        detectors={d: _metrics(det_cm[d], det_applicable[d]) for d in keys},
         pipeline=_metrics(pipeline_cm, pipeline_cm.total),
         below_floor=below_floor,
     )
@@ -195,12 +216,17 @@ def _now() -> str:
 def run_benchmark(
     dataset_dir: Path = DATASET_DIR,
     thresholds: DetectorThresholds | None = None,
+    *,
+    embedder: BaseEmbedder | None = None,
+    disabled: frozenset[str] = frozenset(),
 ) -> DetectorAccuracyResult:
     """Synchronous entry point: load, score, and return the result."""
     examples = load_examples(dataset_dir)
     if not examples:
         raise SystemExit(f"No examples found under {dataset_dir}")
-    return asyncio.run(_score(examples, thresholds or DetectorThresholds()))
+    return asyncio.run(
+        _score(examples, thresholds or DetectorThresholds(), embedder=embedder, disabled=disabled)
+    )
 
 
 # ── Coverage + rendering ──────────────────────────────────────────────

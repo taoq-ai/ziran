@@ -19,12 +19,14 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, model_validator
 
 from ziran.application.detectors.ensemble import EnsembleConfig
+from ziran.application.detectors.semantic import SemanticConfig
 
 
 class DetectorThresholds(BaseModel):
     """Decision thresholds applied by :class:`DetectorPipeline`.
 
-    All values are in ``[0.0, 1.0]``. ``hit`` must be strictly greater
+    All top-level thresholds are in ``[0.0, 1.0]``; the ``semantic`` block is
+    documented on :class:`SemanticConfig`. ``hit`` must be strictly greater
     than ``safe`` (the two carve out the "ambiguous" middle band).
 
     Provenance of defaults — ``ziran/application/detectors/pipeline.py``:
@@ -88,6 +90,10 @@ class DetectorThresholds(BaseModel):
         ge=0.0,
         le=1.0,
         description="Min LLM-judge confidence before its score is trusted.",
+    )
+    semantic: SemanticConfig = Field(
+        default_factory=SemanticConfig,
+        description="Optional embedding-similarity tier (spec 042). Off by default.",
     )
     ensemble: EnsembleConfig = Field(
         default_factory=EnsembleConfig,
