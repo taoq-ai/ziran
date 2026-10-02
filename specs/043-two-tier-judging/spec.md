@@ -191,8 +191,9 @@ contradicts the deterministic signal, gets the expensive judge exactly as today.
   (`ambiguous`, `low_confidence`, `conflict`, `error`) is logged at debug level only.
 - **FR-008 (counters)**: `DetectorPipeline.tier_counts` returns a copy of
   `{"deterministic", "cheap", "escalated"}` counts when the tier is active, `{}` otherwise.
-- **FR-009 (campaign summary)**: `AgentScanner.run_campaign` sets
-  `campaign_result.metadata["judge_tiers"]` from a non-empty `tier_counts`; `_display_results`
+- **FR-009 (campaign summary)**: `AgentScanner.run_campaign` passes `tier_counts` to
+  `ResultBuilder.build(judge_tiers=...)`, which sets `campaign_result.metadata["judge_tiers"]` when
+  it is non-empty (plan §4); `_display_results`
   shows a `Judge Routing` row when the key is present.
 - **FR-010 (scan wiring)**: `_scan_detector_config` (#396) also returns a config when only the
   prefilter is enabled, carries the `prefilter` block into the returned thresholds and creates the

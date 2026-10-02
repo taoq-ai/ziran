@@ -5,6 +5,11 @@
 (`DetectorPipeline.judge`, `DetectorConfig.judge_clients`, `_scan_detector_config`, scanner
 `detector_config` passthrough), branch `origin/041-judge-ensemble-calibration` @ 738153e.
 **Sibling**: #397 / spec 042 (`semantic` block, tier between deterministic detectors and this one).
+**Re-checked 2026-10-02** against the implemented neighbours, #396 PR #444 (branch @ 2097586:
+`judge()`, `judge_clients`, `_scan_detector_config` signature, conservative-default reasoning
+string unchanged) and #397 PR #443 (branch @ 4e19536: semantic block is evaluate step 6, so the
+judge stage is step 7). Neither changes this contract. develop @ 43fae32 differs from d8e21e4 only
+in dependency pins, so the measurements below still hold.
 
 ## Summary
 When enabled, the LLM judge stage of `DetectorPipeline.evaluate` becomes three tiers. (1) If the
