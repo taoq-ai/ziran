@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from datetime import date
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -15,6 +17,7 @@ from ziran.application.cicd.gate import QualityGate, _composition_node_id, load_
 from ziran.application.cicd.github_actions import emit_annotations, write_step_summary
 from ziran.application.cicd.sarif import generate_sarif, write_sarif
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.trace_analysis.analyzer_service import AnalyzerService
 from ziran.domain.entities.capability import DangerousChain
 from ziran.domain.entities.ci import (
     GateFinding,
@@ -29,12 +32,12 @@ from ziran.domain.entities.ci import (
     chain_fingerprint,
 )
 from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
+from ziran.infrastructure.trace_ingestors.otel_ingestor import OTelIngestor
 from ziran.interfaces.cli.main import cli
 from ziran.interfaces.web.services import findings_extractor
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from pathlib import Path
 
 pytestmark = pytest.mark.unit
 
@@ -326,6 +329,19 @@ class TestGateSuppressions:
         g = _eval(r, _entries_for(r))
         assert g.passed, g.violations
         assert g.exit_code == 0
+
+    def test_trace_analysis_all_suppressed_passes(self) -> None:
+        """Real AnalyzerService output: suppressed chains back their tool paths/vulns."""
+        r = asyncio.run(
+            AnalyzerService(OTelIngestor()).analyze(
+                Path(__file__).parents[1] / "fixtures" / "sample_otel_traces.jsonl"
+            )
+        )
+        assert r.dangerous_tool_chains
+        assert not _eval(r, None).passed
+        g = _eval(r, _entries_for(r))
+        assert g.passed, g.violations
+        assert g.suppressed_findings == len(r.dangerous_tool_chains)
 
     def test_unbacked_data_source_path_fails(self) -> None:
         r = _campaign(
@@ -621,6 +637,12 @@ class TestGitHubActionsSuppressions:
         assert "| Suppressed | 1 |" in md
         assert "| Regressed | 0 |" in md
         assert "| Critical | 1 |" in md
+
+    def test_step_summary_escapes_pipe_in_reason(self) -> None:
+        r = _campaign(attacks=[_attack()])
+        g = _eval(r, _entries_for(r, reason="a|b", expires=date(2026, 1, 1)))
+        md = write_step_summary(g, r, summary_path=None)
+        assert "(reason: a\\|b)" in md
 
     def test_step_summary_no_file(self) -> None:
         r = _campaign(attacks=[_attack()])

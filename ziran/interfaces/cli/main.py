@@ -1555,7 +1555,7 @@ def ci(
         try:
             suppressions = load_suppressions(sup_path)
         except Exception as e:
-            console.print(f"[bold red]Error loading suppressions:[/bold red] {e}")
+            console.print(f"Error loading suppressions: {e}", style="bold red", markup=False)
             sys.exit(1)
 
     # 3. Evaluate

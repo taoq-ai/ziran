@@ -239,9 +239,11 @@ class QualityGate:
      message `"Critical attack paths or tool-composition chains were found"`, severity
      `critical`). The no-op `pass` branch above it may be deleted.
    - else: `backed` = `{f.label for suppressed attack findings} | {_composition_node_id(
-     result.dangerous_tool_chains[f.index]) for suppressed chain findings}`;
+     result.dangerous_tool_chains[f.index]) for suppressed chain findings}` (a chain's label is
+     its `vulnerability_type`, so that is backed too); `backed_paths` = the `graph_path` tuples
+     of suppressed chains (trace-analysis results use those as critical paths);
      `unsuppressed = count(state != "suppressed")`;
-     `paths = count(p for p in result.critical_paths if not p or p[-1] not in backed)`;
+     `paths = count(p for p in result.critical_paths if not p or (p[-1] not in backed and tuple(p) not in backed_paths))`;
      `vulns = len({v for ph in result.phases_executed for v in ph.vulnerabilities_found} - backed)`;
      if any of the three > 0 -> `GateViolation(rule="policy_violation", message=f"Unsuppressed
      findings or unbacked critical paths were found ({unsuppressed} unsuppressed finding(s),

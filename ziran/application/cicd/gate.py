@@ -95,7 +95,7 @@ class QualityGate:
             data = yaml.safe_load(fh)
 
         if not isinstance(data, dict):
-            msg = f"Invalid gate config — expected mapping, got {type(data).__name__}"
+            msg = f"Invalid gate config \u2014 expected mapping, got {type(data).__name__}"
             raise ValueError(msg)
 
         return cls(QualityGateConfig.model_validate(data))
@@ -236,20 +236,23 @@ class QualityGate:
     def _policy_message(result: CampaignResult, findings: list[GateFinding]) -> str | None:
         """Policy rule with a suppressions file loaded (spec 046 FR-008).
 
-        Fails on any unsuppressed finding, any critical path whose last node is
-        not backed by a suppressed finding, or any unbacked phase vulnerability.
-        Backed ids: the ``vector_id`` of a suppressed attack, the composition
-        node id of a suppressed chain.
+        Fails on any unsuppressed finding, any critical path not backed by a
+        suppressed finding, or any unbacked phase vulnerability. Backed ids: the
+        ``vector_id`` of a suppressed attack; the composition node id and the
+        ``vulnerability_type`` of a suppressed chain. A path is backed when its
+        last node is a backed id or it equals a suppressed chain's
+        ``graph_path`` (the trace-analysis shape).
         """
-        backed = {
-            f.label
-            if f.kind == "attack"
-            else _composition_node_id(result.dangerous_tool_chains[f.index])
-            for f in findings
-            if f.state == "suppressed"
-        }
-        unsuppressed = sum(f.state != "suppressed" for f in findings)
-        paths = sum(1 for p in result.critical_paths if not p or p[-1] not in backed)
+        suppressed = [f for f in findings if f.state == "suppressed"]
+        chains = [result.dangerous_tool_chains[f.index] for f in suppressed if f.kind == "chain"]
+        backed = {f.label for f in suppressed} | {_composition_node_id(c) for c in chains}
+        backed_paths = {tuple(str(n) for n in c.get("graph_path") or ()) for c in chains}
+        unsuppressed = len(findings) - len(suppressed)
+        paths = sum(
+            1
+            for p in result.critical_paths
+            if not p or (p[-1] not in backed and tuple(p) not in backed_paths)
+        )
         vulns = len({v for ph in result.phases_executed for v in ph.vulnerabilities_found} - backed)
         if not (unsuppressed or paths or vulns):
             return None

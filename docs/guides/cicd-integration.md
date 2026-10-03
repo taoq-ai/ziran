@@ -130,7 +130,9 @@ With a file, `policy_violation` fires only if at least one of these holds:
 
 1. a finding is not suppressed;
 2. a critical attack path ends at a node that is not backed by a suppressed finding (the
-   vector id of a suppressed attack, or the composition node of a suppressed chain);
+   vector id of a suppressed attack, or the composition node or vulnerability type of a
+   suppressed chain) and is not the tool path of a suppressed chain (the `ziran
+   analyze-traces` shape);
 3. a phase reported a vulnerability id that is not backed in the same way.
 
 Critical paths that end at a data-source node (such as `sensitive_data`) can never be backed,

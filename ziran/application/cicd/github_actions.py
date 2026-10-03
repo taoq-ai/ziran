@@ -119,7 +119,7 @@ def write_step_summary(
         lines.append("| Rule | Message | Severity |")
         lines.append("|------|---------|----------|")
         for v in gate.violations:
-            lines.append(f"| {v.rule} | {v.message} | {v.severity} |")
+            lines.append(f"| {v.rule} | {v.message.replace('|', chr(92) + '|')} | {v.severity} |")
         lines.append("")
 
     # Successful, unsuppressed attacks detail table
