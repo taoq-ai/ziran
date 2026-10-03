@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="ziran-hero-title ziran-hero-desc" preserveAspectRatio="xMidYMid meet">
+  <title id="ziran-hero-title">ZIRAN: AI agent security testing pipeline</title>
+  <desc id="ziran-hero-desc">Your AI agent (with tools, memory, and permissions) flows through the ZIRAN pipeline — discover, map, analyze, attack, report — into a ranked list of findings. The top finding "read_file to http_request" is highlighted as a critical data-exfiltration tool chain. Keywords: AI agent security, agent red team, tool chain analysis, knowledge graph, MCP, A2A, LangChain, CrewAI, prompt injection, side-effect detection.</desc>
+
+  <!-- background card -->
+  <rect width="1200" height="320" fill="#0f172a" rx="16"/>
+  <rect x="0.5" y="0.5" width="1199" height="319" fill="none" stroke="#1e293b" stroke-width="1" rx="16"/>
+
+  <!-- header strip -->
+  <text x="600" y="38" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" letter-spacing="3">YOUR AGENT  ·  ZIRAN  ·  FINDINGS</text>
+
+  <!-- ============ AGENT PANEL ============ -->
+  <g transform="translate(60, 76)">
+    <rect width="240" height="216" rx="14" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="120" y="34" text-anchor="middle" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">Your Agent</text>
+
+    <g font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="13">
+      <rect x="20" y="58" width="200" height="40" rx="10" fill="#0f172a" stroke="#334155"/>
+      <text x="36" y="83" fill="#cbd5e1">🔧  Tools</text>
+
+      <rect x="20" y="108" width="200" height="40" rx="10" fill="#0f172a" stroke="#334155"/>
+      <text x="36" y="133" fill="#cbd5e1">🧠  Memory</text>
+
+      <rect x="20" y="158" width="200" height="40" rx="10" fill="#0f172a" stroke="#334155"/>
+      <text x="36" y="183" fill="#cbd5e1">🔑  Permissions</text>
+    </g>
+  </g>
+
+  <!-- arrow: agent → ziran -->
+  <line x1="312" y1="184" x2="426" y2="184" stroke="#334155" stroke-width="2" stroke-dasharray="5 6"/>
+  <polygon points="426,184 418,180 418,188" fill="#334155"/>
+
+  <!-- probe packets traveling right -->
+  <circle r="5" fill="#0ea5e9">
+    <animate attributeName="cx" values="312;426" dur="2.4s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="184;184" dur="2.4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="2.4s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="5" fill="#0ea5e9">
+    <animate attributeName="cx" values="312;426" dur="2.4s" begin="1.2s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="184;184" dur="2.4s" begin="1.2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="2.4s" begin="1.2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ============ ZIRAN PIPELINE ============ -->
+  <g transform="translate(436, 76)">
+    <rect width="328" height="216" rx="14" fill="#1e293b" stroke="#e94560" stroke-width="1.5"/>
+    <text x="164" y="34" text-anchor="middle" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">⛩  ZIRAN Pipeline</text>
+
+    <!-- connecting line under nodes -->
+    <line x1="40" y1="124" x2="288" y2="124" stroke="#334155" stroke-width="1.5"/>
+
+    <!-- 5 phase nodes -->
+    <g font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" text-anchor="middle">
+      <circle cx="40"  cy="124" r="20" fill="#0f172a" stroke="#0ea5e9" stroke-width="2"/>
+      <text x="40"  y="129" fill="#0ea5e9" font-size="13" font-weight="700">D</text>
+      <text x="40"  y="166" fill="#94a3b8" font-size="10">discover</text>
+
+      <circle cx="102" cy="124" r="20" fill="#0f172a" stroke="#0ea5e9" stroke-width="2"/>
+      <text x="102" y="129" fill="#0ea5e9" font-size="13" font-weight="700">M</text>
+      <text x="102" y="166" fill="#94a3b8" font-size="10">map</text>
+
+      <circle cx="164" cy="124" r="20" fill="#0f172a" stroke="#0ea5e9" stroke-width="2"/>
+      <text x="164" y="129" fill="#0ea5e9" font-size="13" font-weight="700">A</text>
+      <text x="164" y="166" fill="#94a3b8" font-size="10">analyze</text>
+
+      <circle cx="226" cy="124" r="20" fill="#0f172a" stroke="#e94560" stroke-width="2"/>
+      <text x="226" y="129" fill="#e94560" font-size="13" font-weight="700">⚡</text>
+      <text x="226" y="166" fill="#94a3b8" font-size="10">attack</text>
+
+      <circle cx="288" cy="124" r="20" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+      <text x="288" y="129" fill="#10b981" font-size="13" font-weight="700">R</text>
+      <text x="288" y="166" fill="#94a3b8" font-size="10">report</text>
+    </g>
+
+    <!-- sweeping highlight ring -->
+    <circle cy="124" r="22" fill="none" stroke="#fbbf24" stroke-width="2.5">
+      <animate attributeName="cx" values="40;102;164;226;288;40" keyTimes="0;0.2;0.4;0.6;0.8;1" dur="5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;1;1;1;1;0" keyTimes="0;0.05;0.2;0.4;0.6;0.95;1" dur="5s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- knowledge graph hint at bottom -->
+    <text x="164" y="196" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" font-style="italic">live knowledge graph drives next phase</text>
+  </g>
+
+  <!-- arrow: ziran → findings -->
+  <line x1="774" y1="184" x2="888" y2="184" stroke="#334155" stroke-width="2" stroke-dasharray="5 6"/>
+  <polygon points="888,184 880,180 880,188" fill="#334155"/>
+
+  <!-- finding packets traveling right (red, tagged critical) -->
+  <circle cy="184" r="5" fill="#e94560">
+    <animate attributeName="cx" values="774;888" dur="2.4s" begin="0.6s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="2.4s" begin="0.6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cy="184" r="5" fill="#f59e0b">
+    <animate attributeName="cx" values="774;888" dur="2.4s" begin="1.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="2.4s" begin="1.8s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ============ FINDINGS PANEL ============ -->
+  <g transform="translate(900, 76)">
+    <rect width="240" height="216" rx="14" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="120" y="34" text-anchor="middle" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">Findings</text>
+
+    <!-- CRITICAL row (pulsing) -->
+    <g>
+      <rect x="20" y="58" width="200" height="40" rx="10" fill="#450a0a" stroke="#e94560" stroke-width="1.5">
+        <animate attributeName="stroke-width" values="1.5;3;1.5" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="fill" values="#450a0a;#7f1d1d;#450a0a" dur="1.8s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="28" y="68" width="62" height="16" rx="3" fill="#e94560"/>
+      <text x="59" y="80" text-anchor="middle" fill="#fff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9" font-weight="700">CRITICAL</text>
+      <text x="98" y="82" fill="#fecaca" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">read_file→http</text>
+    </g>
+
+    <!-- HIGH row -->
+    <rect x="20" y="108" width="200" height="40" rx="10" fill="#0f172a" stroke="#334155"/>
+    <rect x="28" y="118" width="38" height="16" rx="3" fill="#f59e0b"/>
+    <text x="47" y="130" text-anchor="middle" fill="#fff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9" font-weight="700">HIGH</text>
+    <text x="74" y="132" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">sql_query→exec</text>
+
+    <!-- MEDIUM row -->
+    <rect x="20" y="158" width="200" height="40" rx="10" fill="#0f172a" stroke="#334155"/>
+    <rect x="28" y="168" width="54" height="16" rx="3" fill="#0ea5e9"/>
+    <text x="55" y="180" text-anchor="middle" fill="#fff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9" font-weight="700">MEDIUM</text>
+    <text x="90" y="182" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">prompt_inject</text>
+  </g>
+
+  <!-- footer caption -->
+  <text x="600" y="304" text-anchor="middle" fill="#475569" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">graph-based discovery  ·  execution-level side effects  ·  multi-phase adaptive campaigns</text>
+</svg>
