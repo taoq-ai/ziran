@@ -23,7 +23,7 @@ SuppressionEntry` (fingerprint/content hash taken from `QualityGate._findings(..
 
 ## Phase 0 — Golden outputs (SC-003)
 
-- [ ] T001 Before any code change, on a detached `origin/develop` checkout of this worktree, write
+- [x] T001 Before any code change, on a detached `origin/develop` checkout of this worktree, write
       two fixture results to the scratchpad (not committed): `clean.json` (no findings,
       `success=false`) and `risky.json` (one successful critical attack, one successful medium
       attack, one critical chain, a critical path, `success=true`). In an empty scratch cwd, with
@@ -33,7 +33,7 @@ SuppressionEntry` (fingerprint/content hash taken from `QualityGate._findings(..
 
 ## Phase 1 — Domain identity and file models (FR-001..FR-004, FR-006 fields)
 
-- [ ] T002 [P] Failing tests `TestFingerprints`:
+- [x] T002 [P] Failing tests `TestFingerprints`:
       - `attack_fingerprint("test_agent", "v1", "prompt_injection") ==
         "a8fe72c13edad12d1df1d032a83ebe7a5b0320e125cfc28de5321a0421117f6e"` (today's web value);
         `findings_extractor._compute_fingerprint is attack_fingerprint`.
@@ -41,24 +41,24 @@ SuppressionEntry` (fingerprint/content hash taken from `QualityGate._findings(..
         `_findings` chains with the same type and different tools share one fingerprint.
       - `attack_content_hash` changes with severity and with category; `chain_content_hash`
         changes with tool order, tool set and `risk_level`; all four return 64 lowercase hex.
-- [ ] T003 [P] Failing tests `TestSuppressionModels`: valid entry with and without `expires`
+- [x] T003 [P] Failing tests `TestSuppressionModels`: valid entry with and without `expires`
       (`date` and ISO string); rejected (`ValidationError`): unknown key in entry and in file,
       `version: 2`, missing `version`, missing/empty/whitespace `reason` or `added_by`, 63-char or
       uppercase-hex `fingerprint` / `content_hash`, `expires: "soon"`; `SuppressionFile(version=1)`
       has `entries == []`; `entry.expired(d)` false on `expires == d`, true on `expires < d`, false
       when `expires is None`; models are frozen. `GateResult(status=PASSED)` defaults: `findings ==
       []`, three counts 0, `suppressions_applied is False`, `suppressed_attacks() == {}`.
-- [ ] T004 Implement plan §1 in `ziran/domain/entities/ci.py` and plan §2 in
+- [x] T004 Implement plan §1 in `ziran/domain/entities/ci.py` and plan §2 in
       `ziran/interfaces/web/services/findings_extractor.py`. T002-T003 pass;
       `tests/unit/test_findings_extractor.py` passes unmodified.
 
 ## Phase 2 — Gate classification, counts, violations, policy rule (FR-005..FR-008)
 
-- [ ] T005 [P] Failing tests `TestLoadSuppressions` (`tmp_path`): valid YAML (with an unquoted
+- [x] T005 [P] Failing tests `TestLoadSuppressions` (`tmp_path`): valid YAML (with an unquoted
       `expires: 2026-12-31`) loads; a list document raises `ValueError` containing `expected
       mapping`; schema errors raise `ValueError` (pydantic); missing path raises
       `FileNotFoundError`.
-- [ ] T006 [P] Failing tests `TestGateSuppressions` (default `QualityGateConfig()`, `today=TODAY`
+- [x] T006 [P] Failing tests `TestGateSuppressions` (default `QualityGateConfig()`, `today=TODAY`
       unless stated):
       - US1.1 `test_suppressed_attack_does_not_fail`: only `A` + matching entry -> `passed`,
         `finding_counts.critical == 0`, counts `(new, suppressed, regressed) == (0, 1, 0)`,
@@ -102,30 +102,30 @@ SuppressionEntry` (fingerprint/content hash taken from `QualityGate._findings(..
       - Edge `test_unsuccessful_attacks_not_classified`; `test_info_severity_counted_in_states_only`.
       - Violation order: thresholds, `policy_violation`, regressed (finding order), expired (file
         order).
-- [ ] T007 [P] Failing tests `TestAbsent`: for each fixture of `tests/unit/test_cicd.py` shape
+- [x] T007 [P] Failing tests `TestAbsent`: for each fixture of `tests/unit/test_cicd.py` shape
       (clean, risky, composition-only, `success=True` with no findings), `evaluate(r)` and
       `evaluate(r, None)` give today's `status`, `violations` (incl. the verbatim
       `"Critical attack paths or tool-composition chains were found"`), `finding_counts` and
       `summary` (no `Suppressions:`), `suppressions_applied is False`, every finding `new`.
-- [ ] T008 Implement plan §3 in `ziran/application/cicd/gate.py`. T005-T007 pass;
+- [x] T008 Implement plan §3 in `ziran/application/cicd/gate.py`. T005-T007 pass;
       `tests/unit/test_cicd.py` passes unmodified (incl. `QualityGate._count_findings(camp)`).
 
 ## Phase 3 — SARIF and GitHub Actions (FR-010, FR-011)
 
-- [ ] T009 [P] Failing tests `TestSarifSuppressions`: `A` suppressed + `B` new -> the `A` result
+- [x] T009 [P] Failing tests `TestSarifSuppressions`: `A` suppressed + `B` new -> the `A` result
       has `suppressions == [{"kind": "external", "justification": "accepted risk"}]`, the `B` result
       has no `suppressions` key, rules unchanged; `generate_sarif(r)` and `generate_sarif(r, gate)`
       with no file are equal and contain no `suppressions` key; `write_sarif(r, p, gate)` writes it.
-- [ ] T010 [P] Failing tests `TestGitHubActionsSuppressions`: `emit_annotations(r, gate)` returns
+- [x] T010 [P] Failing tests `TestGitHubActionsSuppressions`: `emit_annotations(r, gate)` returns
       one annotation (for `B`); `emit_annotations(r)` unchanged (two). `write_step_summary(gate,
       r)` omits `A`'s vector name from "Vulnerabilities Found", contains the `### Suppressions`
       table with `| New | 1 |`, `| Suppressed | 1 |`, `| Regressed | 0 |`, and `| Critical | 1 |`;
       with no file the summary equals today's (no `### Suppressions`).
-- [ ] T011 Implement plan §4 (`sarif.py`) and §5 (`github_actions.py`). T009-T010 pass.
+- [x] T011 Implement plan §4 (`sarif.py`) and §5 (`github_actions.py`). T009-T010 pass.
 
 ## Phase 4 — CLI (FR-009, FR-012, FR-013)
 
-- [ ] T012 [P] Failing tests `TestCiCommandSuppressions` (`CliRunner`, `monkeypatch.chdir(tmp_path)`,
+- [x] T012 [P] Failing tests `TestCiCommandSuppressions` (`CliRunner`, `monkeypatch.chdir(tmp_path)`,
       `GITHUB_OUTPUT` / `GITHUB_STEP_SUMMARY` pointed into `tmp_path` via `monkeypatch.setenv`):
       - US7.1 auto-load: `.ziran/suppressions.yaml` suppressing the only critical finding -> exit 0,
         stdout contains `Suppressed: 1`.
@@ -140,18 +140,18 @@ SuppressionEntry` (fingerprint/content hash taken from `QualityGate._findings(..
       - US6.1 via CLI: `--sarif` output has `suppressions` on the suppressed result.
       - US5.1 absent: no `.ziran/`, run -> stdout has no `fingerprint=` / `Suppressed:`,
         `$GITHUB_OUTPUT` has exactly the 4 existing lines, SARIF has no `suppressions` key.
-- [ ] T013 Implement plan §6 in `ziran/interfaces/cli/main.py` (`ci` + `_display_gate_result`
+- [x] T013 Implement plan §6 in `ziran/interfaces/cli/main.py` (`ci` + `_display_gate_result`
       only). T012 passes; `tests/unit/test_cli_main.py` passes unmodified.
 
 ## Phase 5 — Proof, docs, gates
 
-- [ ] T020 Re-run the T001 commands with the implemented code in fresh empty scratch cwds and
+- [x] T020 Re-run the T001 commands with the implemented code in fresh empty scratch cwds and
       `diff -r` against the T001 directories: the diff MUST be empty (SC-003). Record the exact
       command and its (empty) output for the PR body.
-- [ ] T021 [P] Docs per plan §9: `docs/guides/cicd-integration.md` `## Suppressing Accepted
+- [x] T021 [P] Docs per plan §9: `docs/guides/cicd-integration.md` `## Suppressing Accepted
       Findings`; `docs/reference/cli.md` `--suppressions` row. Any console sample pasted is copied
       from a real `ziran ci` run on a scratch fixture.
-- [ ] T022 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T022 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%; includes `tests/unit/application/test_scanner_size.py`).
       `git diff origin/develop -- uv.lock` empty. Commit per plan "Release note"; push; PR to
       `develop` linking #395 with the T020 result.

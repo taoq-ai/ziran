@@ -28,17 +28,21 @@ if TYPE_CHECKING:
 
 def emit_annotations(
     result: Any,  # CampaignResult
+    gate: GateResult | None = None,
 ) -> list[str]:
     """Emit ``::error`` / ``::warning`` workflow commands for each finding.
+
+    Attack results suppressed in *gate* are skipped.
 
     Returns:
         List of annotation strings (also printed to stdout when
         running inside GitHub Actions).
     """
     annotations: list[str] = []
-    for raw in result.attack_results:
+    suppressed = gate.suppressed_attacks() if gate else {}
+    for i, raw in enumerate(result.attack_results):
         ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
-        if not ar.get("successful"):
+        if not ar.get("successful") or i in suppressed:
             continue
 
         severity: str = ar.get("severity", "medium")
@@ -97,6 +101,18 @@ def write_step_summary(
         "",
     ]
 
+    if gate.suppressions_applied:
+        lines += [
+            "### Suppressions",
+            "",
+            "| State | Count |",
+            "|-------|-------|",
+            f"| New | {gate.new_findings} |",
+            f"| Suppressed | {gate.suppressed_findings} |",
+            f"| Regressed | {gate.regressed_findings} |",
+            "",
+        ]
+
     if gate.violations:
         lines.append("### Gate Violations")
         lines.append("")
@@ -106,11 +122,12 @@ def write_step_summary(
             lines.append(f"| {v.rule} | {v.message} | {v.severity} |")
         lines.append("")
 
-    # Successful attacks detail table
+    # Successful, unsuppressed attacks detail table
+    suppressed = gate.suppressed_attacks()
     successful = [
         (r if isinstance(r, dict) else r.model_dump())
-        for r in result.attack_results
-        if (r if isinstance(r, dict) else r.model_dump()).get("successful")
+        for i, r in enumerate(result.attack_results)
+        if i not in suppressed and (r if isinstance(r, dict) else r.model_dump()).get("successful")
     ]
     if successful:
         lines.append("### Vulnerabilities Found")

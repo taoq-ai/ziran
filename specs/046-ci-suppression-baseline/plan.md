@@ -447,3 +447,10 @@ states the SC-003 golden diff result verbatim. Keep `main.py` edits inside `ci` 
 
 ## Complexity Tracking
 None.
+
+## Implementation notes (deviations)
+- The FR-008 rule (§3 step 4, file loaded) lives in a private static method
+  `QualityGate._policy_message(result, findings) -> str | None` instead of inline in `evaluate`.
+  Rule, rule name, message and severity are exactly as specified; public names unchanged.
+- `_display_gate_result` prints one blank line after the unsuppressed-findings block, matching
+  the spacing after the violations table.

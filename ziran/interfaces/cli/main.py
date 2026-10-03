@@ -1472,6 +1472,13 @@ def _display_validation_results(checks: list[tuple[str, bool, str]]) -> None:
     help="Write a SARIF v2.1.0 report to this path.",
 )
 @click.option(
+    "--suppressions",
+    "suppressions_path",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="Suppressions YAML of accepted findings (default: .ziran/suppressions.yaml if present).",
+)
+@click.option(
     "--github-annotations/--no-github-annotations",
     default=True,
     help="Emit GitHub Actions annotations (default: on).",
@@ -1486,6 +1493,7 @@ def ci(
     gate_config_path: str | None,
     policy_path: str | None,
     sarif_path: str | None,
+    suppressions_path: str | None,
     *,
     github_annotations: bool,
     github_summary: bool,
@@ -1506,8 +1514,9 @@ def ci(
         ziran ci ./ziran_results/campaign_123_report.json
         ziran ci results.json --gate-config gate.yaml --sarif results.sarif
         ziran ci results.json --no-github-annotations --sarif results.sarif
+        ziran ci results.json --suppressions .ziran/suppressions.yaml
     """
-    from ziran.application.cicd.gate import QualityGate
+    from ziran.application.cicd.gate import QualityGate, load_suppressions
     from ziran.application.cicd.github_actions import (
         emit_annotations,
         set_output,
@@ -1539,8 +1548,18 @@ def ci(
         console.print(f"[bold red]Unexpected error loading gate config:[/bold red] {e}")
         sys.exit(1)
 
+    # 2b. Load accepted findings (explicit flag, else the cwd default if present)
+    sup_path = Path(suppressions_path or ".ziran/suppressions.yaml")
+    suppressions = None
+    if suppressions_path or sup_path.is_file():
+        try:
+            suppressions = load_suppressions(sup_path)
+        except Exception as e:
+            console.print(f"[bold red]Error loading suppressions:[/bold red] {e}")
+            sys.exit(1)
+
     # 3. Evaluate
-    gate_result = gate.evaluate(result)
+    gate_result = gate.evaluate(result, suppressions)
 
     # 4. Console output (always shown)
     _display_gate_result(gate_result)
@@ -1548,14 +1567,14 @@ def ci(
     # 5. SARIF output
     if sarif_path:
         try:
-            written = write_sarif(result, Path(sarif_path))
+            written = write_sarif(result, Path(sarif_path), gate_result)
             console.print(f"[dim]SARIF report: {written}[/dim]")
         except Exception as e:
             console.print(f"[yellow]Warning: SARIF generation failed: {e}[/yellow]")
 
     # 6. GitHub annotations
     if github_annotations:
-        annotations = emit_annotations(result)
+        annotations = emit_annotations(result, gate_result)
         for ann in annotations:
             print(ann)
 
@@ -1568,6 +1587,10 @@ def ci(
     set_output("trust_score", f"{gate_result.trust_score:.2f}")
     set_output("total_findings", str(gate_result.finding_counts.total))
     set_output("critical_findings", str(gate_result.finding_counts.critical))
+    if gate_result.suppressions_applied:
+        set_output("new_findings", str(gate_result.new_findings))
+        set_output("suppressed_findings", str(gate_result.suppressed_findings))
+        set_output("regressed_findings", str(gate_result.regressed_findings))
 
     # 9. Policy evaluation (optional overlay)
     if policy_path:
@@ -1593,14 +1616,22 @@ def _display_gate_result(gate: Any) -> None:
     status_style = "bold green" if gate.passed else "bold red"
     status_text = "PASSED" if gate.passed else "FAILED"
     counts = gate.finding_counts
+    panel_text = (
+        f"[{status_style}]{status_text}[/{status_style}]  "
+        f"Trust: {gate.trust_score:.2f}  |  "
+        f"Findings: {counts.total} "
+        f"(C:{counts.critical} H:{counts.high} M:{counts.medium} L:{counts.low})"
+    )
+    if gate.suppressions_applied:
+        panel_text += (
+            f"  |  New: {gate.new_findings}  Suppressed: {gate.suppressed_findings}  "
+            f"Regressed: {gate.regressed_findings}"
+        )
 
     console.print()
     console.print(
         Panel(
-            f"[{status_style}]{status_text}[/{status_style}]  "
-            f"Trust: {gate.trust_score:.2f}  |  "
-            f"Findings: {counts.total} "
-            f"(C:{counts.critical} H:{counts.high} M:{counts.medium} L:{counts.low})",
+            panel_text,
             title="CI/CD Quality Gate",
             expand=False,
         )
@@ -1615,6 +1646,22 @@ def _display_gate_result(gate: Any) -> None:
         for v in gate.violations:
             viol_table.add_row(v.rule, v.message, v.severity)
         console.print(viol_table)
+        console.print()
+
+    unsuppressed = [f for f in gate.findings if f.state != "suppressed"]
+    if gate.suppressions_applied and unsuppressed:
+        console.print(
+            "Unsuppressed findings (copy fingerprint/content_hash into the suppressions file "
+            "to accept):"
+        )
+        for f in unsuppressed:
+            console.print(
+                f"  {f.state} {f.kind} {f.label} [{f.severity}] "
+                f"fingerprint={f.fingerprint} content_hash={f.content_hash}",
+                markup=False,
+                highlight=False,
+                soft_wrap=True,
+            )
         console.print()
 
     console.print(f"[dim]{gate.summary}[/dim]")
