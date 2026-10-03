@@ -810,6 +810,7 @@ class TestBudgetCap:
         concurrency: int = 1,
         resume: bool = False,
         model: str = "m",
+        stop_on_critical: bool = False,
         **limits: Any,
     ) -> tuple[Any, MockAgentAdapter, Any]:
         from ziran.application.agent_scanner.checkpoint import CheckpointManager
@@ -818,7 +819,7 @@ class TestBudgetCap:
         adapter = MockAgentAdapter()
         result = await AgentScanner(adapter, lib, config=config).run_campaign(
             phases=phases or [PHASE_A],
-            stop_on_critical=False,
+            stop_on_critical=stop_on_critical,
             max_concurrent_attacks=concurrency,
             checkpoint_manager=CheckpointManager(tmp_path),
             resume_from_checkpoint=resume,
@@ -898,6 +899,25 @@ class TestBudgetCap:
         )
         assert [p.phase for p in resumed.phases_executed] == [PHASE_A, PHASE_B]
         assert "status" not in resumed.metadata
+
+    async def test_cap_reached_when_strategy_stops_is_complete(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any, monkeypatch: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        monkeypatch.setattr(AgentScanner, "_has_critical_finding", lambda self, p: True)
+        calib, _, _ = await self._run(shared_attack_library, tmp_path / "calib")
+        cap = calib.metadata["usage"]["total_tokens"]
+        result, _, _ = await self._run(
+            shared_attack_library,
+            tmp_path,
+            phases=[PHASE_A, PHASE_B],
+            stop_on_critical=True,
+            max_campaign_tokens=cap,
+        )
+        assert [p.phase for p in result.phases_executed] == [PHASE_A]
+        assert "status" not in result.metadata
+        assert not CheckpointManager(tmp_path).exists()
 
     async def test_cap_reached_by_last_vector_is_complete(
         self, shared_attack_library: AttackLibrary, tmp_path: Any

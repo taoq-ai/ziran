@@ -144,8 +144,10 @@ their judge calls are recorded, so the final total can go past the cap by up to
 `--concurrency` attacks' worth of tokens. A multi-prompt vector is never cut in
 the middle. Reaching the cap exactly counts as reached.
 
-When the cap is hit, ziran stops scheduling attacks and skips the post-attack
-utility measurement. It still writes the partial result and keeps the checkpoint,
+When the cap is hit, ziran stops scheduling attacks. The post-attack utility
+measurement is skipped whenever usage has reached the cap, even if the last
+phase finished all its work (that run has no `budget_exceeded` status and no
+`utility_delta`). A stopped run still writes the partial result and keeps the checkpoint,
 which now also stores the usage ledger. To continue, re-run with `--resume` and
 a higher cap (or none):
 

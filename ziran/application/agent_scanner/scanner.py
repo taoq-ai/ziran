@@ -345,7 +345,7 @@ class AgentScanner:
                 budget=self._budget,
             )
 
-        while not self._budget.stop_phases(bool(remaining_phases)):
+        while True:
             # Build context for strategy decision-making
             context = CampaignContext(
                 completed_phases=list(phase_results),
@@ -359,6 +359,8 @@ class AgentScanner:
 
             if strategy.should_stop(context):
                 logger.info("strategy_requested_stop", strategy=type(strategy).__name__)
+                break
+            if self._budget.stop_phases(bool(remaining_phases)):  # only when work is left
                 break
 
             decision = strategy.select_next_phase(context)
@@ -412,10 +414,8 @@ class AgentScanner:
                 total_tokens=result.token_usage["total_tokens"],
             )
 
-            # Update knowledge graph with phase results
             self._update_graph_from_phase(result)
 
-            # Notify strategy of phase completion
             updated_context = CampaignContext(
                 completed_phases=list(phase_results),
                 available_phases=list(remaining_phases),
