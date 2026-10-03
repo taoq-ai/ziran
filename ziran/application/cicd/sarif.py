@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ziran.application.static_analysis.analyzer import StaticFinding
+    from ziran.domain.entities.ci import GateResult
     from ziran.domain.entities.phase import CampaignResult
 
 _SEVERITY_TO_SARIF: dict[str, str] = {
@@ -48,11 +49,13 @@ _SEVERITY_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 
 _ZIRAN_VERSION = "0.1.0"
 
 
-def generate_sarif(result: CampaignResult) -> dict[str, Any]:
+def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> dict[str, Any]:
     """Generate a SARIF v2.1.0 document from a campaign result.
 
     Args:
         result: The campaign result to convert.
+        gate: Optional gate outcome; its suppressed attack results are marked
+            with an external SARIF ``suppressions`` entry.
 
     Returns:
         A dictionary conforming to the SARIF v2.1.0 JSON schema,
@@ -61,8 +64,9 @@ def generate_sarif(result: CampaignResult) -> dict[str, Any]:
     rules: list[dict[str, Any]] = []
     results: list[dict[str, Any]] = []
     seen_rule_ids: set[str] = set()
+    suppressed = gate.suppressed_attacks() if gate else {}
 
-    for raw in result.attack_results:
+    for i, raw in enumerate(result.attack_results):
         ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
         if not ar.get("successful"):
             continue
@@ -81,6 +85,8 @@ def generate_sarif(result: CampaignResult) -> dict[str, Any]:
 
         # Add result
         sarif_result = _build_result(ar, vector_id, severity)
+        if i in suppressed:
+            sarif_result["suppressions"] = [{"kind": "external", "justification": suppressed[i]}]
         results.append(sarif_result)
 
     return _sarif_document(rules, results)
@@ -155,13 +161,13 @@ def _sarif_document(rules: list[dict[str, Any]], results: list[dict[str, Any]]) 
     }
 
 
-def write_sarif(result: CampaignResult, path: Path) -> Path:
+def write_sarif(result: CampaignResult, path: Path, gate: GateResult | None = None) -> Path:
     """Generate SARIF and write it to *path*.
 
     Returns:
         The path that was written.
     """
-    sarif = generate_sarif(result)
+    sarif = generate_sarif(result, gate)
     path.write_text(json.dumps(sarif, indent=2))
     return path
 

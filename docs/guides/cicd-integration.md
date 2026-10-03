@@ -69,6 +69,119 @@ require_owasp_coverage:           # Required OWASP categories
 | 1 | Gate failed — vulnerabilities exceed thresholds |
 | 2 | Configuration error |
 
+## Suppressing Accepted Findings
+
+A finding your team has reviewed and accepted can be recorded in a committed file so the
+gate stops failing on it, while any change to that finding fails the gate again.
+
+`ziran ci` loads `.ziran/suppressions.yaml` from the working directory when it exists.
+Pass `--suppressions PATH` to use another file. A file that cannot be read or validated
+stops the run with `Error loading suppressions: ...` and exit code 1. A path given to
+`--suppressions` that does not exist is a usage error (exit code 2).
+
+```yaml
+# .ziran/suppressions.yaml
+version: 1
+entries:
+  - fingerprint: a8fe72c13edad12d1df1d032a83ebe7a5b0320e125cfc28de5321a0421117f6e
+    content_hash: c80a79447eb700e60463275c8d4d21da825727c816ab30ad956303ae64133eae
+    reason: "Prompt-injection echo accepted: output is sandboxed (SEC-123)"
+    added_by: security-team
+    expires: 2026-12-31   # optional; the entry is valid through this date
+```
+
+`fingerprint` and `content_hash` are 64-character lowercase hex values printed by `ziran ci`.
+`reason` and `added_by` are required. Unknown keys are rejected.
+
+### Fingerprint and content hash
+
+Each finding the gate counts gets two values:
+
+- **fingerprint**: what the finding is. For a successful attack it is the target agent, the
+  vector id and the category (the same fingerprint the web UI findings page uses). For a
+  dangerous tool chain it is the target agent and the vulnerability type.
+- **content hash**: what the finding contains. For an attack it covers the severity and the
+  category. For a chain it covers the tools, in order, and the risk level.
+
+Evidence (including `tool_calls`), agent responses, prompts and names are never hashed, because
+they change between runs.
+
+| What changed since the entry was written | State | Gate |
+|---|---|---|
+| Nothing material (only evidence, response, prompt or name) | suppressed | not counted |
+| Attack severity, chain tools or chain risk level | regressed | counted, plus a `suppression_regressed` violation |
+| Attack category, vector id, chain vulnerability type or target agent | new | counted |
+
+The severity thresholds and `max_critical_findings` count only new and regressed findings.
+A `suppression_regressed` violation names the entry's fingerprint and the new content hash.
+Several chains with the same vulnerability type share one fingerprint; add one entry per
+accepted content hash.
+
+### Expiry
+
+An entry with `expires` in the past no longer suppresses anything, and each such entry adds a
+`suppression_expired` violation (whether or not it still matches a finding). Renew the date
+or remove the entry.
+
+### Policy rule with a suppressions file
+
+Without a file, `fail_on_policy_violation` fails whenever the result is marked vulnerable.
+With a file, `policy_violation` fires only if at least one of these holds:
+
+1. a finding is not suppressed;
+2. a critical attack path ends at a node that is not backed by a suppressed finding (the
+   vector id of a suppressed attack, or the composition node or vulnerability type of a
+   suppressed chain) and is not the tool path of a suppressed chain (the `ziran
+   analyze-traces` shape);
+3. a phase reported a vulnerability id that is not backed in the same way.
+
+Critical paths that end at a data-source node (such as `sensitive_data`) can never be backed,
+so such results still fail `policy_violation` even with every finding suppressed. If that is
+acceptable for your agent, set `fail_on_policy_violation: false` in the gate config; the
+severity thresholds still apply. With a file loaded, the rule is also stricter than before in
+one case: any unsuppressed finding fails it, including a non-critical chain.
+
+### Bootstrapping the file
+
+Fingerprints are printed only when a suppressions file is loaded. Start with an empty file:
+
+```yaml
+version: 1
+entries: []
+```
+
+Then run the gate and copy the printed values into entries for the findings you accept.
+Output from a scan result with two successful attacks, one critical chain and one critical path:
+
+```text
+Unsuppressed findings (copy fingerprint/content_hash into the suppressions file to accept):
+  new attack v1 [critical] fingerprint=a8fe72c13edad12d1df1d032a83ebe7a5b0320e125cfc28de5321a0421117f6e content_hash=c80a79447eb700e60463275c8d4d21da825727c816ab30ad956303ae64133eae
+  new attack v2 [medium] fingerprint=c3b1e7f24e5b6f3695e4e53156dd95d62eff493db6db541352c4ae532905812e content_hash=4d94a27a271448b34308f94a1a936f35250691b0b6aaf611d99b667882fd7eef
+  new chain data_exfiltration [critical] fingerprint=64e139a4957bcaaff763cacd45656f8a63a14d6460be47291ba6f443d92d868f content_hash=652b01e461d943c024616e2cfbf55b5126ecd04fd30cec0d3cd456fcea867b7e
+```
+
+With all three accepted, the same result passes:
+
+```text
+│ PASSED  Trust: 0.30  |  Findings: 0 (C:0 H:0 M:0 L:0)  |  New: 0  Suppressed: 3  Regressed: 0 │
+```
+
+### Outputs
+
+When a file is loaded:
+
+- the summary line ends with `| Suppressions: new N, suppressed S, regressed R`;
+- `$GITHUB_OUTPUT` gets `new_findings`, `suppressed_findings` and `regressed_findings`
+  (the composite GitHub Action does not re-export these yet; it does auto-load the file,
+  since it runs `ziran ci` in the workspace root);
+- the step summary gets a `### Suppressions` table, and suppressed attacks are left out of
+  "Vulnerabilities Found";
+- no annotation is emitted for a suppressed attack;
+- in SARIF, a suppressed attack result carries
+  `"suppressions": [{"kind": "external", "justification": "<reason>"}]`.
+
+Without a file, all outputs are unchanged.
+
 ## Policy Engine
 
 For more complex compliance rules, use the policy engine:
