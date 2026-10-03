@@ -167,7 +167,20 @@ class CampaignBudget:
         self.ledger = ledger
         self.limits = limits
         self.interrupted_phase: ScanPhase | None = None  # set when a vector is skipped
+        self._phase_skipped = False  # set when the phase loop stopped with phases pending
         self._logged = False
+
+    @property
+    def stopped(self) -> bool:
+        """True only when the cap actually left work undone (skipped vector or phase)."""
+        return self.interrupted_phase is not None or self._phase_skipped
+
+    def stop_phases(self, pending: bool) -> bool:
+        """Phase-loop check: True once exceeded; marks the run stopped if *pending*."""
+        if not self.exceeded():
+            return False
+        self._phase_skipped = self._phase_skipped or pending
+        return True
 
     @classmethod
     def from_config(cls, config: Mapping[str, Any]) -> CampaignBudget:

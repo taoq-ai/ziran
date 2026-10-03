@@ -308,9 +308,12 @@ class TestResultBuilderUsage:
 
     def test_usage_with_hit(self) -> None:
         from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
+        from ziran.domain.entities.phase import ScanPhase
 
         budget = CampaignBudget(UsageLedger(), UsageBudget(max_tokens=1))
         budget.ledger.record("judge", "m", 100, 20)
+        assert "status" not in self._build(budget)  # cap reached, nothing skipped
+        budget.interrupted_phase = ScanPhase.RECONNAISSANCE
         meta = self._build(budget)
         assert meta["status"] == "budget_exceeded"
         assert meta["usage"]["total_tokens"] == 120  # type: ignore[index]

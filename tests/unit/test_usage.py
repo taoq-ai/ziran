@@ -199,6 +199,16 @@ class TestBudget:
         with pytest.raises(ValidationError):
             CampaignBudget.from_config({"max_campaign_tokens": 0})
 
+    def test_stopped_only_when_work_left(self) -> None:
+        budget = CampaignBudget(UsageLedger(), UsageBudget(max_tokens=100))
+        assert not budget.stop_phases(pending=True)
+        assert not budget.stopped
+        budget.ledger.record("judge", "m", 100, 20)
+        assert budget.stop_phases(pending=False)
+        assert not budget.stopped  # cap reached with nothing left to run
+        assert budget.stop_phases(pending=True)
+        assert budget.stopped
+
     def test_summary(self) -> None:
         budget = CampaignBudget(UsageLedger(PRICES), UsageBudget(max_tokens=10_000))
         budget.ledger.record("judge", "m", 100, 20)

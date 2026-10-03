@@ -193,25 +193,24 @@ class PhaseExecutor:
         async def _run_attack(attack_idx: int, attack: AttackVector) -> None:
             nonlocal completed_count, phase_tokens
 
-            self._emitter.emit(
-                ProgressEvent(
-                    event=ProgressEventType.ATTACK_START,
-                    phase=phase.value,
-                    phase_index=phase_index,
-                    total_phases=total_phases,
-                    attack_index=attack_idx,
-                    total_attacks=len(attacks),
-                    attack_name=attack.name,
-                    message=f"Running: {attack.name}",
-                )
-            )
-
             try:
                 async with semaphore:
                     # Cooperative cap: skip (not record) the vector so resume runs it.
                     if self._budget is not None and self._budget.exceeded():
                         self._budget.interrupted_phase = phase
                         return
+                    self._emitter.emit(
+                        ProgressEvent(
+                            event=ProgressEventType.ATTACK_START,
+                            phase=phase.value,
+                            phase_index=phase_index,
+                            total_phases=total_phases,
+                            attack_index=attack_idx,
+                            total_attacks=len(attacks),
+                            attack_name=attack.name,
+                            message=f"Running: {attack.name}",
+                        )
+                    )
                     metrics.attack_started(phase.value)
                     started = perf_counter()
                     try:

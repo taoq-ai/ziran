@@ -8,6 +8,11 @@ from typing import Any
 import pytest
 
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
+from ziran.application.agent_scanner.progress import (
+    ProgressEmitter,
+    ProgressEvent,
+    ProgressEventType,
+)
 from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import ScanPhase
@@ -63,13 +68,18 @@ PHASE = ScanPhase.RECONNAISSANCE
 
 
 async def _run(
-    budget: CampaignBudget | None, ledger: UsageLedger, *, concurrent: int = 1
+    budget: CampaignBudget | None,
+    ledger: UsageLedger,
+    *,
+    concurrent: int = 1,
+    events: list[ProgressEvent] | None = None,
 ) -> tuple[_StubExecutor, set[str]]:
     stub = _StubExecutor(ledger)
     executor = PhaseExecutor(
         stub,  # type: ignore[arg-type]
         _StubLibrary([_StubVector(id=f"v{i}", name=f"vec{i}") for i in range(5)]),  # type: ignore[arg-type]
         _StubGraph(),  # type: ignore[arg-type]
+        emitter=ProgressEmitter(events.append if events is not None else None),
         budget=budget,
     )
     tested: set[str] = set()
@@ -98,6 +108,16 @@ class TestPhaseExecutorBudget:
         assert stub.executed == ["v0"]
         assert tested == {"v0"}
         assert budget.interrupted_phase == PHASE
+        assert budget.stopped
+
+    async def test_skipped_vectors_emit_no_progress(self) -> None:
+        ledger = UsageLedger()
+        budget = CampaignBudget(ledger, UsageBudget(max_tokens=1))
+        events: list[ProgressEvent] = []
+        await _run(budget, ledger, events=events)
+        kinds = [e.event for e in events]
+        assert kinds.count(ProgressEventType.ATTACK_START) == 1
+        assert kinds.count(ProgressEventType.ATTACK_COMPLETE) == 1
 
     async def test_overshoot_bounded_by_concurrency(self) -> None:
         ledger = UsageLedger()
@@ -113,6 +133,7 @@ class TestPhaseExecutorBudget:
         assert len(stub.executed) == 5
         assert budget.exceeded()
         assert budget.interrupted_phase is None
+        assert not budget.stopped
 
     async def test_target_stage_recorded(self) -> None:
         ledger = UsageLedger()

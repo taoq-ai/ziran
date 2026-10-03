@@ -113,7 +113,7 @@ class ResultBuilder:
             metadata["judge_tiers"] = judge_tiers
         if usage is not None:  # all-stage usage breakdown (spec 047)
             metadata["usage"] = usage.summary().model_dump(mode="json")
-            if usage.exceeded():
+            if usage.stopped:
                 metadata["status"] = "budget_exceeded"
 
         if baseline_score is not None and post_score is not None:

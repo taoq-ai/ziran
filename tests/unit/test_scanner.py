@@ -899,6 +899,19 @@ class TestBudgetCap:
         assert [p.phase for p in resumed.phases_executed] == [PHASE_A, PHASE_B]
         assert "status" not in resumed.metadata
 
+    async def test_cap_reached_by_last_vector_is_complete(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        calib, _, _ = await self._run(shared_attack_library, tmp_path / "calib")
+        cap = calib.metadata["usage"]["total_tokens"]
+        result, _, _ = await self._run(shared_attack_library, tmp_path, max_campaign_tokens=cap)
+        assert result.metadata["usage"]["total_tokens"] >= cap  # the cap was reached
+        assert len(result.attack_results) == self._vector_count(shared_attack_library, PHASE_A)
+        assert "status" not in result.metadata
+        assert not CheckpointManager(tmp_path).exists()
+
     async def test_no_cap_unchanged(
         self, shared_attack_library: AttackLibrary, tmp_path: Any
     ) -> None:

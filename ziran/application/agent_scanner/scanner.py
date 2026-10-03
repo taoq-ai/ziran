@@ -345,7 +345,7 @@ class AgentScanner:
                 budget=self._budget,
             )
 
-        while not self._budget.exceeded():
+        while not self._budget.stop_phases(bool(remaining_phases)):
             # Build context for strategy decision-making
             context = CampaignContext(
                 completed_phases=list(phase_results),
@@ -523,7 +523,7 @@ class AgentScanner:
         )
 
         # Clean up checkpoint on successful completion
-        if checkpoint_manager is not None and not self._budget.exceeded():
+        if checkpoint_manager is not None and not self._budget.stopped:
             checkpoint_manager.cleanup()
             logger.info("checkpoint_cleaned_up")
 
