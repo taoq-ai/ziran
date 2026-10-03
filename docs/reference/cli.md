@@ -438,8 +438,17 @@ stderr is discarded.
 
 **First registration.** When a server has no stored snapshot, its `tools/list` is scanned by the
 MCP metadata analyzer; suspicious descriptions or parameter hints are reported as
-`tool_poisoning` findings (severity `critical`, `high` or `medium`). Later runs diff against the
-baseline.
+`tool_poisoning` findings (severity `critical`, `high`, `medium` or `low`). Later runs diff against
+the baseline. A redirect whose `call <tool> instead` target is exactly the name of another tool on
+the same server is reported as `sibling_redirect` at `medium`; it stays a `critical`
+`tool_redirect` if the same text also carries an exfiltration or authority pattern, or names any
+tool outside the server. `always` / `never` / `silently` describing the tool's own output
+("never returns an empty list") are reported at `low`; model-directed imperatives (`you must`,
+`before calling`, `ignore previous`, `do not tell`, `always call`, ...) stay `high`.
+`tool_poisoning` findings are emitted only on first registration, when no snapshot exists, so
+`previous_value` is always `null`: they are first-measurement information, not drift. Exit codes
+count only `high`/`critical`, so a server whose only findings are sibling redirects and
+output-contract imperatives exits `0`.
 
 **Exit codes** (command-wide, precedence `2` > `1` > `0`):
 

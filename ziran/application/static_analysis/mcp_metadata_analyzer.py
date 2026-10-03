@@ -19,7 +19,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.attack import Severity
 
 
 @dataclass(frozen=True)
@@ -30,13 +33,13 @@ class MCPMetadataFinding:
     field: str  # "description", "parameter:<name>", "resource:<uri>"
     pattern_matched: str  # category name
     snippet: str  # the suspicious text (truncated to 200 chars)
-    severity: Literal["critical", "high", "medium"]
+    severity: Severity
     recommendation: str
 
 
 # ── Suspicious patterns (compiled for performance) ────────────────
 
-_PATTERNS: dict[str, tuple[re.Pattern[str], Literal["critical", "high", "medium"], str]] = {
+_PATTERNS: dict[str, tuple[re.Pattern[str], Severity, str]] = {
     "imperative_instruction": (
         re.compile(
             r"(?i)\b(you must|you should|always|never|before calling|after calling|"
@@ -81,7 +84,7 @@ _PATTERNS: dict[str, tuple[re.Pattern[str], Literal["critical", "high", "medium"
     ),
     "tool_redirect": (
         re.compile(
-            r"(?i)(call\s+.{0,20}\s+instead|redirect\s+to|"
+            r"(?i)(call\s+(?P<target>.{0,20})\s+instead|redirect\s+to|"
             r"actually\s+(use|call|invoke)|invoke\s+.{0,20}\s+tool\s+instead|"
             r"forward\s+.{0,10}\s+to\s+.{0,20}\s+tool)"
         ),
@@ -90,6 +93,25 @@ _PATTERNS: dict[str, tuple[re.Pattern[str], Literal["critical", "high", "medium"
         "Each tool should only describe its own behavior.",
     ),
 }
+
+
+# "always" / "never" / "silently" usually describe the tool's own output contract
+# ("never returns an empty list"); directly followed by a bare verb they address the model.
+_WEAK_IMPERATIVES = frozenset({"always", "never", "silently"})
+_IMPERATIVE_VERB = re.compile(
+    r"\s+(call|use|invoke|run|execute|send|pass|include|tell|ask|reveal|mention|read|write)\b",
+    re.IGNORECASE,
+)
+
+_SIBLING_REDIRECT_RECOMMENDATION = (
+    "Tool metadata routes the caller to a sibling tool of the same server. "
+    "Usually benign routing advice; confirm the named tool is the one intended."
+)
+
+
+def _redirect_target(match: re.Match[str]) -> str:
+    """Target of a ``call <target> instead`` match, or "" for target-less redirect forms."""
+    return (match.group("target") or "").strip(" \t`'\"")
 
 
 class MCPMetadataAnalyzer:
@@ -112,14 +134,20 @@ class MCPMetadataAnalyzer:
             List of findings, sorted by severity (critical first).
         """
         findings: list[MCPMetadataFinding] = []
+        names = {
+            n
+            for cap in capabilities
+            if cap.get("type", "tool") == "tool" and (n := cap.get("id") or cap.get("name"))
+        }
 
         for cap in capabilities:
             tool_id = cap.get("id") or cap.get("name") or "unknown"
+            siblings = frozenset(names - {tool_id})
 
             # Check top-level description
             desc = cap.get("description", "")
             if desc:
-                findings.extend(self._check_text(desc, tool_id, "description"))
+                findings.extend(self._check_text(desc, tool_id, "description", siblings))
 
             # Check parameter descriptions
             params = cap.get("parameters") or cap.get("inputSchema", {}).get("properties", {})
@@ -130,7 +158,9 @@ class MCPMetadataAnalyzer:
                         param_desc = param_info.get("description", "")
                         if param_desc:
                             findings.extend(
-                                self._check_text(param_desc, tool_id, f"parameter:{param_name}")
+                                self._check_text(
+                                    param_desc, tool_id, f"parameter:{param_name}", siblings
+                                )
                             )
             elif isinstance(params, list):
                 for param in params:
@@ -139,32 +169,54 @@ class MCPMetadataAnalyzer:
                         param_name = param.get("name", "unknown")
                         if param_desc:
                             findings.extend(
-                                self._check_text(param_desc, tool_id, f"parameter:{param_name}")
+                                self._check_text(
+                                    param_desc, tool_id, f"parameter:{param_name}", siblings
+                                )
                             )
 
-        # Sort: critical → high → medium
-        severity_order = {"critical": 0, "high": 1, "medium": 2}
+        # Sort: critical → high → medium → low
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         findings.sort(key=lambda f: severity_order.get(f.severity, 3))
 
         return findings
 
     @staticmethod
-    def _check_text(text: str, tool_id: str, field: str) -> list[MCPMetadataFinding]:
+    def _check_text(
+        text: str, tool_id: str, field: str, siblings: frozenset[str]
+    ) -> list[MCPMetadataFinding]:
         """Check a single text field against all suspicious patterns.
 
         Args:
             text: The text to analyze.
             tool_id: ID of the tool this text belongs to.
             field: Which field the text came from.
+            siblings: Names of the other tools in the same capability list.
 
         Returns:
             List of findings for this text.
         """
         findings: list[MCPMetadataFinding] = []
 
-        for pattern_name, (regex, severity, recommendation) in _PATTERNS.items():
-            match = regex.search(text)
-            if match:
+        hits = {name: list(regex.finditer(text)) for name, (regex, _, _) in _PATTERNS.items()}
+        for pattern_name, (_, severity, recommendation) in _PATTERNS.items():
+            if hits[pattern_name]:
+                match = hits[pattern_name][0]
+                if pattern_name == "imperative_instruction" and all(
+                    m.group(0).lower() in _WEAK_IMPERATIVES
+                    and not _IMPERATIVE_VERB.match(text, m.end())
+                    for m in hits[pattern_name]
+                ):
+                    severity = "low"
+                pattern_matched = pattern_name
+                if (
+                    pattern_name == "tool_redirect"
+                    and not hits["exfiltration_directive"]
+                    and not hits["authority_claim"]
+                    and all(_redirect_target(m) in siblings for m in hits[pattern_name])
+                ):
+                    pattern_matched = "sibling_redirect"
+                    severity = "medium"
+                    recommendation = _SIBLING_REDIRECT_RECOMMENDATION
                 # Extract a snippet around the match
                 start = max(0, match.start() - 30)
                 end = min(len(text), match.end() + 30)
@@ -176,7 +228,7 @@ class MCPMetadataAnalyzer:
                     MCPMetadataFinding(
                         tool_id=tool_id,
                         field=field,
-                        pattern_matched=pattern_name,
+                        pattern_matched=pattern_matched,
                         snippet=snippet,
                         severity=severity,
                         recommendation=recommendation,

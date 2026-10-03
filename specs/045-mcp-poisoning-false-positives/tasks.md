@@ -15,7 +15,7 @@ and returns the findings whose `tool_id == tool`.
 
 ## Phase 1 — Severity type and imperative rule (FR-001, FR-005, FR-006, US2)
 
-- [ ] T001 Failing tests, `tests/unit/test_mcp_metadata_analyzer.py::TestImperativeSeverity`:
+- [x] T001 Failing tests, `tests/unit/test_mcp_metadata_analyzer.py::TestImperativeSeverity`:
       - US2.1: `"Never returns an empty list."`, `"When several match, none is silently chosen."`,
         `'Status is never "untested".'` -> exactly one `imperative_instruction` finding,
         `severity == "low"` (parametrize).
@@ -32,7 +32,7 @@ and returns the findings whose `tool_id == tool`.
         "high")}`.
       - Sort: one capability with `"Never returns an empty list."` and another with a URL
         exfiltration -> first finding `critical`, last `low`.
-- [ ] T002 Implement in `ziran/application/static_analysis/mcp_metadata_analyzer.py`: import
+- [x] T002 Implement in `ziran/application/static_analysis/mcp_metadata_analyzer.py`: import
       `Severity` from `ziran.domain.entities.attack`, use it for `MCPMetadataFinding.severity` and
       the `_PATTERNS` annotation; add `_WEAK_IMPERATIVES`, `_IMPERATIVE_VERB`; switch
       `_check_text` to `finditer` per plan §1 step 1-3 (snippet from the first hit); sort map
@@ -40,7 +40,7 @@ and returns the findings whose `tool_id == tool`.
 
 ## Phase 2 — Sibling redirect and guards (FR-002..FR-004, US1)
 
-- [ ] T003 Failing tests, `tests/unit/test_mcp_metadata_analyzer.py::TestSiblingRedirect`:
+- [x] T003 Failing tests, `tests/unit/test_mcp_metadata_analyzer.py::TestSiblingRedirect`:
       - US1.1: the issue's `search_codebase` text with sibling `get_answer` -> exactly one finding,
         `pattern_matched == "sibling_redirect"`, `severity == "medium"`, `field ==
         "description"`, no `tool_redirect`. Same for ``"call `get_answer` instead"``.
@@ -61,14 +61,14 @@ and returns the findings whose `tool_id == tool`.
         article form (`"call the get_answer tool instead"`) -> `tool_redirect` / `critical`.
       - Non-tool sibling: the other capability `{"id": "get_answer", "type": "data_access"}` ->
         `tool_redirect` / `critical`.
-- [ ] T004 Implement per plan §1: named group `target` on the first `tool_redirect` alternative;
+- [x] T004 Implement per plan §1: named group `target` on the first `tool_redirect` alternative;
       `_SIBLING_REDIRECT_RECOMMENDATION`; `_redirect_target`; tool-name set in
       `analyze_capabilities` and `siblings` argument to `_check_text`; step 4 of the algorithm.
       T003 passes; T001 and the existing suite still pass.
 
 ## Phase 3 — Watcher (US3)
 
-- [ ] T005 Test (expected to pass once T004 lands; run it before T004 too and see it fail),
+- [x] T005 Test (expected to pass once T004 lands; run it before T004 too and see it fail),
       `tests/unit/test_registry_watcher.py::TestFirstRegistrationToolPoisoning::
       test_sibling_redirect_and_output_contract_not_gating`: `InMemoryStore`, `RegistryConfig`
       with one `ServerEntry(name="srv", url="http://localhost:1")`, `StaticFetcher` with tools
@@ -80,12 +80,12 @@ and returns the findings whose `tool_id == tool`.
 
 ## Phase 4 — Docs (FR-008)
 
-- [ ] T006 `docs/reference/cli.md` "First registration" paragraph per plan §3. No numbers that were
+- [x] T006 `docs/reference/cli.md` "First registration" paragraph per plan §3. No numbers that were
       not produced by a command.
 
 ## Phase 5 — Gates
 
-- [ ] T007 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T007 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%), and explicitly
       `uv run pytest tests/integration/test_claude_code_plugin_example.py` (unchanged, passing). Do
       not commit `uv.lock` drift. Commit `fix(static-analysis): ...` per plan "Release note" (no
