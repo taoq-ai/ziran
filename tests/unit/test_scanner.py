@@ -708,3 +708,260 @@ class TestJudgeTierMetadata:
         scanner = AgentScanner(adapter=mock_adapter, attack_library=shared_attack_library)
         result = await scanner.run_campaign(phases=[ScanPhase.VULNERABILITY_DISCOVERY])
         assert "judge_tiers" not in result.metadata
+
+
+# ── Spec 047: usage accounting and campaign budget ─────────────────────
+
+
+def _usage_stub(model: str = "m") -> Any:
+    from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+    class _UsageStub(BaseLLMClient):
+        def __init__(self) -> None:
+            super().__init__(LLMConfig(model=model))
+            self.calls = 0
+
+        async def complete(self, messages: list[dict[str, str]], **kw: Any) -> LLMResponse:
+            self.calls += 1
+            return LLMResponse(
+                content='{"verdict":"failure","confidence":0.95}',
+                prompt_tokens=100,
+                completion_tokens=20,
+            )
+
+        async def health_check(self) -> bool:
+            return True
+
+    return _UsageStub()
+
+
+def _usage_config(model: str = "m", **limits: Any) -> tuple[dict[str, Any], Any]:
+    from ziran.application.usage import ModelPrice, PriceTable, UsageLedger
+    from ziran.infrastructure.llm.usage_tracking_client import UsageTrackingClient
+
+    prices = PriceTable(models={"m": ModelPrice(input_per_mtok=2.50, output_per_mtok=10.00)})
+    ledger = UsageLedger(prices)
+    stub = _usage_stub(model)
+    config = {
+        "llm_client": UsageTrackingClient(stub, ledger, stage="judge"),
+        "usage_ledger": ledger,
+        **limits,
+    }
+    return config, stub
+
+
+PHASE_A = ScanPhase.RECONNAISSANCE
+PHASE_B = ScanPhase.TRUST_BUILDING
+
+
+def _entry(result: Any, stage: str) -> dict[str, Any]:
+    entries: list[dict[str, Any]] = result.metadata["usage"]["entries"]
+    return next(e for e in entries if e["stage"] == stage)
+
+
+@pytest.mark.unit
+class TestUsageAccounting:
+    async def test_judge_and_target_entries(self, shared_attack_library: AttackLibrary) -> None:
+        config, stub = _usage_config()
+        scanner = AgentScanner(MockAgentAdapter(), shared_attack_library, config=config)
+        result = await scanner.run_campaign(phases=[PHASE_A], stop_on_critical=False)
+        calls = stub.calls
+        assert calls > 0
+        judge = _entry(result, "judge")
+        assert (judge["model"], judge["calls"]) == ("m", calls)
+        assert judge["prompt_tokens"] == 100 * calls
+        assert judge["completion_tokens"] == 20 * calls
+        assert judge["total_tokens"] == 120 * calls
+        assert judge["cost_usd"] == round(0.00045 * calls, 6)
+        target = _entry(result, "target")
+        assert target["model"] == "unknown"
+        assert target["total_tokens"] == result.token_usage["total_tokens"]
+        assert target["cost_usd"] is None
+
+    async def test_token_usage_unchanged_and_total_is_sum(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        plain = await AgentScanner(MockAgentAdapter(), shared_attack_library).run_campaign(
+            phases=[PHASE_A], stop_on_critical=False
+        )
+        config, _ = _usage_config()
+        result = await AgentScanner(
+            MockAgentAdapter(), shared_attack_library, config=config
+        ).run_campaign(phases=[PHASE_A], stop_on_critical=False)
+        assert result.token_usage == plain.token_usage
+        usage = result.metadata["usage"]
+        assert usage["total_tokens"] == sum(e["total_tokens"] for e in usage["entries"])
+        assert "status" not in result.metadata
+        assert "usage" in plain.metadata  # always present, target stage only
+
+
+@pytest.mark.unit
+class TestBudgetCap:
+    @staticmethod
+    def _vector_count(lib: AttackLibrary, phase: ScanPhase) -> int:
+        return len(lib.get_attacks_for_phase(phase, coverage=CoverageLevel.STANDARD))
+
+    async def _run(
+        self,
+        lib: AttackLibrary,
+        tmp_path: Any,
+        *,
+        phases: list[ScanPhase] | None = None,
+        concurrency: int = 1,
+        resume: bool = False,
+        model: str = "m",
+        stop_on_critical: bool = False,
+        **limits: Any,
+    ) -> tuple[Any, MockAgentAdapter, Any]:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        config, stub = _usage_config(model, **limits)
+        adapter = MockAgentAdapter()
+        result = await AgentScanner(adapter, lib, config=config).run_campaign(
+            phases=phases or [PHASE_A],
+            stop_on_critical=stop_on_critical,
+            max_concurrent_attacks=concurrency,
+            checkpoint_manager=CheckpointManager(tmp_path),
+            resume_from_checkpoint=resume,
+        )
+        return result, adapter, stub
+
+    async def test_token_cap_stops_after_first_vector_and_resume_finishes(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        n = self._vector_count(shared_attack_library, PHASE_A)
+        assert n > 1
+        full, full_adapter, _ = await self._run(shared_attack_library, tmp_path / "full")
+
+        result, adapter, _ = await self._run(shared_attack_library, tmp_path, max_campaign_tokens=1)
+        assert result.metadata["status"] == "budget_exceeded"
+        assert len(result.attack_results) == 1
+        assert [p.phase for p in result.phases_executed] == [PHASE_A]
+        mgr = CheckpointManager(tmp_path)
+        assert mgr.exists()
+        assert mgr.load().remaining_phases[0] == PHASE_A.value
+
+        resumed, resumed_adapter, _ = await self._run(shared_attack_library, tmp_path, resume=True)
+        ids = [r["vector_id"] for r in resumed.attack_results]
+        assert len(ids) == len(set(ids)) == n
+        assert len(adapter.invocations) + len(resumed_adapter.invocations) == len(
+            full_adapter.invocations
+        )
+        assert "status" not in resumed.metadata
+        assert _entry(resumed, "judge")["calls"] == _entry(full, "judge")["calls"]
+        assert not mgr.exists()
+
+    async def test_overshoot_bounded_by_concurrency(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        result, _, _ = await self._run(
+            shared_attack_library, tmp_path, concurrency=3, max_campaign_tokens=1
+        )
+        assert 1 <= len(result.attack_results) <= 3
+        assert result.metadata["status"] == "budget_exceeded"
+
+    async def test_cost_cap(self, shared_attack_library: AttackLibrary, tmp_path: Any) -> None:
+        result, _, _ = await self._run(shared_attack_library, tmp_path, max_cost=0.0004)
+        assert len(result.attack_results) == 1
+        assert result.metadata["status"] == "budget_exceeded"
+
+    async def test_unpriced_model_never_trips_cost_cap(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        n = self._vector_count(shared_attack_library, PHASE_A)
+        result, _, _ = await self._run(
+            shared_attack_library, tmp_path, model="other", max_cost=0.0001
+        )
+        assert len(result.attack_results) == n
+        assert "status" not in result.metadata
+        assert result.metadata["usage"]["total_cost_usd"] is None
+
+    async def test_cap_hit_at_phase_boundary(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        calib, _, _ = await self._run(shared_attack_library, tmp_path / "calib")
+        cap = calib.metadata["usage"]["total_tokens"]
+        result, _, _ = await self._run(
+            shared_attack_library, tmp_path, phases=[PHASE_A, PHASE_B], max_campaign_tokens=cap
+        )
+        assert result.metadata["status"] == "budget_exceeded"
+        assert [p.phase for p in result.phases_executed] == [PHASE_A]
+        ckpt = CheckpointManager(tmp_path).load()
+        assert [p["phase"] for p in ckpt.completed_phases] == [PHASE_A.value]
+        assert ckpt.remaining_phases == [PHASE_B.value]
+
+        resumed, _, _ = await self._run(
+            shared_attack_library, tmp_path, phases=[PHASE_A, PHASE_B], resume=True
+        )
+        assert [p.phase for p in resumed.phases_executed] == [PHASE_A, PHASE_B]
+        assert "status" not in resumed.metadata
+
+    async def test_cap_reached_when_strategy_stops_is_complete(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any, monkeypatch: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        monkeypatch.setattr(AgentScanner, "_has_critical_finding", lambda self, p: True)
+        calib, _, _ = await self._run(shared_attack_library, tmp_path / "calib")
+        cap = calib.metadata["usage"]["total_tokens"]
+        result, _, _ = await self._run(
+            shared_attack_library,
+            tmp_path,
+            phases=[PHASE_A, PHASE_B],
+            stop_on_critical=True,
+            max_campaign_tokens=cap,
+        )
+        assert [p.phase for p in result.phases_executed] == [PHASE_A]
+        assert "status" not in result.metadata
+        assert not CheckpointManager(tmp_path).exists()
+
+    async def test_cap_reached_by_last_vector_is_complete(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        calib, _, _ = await self._run(shared_attack_library, tmp_path / "calib")
+        cap = calib.metadata["usage"]["total_tokens"]
+        result, _, _ = await self._run(shared_attack_library, tmp_path, max_campaign_tokens=cap)
+        assert result.metadata["usage"]["total_tokens"] >= cap  # the cap was reached
+        assert len(result.attack_results) == self._vector_count(shared_attack_library, PHASE_A)
+        assert "status" not in result.metadata
+        assert not CheckpointManager(tmp_path).exists()
+
+    async def test_no_cap_unchanged(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        result, _, _ = await self._run(shared_attack_library, tmp_path)
+        assert "status" not in result.metadata
+        assert len(result.attack_results) == self._vector_count(shared_attack_library, PHASE_A)
+        assert not CheckpointManager(tmp_path).exists()
+
+    async def test_cap_skips_post_attack_utility(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        from ziran.domain.entities.utility import UtilityTask
+
+        config, _ = _usage_config(max_campaign_tokens=1)
+        adapter = MockAgentAdapter()
+        task = UtilityTask(id="t", description="d", prompt="say hi", success_indicators=["hi"])
+        result = await AgentScanner(adapter, shared_attack_library, config=config).run_campaign(
+            phases=[PHASE_A],
+            stop_on_critical=False,
+            max_concurrent_attacks=1,
+            utility_tasks=[task],
+        )
+        assert result.metadata["status"] == "budget_exceeded"
+        assert "utility" not in result.metadata
+        assert adapter.invocations[-1] != "say hi"
+
+    def test_invalid_limit_rejected(self, mock_adapter: MockAgentAdapter) -> None:
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            AgentScanner(mock_adapter, config={"max_campaign_tokens": 0})

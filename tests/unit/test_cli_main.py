@@ -14,7 +14,7 @@ import json
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1311,3 +1311,241 @@ class TestScanEnsembleWiring:
         result = self._scan(runner, "ensemble: [not, a, mapping\n")
         assert result.exit_code == 0, result.output
         assert "detector_config" not in scanner_cls.call_args.kwargs["config"]
+
+
+# ── Spec 047: token budget and cost cap on `ziran scan` ──────────────
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _cli_usage_stub(model: str) -> Any:
+    from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+
+    class _UsageStub(BaseLLMClient):
+        def __init__(self) -> None:
+            super().__init__(LLMConfig(model=model))
+
+        async def complete(self, messages: list[dict[str, str]], **kw: Any) -> LLMResponse:
+            return LLMResponse(content="{}", prompt_tokens=100, completion_tokens=20)
+
+        async def health_check(self) -> bool:
+            return True
+
+    return _UsageStub()
+
+
+@pytest.mark.unit
+class TestScanBudgetWiring:
+    """`ziran scan` budget flags, client tracking and output (spec 047 US4.3, US5.1-US5.4)."""
+
+    _DETECTORS = (
+        "ensemble:\n"
+        "  enabled: true\n"
+        "  judges:\n"
+        "    - name: primary\n"
+        "    - name: second\n"
+        "      model: m2\n"
+        "prefilter:\n"
+        "  enabled: true\n"
+        "  model: cheap\n"
+    )
+
+    @pytest.fixture
+    def env(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
+        from ziran.domain.entities.phase import CampaignResult
+
+        monkeypatch.chdir(tmp_path)
+        Path("agent.py").write_text("agent_executor = None\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "ziran.infrastructure.llm.create_llm_client",
+            lambda **kw: _cli_usage_stub(kw["model"]),
+        )
+        monkeypatch.setattr("ziran.interfaces.cli.main.load_agent_adapter", MagicMock())
+        mock_asyncio = MagicMock()
+        mock_asyncio.run.return_value = CampaignResult.model_validate(_minimal_campaign_result())
+        monkeypatch.setattr("ziran.interfaces.cli.main.asyncio", mock_asyncio)
+        scanner_cls = MagicMock()
+        monkeypatch.setattr("ziran.interfaces.cli.main.AgentScanner", scanner_cls)
+        strategy = MagicMock()
+        monkeypatch.setattr("ziran.interfaces.cli.main.build_strategy", strategy)
+        return {"scanner": scanner_cls, "strategy": strategy, "asyncio": mock_asyncio}
+
+    @staticmethod
+    def _scan(runner: CliRunner, *extra: str) -> Any:
+        args = ["scan", "--framework", "langchain", "--agent-path", "agent.py", *extra]
+        return runner.invoke(cli, [*args, "--output", "out"])
+
+    def test_flags_and_tracked_clients(self, runner: CliRunner, env: dict[str, Any]) -> None:
+        from ziran.application.usage import UsageLedger
+        from ziran.infrastructure.llm.usage_tracking_client import UsageTrackingClient
+
+        Path(".ziran").mkdir()
+        Path(".ziran/detectors.yaml").write_text(self._DETECTORS, encoding="utf-8")
+        result = self._scan(
+            runner,
+            "--llm-model",
+            "m1",
+            "--max-campaign-tokens",
+            "50000",
+            "--max-cost",
+            "2.5",
+        )
+        assert result.exit_code == 0, result.output
+        config = env["scanner"].call_args.kwargs["config"]
+        assert config["max_campaign_tokens"] == 50000
+        assert config["max_cost"] == 2.5
+        ledger = config["usage_ledger"]
+        assert isinstance(ledger, UsageLedger)
+        assert "50,000 tokens · $2.5" in _flat(result.output)
+        judge = config["llm_client"]
+        assert isinstance(judge, UsageTrackingClient)
+        assert judge.stage == "judge"
+        assert judge.config.model == "m1"
+        strategy_client = env["strategy"].call_args.args[2]
+        assert isinstance(strategy_client, UsageTrackingClient)
+        assert strategy_client.stage == "strategy"
+        detector_config = config["detector_config"]
+        [member] = detector_config.judge_clients.values()
+        assert isinstance(member, UsageTrackingClient)
+        assert member.stage == "ensemble"
+        assert isinstance(detector_config.prefilter_client, UsageTrackingClient)
+        assert detector_config.prefilter_client.stage == "prefilter"
+        out = _flat(result.output)
+        for model in ("m1", "m2", "cheap"):
+            warning = f"no price for model '{model}': its calls do not count towards --max-cost"
+            assert out.count(warning) == 1
+
+    def test_no_flags(self, runner: CliRunner, env: dict[str, Any]) -> None:
+        result = self._scan(runner)
+        assert result.exit_code == 0, result.output
+        config = env["scanner"].call_args.kwargs["config"]
+        assert config["max_campaign_tokens"] is None
+        assert config["max_cost"] is None
+        assert "llm_client" not in config
+        assert env["strategy"].call_args.args[2] is None
+        assert "Budget" not in result.output
+        assert "no price for model" not in result.output
+
+    @pytest.mark.parametrize(
+        "flag", [("--max-campaign-tokens", "0"), ("--max-cost", "0"), ("--max-cost", "-1")]
+    )
+    def test_invalid_limits_exit_2(
+        self, runner: CliRunner, env: dict[str, Any], flag: tuple[str, str]
+    ) -> None:
+        assert self._scan(runner, *flag).exit_code == 2
+
+    def test_cost_cap_without_llm_warns(self, runner: CliRunner, env: dict[str, Any]) -> None:
+        result = self._scan(runner, "--max-cost", "1")
+        assert result.exit_code == 0, result.output
+        assert "--max-cost cannot trigger: no LLM client is configured" in _flat(result.output)
+
+    def test_priced_model_no_warning(self, runner: CliRunner, env: dict[str, Any]) -> None:
+        Path(".ziran").mkdir()
+        Path(".ziran/prices.yaml").write_text(
+            "models:\n  m1: {input_per_mtok: 1, output_per_mtok: 2}\n", encoding="utf-8"
+        )
+        result = self._scan(runner, "--llm-model", "m1", "--max-cost", "1")
+        assert result.exit_code == 0, result.output
+        assert "no price for model" not in result.output
+        ledger = env["scanner"].call_args.kwargs["config"]["usage_ledger"]
+        assert ledger.prices.price_for("m1") is not None
+
+    def test_invalid_price_table_exit_1(self, runner: CliRunner, env: dict[str, Any]) -> None:
+        Path(".ziran").mkdir()
+        Path(".ziran/prices.yaml").write_text("models: {m: {bogus: 1}}\n", encoding="utf-8")
+        result = self._scan(runner)
+        assert result.exit_code == 1
+        assert "invalid price table" in result.output
+        env["scanner"].assert_not_called()
+
+    def test_budget_exceeded_status_and_hint(self, runner: CliRunner, env: dict[str, Any]) -> None:
+        from ziran.domain.entities.phase import CampaignResult
+
+        data = _minimal_campaign_result()
+        data["metadata"] = {"status": "budget_exceeded"}
+        env["asyncio"].run.return_value = CampaignResult.model_validate(data)
+        result = self._scan(runner, "--max-campaign-tokens", "10")
+        assert result.exit_code == 0, result.output
+        out = _flat(result.output)
+        assert "BUDGET EXCEEDED (partial results)" in out
+        assert (
+            "Budget reached; checkpoint kept in out. Re-run with --resume and a higher cap "
+            "to continue." in out
+        )
+
+
+@pytest.mark.unit
+class TestDisplayUsage:
+    """Usage rows in the campaign summary (spec 047 US1.3, US1.4)."""
+
+    _USAGE: ClassVar[dict[str, Any]] = {
+        "currency": "USD",
+        "entries": [
+            {
+                "stage": "judge",
+                "model": "m",
+                "calls": 1,
+                "prompt_tokens": 100,
+                "completion_tokens": 20,
+                "total_tokens": 120,
+                "estimated_calls": 0,
+                "cost_usd": 0.0123,
+            },
+            {
+                "stage": "target",
+                "model": "unknown",
+                "calls": 1,
+                "prompt_tokens": 1000,
+                "completion_tokens": 234,
+                "total_tokens": 1234,
+                "estimated_calls": 0,
+                "cost_usd": None,
+            },
+        ],
+        "total_tokens": 1354,
+        "total_cost_usd": 0.0123,
+        "unpriced_tokens": 1234,
+        "max_campaign_tokens": None,
+        "max_cost_usd": None,
+    }
+
+    @staticmethod
+    def _render(metadata: dict[str, Any]) -> str:
+        from rich.console import Console
+
+        from ziran.domain.entities.phase import CampaignResult
+        from ziran.interfaces.cli import main
+
+        data = _minimal_campaign_result()
+        data["metadata"] = metadata
+        console = Console(record=True, width=200)
+        with patch.object(main, "console", console):
+            main._display_results(CampaignResult.model_validate(data))
+        return console.export_text()
+
+    def test_rows_present(self) -> None:
+        out = self._render({"usage": self._USAGE})
+        assert "Usage · judge · m" in out
+        assert "120 tokens · $0.0123" in out
+        assert "Usage · target · unknown" in out
+        assert "1,234 tokens · cost n/a" in out
+        assert "All-Stage Tokens" in out
+        assert "1,354" in out
+        assert "$0.0123 (1,234 tokens unpriced)" in out
+        assert "BUDGET EXCEEDED" not in out
+
+    def test_rows_absent_without_usage(self) -> None:
+        out = self._render({})
+        for text in ("Usage ·", "All-Stage Tokens", "Estimated Cost", "BUDGET EXCEEDED"):
+            assert text not in out
+
+    def test_json_dump_carries_usage(self) -> None:
+        from ziran.domain.entities.phase import CampaignResult
+        from ziran.interfaces.cli.reports import _dump_campaign_result
+
+        data = _minimal_campaign_result()
+        data["metadata"] = {"usage": self._USAGE}
+        dumped = _dump_campaign_result(CampaignResult.model_validate(data))
+        assert dumped["metadata"]["usage"] == self._USAGE

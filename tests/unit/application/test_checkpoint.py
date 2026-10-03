@@ -305,3 +305,88 @@ class TestBuildCheckpoint:
 
         assert len(ckpt.attack_results) == 1
         assert ckpt.attack_results[0]["vector_id"] == "v1"
+
+
+@pytest.mark.unit
+class TestUsagePersistence:
+    """Usage ledger snapshot and budget-interrupted phase in checkpoints (spec 047)."""
+
+    @staticmethod
+    def _checkpointer(mgr: CheckpointManager, budget: Any) -> Any:
+        from ziran.application.agent_scanner.checkpoint import IncrementalCheckpointer
+        from ziran.domain.entities.phase import PhaseResult, ScanPhase
+
+        pr = PhaseResult.model_validate(_sample_phase_result())  # reconnaissance
+        return IncrementalCheckpointer(
+            mgr,
+            campaign_id="c",
+            phase_results=[pr],
+            attack_results=[],
+            tested_vector_ids={"v1"},
+            remaining_phases=[ScanPhase.TRUST_BUILDING],
+            coverage="standard",
+            token_provider=lambda: {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            budget=budget,
+        )
+
+    def test_build_checkpoint_round_trips_usage(self, tmp_output_dir: Path) -> None:
+        from ziran.application.usage import UsageEntry
+
+        mgr = CheckpointManager(tmp_output_dir)
+        entry = UsageEntry(stage="judge", model="m", calls=1, prompt_tokens=2, total_tokens=2)
+        mgr.save(
+            mgr.build_checkpoint(
+                campaign_id="u",
+                phase_results=[],
+                attack_results=[],
+                tested_vector_ids=set(),
+                token_usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                coverage="standard",
+                remaining_phases=[],
+                usage=[entry],
+            )
+        )
+        assert mgr.load().usage == [entry]
+
+    def test_old_checkpoint_without_usage_loads(self, tmp_output_dir: Path) -> None:
+        mgr = CheckpointManager(tmp_output_dir)
+        mgr.path.write_text(json.dumps({"campaign_id": "old"}), encoding="utf-8")
+        assert mgr.load().usage == []
+
+    def test_interrupted_phase_requeued_and_ledger_saved(self, tmp_output_dir: Path) -> None:
+        from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
+        from ziran.domain.entities.phase import ScanPhase
+
+        mgr = CheckpointManager(tmp_output_dir)
+        budget = CampaignBudget(UsageLedger(), UsageBudget(max_tokens=1))
+        budget.ledger.record("judge", "m", 100, 20)
+        budget.interrupted_phase = ScanPhase.RECONNAISSANCE
+        self._checkpointer(mgr, budget).write()
+        ckpt = mgr.load()
+        assert ckpt.completed_phases == []
+        assert ckpt.remaining_phases == ["reconnaissance", "trust_building"]
+        assert ckpt.usage == budget.ledger.entries()
+
+    def test_without_budget_written_as_today(self, tmp_output_dir: Path) -> None:
+        mgr = CheckpointManager(tmp_output_dir)
+        self._checkpointer(mgr, None).write()
+        ckpt = mgr.load()
+        assert len(ckpt.completed_phases) == 1
+        assert ckpt.remaining_phases == ["trust_building"]
+        assert ckpt.usage == []
+
+    def test_load_resume_state_restores_ledger(self, tmp_output_dir: Path) -> None:
+        from ziran.application.agent_scanner.checkpoint import load_resume_state
+        from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
+        from ziran.domain.entities.phase import ScanPhase
+
+        mgr = CheckpointManager(tmp_output_dir)
+        budget = CampaignBudget(UsageLedger(), UsageBudget())
+        budget.ledger.record("judge", "m", 100, 20)
+        self._checkpointer(mgr, budget).write()
+        phases = [ScanPhase.RECONNAISSANCE, ScanPhase.TRUST_BUILDING]
+        restored = UsageLedger()
+        state = load_resume_state(mgr, phases, restored)
+        assert restored.total_tokens() == 120
+        assert state.remaining_phases == [ScanPhase.TRUST_BUILDING]
+        assert load_resume_state(mgr, phases).remaining_phases == [ScanPhase.TRUST_BUILDING]

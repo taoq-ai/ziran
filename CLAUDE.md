@@ -52,6 +52,8 @@ Auto-generated from all feature plans. Last updated: 2026-10-03
 - N/A (committed example files; runtime output in git-ignored `reports/` or `tmp_path`) (044-claude-code-plugin-guide)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (config + benchmark models), stdlib `asyncio`; reuses `LLMJudgeDetector`, `create_llm_client`, `ReplayLLMClient`. No new dependencies. (043-two-tier-judging)
 - N/A at runtime. Benchmark: optional cheap-model cassette `benchmarks/ground_truth/prefilter_verdicts.json`, result `benchmarks/results/two_tier_judging.json`. (043-two-tier-judging)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (usage + price models), PyYAML `safe_load` (price table), Click (scan flags); reuses `BaseLLMClient`, `many_shot.estimate_tokens`, the checkpoint/resume path, `PhaseExecutor`, `ResultBuilder`. No new dependencies. (047-token-budget-cost-cap)
+- shipped `ziran/infrastructure/llm/prices.yaml` plus optional operator `.ziran/prices.yaml`; usage ledger snapshot inside the existing `<output>/.checkpoint.json`. (047-token-budget-cost-cap)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies. (046-ci-suppression-baseline)
 - one user-committed YAML file, read only by `ziran ci`. (046-ci-suppression-baseline)
 
@@ -73,6 +75,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 047-token-budget-cost-cap: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (usage + price models), PyYAML `safe_load` (price table), Click (scan flags); reuses `BaseLLMClient`, `many_shot.estimate_tokens`, the checkpoint/resume path, `PhaseExecutor`, `ResultBuilder`. No new dependencies.
 - 046-ci-suppression-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies.
 - 042-semantic-embedding-detection: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `math`/`hashlib`/`asyncio`, existing optional `llm` extra (litellm `aembedding`). No new dependencies.
 - 044-claude-code-plugin-guide: Added Markdown (MkDocs Material); Python 3.11+ test and example stdio server (CI matrix 3.11, 3.12, 3.13) + None new; shipped `ziran audit` / `analyze-traces` / `watch-registry` CLI, Click `CliRunner`, stdlib `json`/`sys`
