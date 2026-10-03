@@ -20,7 +20,7 @@ Shared test helpers (in `tests/unit/test_html_report.py`, not a new module):
 
 ## Phase 1 — Script-safe JSON (FR-007, US5) — security first
 
-- [ ] T001 Failing tests `TestScriptEscaping`:
+- [x] T001 Failing tests `TestScriptEscaping`:
       - `_script_json(["</script><b>x"])` contains no `<` and `json.loads` of it returns the input;
         `_script_json({"a": "<!--<script>"})` contains no `<!--`.
       - `build_html_report` with a final graph, a critical path and one phase snapshot (two
@@ -31,12 +31,12 @@ Shared test helpers (in `tests/unit/test_html_report.py`, not a new module):
       - a node named `<!--<script>`: the text between `const rawNodes =` and the closing
         `</script>` contains no `<!--`.
       Confirm they fail (`ImportError` on `_script_json`, then the assertions).
-- [ ] T002 Implement `_script_json` and use it for the four blob placeholders in
+- [x] T002 Implement `_script_json` and use it for the four blob placeholders in
       `build_html_report` (plan §3, §4 last bullet). T001 passes; every existing test passes.
 
 ## Phase 2 — Cap function (FR-001, FR-002, US2)
 
-- [ ] T003 Failing tests `TestCapGraphState` (call `_cap_graph_state` directly; shrink caps with
+- [x] T003 Failing tests `TestCapGraphState` (call `_cap_graph_state` directly; shrink caps with
       `monkeypatch.setattr(html_report, "_MAX_VIS_NODES", k)` / `"_MAX_VIS_EDGES"` where a small
       hand-built graph is clearer):
       - `test_under_cap_returns_input_unchanged`: `sample_graph_state` -> result `is` the input.
@@ -62,14 +62,14 @@ Shared test helpers (in `tests/unit/test_html_report.py`, not a new module):
       - `test_always_kept_set_larger_than_cap`: `_MAX_VIS_NODES` patched to 2 with 3 path nodes ->
         exactly the 3 path nodes (plus phase nodes) are kept.
       Confirm they fail.
-- [ ] T004 Implement the plan §1 constants and `_cap_graph_state` (plan §2) in
+- [x] T004 Implement the plan §1 constants and `_cap_graph_state` (plan §2) in
       `ziran/interfaces/cli/html_report.py`; replace the two literal `20`s in `_build_paths_html`
       with `_MAX_RENDERED_PATHS` (plan §7). T003 passes; `TestBuildPathsHtml` unchanged and passing;
       `uv run mypy ziran/` clean.
 
 ## Phase 3 — Wire the cap into the report and the phase stops (FR-003..FR-005, US1, US3)
 
-- [ ] T005 Failing tests:
+- [x] T005 Failing tests:
       - `TestPhaseStatesCap::test_each_stop_is_capped`: `_build_phase_states(result_data, paths)`
         on `_reference_campaign()` -> 8 stops, each with `<= 150` nodes and `<= 300` edges and keys
         exactly `{"label", "nodes", "edges"}`.
@@ -83,13 +83,13 @@ Shared test helpers (in `tests/unit/test_html_report.py`, not a new module):
       - `TestBuildHtmlReportCap::test_under_cap_vis_lists_unchanged`: for `sample_graph_state`,
         `_blob(html, "rawNodes") == graph_state_to_vis(sample_graph_state)["nodes"]` (and edges).
       Confirm they fail.
-- [ ] T006 Implement plan §4 (except the notice) and §5: `shown_paths`, cap before
+- [x] T006 Implement plan §4 (except the notice) and §5: `shown_paths`, cap before
       `graph_state_to_vis`, `_build_phase_states(result_data, paths=None)`, `criticalPaths` from
       `shown_paths`. T005 passes; the existing `test_phase_scrubber_*` tests pass unmodified.
 
 ## Phase 4 — Truncation notice and byte budget (FR-006, US1.2, US4)
 
-- [ ] T007 Failing tests:
+- [x] T007 Failing tests:
       - `TestGraphNotice::test_notice_when_truncated`: on `_reference_campaign()`, the html
         contains `id="graphCapNotice"` and the exact text `Showing 150 of 708 nodes and K of 5,699
         edges (highest-risk first).` where `K = len(_blob(html, "rawEdges"))` (formatted with `,`).
@@ -101,19 +101,19 @@ Shared test helpers (in `tests/unit/test_html_report.py`, not a new module):
         for `_reference_campaign()`.
       Confirm they fail (the size test may already pass after T006; that is expected, keep it as
       the regression guard and note it).
-- [ ] T008 Implement `_build_graph_notice_html` and the `{graph_notice_html}` placeholder (plan §6).
+- [x] T008 Implement `_build_graph_notice_html` and the `{graph_notice_html}` placeholder (plan §6).
       T007 passes. Run the reference campaign once from a command and record the printed byte count
       for the PR body (do not estimate it).
 
 ## Phase 5 — Docs (FR-009)
 
-- [ ] T009 [P] `docs/concepts/knowledge-graph.md`: the one sentence of plan §8.
-- [ ] T010 [P] `docs/community/roadmap.md` line 188: tick #217, "graph pagination" -> "graph size
+- [x] T009 [P] `docs/concepts/knowledge-graph.md`: the one sentence of plan §8.
+- [x] T010 [P] `docs/community/roadmap.md` line 188: tick #217, "graph pagination" -> "graph size
       cap".
 
 ## Phase 6 — Gates
 
-- [ ] T011 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T011 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%). `git diff --stat` shows only the four files of plan
       §Project Structure; revert any `uv.lock` drift. Commit
       `perf(report): cap HTML report graph payload and escape inlined JSON` (no `!`, no

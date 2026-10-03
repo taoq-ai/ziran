@@ -185,7 +185,7 @@ These don't block a milestone but are worth landing when someone has a slot:
 - [ ] **`ziran init` scaffolding command** — one-liner onboarding ([#292](https://github.com/taoq-ai/ziran/issues/292)) — `good first issue`
 - [ ] **Expand ATLAS coverage to remaining tactics** — AI Model Access, AI Attack Staging ([#264](https://github.com/taoq-ai/ziran/issues/264))
 - [ ] **asqav signing integration sketch** — downstream signing of ZIRAN outputs ([#259](https://github.com/taoq-ai/ziran/issues/259))
-- [ ] **HTML report graph pagination** — perf improvement for large campaigns ([#217](https://github.com/taoq-ai/ziran/issues/217))
+- [x] **HTML report graph size cap** — perf improvement for large campaigns ([#217](https://github.com/taoq-ai/ziran/issues/217))
 
 ### UI Hardening
 

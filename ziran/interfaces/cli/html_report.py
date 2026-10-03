@@ -16,11 +16,32 @@ import html
 import json
 from typing import Any
 
+from ziran.domain.entities.alerting import SEVERITY_RANK
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
 # vis-network CDN version — kept in step with the web UI's ``vis-network``
 # dependency so both surfaces behave identically.
 _VIS_NETWORK_VERSION = "10.0.2"
+
+# Graph payload caps for the self-contained report (spec 048). Applied to the
+# final graph and to every phase-timeline stop.
+_MAX_VIS_NODES = 150
+_MAX_VIS_EDGES = 300
+# Only the first N critical paths are listed in the sidebar and highlightable.
+_MAX_RENDERED_PATHS = 20
+# str-keyed view of the domain ordering (low=0 .. critical=3); unknown -> -1.
+# A comprehension, not dict(SEVERITY_RANK): mypy rejects the Literal-keyed dict.
+_SEVERITY_RANK: dict[str, int] = {k: v for k, v in SEVERITY_RANK.items()}
+# Tie-break order of node types (lower ranks first); unknown types after all of these.
+_NODE_TYPE_ORDER: tuple[str, ...] = (
+    "vulnerability",
+    "phase",
+    "tool",
+    "capability",
+    "data_source",
+    "agent",
+    "agent_state",
+)
 
 
 # ── Converter ──────────────────────────────────────────────────────────
@@ -165,12 +186,14 @@ def build_html_report(
     Returns:
         Complete HTML string ready to be written to a file.
     """
-    vis_data = graph_state_to_vis(graph_state)
     paths = critical_paths or result_data.get("critical_paths", [])
+    # Only these paths are highlightable, so only they pin nodes in the cap (spec 048).
+    shown_paths = paths[:_MAX_RENDERED_PATHS]
+    vis_data = graph_state_to_vis(_cap_graph_state(graph_state, shown_paths))
     stats = graph_state.get("stats", {})
 
     # Per-phase snapshots power the offline timeline scrubber (spec 026 US3).
-    phase_states = _build_phase_states(result_data)
+    phase_states = _build_phase_states(result_data, shown_paths)
 
     campaign_id = result_data.get("campaign_id", "unknown")
     target_agent = result_data.get("target_agent", "unknown")
@@ -237,30 +260,129 @@ def build_html_report(
         paths_html=paths_html,
         vulns_html=vulns_html,
         legend_html=legend_html,
+        graph_notice_html=_build_graph_notice_html(
+            len(vis_data["nodes"]),
+            len(graph_state.get("nodes", [])),
+            len(vis_data["edges"]),
+            len(graph_state.get("edges", [])),
+        ),
         attack_log_html=attack_log_html,
         owasp_html=owasp_html,
         atlas_html=atlas_html,
         defence_html_section=defence_html_section,
-        vis_nodes_json=json.dumps(vis_data["nodes"]),
-        vis_edges_json=json.dumps(vis_data["edges"]),
-        critical_paths_json=json.dumps(paths),
-        phase_states_json=json.dumps(phase_states),
+        vis_nodes_json=_script_json(vis_data["nodes"]),
+        vis_edges_json=_script_json(vis_data["edges"]),
+        critical_paths_json=_script_json(shown_paths),
+        phase_states_json=_script_json(phase_states),
     )
 
 
-def _build_phase_states(result_data: dict[str, Any]) -> list[dict[str, Any]]:
+def _cap_graph_state(graph_state: dict[str, Any], paths: list[list[str]]) -> dict[str, Any]:
+    """Bound a graph state to _MAX_VIS_NODES nodes and _MAX_VIS_EDGES edges (spec 048).
+
+    Returns ``graph_state`` itself when both lists are within the caps. Otherwise
+    keeps critical-path and phase nodes, then the highest-ranked rest
+    (vulnerabilities first, then severity, dangerous, centrality, node type),
+    and the edges between kept nodes (critical-path edges, then attack edges).
+    The kept set can exceed the node cap only when the pinned set alone does.
+    The input is never mutated.
+    """
+    nodes: list[dict[str, Any]] = graph_state.get("nodes", [])
+    edges: list[dict[str, Any]] = graph_state.get("edges", [])
+    if len(nodes) <= _MAX_VIS_NODES and len(edges) <= _MAX_VIS_EDGES:
+        return graph_state
+
+    path_ids = {n for p in paths for n in p}
+    path_pairs = {(p[i], p[i + 1]) for p in paths for i in range(len(p) - 1)}
+
+    def node_key(item: tuple[int, dict[str, Any]]) -> tuple[bool, int, int, float, int, int]:
+        idx, node = item
+        severity = node.get("severity")
+        sev = _SEVERITY_RANK.get(severity.lower(), -1) if isinstance(severity, str) else -1
+        node_type = node.get("node_type")
+        type_rank = (
+            _NODE_TYPE_ORDER.index(node_type)
+            if node_type in _NODE_TYPE_ORDER
+            else len(_NODE_TYPE_ORDER)
+        )
+        return (
+            node_type != "vulnerability",
+            -sev,
+            -int(bool(node.get("dangerous"))),
+            -float(node.get("centrality") or 0.0),
+            type_rank,
+            idx,
+        )
+
+    pinned: list[tuple[int, dict[str, Any]]] = []
+    rest: list[tuple[int, dict[str, Any]]] = []
+    for item in enumerate(nodes):
+        node = item[1]
+        is_pinned = node["id"] in path_ids or node.get("node_type") == "phase"
+        (pinned if is_pinned else rest).append(item)
+    rest.sort(key=node_key)
+    kept = sorted(pinned + rest[: max(0, _MAX_VIS_NODES - len(pinned))], key=lambda i: i[0])
+    kept_ids = {node["id"] for _, node in kept}
+
+    spec = load_graph_style()
+
+    def edge_rank(item: tuple[int, dict[str, Any]]) -> int:
+        edge = item[1]
+        if (edge["source"], edge["target"]) in path_pairs:
+            return 0
+        return 1 if spec.is_attack_edge(edge.get("edge_type", "")) else 2
+
+    candidates = [
+        item
+        for item in enumerate(edges)
+        if item[1]["source"] in kept_ids and item[1]["target"] in kept_ids
+    ]
+    kept_edges = sorted(sorted(candidates, key=edge_rank)[:_MAX_VIS_EDGES], key=lambda i: i[0])
+    return {
+        **graph_state,
+        "nodes": [node for _, node in kept],
+        "edges": [edge for _, edge in kept_edges],
+    }
+
+
+def _build_graph_notice_html(
+    shown_nodes: int, total_nodes: int, shown_edges: int, total_edges: int
+) -> str:
+    """Return the 'showing N of M' notice, or "" when nothing was cut (spec 048)."""
+    if shown_nodes == total_nodes and shown_edges == total_edges:
+        return ""
+    return (
+        f'<p class="muted" id="graphCapNotice">Showing {shown_nodes:,} of {total_nodes:,}'
+        f" nodes and {shown_edges:,} of {total_edges:,} edges (highest-risk first).</p>"
+    )
+
+
+def _script_json(value: Any) -> str:
+    """Serialize ``value`` for inlining inside a ``<script>`` element (spec 048).
+
+    ``json.dumps`` leaves ``<`` as-is, so ``</script>`` or ``<!--`` inside a node
+    name would end or corrupt the script element. ``\\u003c`` is the same character
+    to JSON and JS.
+    """
+    return json.dumps(value).replace("<", "\\u003c")
+
+
+def _build_phase_states(
+    result_data: dict[str, Any], paths: list[list[str]] | None = None
+) -> list[dict[str, Any]]:
     """Build per-phase vis snapshots for the offline timeline scrubber.
 
     Each completed phase that carries a graph snapshot becomes a labeled stop
-    ``{"label", "nodes", "edges"}``. Returns an empty list when no per-phase
-    snapshots exist (older runs), in which case the scrubber stays hidden.
+    ``{"label", "nodes", "edges"}``, capped like the final graph (spec 048) with
+    ``paths`` pinned. Returns an empty list when no per-phase snapshots exist
+    (older runs), in which case the scrubber stays hidden.
     """
     states: list[dict[str, Any]] = []
     for phase in result_data.get("phases_executed", []):
         snapshot = phase.get("graph_state")
         if not snapshot or not snapshot.get("nodes"):
             continue
-        vis = graph_state_to_vis(snapshot)
+        vis = graph_state_to_vis(_cap_graph_state(snapshot, paths or []))
         states.append(
             {
                 "label": str(phase.get("phase", "")),
@@ -301,15 +423,15 @@ def _build_paths_html(paths: list[list[str]]) -> str:
     if not paths:
         return '<p class="muted">No critical attack paths found.</p>'
     parts: list[str] = []
-    for i, path in enumerate(paths[:20]):
+    for i, path in enumerate(paths[:_MAX_RENDERED_PATHS]):
         arrow_path = " → ".join(html.escape(str(n)) for n in path)
         parts.append(
             f'<div class="path-item" data-path-index="{i}" onclick="highlightPath({i})">'
             f'  <span class="path-num">#{i + 1}</span> {arrow_path}'
             f"</div>"
         )
-    if len(paths) > 20:
-        parts.append(f'<p class="muted">…and {len(paths) - 20} more paths</p>')
+    if len(paths) > _MAX_RENDERED_PATHS:
+        parts.append(f'<p class="muted">…and {len(paths) - _MAX_RENDERED_PATHS} more paths</p>')
     return "\n".join(parts)
 
 
@@ -1182,6 +1304,7 @@ _HTML_TEMPLATE = """\
         <div class="metric-label">Edges</div>
       </div>
     </div>
+    {graph_notice_html}
     {legend_html}
   </div>
 
