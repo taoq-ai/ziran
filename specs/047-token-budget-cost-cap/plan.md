@@ -497,3 +497,8 @@ page, and reports SC-006 as unverified.
 
 ## Complexity Tracking
 None.
+
+## Implementation notes (#399)
+- Additive, not a deviation: `UsageTrackingClient.stage` is a public attribute (the CLI tests assert the stage of each wrapped client through it).
+- `prices.yaml` ships exactly as in section 3 (`models: {}`): no provider pricing page was retrieved in the implementation environment.
+- Wheel check (T014): `uv build --wheel` lists `ziran/infrastructure/llm/prices.yaml` in the wheel.

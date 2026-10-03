@@ -1,0 +1,8 @@
+# Model list prices in USD per 1,000,000 tokens (spec 047). Costs are estimates.
+# Every entry MUST cite the provider's public pricing page and the retrieval date, e.g.
+#   gpt-x:  # source: <provider pricing URL> (retrieved YYYY-MM-DD)
+# Never add a price that was not copied from such a page. Operators override or extend this
+# table with .ziran/prices.yaml (same format; entries merged per model).
+version: 1
+currency: USD
+models: {}

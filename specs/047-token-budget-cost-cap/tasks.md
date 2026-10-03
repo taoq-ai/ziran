@@ -19,7 +19,7 @@ Shared test helpers (defined in the test file that first needs them; copied, not
 
 ## Phase 1 - Usage models, ledger, pricing, budget (FR-003, FR-004, FR-006)
 
-- [ ] T001 [P] Failing tests `tests/unit/test_usage.py`:
+- [x] T001 [P] Failing tests `tests/unit/test_usage.py`:
       - `TestLedger`: three `record("judge", "m", 100, 20)` -> one entry, `calls == 3`,
         `prompt_tokens == 300`, `completion_tokens == 60`, `total_tokens == 360`; a
         `record(..., estimated=True)` increments `estimated_calls`; distinct `(stage, model)`
@@ -44,12 +44,12 @@ Shared test helpers (defined in the test file that first needs them; copied, not
         `from_config({"max_campaign_tokens": 0})` raises `ValidationError`; `summary()` carries
         the limits, `unpriced_tokens` and `total_cost_usd`.
       Confirm they fail (`ModuleNotFoundError`).
-- [ ] T002 Implement `ziran/application/usage.py` per plan §1 (module docstring: purpose, stages,
+- [x] T002 Implement `ziran/application/usage.py` per plan §1 (module docstring: purpose, stages,
       cooperative cap). T001 passes; mypy strict clean.
 
 ## Phase 2 - Decorator, heuristic, price table (FR-001, FR-002, FR-005)
 
-- [ ] T003 [P] Failing tests `tests/unit/test_usage_tracking_client.py`:
+- [x] T003 [P] Failing tests `tests/unit/test_usage_tracking_client.py`:
       - `TestDecorator`: wrapping `_UsageStub()` with stage `"judge"` records one `judge`/`m`
         entry per call with 100/20; the returned object `is` the stub's response; `messages`,
         `temperature`, `max_tokens` and extra kwargs reach the stub unchanged; `config` is the
@@ -66,14 +66,14 @@ Shared test helpers (defined in the test file that first needs them; copied, not
         YAML / unknown key / negative price raises `PriceTableError` whose message starts
         `"invalid price table "` and names the path.
       Confirm they fail.
-- [ ] T004 Implement `ziran/infrastructure/llm/usage_tracking_client.py` per plan §2 and
+- [x] T004 Implement `ziran/infrastructure/llm/usage_tracking_client.py` per plan §2 and
       `ziran/infrastructure/llm/prices.yaml` per plan §3. Prices: add an entry only if copied from
       the provider's public pricing page in this session, with `# source: <URL> (retrieved
       <date>)`; otherwise ship `models: {}`. Never invent a price. T003 passes; mypy clean.
 
 ## Phase 3 - Phase executor, checkpoint, result metadata (FR-008..FR-011)
 
-- [ ] T005 [P] Failing tests `tests/unit/application/test_phase_executor_budget.py` (stub
+- [x] T005 [P] Failing tests `tests/unit/application/test_phase_executor_budget.py` (stub
       executor/library/graph pattern of `test_phase_executor_checkpoint.py`; the stub executor
       returns results with `TokenUsage(prompt_tokens=7, completion_tokens=3, total_tokens=10)`
       and records into the ledger a fixed `record("judge", "m", 100, 20)` per execution to drive
@@ -85,7 +85,7 @@ Shared test helpers (defined in the test file that first needs them; copied, not
       - budget reached exactly by the last vector -> all run, `interrupted_phase is None`;
       - target stage: the ledger has a `target`/`unknown` entry with `calls ==` vectors executed
         and `prompt_tokens == 7 * n`, `completion_tokens == 3 * n`.
-- [ ] T006 [P] Failing tests, extend `tests/unit/application/test_checkpoint.py`
+- [x] T006 [P] Failing tests, extend `tests/unit/application/test_checkpoint.py`
       (`TestUsagePersistence`): `build_checkpoint(..., usage=[UsageEntry(...)])` round-trips
       through `save`/`load`; a checkpoint JSON without `usage` loads with `usage == []`;
       `IncrementalCheckpointer(..., budget=b)` with `b.interrupted_phase = ScanPhase.X` and
@@ -93,16 +93,16 @@ Shared test helpers (defined in the test file that first needs them; copied, not
       starting with `X.value`, and `usage` equal to `b.ledger.entries()`; without a budget the
       written file is as today (`usage == []`); `load_resume_state(mgr, phases, ledger)` restores
       the ledger totals, and without `ledger` behaves as today.
-- [ ] T007 [P] Failing tests, extend `tests/unit/application/test_result_builder.py`:
+- [x] T007 [P] Failing tests, extend `tests/unit/application/test_result_builder.py`:
       `build(..., usage=budget)` sets `metadata["usage"] == budget.summary().model_dump(mode=
       "json")`; with a hit budget also `metadata["status"] == "budget_exceeded"`; without a hit no
       `status`; without `usage` neither key (today's output).
-- [ ] T008 Implement plan §4 (`phase_executor.py`), §5 (`checkpoint.py`), §6
+- [x] T008 Implement plan §4 (`phase_executor.py`), §5 (`checkpoint.py`), §6
       (`result_builder.py`). T005-T007 pass; each module stays <= 400 lines; mypy clean.
 
 ## Phase 4 - Scanner wiring and end-to-end cap (FR-007, FR-008, FR-013)
 
-- [ ] T009 Failing tests, extend `tests/unit/test_scanner.py` (`MockAgentAdapter` from
+- [x] T009 Failing tests, extend `tests/unit/test_scanner.py` (`MockAgentAdapter` from
       conftest, `shared_attack_library`, one phase that loads > 1 vector, asserted in the test;
       stub judge wrapped as `UsageTrackingClient(_UsageStub(), ledger, stage="judge")` passed as
       `config["llm_client"]`, `ledger = UsageLedger(PRICES)` as `config["usage_ledger"]`):
@@ -121,7 +121,7 @@ Shared test helpers (defined in the test file that first needs them; copied, not
         the second); US2.7 (no cap: no `status`, checkpoint cleaned); US2.8 (`utility_tasks` with
         a cap hit: post-attack measurement not run, no `metadata["utility"]`); US5.5
         (`AgentScanner(config={"max_campaign_tokens": 0})` raises `ValidationError`).
-- [ ] T010 Implement plan §7 in `scanner.py`: exactly the listed edits and the six comment-line
+- [x] T010 Implement plan §7 in `scanner.py`: exactly the listed edits and the six comment-line
       deletions. Verify `wc -l ziran/application/agent_scanner/scanner.py` <= 750 and
       `git diff --numstat origin/develop -- ziran/application/agent_scanner/scanner.py` shows
       deletions >= insertions; `attack_executor.py` untouched. T009 and
@@ -129,7 +129,7 @@ Shared test helpers (defined in the test file that first needs them; copied, not
 
 ## Phase 5 - CLI (FR-012)
 
-- [ ] T011 Failing tests, extend `tests/unit/test_cli_main.py` (patching pattern of
+- [x] T011 Failing tests, extend `tests/unit/test_cli_main.py` (patching pattern of
       `TestScanEnsembleWiring`: `monkeypatch.chdir(tmp_path)`, patched `create_llm_client` returning `_UsageStub(model=kw["model"])`
       (a real `LLMConfig`, so price lookups see a string model),
       `load_agent_adapter`, `asyncio`, `AgentScanner`; also patch
@@ -152,13 +152,13 @@ Shared test helpers (defined in the test file that first needs them; copied, not
         suffix; without `usage` none of these rows appear (US1.4); the JSON dump of that result
         (`ziran/interfaces/cli/reports.py::_dump_campaign_result`) contains `metadata.usage`
         (US1.3).
-- [ ] T012 Implement plan §8 in `ziran/interfaces/cli/main.py` (`scan` options, signature, body,
+- [x] T012 Implement plan §8 in `ziran/interfaces/cli/main.py` (`scan` options, signature, body,
       `_display_results` rows only; `_scan_detector_config` and the `ci` command untouched). T011
       passes; every existing `test_cli_main.py` test passes unmodified.
 
 ## Phase 6 - Docs, packaging, gates (FR-014, FR-015, SC-005)
 
-- [ ] T013 `docs/guides/long-running-campaigns.md`: add `## Token budget and cost cap` before
+- [x] T013 `docs/guides/long-running-campaigns.md`: add `## Token budget and cost cap` before
       `## Notes`: the two flags with an example, the five stages and what each covers, where the
       numbers appear (summary rows, `metadata.usage`, `metadata.status`), the price table and the
       `.ziran/prices.yaml` override format, `null` cost for unknown models and the target, the
@@ -167,10 +167,10 @@ Shared test helpers (defined in the test file that first needs them; copied, not
       stage records nothing until the `asyncio.run` bug is fixed, ensemble members without
       `model` count as `judge`, timeouts and embeddings not recorded). No numbers that were not
       produced by a command actually run.
-- [ ] T014 Packaging check: `uv build --wheel --out-dir <scratch>` then list the wheel and confirm
+- [x] T014 Packaging check: `uv build --wheel --out-dir <scratch>` then list the wheel and confirm
       `ziran/infrastructure/llm/prices.yaml` is present (SC-005). If the build cannot run here,
       report SC-005 as unverified in the PR; do not claim it.
-- [ ] T015 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T015 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%). `git diff --stat origin/develop` shows no `uv.lock`,
       no `attack_executor.py`, no `CHANGELOG.md`. PR body: the commands run and their real output,
       the price-table status (empty or cited entries), SC-006 unverified.

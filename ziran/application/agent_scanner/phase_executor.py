@@ -16,6 +16,7 @@ from ziran.application.agent_scanner.progress import (
     ProgressEvent,
     ProgressEventType,
 )
+from ziran.application.usage import TARGET_MODEL
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
 from ziran.infrastructure.logging.context import bind_phase
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
         CampaignStrategy,
         PhaseDecision,
     )
+    from ziran.application.usage import CampaignBudget
     from ziran.domain.entities.attack import AttackVector
 
 logger = get_logger(__name__)
@@ -52,6 +54,7 @@ class PhaseExecutor:
         emitter: Progress emitter for lifecycle events.
         attack_timeout: Per-attack timeout in seconds.
         phase_timeout: Per-phase timeout in seconds.
+        budget: Optional campaign budget checked before each vector (spec 047).
     """
 
     def __init__(
@@ -63,6 +66,7 @@ class PhaseExecutor:
         emitter: ProgressEmitter | None = None,
         attack_timeout: float = 60.0,
         phase_timeout: float = 300.0,
+        budget: CampaignBudget | None = None,
     ) -> None:
         self._attack_executor = attack_executor
         self._attack_library = attack_library
@@ -70,6 +74,7 @@ class PhaseExecutor:
         self._emitter = emitter or ProgressEmitter()
         self._attack_timeout = attack_timeout
         self._phase_timeout = phase_timeout
+        self._budget = budget
 
     # -- public API --------------------------------------------------------
 
@@ -203,6 +208,10 @@ class PhaseExecutor:
 
             try:
                 async with semaphore:
+                    # Cooperative cap: skip (not record) the vector so resume runs it.
+                    if self._budget is not None and self._budget.exceeded():
+                        self._budget.interrupted_phase = phase
+                        return
                     metrics.attack_started(phase.value)
                     started = perf_counter()
                     try:
@@ -232,6 +241,11 @@ class PhaseExecutor:
                         attack_results.append(result)
                     tested_vector_ids.add(result.vector_id)
                     phase_tokens = phase_tokens + result.token_usage
+                    if self._budget is not None:
+                        tu = result.token_usage
+                        self._budget.ledger.record(
+                            "target", TARGET_MODEL, tu.prompt_tokens, tu.completion_tokens
+                        )
 
                     if result.successful:
                         vulnerabilities.append(result.vector_id)

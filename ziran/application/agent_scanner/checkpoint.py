@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
+from ziran.application.usage import UsageEntry
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import PhaseResult
 from ziran.infrastructure.logging.logger import get_logger
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from ziran.application.usage import CampaignBudget, UsageLedger
     from ziran.domain.entities.phase import ScanPhase
 
 logger = get_logger(__name__)
@@ -109,6 +111,10 @@ class CampaignCheckpoint(BaseModel):
         default_factory=list,
         description="Phase values still pending execution",
     )
+    usage: list[UsageEntry] = Field(
+        default_factory=list,
+        description="Usage ledger snapshot (spec 047)",
+    )
     checkpoint_time: str = Field(
         default_factory=lambda: datetime.now(tz=UTC).isoformat(),
     )
@@ -183,6 +189,7 @@ class CheckpointManager:
         token_usage: dict[str, int],
         coverage: str,
         remaining_phases: list[str],
+        usage: list[UsageEntry] | None = None,
     ) -> CampaignCheckpoint:
         """Build a checkpoint from the current campaign state."""
         serialised_attacks: list[dict[str, Any]] = []
@@ -202,6 +209,7 @@ class CheckpointManager:
             token_usage=token_usage,
             coverage=coverage,
             remaining_phases=remaining_phases,
+            usage=usage or [],
         )
 
 
@@ -226,8 +234,10 @@ class IncrementalCheckpointer:
         coverage: str,
         token_provider: Callable[[], dict[str, int]],
         flush_interval: float = DEFAULT_FLUSH_INTERVAL_SECONDS,
+        budget: CampaignBudget | None = None,
     ) -> None:
         self._manager = manager
+        self._budget = budget
         self._campaign_id = campaign_id
         self._phase_results = phase_results
         self._attack_results = attack_results
@@ -247,15 +257,21 @@ class IncrementalCheckpointer:
         self._write()
 
     def _write(self) -> None:
+        # A phase cut short by the budget is not complete: resume re-enters it.
+        stopped = self._budget.interrupted_phase if self._budget is not None else None
+        remaining = [p.value for p in self._remaining_phases]
+        if stopped is not None and stopped.value not in remaining:
+            remaining.insert(0, stopped.value)
         self._manager.save(
             self._manager.build_checkpoint(
                 campaign_id=self._campaign_id,
-                phase_results=self._phase_results,
+                phase_results=[p for p in self._phase_results if p.phase != stopped],
                 attack_results=self._attack_results,
                 tested_vector_ids=self._tested_vector_ids,
                 token_usage=self._token_provider(),
                 coverage=self._coverage,
-                remaining_phases=[p.value for p in self._remaining_phases],
+                remaining_phases=remaining,
+                usage=self._budget.ledger.entries() if self._budget is not None else None,
             )
         )
 
@@ -272,13 +288,18 @@ class ResumeState:
     remaining_phases: list[ScanPhase]
 
 
-def load_resume_state(manager: CheckpointManager, phases: list[ScanPhase]) -> ResumeState:
+def load_resume_state(
+    manager: CheckpointManager, phases: list[ScanPhase], ledger: UsageLedger | None = None
+) -> ResumeState:
     """Load a checkpoint and derive the state needed to resume a campaign.
 
     Filters ``phases`` down to those not already completed; the interrupted
     phase (if any) stays in the list and re-enters, skipping tested vectors.
+    When *ledger* is given, the checkpoint's usage snapshot is restored into it.
     """
     ckpt = manager.load()
+    if ledger is not None:
+        ledger.restore(ckpt.usage)
     phase_results = [PhaseResult.model_validate(p) for p in ckpt.completed_phases]
     completed = {pr.phase for pr in phase_results}
     return ResumeState(

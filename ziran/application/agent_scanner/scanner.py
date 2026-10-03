@@ -58,6 +58,7 @@ from ziran.application.strategies.protocol import (
     CampaignContext,
     CampaignStrategy,
 )
+from ziran.application.usage import CampaignBudget
 from ziran.domain.entities.attack import (
     AttackResult,
     TokenUsage,
@@ -143,6 +144,7 @@ class AgentScanner:
                 - ``attack_timeout`` (float): Per-attack timeout in seconds.
                 - ``phase_timeout`` (float): Per-phase timeout in seconds.
                 - ``llm_client`` / ``detector_config``: LLM client / DetectorConfig for detectors.
+                - ``usage_ledger``, ``max_campaign_tokens``, ``max_cost``: usage budget (spec 047).
         """
         self.adapter = adapter
         self.config = config or {}
@@ -168,6 +170,7 @@ class AgentScanner:
             quality_scoring=bool(self.config.get("quality_scoring")),
             detector_config=self.config.get("detector_config"),
         )
+        self._budget = CampaignBudget.from_config(self.config)
 
     async def run_campaign(
         self,
@@ -216,7 +219,6 @@ class AgentScanner:
         if phases is None:
             phases = CORE_PHASES
 
-        # Default to FixedStrategy for backwards compatibility
         if strategy is None:
             strategy = FixedStrategy(stop_on_critical=stop_on_critical)
 
@@ -228,7 +230,7 @@ class AgentScanner:
         phase_results: list[PhaseResult] = []
         campaign_tokens = TokenUsage()
         if checkpoint_manager and resume_from_checkpoint and checkpoint_manager.exists():
-            _rs = load_resume_state(checkpoint_manager, phases)
+            _rs = load_resume_state(checkpoint_manager, phases, self._budget.ledger)
             campaign_id = _rs.campaign_id
             phase_results = _rs.phase_results
             campaign_tokens = _rs.campaign_tokens
@@ -254,7 +256,6 @@ class AgentScanner:
 
         bind_campaign(campaign_id)  # merge campaign_id into every log line
 
-        # Build sub-components
         emitter = ProgressEmitter(on_progress)
         attack_executor = AttackExecutor(
             self.adapter,
@@ -272,6 +273,7 @@ class AgentScanner:
             emitter=emitter,
             attack_timeout=self._attack_timeout,
             phase_timeout=self._phase_timeout,
+            budget=self._budget,
         )
 
         # Store settings for backward compat (some tests may poke at internals)
@@ -340,9 +342,10 @@ class AgentScanner:
                 coverage=coverage.value,
                 token_provider=lambda: campaign_tokens.model_dump(),
                 flush_interval=checkpoint_flush_interval,
+                budget=self._budget,
             )
 
-        while True:
+        while not self._budget.exceeded():
             # Build context for strategy decision-making
             context = CampaignContext(
                 completed_phases=list(phase_results),
@@ -354,12 +357,10 @@ class AgentScanner:
                 graph_state=self.graph.export_state(),
             )
 
-            # Check strategy termination
             if strategy.should_stop(context):
                 logger.info("strategy_requested_stop", strategy=type(strategy).__name__)
                 break
 
-            # Ask strategy for the next phase
             decision = strategy.select_next_phase(context)
             if decision is None:
                 logger.info("strategy_no_next_phase")
@@ -402,11 +403,9 @@ class AgentScanner:
             )
             phase_results.append(result)
 
-            # Remove executed phase from remaining
             if phase in remaining_phases:
                 remaining_phases.remove(phase)
 
-            # Aggregate tokens
             campaign_tokens = campaign_tokens + TokenUsage(
                 prompt_tokens=result.token_usage["prompt_tokens"],
                 completion_tokens=result.token_usage["completion_tokens"],
@@ -455,7 +454,7 @@ class AgentScanner:
         # ── Post-attack utility measurement ───────────────────────
         _post_score: float | None = None
         _post_results: list[Any] = []
-        if utility_tasks and _baseline_score is not None:
+        if utility_tasks and _baseline_score is not None and not self._budget.exceeded():
             from ziran.application.utility.measurer import UtilityMeasurer
 
             logger.info("measuring_post_attack_utility", task_count=len(utility_tasks))
@@ -480,6 +479,7 @@ class AgentScanner:
             utility_tasks_count=len(utility_tasks or []),
             defence_profile=defence_profile,
             judge_tiers=self._detector_pipeline.tier_counts,
+            usage=self._budget,
         )
         self._discovered_chains = dangerous_chains
 
@@ -523,7 +523,7 @@ class AgentScanner:
         )
 
         # Clean up checkpoint on successful completion
-        if checkpoint_manager is not None:
+        if checkpoint_manager is not None and not self._budget.exceeded():
             checkpoint_manager.cleanup()
             logger.info("checkpoint_cleaned_up")
 

@@ -16,6 +16,7 @@ from ziran.domain.entities.phase import CampaignResult, PhaseResult, compute_res
 
 if TYPE_CHECKING:
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+    from ziran.application.usage import CampaignBudget
     from ziran.domain.entities.attack import AttackResult, TokenUsage
     from ziran.domain.entities.defence import DefenceProfile
 
@@ -71,6 +72,7 @@ class ResultBuilder:
         utility_tasks_count: int = 0,
         defence_profile: DefenceProfile | None = None,
         judge_tiers: dict[str, int] | None = None,
+        usage: CampaignBudget | None = None,
     ) -> tuple[CampaignResult, list[Any]]:
         """Build the final campaign result.
 
@@ -109,6 +111,10 @@ class ResultBuilder:
         }
         if judge_tiers:  # two-tier judging routing counts (spec 043); absent when off
             metadata["judge_tiers"] = judge_tiers
+        if usage is not None:  # all-stage usage breakdown (spec 047)
+            metadata["usage"] = usage.summary().model_dump(mode="json")
+            if usage.exceeded():
+                metadata["status"] = "budget_exceeded"
 
         if baseline_score is not None and post_score is not None:
             metadata["utility"] = _compute_utility(
