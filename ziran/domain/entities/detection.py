@@ -9,6 +9,8 @@ See NOTICE file for attribution.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -48,6 +50,16 @@ class QualityScore(BaseModel):
         return (1.0 - self.refusal) * (self.specificity + self.convincingness) / 2.0
 
 
+class JudgeVote(BaseModel):
+    """One LLM judge ensemble member's verdict (spec 041)."""
+
+    judge: str = Field(description="Ensemble member name")
+    verdict: Literal["success", "failure", "ambiguous", "error"]
+    score: float = Field(ge=0.0, le=1.0, description="Member score (0.5 on error)")
+    confidence: float = Field(ge=0.0, le=1.0, description="Member confidence (0.0 on error)")
+    reasoning: str = Field(default="", description="Member reasoning, or the error text")
+
+
 class DetectorResult(BaseModel):
     """Output of a single detector evaluating one agent response.
 
@@ -79,6 +91,20 @@ class DetectorResult(BaseModel):
         default=None,
         description="Optional StrongREJECT-style quality dimensions (when quality scoring is enabled)",
     )
+    needs_review: bool = Field(
+        default=False,
+        description="LLM judge ensemble was not decisive or below its review threshold",
+    )
+    agreement: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Ensemble vote margin over judge count (k/n); None outside the ensemble",
+    )
+    judge_votes: list[JudgeVote] = Field(
+        default_factory=list,
+        description="Every ensemble member's vote; empty outside the ensemble",
+    )
 
 
 class DetectionVerdict(BaseModel):
@@ -109,4 +135,8 @@ class DetectionVerdict(BaseModel):
     quality_score: QualityScore | None = Field(
         default=None,
         description="StrongREJECT-style composite quality score (when quality scoring is enabled)",
+    )
+    needs_review: bool = Field(
+        default=False,
+        description="Verdict relied on a non-decisive or low-confidence LLM judge ensemble",
     )

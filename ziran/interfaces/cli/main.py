@@ -21,6 +21,7 @@ from ziran import __version__
 from ziran.application.agent_scanner.checkpoint import DEFAULT_FLUSH_INTERVAL_SECONDS
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
+from ziran.application.detectors.pipeline import DetectorConfig
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.defence import DefenceProfile
@@ -294,6 +295,21 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "flushes periodically regardless of this interval.",
 )
 @click.option(
+    "--max-campaign-tokens",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Stop scheduling new attacks once the campaign has used this many tokens across all "
+    "stages (judge, ensemble, prefilter, strategy, target). Cooperative: attacks already "
+    "running finish, so the total can overshoot by up to --concurrency attacks.",
+)
+@click.option(
+    "--max-cost",
+    type=click.FloatRange(min=0, min_open=True),
+    default=None,
+    help="Stop scheduling new attacks once the estimated LLM cost reaches this many USD. "
+    "Only models with a price (shipped table or .ziran/prices.yaml) count. Cooperative.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -337,6 +353,8 @@ def scan(
     metrics_port: int | None,
     resume: bool,
     checkpoint_flush_interval: float,
+    max_campaign_tokens: int | None,
+    max_cost: float | None,
     dry_run: bool,
     defence_profile: str | None,
 ) -> None:
@@ -424,6 +442,12 @@ def scan(
     config_table.add_row("Stop on Critical", str(stop_on_critical))
     config_table.add_row("Coverage", coverage)
     config_table.add_row("Concurrency", str(concurrency))
+    if max_campaign_tokens or max_cost:
+        budget_parts = (
+            f"{max_campaign_tokens:,} tokens" if max_campaign_tokens else "",
+            f"${max_cost:g}" if max_cost else "",
+        )
+        config_table.add_row("Budget", " · ".join(p for p in budget_parts if p))
     if strategy != "fixed":
         config_table.add_row("Strategy", strategy)
     if streaming:
@@ -498,11 +522,31 @@ def scan(
     if phases:
         phase_list = [ScanPhase(p) for p in phases]
 
+    # Usage ledger + price table (spec 047): one ledger per scan, shared by all stages.
+    import dataclasses
+
+    from ziran.application.usage import UsageLedger
+    from ziran.infrastructure.llm.usage_tracking_client import (
+        PriceTableError,
+        UsageTrackingClient,
+        load_price_table,
+        track,
+    )
+
+    try:
+        prices = load_price_table()
+    except PriceTableError as exc:
+        raise click.ClickException(str(exc)) from None
+    ledger = UsageLedger(prices)
+
     # Run campaign
     scanner_config: dict[str, Any] = {
         "attack_timeout": attack_timeout,
         "phase_timeout": phase_timeout,
         "quality_scoring": quality_scoring,
+        "usage_ledger": ledger,
+        "max_campaign_tokens": max_campaign_tokens,
+        "max_cost": max_cost,
     }
 
     # Initialize LLM client if provider/model specified
@@ -518,7 +562,7 @@ def scan(
                 tpm=llm_tpm,
                 max_retries=llm_max_retries,
             )
-            scanner_config["llm_client"] = llm_client
+            scanner_config["llm_client"] = track(llm_client, ledger, "judge")
             console.print("[dim]LLM backbone enabled for AI-powered features[/dim]")
         except ImportError:
             console.print(
@@ -528,11 +572,55 @@ def scan(
         except Exception as e:
             console.print(f"[yellow]Warning:[/yellow] Failed to initialize LLM client: {e}")
 
+    if llm_client is not None:
+        detector_config = _scan_detector_config(
+            llm_provider=llm_provider or "litellm",
+            llm_rpm=llm_rpm,
+            llm_tpm=llm_tpm,
+            llm_max_retries=llm_max_retries,
+        )
+        if detector_config is not None:
+            detector_config = dataclasses.replace(
+                detector_config,
+                judge_clients={
+                    n: UsageTrackingClient(c, ledger, stage="ensemble")
+                    for n, c in detector_config.judge_clients.items()
+                },
+                prefilter_client=track(detector_config.prefilter_client, ledger, "prefilter"),
+            )
+            scanner_config["detector_config"] = detector_config
+            thresholds = detector_config.thresholds
+            assert thresholds is not None
+            if thresholds.ensemble.enabled:
+                n_judges = len(thresholds.ensemble.judges)
+                console.print(f"[dim]LLM judge ensemble: {n_judges} judges[/dim]")
+            if thresholds.prefilter.enabled:
+                console.print(f"[dim]LLM judge prefilter: {thresholds.prefilter.model}[/dim]")
+
+    if max_cost is not None:
+        if llm_client is None:
+            console.print(
+                "[yellow]Warning:[/yellow] --max-cost cannot trigger: no LLM client is "
+                "configured and the target stage is not priced"
+            )
+        detector_cfg = scanner_config.get("detector_config")
+        tracked = [llm_client] if llm_client is not None else []
+        if detector_cfg is not None:
+            tracked += [*detector_cfg.judge_clients.values(), detector_cfg.prefilter_client]
+        for model in dict.fromkeys(c.config.model for c in tracked if c is not None):
+            if prices.price_for(model) is None:
+                console.print(
+                    f"[yellow]Warning:[/yellow] no price for model '{model}': "
+                    "its calls do not count towards --max-cost"
+                )
+
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
     coverage_level = CoverageLevel(coverage.lower())
 
     # Build campaign strategy
-    campaign_strategy = build_strategy(strategy, stop_on_critical, llm_client)
+    campaign_strategy = build_strategy(
+        strategy, stop_on_critical, track(llm_client, ledger, "strategy")
+    )
     if strategy != "fixed":
         console.print(f"[dim]Campaign strategy: {strategy}[/dim]")
 
@@ -579,6 +667,11 @@ def scan(
 
     # Display results
     _display_results(result)
+    if result.metadata.get("status") == "budget_exceeded":
+        console.print(
+            f"[yellow]Budget reached; checkpoint kept in {output_dir}. "
+            "Re-run with --resume and a higher cap to continue.[/yellow]"
+        )
 
     # Save results
     _save_results(result, scanner.graph, output_dir)
@@ -1454,6 +1547,13 @@ def _display_validation_results(checks: list[tuple[str, bool, str]]) -> None:
     help="Write a SARIF v2.1.0 report to this path.",
 )
 @click.option(
+    "--suppressions",
+    "suppressions_path",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="Suppressions YAML of accepted findings (default: .ziran/suppressions.yaml if present).",
+)
+@click.option(
     "--github-annotations/--no-github-annotations",
     default=True,
     help="Emit GitHub Actions annotations (default: on).",
@@ -1468,6 +1568,7 @@ def ci(
     gate_config_path: str | None,
     policy_path: str | None,
     sarif_path: str | None,
+    suppressions_path: str | None,
     *,
     github_annotations: bool,
     github_summary: bool,
@@ -1488,8 +1589,9 @@ def ci(
         ziran ci ./ziran_results/campaign_123_report.json
         ziran ci results.json --gate-config gate.yaml --sarif results.sarif
         ziran ci results.json --no-github-annotations --sarif results.sarif
+        ziran ci results.json --suppressions .ziran/suppressions.yaml
     """
-    from ziran.application.cicd.gate import QualityGate
+    from ziran.application.cicd.gate import QualityGate, load_suppressions
     from ziran.application.cicd.github_actions import (
         emit_annotations,
         set_output,
@@ -1521,8 +1623,18 @@ def ci(
         console.print(f"[bold red]Unexpected error loading gate config:[/bold red] {e}")
         sys.exit(1)
 
+    # 2b. Load accepted findings (explicit flag, else the cwd default if present)
+    sup_path = Path(suppressions_path or ".ziran/suppressions.yaml")
+    suppressions = None
+    if suppressions_path or sup_path.is_file():
+        try:
+            suppressions = load_suppressions(sup_path)
+        except Exception as e:
+            console.print(f"Error loading suppressions: {e}", style="bold red", markup=False)
+            sys.exit(1)
+
     # 3. Evaluate
-    gate_result = gate.evaluate(result)
+    gate_result = gate.evaluate(result, suppressions)
 
     # 4. Console output (always shown)
     _display_gate_result(gate_result)
@@ -1530,14 +1642,14 @@ def ci(
     # 5. SARIF output
     if sarif_path:
         try:
-            written = write_sarif(result, Path(sarif_path))
+            written = write_sarif(result, Path(sarif_path), gate_result)
             console.print(f"[dim]SARIF report: {written}[/dim]")
         except Exception as e:
             console.print(f"[yellow]Warning: SARIF generation failed: {e}[/yellow]")
 
     # 6. GitHub annotations
     if github_annotations:
-        annotations = emit_annotations(result)
+        annotations = emit_annotations(result, gate_result)
         for ann in annotations:
             print(ann)
 
@@ -1550,6 +1662,10 @@ def ci(
     set_output("trust_score", f"{gate_result.trust_score:.2f}")
     set_output("total_findings", str(gate_result.finding_counts.total))
     set_output("critical_findings", str(gate_result.finding_counts.critical))
+    if gate_result.suppressions_applied:
+        set_output("new_findings", str(gate_result.new_findings))
+        set_output("suppressed_findings", str(gate_result.suppressed_findings))
+        set_output("regressed_findings", str(gate_result.regressed_findings))
 
     # 9. Policy evaluation (optional overlay)
     if policy_path:
@@ -1575,14 +1691,22 @@ def _display_gate_result(gate: Any) -> None:
     status_style = "bold green" if gate.passed else "bold red"
     status_text = "PASSED" if gate.passed else "FAILED"
     counts = gate.finding_counts
+    panel_text = (
+        f"[{status_style}]{status_text}[/{status_style}]  "
+        f"Trust: {gate.trust_score:.2f}  |  "
+        f"Findings: {counts.total} "
+        f"(C:{counts.critical} H:{counts.high} M:{counts.medium} L:{counts.low})"
+    )
+    if gate.suppressions_applied:
+        panel_text += (
+            f"  |  New: {gate.new_findings}  Suppressed: {gate.suppressed_findings}  "
+            f"Regressed: {gate.regressed_findings}"
+        )
 
     console.print()
     console.print(
         Panel(
-            f"[{status_style}]{status_text}[/{status_style}]  "
-            f"Trust: {gate.trust_score:.2f}  |  "
-            f"Findings: {counts.total} "
-            f"(C:{counts.critical} H:{counts.high} M:{counts.medium} L:{counts.low})",
+            panel_text,
             title="CI/CD Quality Gate",
             expand=False,
         )
@@ -1599,12 +1723,88 @@ def _display_gate_result(gate: Any) -> None:
         console.print(viol_table)
         console.print()
 
+    unsuppressed = [f for f in gate.findings if f.state != "suppressed"]
+    if gate.suppressions_applied and unsuppressed:
+        console.print(
+            "Unsuppressed findings (copy fingerprint/content_hash into the suppressions file "
+            "to accept):"
+        )
+        for f in unsuppressed:
+            console.print(
+                f"  {f.state} {f.kind} {f.label} [{f.severity}] "
+                f"fingerprint={f.fingerprint} content_hash={f.content_hash}",
+                markup=False,
+                highlight=False,
+                soft_wrap=True,
+            )
+        console.print()
+
     console.print(f"[dim]{gate.summary}[/dim]")
 
 
 # ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
+
+
+def _scan_detector_config(
+    *,
+    llm_provider: str,
+    llm_rpm: int | None,
+    llm_tpm: int | None,
+    llm_max_retries: int | None,
+) -> DetectorConfig | None:
+    """Ensemble and prefilter detector config for ``ziran scan`` from ``.ziran/detectors.yaml``.
+
+    Specs 041/043. None unless ``ensemble.enabled`` or ``prefilter.enabled``. Raises
+    :class:`click.ClickException` on an invalid file or a client that cannot be created.
+    """
+    from ziran.application.detectors.thresholds import DetectorThresholds
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+    from ziran.infrastructure.llm import create_llm_client
+
+    try:
+        thresholds = load_detector_thresholds()
+    except DetectorConfigError as exc:
+        raise click.ClickException(str(exc)) from None
+    ensemble, prefilter = thresholds.ensemble, thresholds.prefilter
+    if not (ensemble.enabled or prefilter.enabled):
+        return None
+    try:
+        clients = {
+            j.name: create_llm_client(
+                provider=j.provider or llm_provider,
+                model=j.model,
+                rpm=llm_rpm,
+                tpm=llm_tpm,
+                max_retries=llm_max_retries,
+            )
+            for j in ensemble.judges
+            if j.model and ensemble.enabled
+        }
+    except Exception as exc:
+        raise click.ClickException(f"cannot create ensemble judge client: {exc}") from None
+    prefilter_client = None
+    if prefilter.enabled:
+        assert prefilter.model is not None  # PrefilterConfig requires it when enabled
+        try:
+            prefilter_client = create_llm_client(
+                provider=prefilter.provider or llm_provider,
+                model=prefilter.model,
+                rpm=llm_rpm,
+                tpm=llm_tpm,
+                max_retries=llm_max_retries,
+            )
+        except Exception as exc:
+            raise click.ClickException(f"cannot create prefilter client: {exc}") from None
+    return DetectorConfig(
+        thresholds=DetectorThresholds(ensemble=ensemble, prefilter=prefilter),
+        judge_clients=clients,
+        prefilter_client=prefilter_client,
+    )
 
 
 def _warn_config_issues(
@@ -1757,6 +1957,30 @@ def _display_results(result: CampaignResult) -> None:
         summary_table.add_row("Prompt Tokens", f"{tokens['prompt_tokens']:,}")
         summary_table.add_row("Completion Tokens", f"{tokens['completion_tokens']:,}")
         summary_table.add_row("Total Tokens", f"[bold]{tokens['total_tokens']:,}[/bold]")
+    tiers = result.metadata.get("judge_tiers")
+    if tiers:
+        summary_table.add_row(
+            "Judge Routing",
+            f"deterministic {tiers['deterministic']} · cheap {tiers['cheap']} · "
+            f"escalated {tiers['escalated']}",
+        )
+    usage = result.metadata.get("usage")
+    if usage:  # all-stage usage breakdown (spec 047); absent in old result files
+        for e in usage["entries"]:
+            cost = "cost n/a" if e["cost_usd"] is None else f"${e['cost_usd']:.4f}"
+            summary_table.add_row(
+                f"Usage · {e['stage']} · {e['model']}", f"{e['total_tokens']:,} tokens · {cost}"
+            )
+        summary_table.add_row("All-Stage Tokens", f"{usage['total_tokens']:,}")
+        total = usage["total_cost_usd"]
+        cost_text = "n/a" if total is None else f"${total:.4f}"
+        if usage["unpriced_tokens"]:
+            cost_text += f" ({usage['unpriced_tokens']:,} tokens unpriced)"
+        summary_table.add_row("Estimated Cost", cost_text)
+    if result.metadata.get("status") == "budget_exceeded":
+        summary_table.add_row(
+            "Status", "[bold yellow]BUDGET EXCEEDED (partial results)[/bold yellow]"
+        )
     if result.coverage_level:
         summary_table.add_row("Coverage Level", result.coverage_level)
 

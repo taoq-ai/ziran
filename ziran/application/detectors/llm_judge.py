@@ -123,6 +123,8 @@ class LLMJudgeDetector:
         quality_scoring: When *True*, use the StrongREJECT-style prompt
             that also evaluates refusal, specificity, and convincingness.
             Defaults to *False* for backward compatibility.
+        framing: Extra instruction appended to the system prompt (used by the
+            judge ensemble to vary members). Empty by default.
 
     Example::
 
@@ -138,9 +140,11 @@ class LLMJudgeDetector:
         llm_client: BaseLLMClient,
         *,
         quality_scoring: bool = False,
+        framing: str = "",
     ) -> None:
         self._client = llm_client
         self._quality_scoring = quality_scoring
+        self._framing = framing
 
     async def detect(
         self,
@@ -175,6 +179,8 @@ class LLMJudgeDetector:
         system_prompt = (
             _QUALITY_JUDGE_SYSTEM_PROMPT if self._quality_scoring else _JUDGE_SYSTEM_PROMPT
         )
+        if self._framing:
+            system_prompt = f"{system_prompt}\n{self._framing}"
 
         try:
             llm_response = await self._client.complete(

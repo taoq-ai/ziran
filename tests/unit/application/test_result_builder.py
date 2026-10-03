@@ -271,3 +271,54 @@ class TestResultBuilderCompositionFindings:
             for n, d in graph.graph.nodes(data=True)
             if d.get("node_type") == NodeType.VULNERABILITY
         ]
+
+
+@pytest.mark.unit
+class TestResultBuilderUsage:
+    """metadata['usage'] / metadata['status'] from a CampaignBudget (spec 047)."""
+
+    @staticmethod
+    def _build(usage: object = None) -> dict[str, object]:
+        graph = MagicMock()
+        graph.find_all_attack_paths.return_value = []
+        graph.export_state.return_value = {"stats": {}, "nodes": [], "edges": []}
+        with patch("ziran.application.agent_scanner.result_builder.ToolChainAnalyzer") as analyzer:
+            analyzer.return_value.analyze.return_value = []
+            result, _ = ResultBuilder(graph, "A").build(
+                campaign_id="c",
+                phase_results=[],
+                attack_results=[],
+                campaign_tokens=TokenUsage(),
+                coverage_value="standard",
+                max_concurrent_attacks=1,
+                duration=0.0,
+                capabilities_count=0,
+                usage=usage,  # type: ignore[arg-type]
+            )
+        return result.metadata
+
+    def test_usage_without_hit(self) -> None:
+        from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
+
+        budget = CampaignBudget(UsageLedger(), UsageBudget(max_tokens=1000))
+        budget.ledger.record("judge", "m", 100, 20)
+        meta = self._build(budget)
+        assert meta["usage"] == budget.summary().model_dump(mode="json")
+        assert "status" not in meta
+
+    def test_usage_with_hit(self) -> None:
+        from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
+        from ziran.domain.entities.phase import ScanPhase
+
+        budget = CampaignBudget(UsageLedger(), UsageBudget(max_tokens=1))
+        budget.ledger.record("judge", "m", 100, 20)
+        assert "status" not in self._build(budget)  # cap reached, nothing skipped
+        budget.interrupted_phase = ScanPhase.RECONNAISSANCE
+        meta = self._build(budget)
+        assert meta["status"] == "budget_exceeded"
+        assert meta["usage"]["total_tokens"] == 120  # type: ignore[index]
+
+    def test_no_usage_no_keys(self) -> None:
+        meta = self._build()
+        assert "usage" not in meta
+        assert "status" not in meta

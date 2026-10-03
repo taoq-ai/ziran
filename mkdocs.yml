@@ -76,6 +76,7 @@ nav:
     - Promptfoo Integration: guides/promptfoo-integration.md
     - OpenTelemetry Tracing: guides/otel-tracing.md
     - Static Analysis: guides/static-analysis.md
+    - Claude Code Plugins: guides/claude-code.md
     - Interpreting Results: guides/interpreting-results.md
     - Long-Running Campaigns: guides/long-running-campaigns.md
     - Custom Attacks: guides/custom-attacks.md
