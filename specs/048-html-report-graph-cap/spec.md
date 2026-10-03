@@ -13,17 +13,17 @@ pages; it does not touch `ziran/interfaces/cli/main.py`.
 one `<script>`: the final graph's vis nodes and edges, every critical path, and a full vis copy of
 the graph for **every** phase snapshot (`_build_phase_states`, spec 026 US3). Nothing is capped.
 
-**Measured today** (`develop` @ 7d4132e, scratch script calling `build_html_report` on a synthetic
+**Measured** (`develop` @ 7d4132e: the `origin/develop` `html_report.py` loaded as a module, calling
+`build_html_report` on the committed `tests/unit/test_html_report.py::_reference_campaign()`: an
 8-phase campaign whose phase `k` snapshot holds `k/8` of the vulnerabilities):
 
-| Final graph | HTML bytes | Build time |
+| Final graph | `develop` HTML bytes | This branch HTML bytes |
 |---|---|---|
-| 108 nodes / 599 edges | 1,473,591 | 0.02-0.03 s |
-| 708 nodes / 5,699 edges | 12,438,481 | 0.09-0.15 s |
+| 708 nodes / 5,699 edges | 12,276,604 | 1,134,664 |
+| empty (`build_html_report({}, {})`) | 27,807 | 27,812 |
 
-One vis node serializes to ~445 bytes and one vis edge to ~324 bytes. The empty report is 27,789
-bytes. The per-phase snapshots, not the final graph, multiply the size (9 graph copies in the
-example above).
+Build time on that fixture: 0.08 s (`develop`), 0.01 s (branch), one run. The per-phase
+snapshots, not the final graph, multiply the size (9 graph copies in the example above).
 
 **Security defect (found while reading the code)**: the four blobs are produced by plain
 `json.dumps` and placed raw between `<script>` and `</script>` (template line ~1289). `json.dumps`
@@ -51,7 +51,7 @@ slow to write and slow to render in vis-network.
    `rawNodes`.
 2. **Given** the reference synthetic campaign (plan §Reference fixture: 708 nodes / 5,699 edges, 8
    phase snapshots), **When** the report is built, **Then** the HTML is at most 2,000,000 bytes
-   (today 12,438,481).
+   (`develop`: 12,276,604).
 3. **Given** a graph at or under both caps, **When** the report is built, **Then** the node and edge
    lists are exactly today's (same ids, same order, same vis properties) and no truncation notice is
    rendered.
@@ -174,12 +174,9 @@ call `_build_phase_states`.
   `20 * 6 + 8 = 128` nodes. 150 nodes is under the web UI's own auto-cluster threshold
   (`large_graph_node_threshold = 200`). Not configurable (YAGNI); change the constants if needed.
 - Phase stops are capped (planner option 1) rather than turned into id references (option 2): it
-  keeps the stop shape and `showPhase` unchanged and keeps each phase's own node styling. The
-  scratch projection with 150 / 300 caps on the reference fixture gave 1,059,721 bytes (naive slice,
-  not the ranking, no escaping). Upper bound with FR-007 escaping (`<` -> 6 bytes in tooltips): the
-  largest escaped vis node in the fixture is 600 bytes and the largest edge 356 (scratch measure),
-  so 9 views give at most `9 * (150 * 600 + 300 * 356) + 27,789 = 1,798,989` bytes; the US1.2 budget
-  of 2,000,000 holds by construction for that fixture.
+  keeps the stop shape and `showPhase` unchanged and keeps each phase's own node styling. With
+  the 150 / 300 caps and FR-007 escaping the reference fixture measures 1,134,664 bytes, under
+  the US1.2 budget of 2,000,000 (enforced by the test suite).
 - "Always keep vulnerability nodes" is read as "vulnerability nodes outrank every non-pinned node";
   a hard guarantee for all of them would make the cap unbounded (one node per finding).
 - The notice is static text; no "show all" toggle (the full graph is not in the page).

@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-10-03
+Auto-generated from all feature plans. Last updated: 2026-10-02
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -52,8 +52,6 @@ Auto-generated from all feature plans. Last updated: 2026-10-03
 - N/A (committed example files; runtime output in git-ignored `reports/` or `tmp_path`) (044-claude-code-plugin-guide)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (config + benchmark models), stdlib `asyncio`; reuses `LLMJudgeDetector`, `create_llm_client`, `ReplayLLMClient`. No new dependencies. (043-two-tier-judging)
 - N/A at runtime. Benchmark: optional cheap-model cassette `benchmarks/ground_truth/prefilter_verdicts.json`, result `benchmarks/results/two_tier_judging.json`. (043-two-tier-judging)
-- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `json`; existing `ziran.interfaces.graph_style.spec` (048-html-report-graph-cap)
-- N/A (the report is a single self-contained HTML file, unchanged). (048-html-report-graph-cap)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -73,9 +71,11 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
-- 048-html-report-graph-cap: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `json`; existing `ziran.interfaces.graph_style.spec`
 - 042-semantic-embedding-detection: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `math`/`hashlib`/`asyncio`, existing optional `llm` extra (litellm `aembedding`). No new dependencies.
 - 044-claude-code-plugin-guide: Added Markdown (MkDocs Material); Python 3.11+ test and example stdio server (CI matrix 3.11, 3.12, 3.13) + None new; shipped `ziran audit` / `analyze-traces` / `watch-registry` CLI, Click `CliRunner`, stdlib `json`/`sys`
+- 043-two-tier-judging: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (config + benchmark models), stdlib `asyncio`; reuses `LLMJudgeDetector`, `create_llm_client`, `ReplayLLMClient`. No new dependencies.
+- 040-action-plugin-audit: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); composite action in bash. + Click, stdlib `json`/`pathlib`, existing `ziran/application/cicd/sarif.py`, #419 `--baseline`; action uses setup-python + upload-sarif (already used). No new dependencies.
+- 039-audit-allowlist-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Click, Pydantic v2 (baseline file models); reuses #418 `agent_chains`. No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->

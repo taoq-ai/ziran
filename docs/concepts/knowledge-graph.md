@@ -44,7 +44,7 @@ ZIRAN uses a **NetworkX-based directed multigraph** to track all discoveries, re
 
 The knowledge graph renders interactively with **vis-network**, and the **web UI and the self-contained HTML report share a single styling/mapping spec** so both surfaces look and behave identically. (The report is standalone — the only network dependency is the vis-network library from a CDN; no backend access is required.)
 
-To stay fast on large campaigns the HTML report embeds at most 150 nodes and 300 edges per view (critical-path, phase and vulnerability nodes first, then by severity, dangerous flag and centrality) and shows a "Showing N of M" note when it trims; the web UI always loads the full graph.
+To stay fast on large campaigns the HTML report embeds at most 150 nodes and 300 edges per view (critical-path and phase nodes first, then vulnerability nodes, then by severity, dangerous flag and centrality; vulnerability nodes can still be cut when they exceed the cap) and shows a "Showing N of M" note when it trims; the web UI always loads the full graph.
 
 ### Layout modes
 

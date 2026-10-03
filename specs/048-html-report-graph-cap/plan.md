@@ -29,14 +29,12 @@ the HTML with `re.search(r"^const rawNodes = (.*);$", html, re.M)` and `json.loa
 no LLM, no browser.
 **Target Platform**: `ziran scan` / `ReportGenerator.save_html` HTML output.
 **Project Type**: single Python package.
-**Performance Goals**: reference fixture report <= 2,000,000 bytes (today 12,438,481).
+**Performance Goals**: reference fixture report <= 2,000,000 bytes (`develop`: 12,276,604).
 **Constraints**: mypy strict; line length 100; graphs within both caps render the same node/edge
 lists as today; no JavaScript change in the template.
-**Measured today** (`develop` @ 7d4132e, scratch script, see spec §Input): 108 / 599 -> 1,473,591
-bytes; 708 / 5,699 -> 12,438,481 bytes; ~445 bytes per vis node, ~324 per vis edge; empty report
-27,789 bytes. Scratch projection with a naive 150 / 300 slice on the 708 / 5,699 fixture:
-1,059,721 bytes. Largest vis element after `_script_json` escaping in that fixture: node 600 bytes,
-edge 356 bytes -> upper bound `9 * (150 * 600 + 300 * 356) + 27,789 = 1,798,989` bytes.
+**Measured** (see spec §Input; committed `_reference_campaign()`, 708 / 5,699): `develop` @
+7d4132e 12,276,604 bytes, this branch 1,134,664 bytes; empty report 27,807 (`develop`) /
+27,812 (branch) bytes.
 
 ## Constitution Check
 
@@ -195,7 +193,7 @@ The two literal `20`s become `_MAX_RENDERED_PATHS`; output unchanged.
 
 ### Reference fixture (tests)
 `_synthetic_state(n_tools: int, n_vulns: int, n_phases: int) -> dict[str, Any]` in
-`tests/unit/test_html_report.py`, same construction as the spec author's scratch script: `n_phases`
+`tests/unit/test_html_report.py`, same construction used for the §Input figures: `n_phases`
 phase nodes; `n_tools` tool nodes (`dangerous` every 7th, `centrality 0.0`, 80-char description);
 `n_vulns` vulnerability nodes (severity cycling critical/high/medium/low, `centrality 0.0`); per
 vuln one `discovered_in` edge to its phase and `enables` edges from every `n_tools // 10`-th tool;
