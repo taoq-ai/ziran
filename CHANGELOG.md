@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.41.0](https://github.com/taoq-ai/ziran/compare/v0.40.0...v0.41.0) (2026-10-03)
+
+
+### Features
+
+* **benchmarks:** offline two-tier judging comparison harness ([#398](https://github.com/taoq-ai/ziran/issues/398)) ([463cf40](https://github.com/taoq-ai/ziran/commit/463cf40b079541c87bf785bcaaf8b61df3785860))
+* **cicd:** finding suppression baseline and regression gate ([ad1540f](https://github.com/taoq-ai/ziran/commit/ad1540f244484190db1cc141ca724cbc492ab36d))
+* **cicd:** finding suppression baseline and regression gate ([97cb742](https://github.com/taoq-ai/ziran/commit/97cb74250b4174914ec9a20b998cb3463d82b29e)), closes [#395](https://github.com/taoq-ai/ziran/issues/395)
+* **detectors:** integrate two-tier judging with merged ensemble and semantic tiers ([#398](https://github.com/taoq-ai/ziran/issues/398)) ([5e1773d](https://github.com/taoq-ai/ziran/commit/5e1773d5790d1d00086b9213ac1d69f422caf464))
+* **detectors:** judge routing counters in the campaign summary ([#398](https://github.com/taoq-ai/ziran/issues/398)) ([90cb5ff](https://github.com/taoq-ai/ziran/commit/90cb5ff24d577eadbeb7510f22848760f2218787))
+* **detectors:** LLM judge ensemble with confidence calibration ([0671f1b](https://github.com/taoq-ai/ziran/commit/0671f1b88044b0f2291c7a8303080a0c90daa53d))
+* **detectors:** LLM judge ensemble with confidence calibration ([2da3f44](https://github.com/taoq-ai/ziran/commit/2da3f441906e96690e35f52f5ae8758c08b7dc0d)), closes [#396](https://github.com/taoq-ai/ziran/issues/396)
+* **detectors:** optional semantic embedding tier for refusal and success detection ([e229154](https://github.com/taoq-ai/ziran/commit/e229154eb72dccd90a3f64b5ce4aee36f3e8e66a))
+* **detectors:** optional semantic embedding tier for refusal and success detection ([#397](https://github.com/taoq-ai/ziran/issues/397)) ([29e1c86](https://github.com/taoq-ai/ziran/commit/29e1c86798b09b8da633c22f6627a612f5255658))
+* **detectors:** two-tier judging with cheap-model prefilter ([#398](https://github.com/taoq-ai/ziran/issues/398)) ([7d4132e](https://github.com/taoq-ai/ziran/commit/7d4132ea43be8fabd1c546149800a415a64bb5d0))
+* **detectors:** two-tier judging with cheap-model prefilter ([#398](https://github.com/taoq-ai/ziran/issues/398)) ([3c8fd32](https://github.com/taoq-ai/ziran/commit/3c8fd32e1fba11b1ef4c8d786636d9f23d87c3a0))
+* **scan:** per-campaign token budget and cost accounting ([db25783](https://github.com/taoq-ai/ziran/commit/db257831ac4331606809d7710417f8ab14852ce4))
+* **scan:** per-campaign token budget and cost accounting ([2a403be](https://github.com/taoq-ai/ziran/commit/2a403befa8aac134351bbee41534b7ad1e992c26)), closes [#399](https://github.com/taoq-ai/ziran/issues/399)
+
+
+### Bug Fixes
+
+* **cicd:** let suppressed chains back trace-analysis critical paths ([4c2ce70](https://github.com/taoq-ai/ziran/commit/4c2ce702885e5339a998d8548354f12318044786))
+* **detectors:** do not echo the embedding API key env var name in logs ([14102b7](https://github.com/taoq-ai/ziran/commit/14102b7d54ef7c09edd1c169772fe404e0b70793))
+* **detectors:** keep scanner.py within its line budget for judge_tiers ([#398](https://github.com/taoq-ai/ziran/issues/398)) ([3d92d1e](https://github.com/taoq-ai/ziran/commit/3d92d1ee86011823c89cbf15adeb14bc72d51a63))
+* **detectors:** single judge in benchmark, scan wiring tests, flag erred ensembles ([5bc893d](https://github.com/taoq-ai/ziran/commit/5bc893d5c58557a7debf44fae704c8d97273598b))
+* **detectors:** treat ambiguous semantic results as non-decisive ([75a1311](https://github.com/taoq-ai/ziran/commit/75a1311e8e9c5552f6c7a05b29840c4772aac474))
+* **scan:** check the budget only after the strategy decides to continue ([f8c4711](https://github.com/taoq-ai/ziran/commit/f8c4711ca0cc56fbb6412bc468c2d677acd23fc6))
+* **scan:** report budget_exceeded only when the cap left work undone ([066ca8b](https://github.com/taoq-ai/ziran/commit/066ca8bed7261e54020450a938df681270c73bb8))
+* **static-analysis:** downgrade sibling-tool redirects and output-contract imperatives in MCP metadata analyzer ([5d1cbc3](https://github.com/taoq-ai/ziran/commit/5d1cbc378324a7cf74cd390d8acd718b91e4dded))
+
+
+### Performance Improvements
+
+* **report:** cap HTML report graph payload and escape inlined JSON ([b6aeae9](https://github.com/taoq-ai/ziran/commit/b6aeae9e53c423d2c8c7e459079884d5109ec5c1))
+* **report:** cap HTML report graph payload and escape inlined JSON ([5801fec](https://github.com/taoq-ai/ziran/commit/5801fec40d35dc18be5ccefafe6efe5a05407bd4))
+
 ## [0.40.0](https://github.com/taoq-ai/ziran/compare/v0.39.0...v0.40.0) (2026-09-29)
 
 
