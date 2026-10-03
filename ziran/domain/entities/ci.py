@@ -7,14 +7,54 @@ GitLab CI, Jenkins, etc.).
 
 from __future__ import annotations
 
+import hashlib
+import json
+from datetime import date
 from enum import StrEnum
-from typing import Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 #: Severity levels — duplicated here to avoid circular-import issues
 #: while keeping the Pydantic model self-contained at runtime.
 Severity = Literal["low", "medium", "high", "critical"]
+
+FindingKind = Literal["attack", "chain"]
+SuppressionState = Literal["new", "suppressed", "regressed"]
+
+_Hex64 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+_NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _canonical(payload: dict[str, object]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def attack_fingerprint(target_agent: str, vector_id: str, category: str) -> str:
+    """Identity of a successful attack result (shared with the web findings page)."""
+    return _sha256(f"{target_agent}:{vector_id}:{category}")
+
+
+def chain_fingerprint(target_agent: str, vulnerability_type: str) -> str:
+    """Identity of a dangerous tool chain. The tools are deliberately NOT part of the key."""
+    return _sha256(f"chain:{target_agent}:{vulnerability_type}")
+
+
+def attack_content_hash(severity: str, category: str) -> str:
+    """Material content of an attack finding (never evidence, responses or prompts)."""
+    return _sha256(_canonical({"category": category, "severity": severity}))
+
+
+def chain_content_hash(tools: Sequence[str], risk_level: str) -> str:
+    """Material content of a chain finding: tools in recorded order and risk level."""
+    return _sha256(_canonical({"risk_level": risk_level, "tools": list(tools)}))
 
 
 class GateStatus(StrEnum):
@@ -104,6 +144,43 @@ class GateViolation(BaseModel):
     severity: Severity = "high"
 
 
+class SuppressionEntry(BaseModel):
+    """One accepted finding in ``.ziran/suppressions.yaml``."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    fingerprint: _Hex64
+    content_hash: _Hex64
+    reason: _NonBlank
+    added_by: _NonBlank
+    expires: date | None = None  # valid through this date
+
+    def expired(self, today: date) -> bool:
+        return self.expires is not None and self.expires < today
+
+
+class SuppressionFile(BaseModel):
+    """The committed suppressions file."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: Literal[1]
+    entries: list[SuppressionEntry] = Field(default_factory=list)
+
+
+class GateFinding(BaseModel):
+    """One finding the gate counts, with its suppression classification."""
+
+    kind: FindingKind
+    index: int  # position in CampaignResult.attack_results / .dangerous_tool_chains
+    label: str  # vector_id (attack) or vulnerability_type (chain)
+    severity: str  # raw value; only low|medium|high|critical are counted
+    fingerprint: str
+    content_hash: str
+    state: SuppressionState = "new"
+    reason: str = ""  # reason of the matching entry when state == "suppressed"
+
+
 class GateResult(BaseModel):
     """Outcome of evaluating a campaign result against the quality gate."""
 
@@ -112,6 +189,19 @@ class GateResult(BaseModel):
     finding_counts: FindingCount = Field(default_factory=FindingCount)
     trust_score: float = Field(ge=0.0, le=1.0, default=1.0)
     summary: str = ""
+    findings: list[GateFinding] = Field(default_factory=list)
+    new_findings: int = 0
+    suppressed_findings: int = 0
+    regressed_findings: int = 0
+    suppressions_applied: bool = False
+
+    def suppressed_attacks(self) -> dict[int, str]:
+        """attack_results index -> entry reason, for every suppressed attack result."""
+        return {
+            f.index: f.reason
+            for f in self.findings
+            if f.kind == "attack" and f.state == "suppressed"
+        }
 
     @property
     def passed(self) -> bool:

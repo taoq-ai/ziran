@@ -488,6 +488,7 @@ ziran ci RESULT_FILE [OPTIONS]
 | `--gate-config`, `-g` | — | Quality gate YAML config |
 | `--policy`, `-p` | — | Policy file for rule evaluation |
 | `--sarif` | — | Write SARIF v2.1.0 report to path |
+| `--suppressions` | `.ziran/suppressions.yaml` if present | Accepted-findings file; see [CI/CD guide](../guides/cicd-integration.md#suppressing-accepted-findings) |
 | `--github-annotations` | `true` | Emit GitHub Actions annotations |
 | `--github-summary` | `true` | Write GitHub Actions step summary |
 

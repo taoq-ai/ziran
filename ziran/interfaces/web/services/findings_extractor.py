@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.domain.entities.attack import OWASP_LLM_DESCRIPTIONS, OwaspLlmCategory
+from ziran.domain.entities.ci import attack_fingerprint as _compute_fingerprint
 from ziran.interfaces.web.models import ComplianceMapping, Finding
 
 if TYPE_CHECKING:
@@ -15,12 +15,6 @@ if TYPE_CHECKING:
     from ziran.interfaces.web.models import Run
 
 logger = logging.getLogger(__name__)
-
-
-def _compute_fingerprint(target_agent: str, vector_id: str, category: str) -> str:
-    """Deterministic SHA-256 fingerprint for deduplication."""
-    raw = f"{target_agent}:{vector_id}:{category}"
-    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _build_title(vector_name: str, category: str) -> str:
