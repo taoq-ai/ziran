@@ -36,7 +36,9 @@ class EdgeType:
     USES_TOOL = "uses_tool"
     ACCESSES_DATA = "accesses_data"
     TRUSTS = "trusts"
-    ENABLES = "enables"
+    # Tiers (spec 053): tools the successful attack invoked, else the dangerous
+    # capabilities, else every capability.
+    ENABLES = "enables"  # capability -> vulnerability it is implicated in
     CAN_CHAIN_TO = "can_chain_to"
     DISCOVERED_IN = "discovered_in"
     EXPLOITS = "exploits"

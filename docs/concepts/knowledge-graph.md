@@ -31,7 +31,7 @@ ZIRAN uses a **NetworkX-based directed multigraph** to track all discoveries, re
 | `uses_tool` | Agent uses this tool |
 | `accesses_data` | Capability accesses a data source |
 | `trusts` | Trust relationship between entities |
-| `enables` | One capability enables another |
+| `enables` | Capability implicated in a vulnerability: a tool the successful attack invoked; if none is known, the dangerous capabilities; if there are none, every capability |
 | `can_chain_to` | Tool can chain to another tool |
 | `discovered_in` | Vulnerability discovered in a phase |
 | `exploits` | Attack exploits a vulnerability |
