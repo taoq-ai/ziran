@@ -1,0 +1,3197 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Discover dangerous tool chain compositions in AI agents using knowledge graph analysis, multi-phase campaigns, and autonomous pentesting.">
+      
+      
+        <meta name="author" content="TaoQ AI">
+      
+      
+        <link rel="canonical" href="https://taoq-ai.github.io/ziran/reference/cli/">
+      
+      
+        <link rel="prev" href="../../guides/adapters/">
+      
+      
+        <link rel="next" href="../runtime-config/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>CLI Reference - ZIRAN — AI Agent Security Testing</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cli-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ZIRAN — AI Agent Security Testing" class="md-header__button md-logo" aria-label="ZIRAN — AI Agent Security Testing" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ZIRAN — AI Agent Security Testing
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CLI Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/taoq-ai/ziran" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    taoq-ai/ziran
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/romance-scan/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/scanning-agents/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../community/contributing/" class="md-tabs__link">
+          
+  
+  
+  Community
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ZIRAN — AI Agent Security Testing" class="md-nav__button md-logo" aria-label="ZIRAN — AI Agent Security Testing" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ZIRAN — AI Agent Security Testing
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/taoq-ai/ziran" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    taoq-ai/ziran
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/romance-scan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trust Exploitation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/knowledge-graph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/tool-chains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Chain Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/attack-vectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Attack Vectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/remote-scanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Scanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/a2a-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A2A Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/detection-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/owasp-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OWASP Mapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Coordination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/adaptive-campaigns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Campaigns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/pentesting-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pentesting Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/streaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/browser-scanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Scanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/agent-security-landscape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Security Landscape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/scanning-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scanning Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/remote-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/browser-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cicd-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ci-integrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/promptfoo-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Promptfoo Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/otel-tracing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenTelemetry Tracing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/static-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Static Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/claude-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/interpreting-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpreting Results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/long-running-campaigns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long-Running Campaigns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/incremental-scanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Incremental Scanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/custom-attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Attacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/adapters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Framework Adapters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ziran-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-cache-clear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran cache clear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-multi-agent-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran multi-agent-scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-discover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran discover
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran library
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-poc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran poc
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran audit
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ziran audit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#claude-code-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Code plugins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allowlist-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allowlist baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-watch-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran watch-registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran ci
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtime-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../attack-library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Attack Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Benchmarks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/coverage-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coverage Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/atlas-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MITRE ATLAS Mapping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Community
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/skill-cves/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skill CVEs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community/roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ziran-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-cache-clear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran cache clear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-multi-agent-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran multi-agent-scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-discover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran discover
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran library
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-poc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran poc
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran audit
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ziran audit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#claude-code-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Code plugins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allowlist-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allowlist baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-watch-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran watch-registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ziran-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ziran ci
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="cli-reference">CLI Reference<a class="headerlink" href="#cli-reference" title="Permanent link">&para;</a></h1>
+<p>ZIRAN provides 8 commands for scanning, reporting, and CI/CD integration.</p>
+<h2 id="global-options">Global Options<a class="headerlink" href="#global-options" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--verbose</code>, <code>-v</code></td>
+<td>Enable debug logging</td>
+</tr>
+<tr>
+<td><code>--log-file PATH</code></td>
+<td>Write logs to file</td>
+</tr>
+<tr>
+<td><code>--log-format [json\|text]</code></td>
+<td>Log output format (default: text on a TTY, json otherwise). See <a href="../observability/">Observability</a>.</td>
+</tr>
+<tr>
+<td><code>--version</code></td>
+<td>Show version</td>
+</tr>
+<tr>
+<td><code>--help</code></td>
+<td>Show help</td>
+</tr>
+</tbody>
+</table>
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<h3 id="ziran-scan"><code>ziran scan</code><a class="headerlink" href="#ziran-scan" title="Permanent link">&para;</a></h3>
+<p>Run a security scan campaign against an AI agent.</p>
+<div class="highlight"><pre><span></span><code>ziran scan [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--framework</code></td>
+<td>Yes*</td>
+<td>—</td>
+<td>Agent framework: <code>langchain</code>, <code>langgraph</code>, <code>crewai</code>, <code>bedrock</code></td>
+</tr>
+<tr>
+<td><code>--agent-path</code></td>
+<td>Yes*</td>
+<td>—</td>
+<td>Path to agent code/config file</td>
+</tr>
+<tr>
+<td><code>--target</code></td>
+<td>Yes*</td>
+<td>—</td>
+<td>YAML target config for remote scanning</td>
+</tr>
+<tr>
+<td><code>--protocol</code></td>
+<td>No</td>
+<td><code>auto</code></td>
+<td>Protocol override: <code>rest</code>, <code>openai</code>, <code>mcp</code>, <code>a2a</code>, <code>auto</code></td>
+</tr>
+<tr>
+<td><code>--phases</code></td>
+<td>No</td>
+<td>all core</td>
+<td>Specific phases to run</td>
+</tr>
+<tr>
+<td><code>--coverage</code></td>
+<td>No</td>
+<td><code>standard</code></td>
+<td>Coverage level: <code>essential</code>, <code>standard</code>, <code>comprehensive</code></td>
+</tr>
+<tr>
+<td><code>--output</code>, <code>-o</code></td>
+<td>No</td>
+<td><code>ziran_results</code></td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--custom-attacks</code></td>
+<td>No</td>
+<td>—</td>
+<td>Directory with custom YAML attack vectors</td>
+</tr>
+<tr>
+<td><code>--stop-on-critical</code></td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Stop if critical vulnerability found</td>
+</tr>
+<tr>
+<td><code>--concurrency</code></td>
+<td>No</td>
+<td><code>5</code></td>
+<td>Max concurrent attacks</td>
+</tr>
+<tr>
+<td><code>--strategy</code></td>
+<td>No</td>
+<td><code>fixed</code></td>
+<td>Campaign strategy: <code>fixed</code>, <code>adaptive</code>, <code>llm-adaptive</code></td>
+</tr>
+<tr>
+<td><code>--streaming</code></td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Enable real-time SSE/WebSocket response streaming</td>
+</tr>
+<tr>
+<td><code>--llm-provider</code></td>
+<td>No</td>
+<td>—</td>
+<td>LLM provider for AI-powered features</td>
+</tr>
+<tr>
+<td><code>--llm-model</code></td>
+<td>No</td>
+<td>—</td>
+<td>LLM model name (e.g. <code>gpt-4o</code>, <code>claude-sonnet-4-20250514</code>)</td>
+</tr>
+<tr>
+<td><code>--encoding</code></td>
+<td>No</td>
+<td>—</td>
+<td>Prompt encoding/obfuscation: <code>base64</code>, <code>rot13</code>, <code>leetspeak</code>, <code>homoglyph</code>, <code>hex</code>, <code>whitespace</code>, <code>mixed_case</code>, <code>payload_split</code>. Repeatable.</td>
+</tr>
+<tr>
+<td><code>--otel</code></td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Enable OpenTelemetry tracing (requires <code>ziran[otel]</code>). Exports spans to console.</td>
+</tr>
+<tr>
+<td><code>--attack-timeout</code></td>
+<td>No</td>
+<td><code>60</code></td>
+<td>Per-attack timeout in seconds</td>
+</tr>
+<tr>
+<td><code>--phase-timeout</code></td>
+<td>No</td>
+<td><code>300</code></td>
+<td>Per-phase timeout in seconds</td>
+</tr>
+<tr>
+<td><code>--incremental</code></td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Reuse cached results for vectors whose inputs are unchanged (<code>.ziran/scan_cache/</code>). Opt-in; not for release gates. See <a href="../../guides/incremental-scanning/">Incremental Scanning</a>.</td>
+</tr>
+<tr>
+<td><code>--no-cache</code></td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Bypass the incremental cache: neither read nor write it (overrides <code>--incremental</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>* Either <code>--framework</code> + <code>--agent-path</code> (local) or <code>--target</code> (remote) is required.</p>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Local agent</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--framework<span class="w"> </span>langchain<span class="w"> </span>--agent-path<span class="w"> </span>agent.py
+
+<span class="c1"># Remote agent</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>target.yaml
+
+<span class="c1"># Full audit with custom vectors</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>target.yaml<span class="w"> </span>--coverage<span class="w"> </span>comprehensive<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--custom-attacks<span class="w"> </span>./my_attacks/<span class="w"> </span>--concurrency<span class="w"> </span><span class="m">10</span>
+
+<span class="c1"># Adaptive campaign</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>target.yaml<span class="w"> </span>--strategy<span class="w"> </span>adaptive
+
+<span class="c1"># LLM-driven adaptive with streaming</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>target.yaml<span class="w"> </span>--strategy<span class="w"> </span>llm-adaptive<span class="w"> </span>--streaming
+
+<span class="c1"># Scan with Base64 and ROT13 encoding variants</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>target.yaml<span class="w"> </span>--encoding<span class="w"> </span>base64<span class="w"> </span>--encoding<span class="w"> </span>rot13
+
+<span class="c1"># Scan with OpenTelemetry tracing</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--target<span class="w"> </span>target.yaml<span class="w"> </span>--otel
+
+<span class="c1"># Local iteration: reuse results for unchanged vectors</span>
+ziran<span class="w"> </span>scan<span class="w"> </span>--framework<span class="w"> </span>langchain<span class="w"> </span>--agent-path<span class="w"> </span>agent.py<span class="w"> </span>--incremental
+</code></pre></div>
+<hr />
+<h3 id="ziran-cache-clear"><code>ziran cache clear</code><a class="headerlink" href="#ziran-cache-clear" title="Permanent link">&para;</a></h3>
+<p>Delete every cached result of <code>ziran scan --incremental</code> under <code>.ziran/scan_cache/</code>.</p>
+<div class="highlight"><pre><span></span><code>ziran cache clear
+</code></pre></div>
+<p>Prints <code>Removed &lt;n&gt; cached result(s) from .ziran/scan_cache</code>. See
+<a href="../../guides/incremental-scanning/">Incremental Scanning</a>.</p>
+<hr />
+<h3 id="ziran-multi-agent-scan"><code>ziran multi-agent-scan</code><a class="headerlink" href="#ziran-multi-agent-scan" title="Permanent link">&para;</a></h3>
+<p>Scan a multi-agent system — discovers topology and runs cross-agent attacks.</p>
+<div class="highlight"><pre><span></span><code>ziran multi-agent-scan [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--target</code></td>
+<td>Yes</td>
+<td>—</td>
+<td>YAML target config for the entry-point agent</td>
+</tr>
+<tr>
+<td><code>--coverage</code></td>
+<td>No</td>
+<td><code>standard</code></td>
+<td>Coverage level: <code>essential</code>, <code>standard</code>, <code>comprehensive</code></td>
+</tr>
+<tr>
+<td><code>--concurrency</code></td>
+<td>No</td>
+<td><code>5</code></td>
+<td>Max concurrent attacks</td>
+</tr>
+<tr>
+<td><code>--skip-individual</code></td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Skip individual agent scans</td>
+</tr>
+<tr>
+<td><code>--output</code>, <code>-o</code></td>
+<td>No</td>
+<td><code>ziran_results</code></td>
+<td>Output directory</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Scan a multi-agent system</span>
+ziran<span class="w"> </span>multi-agent-scan<span class="w"> </span>--target<span class="w"> </span>target.yaml
+
+<span class="c1"># Full coverage, skip individual scans</span>
+ziran<span class="w"> </span>multi-agent-scan<span class="w"> </span>--target<span class="w"> </span>target.yaml<span class="w"> </span>--coverage<span class="w"> </span>comprehensive<span class="w"> </span>--skip-individual
+</code></pre></div>
+<hr />
+<h3 id="ziran-discover"><code>ziran discover</code><a class="headerlink" href="#ziran-discover" title="Permanent link">&para;</a></h3>
+<p>Discover agent capabilities without running attacks (Phase 1 only).</p>
+<div class="highlight"><pre><span></span><code>ziran discover [OPTIONS] [AGENT_PATH]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--framework</code></td>
+<td>Agent framework: <code>langchain</code>, <code>langgraph</code>, <code>crewai</code>, <code>bedrock</code></td>
+</tr>
+<tr>
+<td><code>--target</code></td>
+<td>YAML target config for remote discovery</td>
+</tr>
+<tr>
+<td><code>--protocol</code></td>
+<td>Protocol override</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>discover<span class="w"> </span>--framework<span class="w"> </span>langchain<span class="w"> </span>agent.py
+ziran<span class="w"> </span>discover<span class="w"> </span>--target<span class="w"> </span>target.yaml
+</code></pre></div>
+<hr />
+<h3 id="ziran-library"><code>ziran library</code><a class="headerlink" href="#ziran-library" title="Permanent link">&para;</a></h3>
+<p>Browse the attack vector library.</p>
+<div class="highlight"><pre><span></span><code>ziran library [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--list</code></td>
+<td>List all attack vectors</td>
+</tr>
+<tr>
+<td><code>--category</code></td>
+<td>Filter by category</td>
+</tr>
+<tr>
+<td><code>--phase</code></td>
+<td>Filter by target phase</td>
+</tr>
+<tr>
+<td><code>--owasp</code></td>
+<td>Filter by OWASP LLM category (<code>LLM01</code>–<code>LLM10</code>)</td>
+</tr>
+<tr>
+<td><code>--custom-attacks</code></td>
+<td>Include custom YAML vectors</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>library<span class="w"> </span>--list
+ziran<span class="w"> </span>library<span class="w"> </span>--category<span class="w"> </span>prompt_injection
+ziran<span class="w"> </span>library<span class="w"> </span>--owasp<span class="w"> </span>LLM01
+ziran<span class="w"> </span>library<span class="w"> </span>--phase<span class="w"> </span>vulnerability_discovery
+</code></pre></div>
+<hr />
+<h3 id="ziran-report"><code>ziran report</code><a class="headerlink" href="#ziran-report" title="Permanent link">&para;</a></h3>
+<p>Regenerate a report from a saved campaign result.</p>
+<div class="highlight"><pre><span></span><code>ziran report RESULT_FILE [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--format</code></td>
+<td><code>terminal</code></td>
+<td>Output format: <code>terminal</code>, <code>markdown</code>, <code>json</code>, <code>html</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>report<span class="w"> </span>results.json<span class="w"> </span>--format<span class="w"> </span>html
+ziran<span class="w"> </span>report<span class="w"> </span>results.json<span class="w"> </span>--format<span class="w"> </span>markdown
+</code></pre></div>
+<hr />
+<h3 id="ziran-poc"><code>ziran poc</code><a class="headerlink" href="#ziran-poc" title="Permanent link">&para;</a></h3>
+<p>Generate proof-of-concept exploits from scan results.</p>
+<div class="highlight"><pre><span></span><code>ziran poc RESULT_FILE [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--output</code>, <code>-o</code></td>
+<td><code>.</code></td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--format</code></td>
+<td><code>all</code></td>
+<td>PoC format: <code>python</code>, <code>curl</code>, <code>markdown</code>, <code>all</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>poc<span class="w"> </span>results.json<span class="w"> </span>--format<span class="w"> </span>python<span class="w"> </span>--output<span class="w"> </span>./pocs/
+ziran<span class="w"> </span>poc<span class="w"> </span>results.json<span class="w"> </span>--format<span class="w"> </span>curl
+</code></pre></div>
+<hr />
+<h3 id="ziran-policy"><code>ziran policy</code><a class="headerlink" href="#ziran-policy" title="Permanent link">&para;</a></h3>
+<p>Evaluate scan results against a policy file.</p>
+<div class="highlight"><pre><span></span><code>ziran policy RESULT_FILE [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--policy</code>, <code>-p</code></td>
+<td>Path to YAML policy file</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>policy<span class="w"> </span>results.json<span class="w"> </span>--policy<span class="w"> </span>production-policy.yaml
+</code></pre></div>
+<hr />
+<h3 id="ziran-audit"><code>ziran audit</code><a class="headerlink" href="#ziran-audit" title="Permanent link">&para;</a></h3>
+<p>Run static analysis on agent source code (no LLM required).</p>
+<div class="highlight"><pre><span></span><code>ziran audit PATH [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--severity</code></td>
+<td>Minimum severity filter: <code>critical</code>, <code>high</code>, <code>medium</code>, <code>low</code></td>
+</tr>
+<tr>
+<td><code>--format</code></td>
+<td>Output format: <code>text</code> (default) or <code>json</code></td>
+</tr>
+<tr>
+<td><code>--baseline FILE</code></td>
+<td>Fail when a Claude Code agent's tools or chains widen beyond this baseline (see <a href="#allowlist-baseline">Allowlist baseline</a>)</td>
+</tr>
+<tr>
+<td><code>--write-baseline FILE</code></td>
+<td>Record each Claude Code agent's tools and chains as the accepted baseline, then report as if <code>--baseline FILE</code> was given</td>
+</tr>
+<tr>
+<td><code>--sarif FILE</code></td>
+<td>Also write the reported findings (after the baseline step and <code>--severity</code>) as SARIF v2.1.0 for GitHub code scanning; <code>json</code> stdout is unchanged, <code>SARIF written to FILE</code> goes to stderr. An unwritable <code>FILE</code> exits <code>2</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>audit<span class="w"> </span>my_agent.py
+ziran<span class="w"> </span>audit<span class="w"> </span>./src/agents/<span class="w"> </span>--severity<span class="w"> </span>high
+ziran<span class="w"> </span>audit<span class="w"> </span>./src/agents/<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--severity<span class="w"> </span>high
+</code></pre></div>
+<p>With <code>--format json</code>, stdout is a single JSON document (logs go to stderr). The matched
+source line is never included, so secrets that trigger a finding are not echoed.</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"files_analyzed"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"rule"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SA001"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"critical"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"file"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my_agent.py"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><strong>Exit codes:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>No failing findings</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Failing findings: with <code>--format json --severity X</code>, any finding at or above <code>X</code>; otherwise any <code>critical</code> finding</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Usage error (for example <code>PATH</code> does not exist, an invalid option, or an unwritable <code>--sarif FILE</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Text mode (the default) keeps its existing behaviour and exits <code>1</code> only on <code>critical</code>
+findings, even when <code>--severity</code> is lower.</p>
+<h4 id="claude-code-plugins">Claude Code plugins<a class="headerlink" href="#claude-code-plugins" title="Permanent link">&para;</a></h4>
+<p><code>ziran audit</code> also audits Claude Code subagent definitions, without running them. They are
+detected when <code>PATH</code> is:</p>
+<ul>
+<li>a plugin root (<code>.claude-plugin/plugin.json</code>, <code>agents/</code>, and any <code>agents</code> paths in the manifest),</li>
+<li>a directory containing <code>.claude/agents/</code>,</li>
+<li>a directory named <code>agents</code> (e.g. <code>ziran audit ./agents/</code>),</li>
+<li>a single agent <code>.md</code> file (frontmatter starting with <code>---</code>); only the Claude Code checks run on it.</li>
+</ul>
+<p>Agent files are the <code>*.md</code> files in those directories (not recursive) whose first line is <code>---</code>.
+In a directory, Python files are still analysed as before and the Claude Code findings are appended.</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Severity</th>
+<th>Finding</th>
+<th>Line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CC000</code></td>
+<td>high</td>
+<td>The agent/plugin file could not be parsed</td>
+<td>the problem line (or none)</td>
+</tr>
+<tr>
+<td><code>SA001</code></td>
+<td>critical</td>
+<td>Secret pattern in the system prompt, <code>description</code> or <code>tools</code></td>
+<td>the matching line</td>
+</tr>
+<tr>
+<td><code>SA003</code></td>
+<td>high</td>
+<td>A declared tool is dangerous (e.g. <code>Bash</code>, <code>WebFetch</code>, <code>Write</code>)</td>
+<td><code>tools:</code> line</td>
+</tr>
+<tr>
+<td><code>SA004</code></td>
+<td>medium</td>
+<td>A declared tool is a wildcard (<code>Bash(*)</code>, <code>mcp__server</code>, <code>mcp__server__*</code>)</td>
+<td><code>tools:</code> line</td>
+</tr>
+<tr>
+<td><code>SA007</code></td>
+<td>high</td>
+<td>No <code>tools</code> key: the agent inherits every tool</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>CC001</code></td>
+<td>the chain's risk</td>
+<td>A dangerous tool chain over the agent's tools (e.g. <code>Read -&gt; WebFetch</code>)</td>
+<td><code>tools:</code> line (<code>1</code> when absent)</td>
+</tr>
+</tbody>
+</table>
+<p>When Claude Code definitions are detected, every JSON row (Python rows included) gains two keys:
+<code>agent</code> (the agent name, <code>null</code> for Python rows and <code>CC000</code>) and <code>tools</code> (the tool strings, in
+chain order for <code>CC001</code>; <code>[]</code> when not applicable). Otherwise rows keep exactly the five keys
+above. Each <code>CC001</code> row is unique per <code>(agent, tools)</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"rule"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CC001"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"critical"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"file"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-plugin/agents/researcher.md"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Agent 'researcher': data_exfiltration via Read -&gt; WebFetch"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"agent"</span><span class="p">:</span><span class="w"> </span><span class="s2">"researcher"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"tools"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Read"</span><span class="p">,</span><span class="w"> </span><span class="s2">"WebFetch"</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Exit codes are unchanged and apply to the merged report. SARIF output for <code>audit</code> is not
+provided yet.</p>
+<h4 id="allowlist-baseline">Allowlist baseline<a class="headerlink" href="#allowlist-baseline" title="Permanent link">&para;</a></h4>
+<p>A baseline records what each Claude Code agent is allowed to have today, so CI fails only when an
+agent's tools widen. The loop:</p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>audit<span class="w"> </span>agents/<span class="w"> </span>--write-baseline<span class="w"> </span>agents/ziran-baseline.json<span class="w">   </span><span class="c1"># record</span>
+git<span class="w"> </span>add<span class="w"> </span>agents/ziran-baseline.json<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">"chore: record agent baseline"</span>
+ziran<span class="w"> </span>audit<span class="w"> </span>agents/<span class="w"> </span>--baseline<span class="w"> </span>agents/ziran-baseline.json<span class="w">          </span><span class="c1"># check (in CI)</span>
+<span class="c1"># after a reviewed change to an agent's tools: record again and commit</span>
+</code></pre></div>
+<p><code>--baseline</code> and <code>--write-baseline</code> are mutually exclusive. <code>--write-baseline</code> writes the file and
+then reports as if <code>--baseline</code> pointed at it (so it exits <code>0</code> unless there is another critical
+finding, such as a parse issue). The line <code>Baseline written to FILE (N agents)</code> goes to stderr.</p>
+<p>The file (version <code>1</code>) holds, per agent name, the declared <code>tools</code> (<code>null</code> when the agent has no
+<code>tools</code> key) and every dangerous chain found over them. Agents are sorted by name and chains by
+<code>tools</code>, so recording the same agents twice gives identical bytes. It never contains prompts,
+descriptions, hook commands or MCP config.</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"agents"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"generalist"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"tools"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"chains"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"tools"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Bash"</span><span class="p">],</span><span class="w"> </span><span class="nt">"vulnerability_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unrestricted_execution"</span><span class="p">,</span><span class="w"> </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"researcher"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"tools"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Read"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Grep"</span><span class="p">,</span><span class="w"> </span><span class="s2">"WebFetch"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mcp__slack__send_message"</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"chains"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">"tools"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Read"</span><span class="p">,</span><span class="w"> </span><span class="s2">"WebFetch"</span><span class="p">],</span><span class="w"> </span><span class="nt">"vulnerability_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"data_exfiltration"</span><span class="p">,</span><span class="w"> </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"critical"</span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Comparison uses agent names, <code>tools</code> and chain <code>tools</code>, verbatim and case-sensitive
+(<code>vulnerability_type</code> and <code>severity</code> are for reviewers). Scoping <code>Bash</code> to <code>Bash(npm test:*)</code> is
+therefore reported as a new tool.</p>
+<p>With a baseline, recorded grants are accepted: <code>CC001</code> rows for recorded chains and <code>SA003</code> /
+<code>SA004</code> / <code>SA007</code> rows for recorded grants are dropped. <code>SA001</code> secrets and Python findings are
+never accepted, and <code>CC000</code> parse issues become <code>critical</code>, so a broken agent file cannot pass as
+a removed agent. Each widening is appended as a <code>critical</code> row:</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Widening</th>
+<th><code>tools</code></th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BL001</code></td>
+<td>a restricted agent gains a tool</td>
+<td><code>[tool]</code></td>
+<td><code>Agent '&lt;name&gt;' gains tool '&lt;tool&gt;' not in the baseline</code></td>
+</tr>
+<tr>
+<td><code>BL002</code></td>
+<td>a restricted agent loses its <code>tools</code> key</td>
+<td><code>[]</code></td>
+<td><code>Agent '&lt;name&gt;' lost its 'tools' key and now inherits every tool</code></td>
+</tr>
+<tr>
+<td><code>BL003</code></td>
+<td>a dangerous chain not in the baseline</td>
+<td>chain tools</td>
+<td><code>Agent '&lt;name&gt;': new &lt;risk&gt; chain &lt;type&gt; via &lt;A -&gt; B&gt; not in the baseline</code></td>
+</tr>
+<tr>
+<td><code>BL004</code></td>
+<td>an agent not in the baseline</td>
+<td>its tools</td>
+<td><code>Agent '&lt;name&gt;' is not in the baseline</code></td>
+</tr>
+</tbody>
+</table>
+<p>Rows use the same seven keys as other Claude Code rows, on the agent's <code>tools:</code> line. Narrowings
+(a tool, chain, <code>tools</code> key restriction or agent removed) never fail. In JSON, whenever either flag
+is given, the document gains a <code>baseline</code> key (without the flags there is none):</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">"files_analyzed"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">  </span><span class="nt">"baseline"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"narrowed"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"agent"</span><span class="p">:</span><span class="w"> </span><span class="s2">"researcher"</span><span class="p">,</span><span class="w"> </span><span class="nt">"change"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tool_removed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"tools"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"WebFetch"</span><span class="p">]}]</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>change</code> is one of <code>tool_removed</code>, <code>tools_key_added</code>, <code>chain_removed</code> or <code>agent_removed</code>. Text
+mode prints a "Baseline narrowed" panel. A narrowed baseline is not rewritten: record it again, or
+a removed tool can come back without failing.</p>
+<p>Exit codes follow the rules above, applied after the baseline step. Every <code>BL00x</code> row is
+<code>critical</code>, so any widening exits <code>1</code> under every <code>--severity</code>; narrowings never change the exit
+code. Exit <code>2</code> also covers: both flags given, a baseline file that is missing, unreadable, not
+JSON or not matching the format (the error names the key path, never the value), a write failure,
+and either flag on a <code>PATH</code> without Claude Code agent definitions.</p>
+<p>Upgrading ZIRAN can add chain patterns and so new <code>BL003</code> rows for unchanged agents; record the
+baseline again when you bump the pinned release. Proposing a narrower allowlist is not provided.</p>
+<hr />
+<h3 id="ziran-watch-registry"><code>ziran watch-registry</code><a class="headerlink" href="#ziran-watch-registry" title="Permanent link">&para;</a></h3>
+<p>Snapshot the <code>tools/list</code> of MCP servers and report drift (tools added or removed, description,
+schema or permission changes), typosquats and poisoned tool metadata.</p>
+<div class="highlight"><pre><span></span><code>ziran watch-registry (--config FILE | --from-claude-config FILE) [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--config</code></td>
+<td>—</td>
+<td>Registry config YAML (<code>servers</code>, <code>allowlist</code>, <code>exemptions</code>, <code>snapshot_dir</code>, <code>alerts</code>)</td>
+</tr>
+<tr>
+<td><code>--from-claude-config</code></td>
+<td>—</td>
+<td>Claude Code MCP config JSON; mutually exclusive with <code>--config</code></td>
+</tr>
+<tr>
+<td><code>--snapshot-dir</code></td>
+<td><code>.ziran/snapshots</code></td>
+<td>Where one <code>&lt;server&gt;.json</code> baseline per server is stored</td>
+</tr>
+<tr>
+<td><code>--out</code></td>
+<td><code>./reports</code></td>
+<td>Report directory (<code>registry-watch-report.json</code> or <code>.md</code>)</td>
+</tr>
+<tr>
+<td><code>--format</code></td>
+<td><code>json</code></td>
+<td><code>json</code> or <code>markdown</code></td>
+</tr>
+<tr>
+<td><code>--dry-run-alerts</code></td>
+<td>off</td>
+<td>Preview alert payloads without contacting Slack/GitHub</td>
+</tr>
+<tr>
+<td><code>--verbose</code>, <code>-v</code></td>
+<td>off</td>
+<td>Debug logging</td>
+</tr>
+</tbody>
+</table>
+<p>Exactly one of <code>--config</code> / <code>--from-claude-config</code> is required.</p>
+<p><strong>Claude Code config shapes.</strong> <code>--from-claude-config</code> accepts a project <code>.mcp.json</code>
+(<code>{"mcpServers": {...}}</code>), a plugin <code>.mcp.json</code> (flat <code>{"&lt;name&gt;": {...}}</code> map) and user settings
+JSON (only the top-level <code>mcpServers</code> key is read). Per server:</p>
+<table>
+<thead>
+<tr>
+<th>Fields</th>
+<th>Transport</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>command</code>, optional <code>args</code>, <code>env</code>, <code>type: "stdio"</code></td>
+<td>stdio: ZIRAN launches the command (inheriting its working directory) and calls <code>initialize</code> + <code>tools/list</code>, 30 s timeout</td>
+</tr>
+<tr>
+<td><code>url</code>, optional <code>type: "http"</code>, <code>headers</code></td>
+<td>streamable-http</td>
+</tr>
+<tr>
+<td><code>url</code>, <code>type: "sse"</code>, optional <code>headers</code></td>
+<td>sse (fetched with the same HTTP JSON-RPC POST as <code>--config</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Any other <code>type</code>, or an entry with neither <code>command</code> nor <code>url</code>, is a config error.
+<code>${VAR}</code> and <code>${VAR:-default}</code> are expanded in every string from the environment;
+<code>${CLAUDE_PLUGIN_ROOT}</code> defaults to the config file's directory. An unset placeholder with no
+default is left as written.</p>
+<p><strong>Secrets.</strong> Values of <code>env</code> and <code>headers</code> are used only to start or reach the server. They are
+never written to snapshots or reports, never printed and never logged; logs record only the key
+names (<code>claude_mcp_server_loaded</code> event with <code>env_keys</code> / <code>header_keys</code>). The stdio server's
+stderr is discarded.</p>
+<p><strong>First registration.</strong> When a server has no stored snapshot, its <code>tools/list</code> is scanned by the
+MCP metadata analyzer; suspicious descriptions or parameter hints are reported as
+<code>tool_poisoning</code> findings (severity <code>critical</code>, <code>high</code>, <code>medium</code> or <code>low</code>). Later runs diff against
+the baseline. A redirect whose <code>call &lt;tool&gt; instead</code> target is exactly the name of another tool on
+the same server is reported as <code>sibling_redirect</code> at <code>medium</code>; it stays a <code>critical</code>
+<code>tool_redirect</code> if the same text also carries an exfiltration or authority pattern, or names any
+tool outside the server. <code>always</code> / <code>never</code> / <code>silently</code> describing the tool's own output
+("never returns an empty list") are reported at <code>low</code>; model-directed imperatives (<code>you must</code>,
+<code>before calling</code>, <code>ignore previous</code>, <code>do not tell</code>, <code>always call</code>, ...) stay <code>high</code>.
+<code>tool_poisoning</code> findings are emitted only on first registration, when no snapshot exists, so
+<code>previous_value</code> is always <code>null</code>: they are first-measurement information, not drift. Exit codes
+count only <code>high</code>/<code>critical</code>, so a server whose only findings are sibling redirects and
+output-contract imperatives exits <code>0</code>.</p>
+<p><strong>Exit codes</strong> (command-wide, precedence <code>2</code> &gt; <code>1</code> &gt; <code>0</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Every server processed; no <code>high</code>/<code>critical</code> finding (medium/low drift is still reported)</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Every server processed; at least one <code>high</code>/<code>critical</code> finding (drift, typosquat or <code>tool_poisoning</code>)</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Could not run completely: usage error, unreadable or invalid config, at least one unreachable server or timeout (names printed to stderr), or alert delivery failure</td>
+</tr>
+</tbody>
+</table>
+<p>An unreachable server never overwrites its stored snapshot; the report is still written for the
+servers that were reached.</p>
+<p><strong>JSON report.</strong> <code>registry-watch-report.json</code> is a list of findings, each with <code>server_name</code>,
+<code>drift_type</code> (<code>tool_added</code>, <code>tool_removed</code>, <code>description_changed</code>, <code>schema_changed</code>,
+<code>permission_changed</code>, <code>typosquat</code>, <code>tool_poisoning</code>), <code>severity</code>, <code>tool_name</code>, <code>field</code>,
+<code>previous_value</code>, <code>current_value</code>, <code>suspected_canonical</code> and <code>message</code>.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code>ziran<span class="w"> </span>watch-registry<span class="w"> </span>--from-claude-config<span class="w"> </span>.mcp.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--snapshot-dir<span class="w"> </span>.ziran/snapshots<span class="w"> </span>--out<span class="w"> </span>reports<span class="w"> </span>--format<span class="w"> </span>json
+</code></pre></div>
+<hr />
+<h3 id="ziran-ci"><code>ziran ci</code><a class="headerlink" href="#ziran-ci" title="Permanent link">&para;</a></h3>
+<p>CI/CD quality gate — evaluate results and emit integration outputs.</p>
+<div class="highlight"><pre><span></span><code>ziran ci RESULT_FILE [OPTIONS]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--gate-config</code>, <code>-g</code></td>
+<td>—</td>
+<td>Quality gate YAML config</td>
+</tr>
+<tr>
+<td><code>--policy</code>, <code>-p</code></td>
+<td>—</td>
+<td>Policy file for rule evaluation</td>
+</tr>
+<tr>
+<td><code>--sarif</code></td>
+<td>—</td>
+<td>Write SARIF v2.1.0 report to path</td>
+</tr>
+<tr>
+<td><code>--suppressions</code></td>
+<td><code>.ziran/suppressions.yaml</code> if present</td>
+<td>Accepted-findings file; see <a href="../../guides/cicd-integration/#suppressing-accepted-findings">CI/CD guide</a></td>
+</tr>
+<tr>
+<td><code>--github-annotations</code></td>
+<td><code>true</code></td>
+<td>Emit GitHub Actions annotations</td>
+</tr>
+<tr>
+<td><code>--github-summary</code></td>
+<td><code>true</code></td>
+<td>Write GitHub Actions step summary</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Simple gate check</span>
+ziran<span class="w"> </span>ci<span class="w"> </span>results.json<span class="w"> </span>--gate-config<span class="w"> </span>gate.yaml
+
+<span class="c1"># Full CI pipeline</span>
+ziran<span class="w"> </span>ci<span class="w"> </span>results.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--gate-config<span class="w"> </span>gate.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--policy<span class="w"> </span>policy.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--sarif<span class="w"> </span>results.sarif<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--github-annotations<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--github-summary
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
