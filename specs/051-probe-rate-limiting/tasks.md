@@ -60,11 +60,11 @@ in [plan.md §Public contract](plan.md#public-contract). Existing tests MUST NOT
 
 ## Phase 4 - Gates (FR-006, SC-003)
 
-- [ ] T007 Run and record real output: `uv run ruff check .`, `uv run ruff format --check .`,
+- [x] T007 Run and record real output: `uv run ruff check .`, `uv run ruff format --check .`,
       `uv run mypy ziran/`, `uv run pytest --cov=ziran` (>= 85%). `git diff --stat` shows only the
       six files in plan §Project Structure (plus the spec dir and the expected CLAUDE.md
       agent-context churn); `uv.lock` unchanged.
-- [ ] T008 PR body (against `develop`): what changed, the default-delay behaviour change and the
+- [x] T008 PR body (against `develop`): what changed, the default-delay behaviour change and the
       `0` opt-out, the follow-up (route probes through `_send_with_retry`), and SC-004 stated as
       unverified offline (no live rate-limited endpoint).
 
