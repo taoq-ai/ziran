@@ -50,10 +50,37 @@ jobs:
           path: benchmarks/results/
           retention-days: 90
 
+      - name: Check out PR base for the coverage delta
+        id: base_checkout
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: _bench_base
+          persist-credentials: false
+
+      - name: Collect PR base benchmark metrics
+        id: base_metrics
+        if: github.event_name == 'pull_request' && steps.base_checkout.outcome == 'success'
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}/_bench_base
+        run: uv run python _bench_base/benchmarks/regression_check.py --update-baseline
+
       - name: Post benchmark summary as PR comment
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_OK: ${{ steps.base_metrics.outcome == 'success' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          SUMMARY=$(uv run python benchmarks/regression_check.py --format markdown 2>/dev/null || echo "Benchmark check failed")
-          gh pr comment ${{ github.event.pull_request.number }} --body "$SUMMARY" || true
+          DELTA_ARGS=()
+          if [ "$BASE_OK" = "true" ]; then
+            DELTA_ARGS=(--delta-baseline _bench_base/benchmarks/results/baseline.json)
+            NOTE="_Changes are relative to the PR base \`${BASE_SHA:0:7}\`; the regression gate uses \`benchmarks/results/baseline.json\`._"
+          else
+            NOTE=":warning: Could not collect PR base metrics (see the \"Collect PR base benchmark metrics\" step); Changes are relative to the committed \`benchmarks/results/baseline.json\`."
+          fi
+          SUMMARY=$(uv run python benchmarks/regression_check.py --format markdown "${DELTA_ARGS[@]}" 2>/dev/null || echo "Benchmark check failed")
+          gh pr comment ${{ github.event.pull_request.number }} --body "$SUMMARY"$'\n\n'"$NOTE" || true

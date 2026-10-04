@@ -107,7 +107,8 @@ updating this file.
       ),
   )
   ```
-  After `baseline = _load_baseline()`:
+  After `baseline = _load_baseline()` (implementation note: placed after the `--update-baseline`
+  early return, so `--update-baseline` really ignores the flag even when its path is unreadable):
   ```python
   delta_base = None
   if args.delta_baseline is not None:

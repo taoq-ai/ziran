@@ -11,7 +11,7 @@ comes from a command actually run.
 
 ## Phase 1 - `--delta-baseline` flag (FR-001, FR-002, FR-003; US1.1, US1.2, US2.1, US3.2)
 
-- [ ] T001 Failing tests in `tests/unit/test_benchmark_regression.py`, appended to
+- [x] T001 Failing tests in `tests/unit/test_benchmark_regression.py`, appended to
       `TestBenchmarkRegression`. Shared local helper (module-level function in the test file) that
       returns a full metrics dict (`total_vectors`, `categories`, `owasp_coverage_pct`,
       `owasp_covered`, `multi_turn_vectors`, `harm_category_count`, `tactics_count`) with
@@ -34,7 +34,7 @@ comes from a command actually run.
       is why the message is asserted) while the six existing tests pass.
       `test_delta_defaults_to_committed_baseline` passes before and after: it is the guard that the
       default behaviour does not change.
-- [ ] T002 Implement plan §1 in `benchmarks/regression_check.py`: `delta_base` keyword on
+- [x] T002 Implement plan §1 in `benchmarks/regression_check.py`: `delta_base` keyword on
       `_format_summary` and `_format_markdown` (delta lines use `delta_base` when given, regression
       check keeps `baseline`), `--delta-baseline` argument with `parser.error` on
       `OSError`/`json.JSONDecodeError`, pass-through in `main()`, one docstring `Usage:` line.
@@ -42,7 +42,7 @@ comes from a command actually run.
 
 ## Phase 2 - Workflow (FR-004, FR-005; US1.3, US2.2, US3.1)
 
-- [ ] T003 Edit `.github/workflows/benchmark.yml` per plan §2: add steps `base_checkout`
+- [x] T003 Edit `.github/workflows/benchmark.yml` per plan §2: add steps `base_checkout`
       (actions/checkout@v7, `ref: ${{ github.event.pull_request.base.sha }}`, `path: _bench_base`,
       `persist-credentials: false`, `continue-on-error: true`, PR-only) and `base_metrics`
       (`PYTHONPATH: ${{ github.workspace }}/_bench_base`,
@@ -50,9 +50,9 @@ comes from a command actually run.
       `continue-on-error: true`, runs only if the checkout succeeded); replace the comment step's
       script with the `BASE_OK` branch, `--delta-baseline` pass-through and the success / `:warning:`
       footer line. No other step, trigger or permission changes.
-- [ ] T004 Run `uvx --from actionlint-py actionlint .github/workflows/benchmark.yml`; must exit 0.
+- [x] T004 Run `uvx --from actionlint-py actionlint .github/workflows/benchmark.yml`; must exit 0.
       Record whether `shellcheck` was available (it is not on the spec author's machine).
-- [ ] T005 Local dry run of the base-collection command against an extracted base tree
+- [x] T005 Local dry run of the base-collection command against an extracted base tree
       (`git archive origin/develop` into the scratchpad, then the step's command with
       `PYTHONPATH` set, or `sys.path.insert` if the sandbox blocks `PYTHONPATH`); then run the head
       markdown step with `--delta-baseline <tree>/benchmarks/results/baseline.json` and record the
@@ -60,13 +60,13 @@ comes from a command actually run.
 
 ## Phase 3 - Baseline refresh (FR-006; US4.1)
 
-- [ ] T006 `uv run python benchmarks/regression_check.py --update-baseline`; commit the regenerated
+- [x] T006 `uv run python benchmarks/regression_check.py --update-baseline`; commit the regenerated
       `benchmarks/results/baseline.json` as produced (no hand edits). Record the printed line and the
       new `total_vectors` / `multi_turn_vectors` values for the PR body.
 
 ## Phase 4 - Gates and live proof (FR-007, SC-002..SC-005)
 
-- [ ] T007 Run and record real output: `uv run ruff check .`, `uv run ruff format --check .`,
+- [x] T007 Run and record real output: `uv run ruff check .`, `uv run ruff format --check .`,
       `uv run mypy ziran/`, `uv run pytest --cov=ziran` (>= 85%). `git diff --stat origin/develop`
       shows only the four files in plan §Project Structure plus the spec dir and the expected
       CLAUDE.md agent-context churn; `uv.lock` unchanged.
@@ -79,3 +79,24 @@ comes from a command actually run.
 ## Dependencies
 T001 -> T002 -> T003 (the workflow passes the new flag) -> T004 -> T005. T006 after T002 (any
 order relative to T003-T005). T007 after all code tasks; T008 last.
+
+## Implementation evidence (implementer, 2026-10-04)
+
+- T001: before T002, `uv run pytest tests/unit/test_benchmark_regression.py` -> 2 failed, 7 passed
+  (delta test and usage-error test; stderr showed argparse's own `unrecognized arguments` message).
+  After T002: 9 passed.
+- T004: `uvx --from actionlint-py actionlint` (all workflows, incl. benchmark.yml) exit 0;
+  verbose output: `Rule "shellcheck" was disabled: exec: "shellcheck": executable file not found`.
+- T005: `git archive origin/develop` (7e1ef38) extracted to the scratchpad; a script run from that
+  tree with `PYTHONPATH=<tree>` resolved `ziran/__init__.py` and `benchmarks/inventory.py` inside
+  the tree. `PYTHONPATH=<tree> uv run python <tree>/benchmarks/regression_check.py --update-baseline`
+  wrote 661/229/11 into the tree. Head `--format markdown --delta-baseline <tree>/...baseline.json`
+  ended with `:white_check_mark: No regressions detected.` and no `**Changes:**` line; without the
+  flag it printed `**Changes:** **Vectors**: +216 | **Multi-turn**: +130`. The sandbox refused to
+  run the comment step's bash itself, so the bash branch logic is reviewed, not executed.
+- T006: `uv run python benchmarks/regression_check.py --update-baseline` printed
+  `Baseline updated: .../benchmarks/results/baseline.json`; new values total_vectors 661,
+  multi_turn_vectors 229, harm_category_count 11, owasp_covered 10, tactics_count 11, categories 11.
+- T007: `ruff check .` "All checks passed!"; `ruff format --check .` "480 files already formatted";
+  `mypy ziran/` "Success: no issues found in 216 source files"; `pytest --cov=ziran` "3313 passed",
+  total coverage 88.33%. `uv.lock` unchanged.
