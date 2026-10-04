@@ -56,6 +56,8 @@ Auto-generated from all feature plans. Last updated: 2026-10-04
 - shipped `ziran/infrastructure/llm/prices.yaml` plus optional operator `.ziran/prices.yaml`; usage ledger snapshot inside the existing `<output>/.checkpoint.json`. (047-token-budget-cost-cap)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies. (046-ci-suppression-baseline)
 - one user-committed YAML file, read only by `ziran ci`. (046-ci-suppression-baseline)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`Field` validation), stdlib `asyncio`. No new dependencies. (051-probe-rate-limiting)
+- N/A (target YAML is read by the existing `load_target_config`). (051-probe-rate-limiting)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + pytest, `fastapi.testclient.TestClient` (fastapi from the `ui` extra), stdlib `unittest.mock`. Tests only, no production change. No new dependencies. (052-web-route-handler-tests)
 - N/A (no database, no files). (052-web-route-handler-tests)
 
@@ -77,6 +79,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 051-probe-rate-limiting: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`Field` validation), stdlib `asyncio`. No new dependencies.
 - 052-web-route-handler-tests: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + pytest, `fastapi.testclient.TestClient` (fastapi from the `ui` extra), stdlib `unittest.mock`. Tests only, no production change. No new dependencies.
 - 047-token-budget-cost-cap: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (usage + price models), PyYAML `safe_load` (price table), Click (scan flags); reuses `BaseLLMClient`, `many_shot.estimate_tokens`, the checkpoint/resume path, `PhaseExecutor`, `ResultBuilder`. No new dependencies.
 - 046-ci-suppression-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies.

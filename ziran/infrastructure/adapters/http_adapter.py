@@ -545,14 +545,20 @@ class HttpAgentAdapter(BaseAgentAdapter):
     # ── Probe-Based Discovery ────────────────────────────────────
 
     async def _probe_discover(self) -> list[AgentCapability]:
-        """Send probe prompts and parse capabilities from responses."""
+        """Send probe prompts and parse capabilities from responses.
+
+        Probes are spaced by ``TargetConfig.probe_delay`` seconds (0 sends them back to back).
+        """
         if self._handler is None:
             raise RuntimeError("Handler not initialized — call initialize() first")
 
         discovered: list[AgentCapability] = []
         seen_names: set[str] = set()
 
-        for probe in _DISCOVERY_PROBES:
+        delay = self._config.probe_delay
+        for index, probe in enumerate(_DISCOVERY_PROBES):
+            if index and delay:
+                await asyncio.sleep(delay)
             try:
                 result = await self._handler.send(probe)
                 content = result.get("content", "").lower()
