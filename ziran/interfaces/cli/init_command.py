@@ -15,7 +15,7 @@ from rich.panel import Panel
 
 console = Console()
 
-_FRAMEWORKS = ["langchain", "crewai", "bedrock", "agentcore"]
+_FRAMEWORKS = ["langchain", "langgraph", "crewai", "bedrock", "agentcore"]
 _PROTOCOLS = ["rest", "openai", "mcp", "a2a"]
 _DEFAULT_PHASES = [
     "reconnaissance",

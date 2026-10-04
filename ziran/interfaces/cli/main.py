@@ -95,7 +95,8 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False
+        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        case_sensitive=False,
     ),
     default=None,
     help="Agent framework to test (for in-process scanning).",
@@ -748,7 +749,8 @@ def cache_clear() -> None:
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False
+        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        case_sensitive=False,
     ),
     default=None,
     help="Agent framework (for in-process discovery).",

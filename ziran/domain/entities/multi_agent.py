@@ -147,6 +147,27 @@ class AgentEdge(BaseModel):
         default_factory=dict,
         description="Protocol-specific edge metadata",
     )
+    conditional: bool = Field(
+        default=False,
+        description="Edge is taken only when a routing function selects it "
+        "(e.g. a LangGraph conditional edge)",
+    )
+    branch_label: str | None = Field(
+        default=None,
+        description="Routing key that selects this edge, when it differs from the target name",
+    )
+
+
+class StateChannel(BaseModel):
+    """A shared-state key through which tools can pass data to each other (spec 050)."""
+
+    name: str = Field(description="State key, e.g. 'messages'")
+    writers: list[str] = Field(
+        default_factory=list, description="Capability ids whose results are written to this key"
+    )
+    readers: list[str] = Field(
+        default_factory=list, description="Capability ids whose inputs are read from this key"
+    )
 
 
 class MultiAgentTopology(BaseModel):
@@ -175,6 +196,9 @@ class MultiAgentTopology(BaseModel):
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Discovery metadata (timestamps, method used, etc.)",
+    )
+    state_channels: list[StateChannel] = Field(
+        default_factory=list, description="Shared state channels between tools (spec 050)"
     )
 
     @property

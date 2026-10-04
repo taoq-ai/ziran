@@ -33,6 +33,27 @@ except ImportError as e:
     ) from e
 
 
+def tool_to_capability(tool: Any) -> AgentCapability:
+    """Map a LangChain tool to an AgentCapability (shared with the LangGraph adapter)."""
+    # Extract parameter schema if available
+    params: dict[str, Any] = {}
+    if hasattr(tool, "args_schema") and tool.args_schema is not None:
+        try:
+            params = {"schema": tool.args_schema.model_json_schema()}
+        except Exception:
+            params = {}
+
+    return AgentCapability(
+        id=f"tool_{tool.name}",
+        name=tool.name,
+        type=CapabilityType.TOOL,
+        description=getattr(tool, "description", None),
+        parameters=params,
+        dangerous=_is_dangerous_tool(tool.name),
+        requires_permission=getattr(tool, "requires_confirmation", False),
+    )
+
+
 class LangChainAdapter(BaseAgentAdapter):
     """Adapter for LangChain AgentExecutor agents.
 
@@ -137,29 +158,8 @@ class LangChainAdapter(BaseAgentAdapter):
         Returns:
             List of agent capabilities derived from tools.
         """
-        capabilities: list[AgentCapability] = []
-
         tools = getattr(self.agent, "tools", [])
-        for tool in tools:
-            # Extract parameter schema if available
-            params: dict[str, Any] = {}
-            if hasattr(tool, "args_schema") and tool.args_schema is not None:
-                try:
-                    params = {"schema": tool.args_schema.model_json_schema()}
-                except Exception:
-                    params = {}
-
-            capabilities.append(
-                AgentCapability(
-                    id=f"tool_{tool.name}",
-                    name=tool.name,
-                    type=CapabilityType.TOOL,
-                    description=getattr(tool, "description", None),
-                    parameters=params,
-                    dangerous=_is_dangerous_tool(tool.name),
-                    requires_permission=getattr(tool, "requires_confirmation", False),
-                )
-            )
+        capabilities = [tool_to_capability(tool) for tool in tools]
 
         logger.info(
             "langchain_tools_discovered",
