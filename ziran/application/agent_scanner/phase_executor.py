@@ -25,9 +25,10 @@ from ziran.infrastructure.telemetry import metrics
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from ziran.application.agent_scanner.attack_executor import AttackExecutor
+    from ziran.application.agent_scanner.scan_cache import ScanCache
     from ziran.application.attacks.library import AttackLibrary
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
     from ziran.application.strategies.protocol import (
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     )
     from ziran.application.usage import CampaignBudget
     from ziran.domain.entities.attack import AttackVector
+    from ziran.domain.entities.capability import AgentCapability
 
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
@@ -55,6 +57,7 @@ class PhaseExecutor:
         attack_timeout: Per-attack timeout in seconds.
         phase_timeout: Per-phase timeout in seconds.
         budget: Optional campaign budget checked before each vector (spec 047).
+        cache: Optional per-vector result cache for incremental scans (spec 049).
     """
 
     def __init__(
@@ -67,6 +70,7 @@ class PhaseExecutor:
         attack_timeout: float = 60.0,
         phase_timeout: float = 300.0,
         budget: CampaignBudget | None = None,
+        cache: ScanCache | None = None,
     ) -> None:
         self._attack_executor = attack_executor
         self._attack_library = attack_library
@@ -75,6 +79,7 @@ class PhaseExecutor:
         self._attack_timeout = attack_timeout
         self._phase_timeout = phase_timeout
         self._budget = budget
+        self._cache = cache
 
     # -- public API --------------------------------------------------------
 
@@ -94,6 +99,7 @@ class PhaseExecutor:
         max_results: int = 10_000,
         calculate_trust_score: Any = None,
         on_vector_complete: Callable[[], None] | None = None,
+        capabilities: Sequence[AgentCapability] = (),
     ) -> PhaseResult:
         """Execute a single scan phase.
 
@@ -114,6 +120,7 @@ class PhaseExecutor:
                 after each vector is recorded into ``tested_vector_ids``.
                 Used for incremental checkpointing; ``None`` preserves the
                 original between-phase-only behaviour.
+            capabilities: Discovered capability set, part of the cache keys (spec 049).
 
         Returns:
             Phase result with all findings.
@@ -211,26 +218,33 @@ class PhaseExecutor:
                             message=f"Running: {attack.name}",
                         )
                     )
-                    metrics.attack_started(phase.value)
-                    started = perf_counter()
-                    try:
-                        async with asyncio.timeout(self._attack_timeout):
-                            result = await self._attack_executor.execute(attack)
-                    finally:
-                        metrics.attack_finished(phase.value)
-                    elapsed = perf_counter() - started
-
-                # Refused = agent responded but the attack did not succeed
-                # (distinct from an error/timeout where no response came back).
-                metrics.record_attack(
-                    phase=phase.value,
-                    vector_id=result.vector_id,
-                    provider=getattr(self._attack_executor, "provider", "unknown"),
-                    coverage_level=coverage.value,
-                    successful=result.successful,
-                    refused=not result.successful and result.agent_response is not None,
-                    duration_seconds=elapsed,
-                )
+                    # Incremental cache (spec 049): a hit replaces execution only.
+                    result = (
+                        await self._cache.lookup(attack, capabilities)
+                        if self._cache is not None
+                        else None
+                    )
+                    if result is None:
+                        metrics.attack_started(phase.value)
+                        started = perf_counter()
+                        try:
+                            async with asyncio.timeout(self._attack_timeout):
+                                result = await self._attack_executor.execute(attack)
+                        finally:
+                            metrics.attack_finished(phase.value)
+                        # Refused = agent responded but the attack did not succeed
+                        # (distinct from an error/timeout where no response came back).
+                        metrics.record_attack(
+                            phase=phase.value,
+                            vector_id=result.vector_id,
+                            provider=getattr(self._attack_executor, "provider", "unknown"),
+                            coverage_level=coverage.value,
+                            successful=result.successful,
+                            refused=not result.successful and result.agent_response is not None,
+                            duration_seconds=perf_counter() - started,
+                        )
+                        if self._cache is not None:
+                            await self._cache.record(attack, capabilities, result)
 
                 # Tag result with the phase for reporting
                 result.evidence.setdefault("phase", phase.value)

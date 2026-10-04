@@ -145,6 +145,7 @@ class AgentScanner:
                 - ``phase_timeout`` (float): Per-phase timeout in seconds.
                 - ``llm_client`` / ``detector_config``: LLM client / DetectorConfig for detectors.
                 - ``usage_ledger``, ``max_campaign_tokens``, ``max_cost``: usage budget (spec 047).
+                - ``scan_cache`` (ScanCache): opt-in per-vector result cache (spec 049).
         """
         self.adapter = adapter
         self.config = config or {}
@@ -274,6 +275,7 @@ class AgentScanner:
             attack_timeout=self._attack_timeout,
             phase_timeout=self._phase_timeout,
             budget=self._budget,
+            cache=self.config.get("scan_cache"),
         )
 
         # Store settings for backward compat (some tests may poke at internals)
@@ -402,17 +404,14 @@ class AgentScanner:
                 max_results=self._max_results,
                 calculate_trust_score=self._calculate_trust_score,
                 on_vector_complete=_checkpointer.flush if _checkpointer is not None else None,
+                capabilities=capabilities,
             )
             phase_results.append(result)
 
             if phase in remaining_phases:
                 remaining_phases.remove(phase)
 
-            campaign_tokens = campaign_tokens + TokenUsage(
-                prompt_tokens=result.token_usage["prompt_tokens"],
-                completion_tokens=result.token_usage["completion_tokens"],
-                total_tokens=result.token_usage["total_tokens"],
-            )
+            campaign_tokens = campaign_tokens + TokenUsage.model_validate(result.token_usage)
 
             self._update_graph_from_phase(result)
 
@@ -480,6 +479,7 @@ class AgentScanner:
             defence_profile=defence_profile,
             judge_tiers=self._detector_pipeline.tier_counts,
             usage=self._budget,
+            scan_cache=self.config.get("scan_cache"),
         )
         self._discovered_chains = dangerous_chains
 
