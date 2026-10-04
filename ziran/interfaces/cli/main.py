@@ -95,7 +95,8 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False
+        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        case_sensitive=False,
     ),
     default=None,
     help="Agent framework to test (for in-process scanning).",
@@ -310,6 +311,20 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "Only models with a price (shipped table or .ziran/prices.yaml) count. Cooperative.",
 )
 @click.option(
+    "--incremental",
+    is_flag=True,
+    default=False,
+    help="Reuse cached results for vectors whose inputs are unchanged (.ziran/scan_cache/). "
+    "Opt-in for fast local iteration; a remote target can change without ZIRAN noticing, so "
+    "do not use it for release gates.",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Bypass the incremental cache: neither read nor write it (overrides --incremental).",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -355,6 +370,8 @@ def scan(
     checkpoint_flush_interval: float,
     max_campaign_tokens: int | None,
     max_cost: float | None,
+    incremental: bool,
+    no_cache: bool,
     dry_run: bool,
     defence_profile: str | None,
 ) -> None:
@@ -448,6 +465,8 @@ def scan(
             f"${max_cost:g}" if max_cost else "",
         )
         config_table.add_row("Budget", " · ".join(p for p in budget_parts if p))
+    if incremental:
+        config_table.add_row("Incremental", "off (--no-cache)" if no_cache else "on")
     if strategy != "fixed":
         config_table.add_row("Strategy", strategy)
     if streaming:
@@ -614,6 +633,31 @@ def scan(
                     "its calls do not count towards --max-cost"
                 )
 
+    if incremental and not no_cache:
+        from ziran.application.agent_scanner.scan_cache import (
+            ScanCache,
+            build_cache_context,
+            cache_disabled_reason,
+        )
+
+        target_path = Path(str(target or agent_path))
+        reason = cache_disabled_reason(
+            strategy=strategy, encoding=encoding, target_path=target_path
+        )
+        if reason is not None:
+            console.print(f"[yellow]Warning:[/yellow] --incremental disabled: {reason}")
+        else:
+            scanner_config["scan_cache"] = ScanCache(
+                build_cache_context(
+                    target_bytes=target_path.read_bytes(),
+                    protocol=protocol,
+                    framework=framework,
+                    scanner_config=scanner_config,
+                    encoding=encoding,
+                    streaming=streaming,
+                )
+            )
+
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
     coverage_level = CoverageLevel(coverage.lower())
 
@@ -679,6 +723,23 @@ def scan(
     console.print(f"\n[dim]Results saved to {output_dir}/[/dim]")
 
 
+@cli.group(name="cache")
+def cache_group() -> None:
+    """Manage the incremental scan cache (.ziran/scan_cache/)."""
+
+
+@cache_group.command(name="clear")
+def cache_clear() -> None:
+    """Delete every cached scan result under .ziran/scan_cache/."""
+    from ziran.application.agent_scanner.scan_cache import DEFAULT_CACHE_DIR, clear_cache
+
+    try:
+        removed = clear_cache()
+    except OSError as exc:
+        raise click.ClickException(f"cannot clear {DEFAULT_CACHE_DIR}: {exc}") from None
+    console.print(f"Removed {removed} cached result(s) from {DEFAULT_CACHE_DIR}")
+
+
 # ──────────────────────────────────────────────────────────────────────
 # discover command
 # ──────────────────────────────────────────────────────────────────────
@@ -688,7 +749,8 @@ def scan(
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "crewai", "bedrock", "agentcore", "anthropic"], case_sensitive=False
+        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        case_sensitive=False,
     ),
     default=None,
     help="Agent framework (for in-process discovery).",
@@ -1963,6 +2025,11 @@ def _display_results(result: CampaignResult) -> None:
             "Judge Routing",
             f"deterministic {tiers['deterministic']} · cheap {tiers['cheap']} · "
             f"escalated {tiers['escalated']}",
+        )
+    cache = result.metadata.get("scan_cache")
+    if cache:  # incremental scan counts (spec 049); absent when the cache is off
+        summary_table.add_row(
+            "Incremental Cache", f"{cache['cached']:,} cached · {cache['executed']:,} executed"
         )
     usage = result.metadata.get("usage")
     if usage:  # all-stage usage breakdown (spec 047); absent in old result files

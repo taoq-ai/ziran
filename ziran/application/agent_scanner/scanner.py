@@ -30,6 +30,7 @@ from ziran.application.agent_scanner.checkpoint import (
     IncrementalCheckpointer,
     load_resume_state,
 )
+from ziran.application.agent_scanner.enables_links import enabling_capabilities
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
 from ziran.application.agent_scanner.progress import (
     ProgressEmitter as ProgressEmitter,
@@ -46,6 +47,7 @@ from ziran.application.agent_scanner.result_builder import (
 from ziran.application.agent_scanner.result_builder import (
     _compute_utility as _compute_utility,
 )
+from ziran.application.agent_scanner.structure_import import import_adapter_structure
 from ziran.application.attacks.library import AttackLibrary, get_attack_library
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.application.knowledge_graph.graph import (
@@ -145,6 +147,7 @@ class AgentScanner:
                 - ``phase_timeout`` (float): Per-phase timeout in seconds.
                 - ``llm_client`` / ``detector_config``: LLM client / DetectorConfig for detectors.
                 - ``usage_ledger``, ``max_campaign_tokens``, ``max_cost``: usage budget (spec 047).
+                - ``scan_cache`` (ScanCache): opt-in per-vector result cache (spec 049).
         """
         self.adapter = adapter
         self.config = config or {}
@@ -274,6 +277,7 @@ class AgentScanner:
             attack_timeout=self._attack_timeout,
             phase_timeout=self._phase_timeout,
             budget=self._budget,
+            cache=self.config.get("scan_cache"),
         )
 
         # Store settings for backward compat (some tests may poke at internals)
@@ -402,17 +406,14 @@ class AgentScanner:
                 max_results=self._max_results,
                 calculate_trust_score=self._calculate_trust_score,
                 on_vector_complete=_checkpointer.flush if _checkpointer is not None else None,
+                capabilities=capabilities,
             )
             phase_results.append(result)
 
             if phase in remaining_phases:
                 remaining_phases.remove(phase)
 
-            campaign_tokens = campaign_tokens + TokenUsage(
-                prompt_tokens=result.token_usage["prompt_tokens"],
-                completion_tokens=result.token_usage["completion_tokens"],
-                total_tokens=result.token_usage["total_tokens"],
-            )
+            campaign_tokens = campaign_tokens + TokenUsage.model_validate(result.token_usage)
 
             self._update_graph_from_phase(result)
 
@@ -480,6 +481,7 @@ class AgentScanner:
             defence_profile=defence_profile,
             judge_tiers=self._detector_pipeline.tier_counts,
             usage=self._budget,
+            scan_cache=self.config.get("scan_cache"),
         )
         self._discovered_chains = dangerous_chains
 
@@ -550,7 +552,6 @@ class AgentScanner:
         for cap in capabilities:
             self.graph.add_capability(cap.id, cap)
 
-            # Add edges for dangerous capabilities
             if cap.dangerous:
                 self.graph.add_data_source(
                     "sensitive_data",
@@ -562,6 +563,7 @@ class AgentScanner:
                     EdgeType.ACCESSES_DATA,
                     {"risk": "high", "capability_type": cap.type.value},
                 )
+        await import_adapter_structure(self.adapter, self.graph)
 
         logger.info(
             "capabilities_discovered",
@@ -569,7 +571,6 @@ class AgentScanner:
             dangerous=sum(1 for c in capabilities if c.dangerous),
         )
 
-        # Run MCP metadata poisoning analysis on discovered capabilities
         if capabilities:
             from ziran.application.static_analysis.mcp_metadata_analyzer import (
                 MCPMetadataAnalyzer,
@@ -639,8 +640,9 @@ class AgentScanner:
     def _update_graph_from_phase(self, result: PhaseResult) -> None:
         """Update the knowledge graph with phase execution results.
 
-        Adds phase node, links vulnerabilities via proper edges so that
-        ``find_all_attack_paths`` can discover capability → vulnerability paths.
+        Adds phase node, links each vulnerability from the capabilities implicated
+        in it (see ``enables_links``) so that ``find_all_attack_paths`` can
+        discover capability → vulnerability paths.
 
         Args:
             result: The phase result to record in the graph.
@@ -664,16 +666,10 @@ class AgentScanner:
                 EdgeType.DISCOVERED_IN,
             )
 
-            # For every capability in the graph, create an ENABLES edge
-            # to the vulnerability so that attack-path search can traverse
-            # capability → vulnerability.  Previously this was gated on
-            # ``dangerous`` which left most graphs disconnected.
-            for cap_id, _cap_data in self.graph.get_nodes_by_type(NodeType.CAPABILITY):
+            evidence = result.artifacts.get(vuln_id, {}).get("evidence", {})
+            for cap_id in enabling_capabilities(self.graph, evidence):
                 self.graph.add_edge(
-                    cap_id,
-                    vuln_id,
-                    EdgeType.ENABLES,
-                    {"phase": result.phase.value},
+                    cap_id, vuln_id, EdgeType.ENABLES, {"phase": result.phase.value}
                 )
 
     # ── Backward-compatible delegation methods ───────────────────────────

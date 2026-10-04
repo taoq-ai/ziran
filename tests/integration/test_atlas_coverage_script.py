@@ -71,6 +71,9 @@ def test_json_output_matches_expected_schema(tmp_path: Path) -> None:
     assert totals["vectors_without_atlas_mapping"] == 0
     assert totals["agent_specific_covered"] == totals["agent_specific_total"] == 14
     assert totals["techniques_covered"] >= 60  # Spec SC-001
+    # Issue #264: AI Model Access and AI Attack Staging keep >= 1 covered technique each.
+    for tactic in ("AML.TA0000", "AML.TA0001"):
+        assert data["per_tactic"][tactic]["techniques_covered"] >= 1, tactic
 
 
 @pytest.mark.integration

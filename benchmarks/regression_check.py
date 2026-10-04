@@ -7,6 +7,7 @@ Usage:
     uv run python benchmarks/regression_check.py
     uv run python benchmarks/regression_check.py --format markdown
     uv run python benchmarks/regression_check.py --update-baseline
+    uv run python benchmarks/regression_check.py --format markdown --delta-baseline base.json
 """
 
 from __future__ import annotations
@@ -97,7 +98,7 @@ def _check_regressions(current: dict, baseline: dict) -> list[str]:
     return regressions
 
 
-def _format_summary(current: dict, baseline: dict | None) -> str:
+def _format_summary(current: dict, baseline: dict | None, delta_base: dict | None = None) -> str:
     """Format human-readable summary."""
     lines = [
         "Benchmark Coverage Summary",
@@ -118,13 +119,14 @@ def _format_summary(current: dict, baseline: dict | None) -> str:
             for r in regressions:
                 lines.append(f"  - {r}")
         else:
+            ref = delta_base if delta_base is not None else baseline
             deltas = []
             for key, label in [
                 ("total_vectors", "Vectors"),
                 ("owasp_covered", "OWASP categories"),
                 ("multi_turn_vectors", "Multi-turn"),
             ]:
-                delta = current.get(key, 0) - baseline.get(key, 0)
+                delta = current.get(key, 0) - ref.get(key, 0)
                 if delta > 0:
                     deltas.append(f"{label}: +{delta}")
             if deltas:
@@ -137,7 +139,7 @@ def _format_summary(current: dict, baseline: dict | None) -> str:
     return "\n".join(lines)
 
 
-def _format_markdown(current: dict, baseline: dict | None) -> str:
+def _format_markdown(current: dict, baseline: dict | None, delta_base: dict | None = None) -> str:
     """Format markdown summary for PR comments."""
     lines = [
         "## Benchmark Coverage Report",
@@ -161,13 +163,14 @@ def _format_markdown(current: dict, baseline: dict | None) -> str:
                 lines.append(f"- {r}")
         else:
             lines.append(":white_check_mark: No regressions detected.")
+            ref = delta_base if delta_base is not None else baseline
             deltas = []
             for key, label in [
                 ("total_vectors", "Vectors"),
                 ("multi_turn_vectors", "Multi-turn"),
                 ("harm_category_count", "Harm categories"),
             ]:
-                delta = current.get(key, 0) - baseline.get(key, 0)
+                delta = current.get(key, 0) - ref.get(key, 0)
                 if delta > 0:
                     deltas.append(f"**{label}**: +{delta}")
             if deltas:
@@ -192,6 +195,16 @@ def main() -> None:
         default="text",
         help="Output format",
     )
+    parser.add_argument(
+        "--delta-baseline",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Metrics JSON (from --update-baseline, e.g. on the PR base) to compute the "
+            "Changes delta against; the regression gate still uses results/baseline.json"
+        ),
+    )
     args = parser.parse_args()
 
     current = _collect_current_metrics()
@@ -203,10 +216,17 @@ def main() -> None:
         print(f"Baseline updated: {BASELINE_PATH}", file=sys.stderr)
         return
 
+    delta_base = None
+    if args.delta_baseline is not None:
+        try:
+            delta_base = json.loads(args.delta_baseline.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            parser.error(f"cannot read --delta-baseline {args.delta_baseline}: {exc}")
+
     if args.format == "markdown":
-        print(_format_markdown(current, baseline))
+        print(_format_markdown(current, baseline, delta_base))
     else:
-        print(_format_summary(current, baseline))
+        print(_format_summary(current, baseline, delta_base))
 
     # Fail if regressions detected
     if baseline:

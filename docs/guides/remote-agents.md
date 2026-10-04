@@ -181,12 +181,15 @@ tls:
 
 ```yaml
 timeout: 30          # Request timeout in seconds
+probe_delay: 0.5    # Seconds between discovery probes (0 disables)
 
 retry:
   max_retries: 3
   backoff_factor: 0.5          # Exponential backoff multiplier
   retry_on: [429, 500, 502, 503, 504]  # HTTP status codes to retry
 ```
+
+`probe_delay` spaces out the three discovery probes; the 0.5 s default adds about 1 s per discovery run compared with earlier releases, and `probe_delay: 0` restores back-to-back probes.
 
 ## Discovery Mode
 

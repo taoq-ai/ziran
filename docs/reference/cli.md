@@ -24,7 +24,7 @@ ziran scan [OPTIONS]
 
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
-| `--framework` | Yes\* | — | Agent framework: `langchain`, `crewai`, `bedrock` |
+| `--framework` | Yes\* | — | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock` |
 | `--agent-path` | Yes\* | — | Path to agent code/config file |
 | `--target` | Yes\* | — | YAML target config for remote scanning |
 | `--protocol` | No | `auto` | Protocol override: `rest`, `openai`, `mcp`, `a2a`, `auto` |
@@ -42,6 +42,8 @@ ziran scan [OPTIONS]
 | `--otel` | No | `false` | Enable OpenTelemetry tracing (requires `ziran[otel]`). Exports spans to console. |
 | `--attack-timeout` | No | `60` | Per-attack timeout in seconds |
 | `--phase-timeout` | No | `300` | Per-phase timeout in seconds |
+| `--incremental` | No | `false` | Reuse cached results for vectors whose inputs are unchanged (`.ziran/scan_cache/`). Opt-in; not for release gates. See [Incremental Scanning](../guides/incremental-scanning.md). |
+| `--no-cache` | No | `false` | Bypass the incremental cache: neither read nor write it (overrides `--incremental`) |
 
 \* Either `--framework` + `--agent-path` (local) or `--target` (remote) is required.
 
@@ -69,7 +71,23 @@ ziran scan --target target.yaml --encoding base64 --encoding rot13
 
 # Scan with OpenTelemetry tracing
 ziran scan --target target.yaml --otel
+
+# Local iteration: reuse results for unchanged vectors
+ziran scan --framework langchain --agent-path agent.py --incremental
 ```
+
+---
+
+### `ziran cache clear`
+
+Delete every cached result of `ziran scan --incremental` under `.ziran/scan_cache/`.
+
+```
+ziran cache clear
+```
+
+Prints `Removed <n> cached result(s) from .ziran/scan_cache`. See
+[Incremental Scanning](../guides/incremental-scanning.md).
 
 ---
 
@@ -111,7 +129,7 @@ ziran discover [OPTIONS] [AGENT_PATH]
 
 | Option | Description |
 |--------|-------------|
-| `--framework` | Agent framework: `langchain`, `crewai`, `bedrock` |
+| `--framework` | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock` |
 | `--target` | YAML target config for remote discovery |
 | `--protocol` | Protocol override |
 

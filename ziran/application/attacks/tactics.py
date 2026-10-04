@@ -112,6 +112,7 @@ class TacticExecutor:
         last_response_content: str | None = None
         last_prompt_used: str | None = None
         review: dict[str, Any] = {}
+        prompt_errors = 0  # swallowed turn failures; non-zero blocks caching (spec 049)
 
         for i, prompt_spec in enumerate(attack.prompts):
             rendered_prompt = render_fn(prompt_spec)
@@ -184,8 +185,10 @@ class TacticExecutor:
                     )
 
             except TimeoutError:
+                prompt_errors += 1
                 logger.warning("turn_timed_out", turn=i + 1, vector_id=attack.id)
             except (ConnectionError, OSError) as exc:
+                prompt_errors += 1
                 logger.warning(
                     "turn_connection_error",
                     turn=i + 1,
@@ -193,6 +196,7 @@ class TacticExecutor:
                     error=str(exc),
                 )
             except Exception as exc:
+                prompt_errors += 1
                 logger.warning("turn_error", turn=i + 1, vector_id=attack.id, error=str(exc))
 
         return AttackResult(
@@ -206,6 +210,7 @@ class TacticExecutor:
                 "tactic": attack.tactic,
                 "turns_attempted": len(attack.prompts),
                 **review,
+                **({"prompt_errors": prompt_errors} if prompt_errors else {}),
             },
             agent_response=last_response_content,
             prompt_used=last_prompt_used,

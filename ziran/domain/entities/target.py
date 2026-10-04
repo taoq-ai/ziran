@@ -394,6 +394,12 @@ class TargetConfig(BaseModel):
     # Resilience
     retry: RetryConfig = Field(default_factory=RetryConfig, description="Retry configuration")
     timeout: float = Field(default=30.0, gt=0, description="Request timeout in seconds")
+    probe_delay: float = Field(
+        default=0.5,
+        ge=0,
+        le=30,
+        description="Delay in seconds between discovery probe requests (0 disables)",
+    )
 
     # HTTP
     headers: dict[str, str] = Field(default_factory=dict, description="Additional HTTP headers")

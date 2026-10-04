@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-10-03
+Auto-generated from all feature plans. Last updated: 2026-10-04
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -56,6 +56,19 @@ Auto-generated from all feature plans. Last updated: 2026-10-03
 - shipped `ziran/infrastructure/llm/prices.yaml` plus optional operator `.ziran/prices.yaml`; usage ledger snapshot inside the existing `<output>/.checkpoint.json`. (047-token-budget-cost-cap)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies. (046-ci-suppression-baseline)
 - one user-committed YAML file, read only by `ziran ci`. (046-ci-suppression-baseline)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (domain models), existing `AttackKnowledgeGraph` (NetworkX) and `ToolChainAnalyzer`, `langgraph` 1.2.x + `langchain-core` via the existing `langchain` extra (transitive). No new dependencies. (050-langgraph-native-scanning)
+- N/A — in-memory knowledge graph only. (050-langgraph-native-scanning)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cache models), stdlib `hashlib`/`json`/`os`/`re`/`shutil`/`asyncio.to_thread`, Click (scan flags, `cache clear`); reuses `PhaseExecutor`, `ResultBuilder`, the `CheckpointManager.save` atomic-write pattern. No new dependencies. (049-incremental-scan-cache)
+- per-vector JSON files under `.ziran/scan_cache/<campaign_key>/` (working directory; git-ignored; never committed). (049-incremental-scan-cache)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`Field` validation), stdlib `asyncio`. No new dependencies. (051-probe-rate-limiting)
+- N/A (target YAML is read by the existing `load_target_config`). (051-probe-rate-limiting)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + pytest, `fastapi.testclient.TestClient` (fastapi from the `ui` extra), stdlib `unittest.mock`. Tests only, no production change. No new dependencies. (052-web-route-handler-tests)
+- N/A (no database, no files). (052-web-route-handler-tests)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only (053-enables-edge-fanout)
+- N/A (in-memory graph). (053-enables-edge-fanout)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies. (054-benchmark-pr-delta)
+- committed `benchmarks/results/baseline.json` (gate); CI-only `_bench_base/benchmarks/results/baseline.json` (delta, never committed). (054-benchmark-pr-delta)
+- Markdown (MkDocs Material); Python 3.11+ test (CI matrix 3.11, 3.12, 3.13) + none new. Reads output of the existing `benchmarks/atlas_coverage.py`. (055-atlas-coverage-docs)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -75,10 +88,11 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
-- 047-token-budget-cost-cap: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (usage + price models), PyYAML `safe_load` (price table), Click (scan flags); reuses `BaseLLMClient`, `many_shot.estimate_tokens`, the checkpoint/resume path, `PhaseExecutor`, `ResultBuilder`. No new dependencies.
-- 046-ci-suppression-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies.
-- 042-semantic-embedding-detection: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `math`/`hashlib`/`asyncio`, existing optional `llm` extra (litellm `aembedding`). No new dependencies.
-- 044-claude-code-plugin-guide: Added Markdown (MkDocs Material); Python 3.11+ test and example stdio server (CI matrix 3.11, 3.12, 3.13) + None new; shipped `ziran audit` / `analyze-traces` / `watch-registry` CLI, Click `CliRunner`, stdlib `json`/`sys`
+- 053-enables-edge-fanout: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only
+- 054-benchmark-pr-delta: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies.
+- 055-atlas-coverage-docs: Added Markdown (MkDocs Material); Python 3.11+ test (CI matrix 3.11, 3.12, 3.13) + none new. Reads output of the existing `benchmarks/atlas_coverage.py`.
+- 050-langgraph-native-scanning: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (domain models), existing `AttackKnowledgeGraph` (NetworkX) and `ToolChainAnalyzer`, `langgraph` 1.2.x + `langchain-core` via the existing `langchain` extra (transitive). No new dependencies.
+- 049-incremental-scan-cache: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cache models), stdlib `hashlib`/`json`/`os`/`re`/`shutil`/`asyncio.to_thread`, Click (scan flags, `cache clear`); reuses `PhaseExecutor`, `ResultBuilder`, the `CheckpointManager.save` atomic-write pattern. No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -173,7 +173,7 @@ Expand framework reach and unlock enterprise-facing positioning: incremental sca
 - [ ] **AutoGen adapter** — Microsoft's multi-agent framework ([#285](https://github.com/taoq-ai/ziran/issues/285))
 - [ ] **Anthropic SDK native adapter** — direct path, no LangChain wrapping ([#286](https://github.com/taoq-ai/ziran/issues/286))
 - [ ] **Langfuse API trace ingestor** — live pulls, not file exports ([#287](https://github.com/taoq-ai/ziran/issues/287))
-- [ ] **Incremental / diff scanning** — only re-test changed vectors; unlock pre-commit-hook and fast-CI-gate use ([#288](https://github.com/taoq-ai/ziran/issues/288))
+- [x] **Incremental / diff scanning** — only re-test changed vectors; unlock pre-commit-hook and fast-CI-gate use ([#288](https://github.com/taoq-ai/ziran/issues/288))
 - [ ] **Compliance evidence bundles** — EU AI Act / NIST AI RMF / ISO 42001 mapping + export ([#289](https://github.com/taoq-ai/ziran/issues/289))
 
 ### Opportunistic — Not in a theme
@@ -183,7 +183,7 @@ These don't block a milestone but are worth landing when someone has a slot:
 - [ ] **Attack library community submission workflow** — clear contributor path, PR template, CI schema linter ([#290](https://github.com/taoq-ai/ziran/issues/290)) — `good first issue`
 - [ ] **Supply-chain signing** — cosign signatures on releases, CycloneDX SBOM, SLSA provenance ([#291](https://github.com/taoq-ai/ziran/issues/291))
 - [ ] **`ziran init` scaffolding command** — one-liner onboarding ([#292](https://github.com/taoq-ai/ziran/issues/292)) — `good first issue`
-- [ ] **Expand ATLAS coverage to remaining tactics** — AI Model Access, AI Attack Staging ([#264](https://github.com/taoq-ai/ziran/issues/264))
+- [x] **Expand ATLAS coverage to remaining tactics** — AI Model Access, AI Attack Staging ([#264](https://github.com/taoq-ai/ziran/issues/264))
 - [ ] **asqav signing integration sketch** — downstream signing of ZIRAN outputs ([#259](https://github.com/taoq-ai/ziran/issues/259))
 - [x] **HTML report graph size cap** — perf improvement for large campaigns ([#217](https://github.com/taoq-ai/ziran/issues/217))
 

@@ -175,6 +175,7 @@ class AttackExecutor:
                 return skip
 
         review: dict[str, Any] = {}
+        answered = 0  # prompts that reached the detectors; the rest failed (spec 049)
 
         # Try each prompt variant
         for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
@@ -207,6 +208,7 @@ class AttackExecutor:
                     prompt_spec,
                     attack,
                 )
+                answered += 1
                 if verdict.needs_review:
                     review = review_evidence(verdict)
 
@@ -258,6 +260,8 @@ class AttackExecutor:
                 logger.warning("prompt_error", vector_id=attack.id, error=str(e))
 
         # None of the prompts succeeded
+        if answered < len(prompt_attempts):  # swallowed failures block caching
+            review["prompt_errors"] = len(prompt_attempts) - answered
         _attack_span.set_attribute("ziran.attack.successful", False)
         _attack_span.end()
         return AttackResult(
