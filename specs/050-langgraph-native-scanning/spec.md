@@ -199,8 +199,11 @@ same two tool objects, then `ToolChainAnalyzer` (what `ResultBuilder` runs).
 - **Fan-out**: the import adds `2 x (tool, channel)` data-flow edges plus one `USES_TOOL` edge
   per (node, tool): linear in the number of tools. Paths through a channel make
   `find_all_attack_paths` grow by up to a factor of the number of tools sharing that channel;
-  it keeps its existing `max_paths=10_000` cap. Cycle enumeration only gains `tool <-> channel`
-  2-cycles (one tool each), which the analyzer skips.
+  it keeps its existing `max_paths=10_000` cap. `DELEGATES_TO` edges between nodes add cycles
+  among agent nodes, exponential in the number of nodes of a densely routed graph.
+  No such cycle can hold a tool (tools have no edges back to
+  agents), so `ToolChainAnalyzer` enumerates cycles only on the sub-graph of tools and their
+  descendants; this is exact and drops no findings.
 - **Channel node type**: channels are `AGENT_STATE` nodes (shared agent state), not
   `DATA_SOURCE`: a `DATA_SOURCE` channel would be an attack-path target and turn every LangGraph
   agent with any tool into a "VULNERABLE" verdict (see Facts).
@@ -247,9 +250,11 @@ same two tool objects, then `ToolChainAnalyzer` (what `ResultBuilder` runs).
 - **FR-005 (scanner wiring)**: `AgentScanner._discover_and_map_capabilities` calls
   `import_adapter_structure(self.adapter, self.graph)` after the capabilities are added;
   `scanner.py` diff is net-zero or negative and `run_campaign` is not touched.
-- **FR-006 (chain finding)**: no change to `ToolChainAnalyzer`, `ResultBuilder` or
-  `AttackKnowledgeGraph`; the state-channel edges alone make US2.1 and US2.3 true and US2.2 /
-  US2.4 stay false.
+- **FR-006 (chain finding)**: no change to `ResultBuilder` or `AttackKnowledgeGraph`; the
+  state-channel edges alone make US2.1 and US2.3 true and US2.2 / US2.4 stay false.
+  `ToolChainAnalyzer` changes in two small ways only: cycle enumeration is limited to tools
+  and their descendants (see Edge Cases > Fan-out), and an indirect chain through an
+  `AGENT_STATE` node says "possible via shared state" in its description.
 - **FR-007 (factory + CLI)**: `load_agent_adapter("langgraph", path)` (US3.3); `langgraph` added
   to the `--framework` choices of `scan` and `discover` and to `init_command._FRAMEWORKS`;
   `docs/reference/cli.md` framework lists mention `langgraph`.

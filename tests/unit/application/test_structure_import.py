@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -142,7 +143,9 @@ class TestImportStructure:
             if c.vulnerability_type == "data_exfiltration"
         ]
         assert any(
-            c.chain_type == "indirect" and c.graph_path == [READ, "state:messages", SEND]
+            c.chain_type == "indirect"
+            and c.graph_path == [READ, "state:messages", SEND]
+            and "possible via shared state" in c.exploit_description
             for c in chains
         )
 
@@ -183,6 +186,35 @@ class TestImportStructure:
         assert len(_edges(graph, "accesses_data")) == 60
         assert len(_edges(graph, "uses_tool")) == 30
         ToolChainAnalyzer(graph).analyze()
+
+    def test_dense_routed_graph_stays_fast(self) -> None:
+        # Every node routes to every other node and to "tools": the agent sub-graph has
+        # millions of simple cycles, none of which can contain a tool.
+        names = [f"n:{i}" for i in range(12)]
+        topo = MultiAgentTopology(
+            agents=[
+                *(AgentNode(id=n, name=n) for n in names),
+                AgentNode(id="n:tools", name="tools", capabilities=[READ, SEND]),
+            ],
+            edges=[
+                AgentEdge(source_id=a, target_id=b, conditional=True)
+                for a in names
+                for b in [*names, "n:tools"]
+                if a != b
+            ],
+            state_channels=[
+                StateChannel(name="messages", writers=[READ, SEND], readers=[READ, SEND])
+            ],
+        )
+        graph = _graph()
+        import_structure(graph, topo)
+        start = time.perf_counter()
+        chains = ToolChainAnalyzer(graph).analyze()
+        assert time.perf_counter() - start < 2.0
+        assert any(
+            c.vulnerability_type == "data_exfiltration" and c.chain_type == "indirect"
+            for c in chains
+        )
 
 
 class _StructureAdapter(MockAgentAdapter):

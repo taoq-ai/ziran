@@ -107,7 +107,10 @@ only a list of tools, does not.
 **"Possible via shared state".** A state-channel chain means one tool's output *can* reach the
 other tool through shared state, not that it was observed. Every `ToolNode` reads its tool
 calls from and writes its results to its messages key, so all `ToolNode` tools on the same key
-are linked; two dangerous tools in the same `ToolNode` are linked too.
+are linked; two dangerous tools in the same `ToolNode` are linked too. So even a plain
+`create_agent` graph with `read_file` and `http_request` gets a critical `data_exfiltration`
+chain and can get a VULNERABLE verdict, while `LangChainAdapter` with the same tools reports
+neither.
 
 **Limits.**
 
@@ -119,6 +122,9 @@ are linked; two dangerous tools in the same `ToolNode` are linked too.
 - Routes to `END` (and the edge from `START`) are not edges; the `START` target is the entry
   point.
 - `invoke` sends `{"messages": [...]}`; graphs that pause with `interrupt()` are not resumed.
+- With a checkpointer, all attacks of one phase share a thread (it is reset per phase), so
+  later attacks see earlier attacks' history. Each attack's tool calls are still attributed
+  to it.
 
 ### CrewAI
 

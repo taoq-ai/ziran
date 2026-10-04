@@ -66,7 +66,12 @@ class LangGraphAdapter(BaseAgentAdapter):
         self._observed_tool_calls: list[dict[str, Any]] = []
 
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
-        """Run one turn of the graph and report its tool calls, answer and token usage."""
+        """Run one turn of the graph and report its tool calls, answer and token usage.
+
+        Extra ``kwargs`` are merged into the graph's input state next to ``messages``.
+        All turns until ``reset_state()`` share one checkpointer thread, so with a
+        checkpointer, attacks run in the same phase see each other's history.
+        """
         human = HumanMessage(message, id=uuid4().hex)
         out = await self.graph.ainvoke(
             {"messages": [human], **kwargs},

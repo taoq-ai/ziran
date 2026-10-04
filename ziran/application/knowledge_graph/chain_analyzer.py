@@ -269,6 +269,10 @@ class ToolChainAnalyzer:
                 if len(path) < 3:
                     continue  # must have at least 1 intermediate
 
+                via_state = any(
+                    self.graph.graph.nodes[n].get("node_type") == NodeType.AGENT_STATE
+                    for n in path[1:-1]
+                )
                 chains.append(
                     DangerousChain(
                         tools=[source_id, target_id],
@@ -276,7 +280,8 @@ class ToolChainAnalyzer:
                         vulnerability_type=pattern_info["type"],
                         exploit_description=(
                             f"{pattern_info['description']} "
-                            f"(via {len(path) - 2} intermediate node(s))"
+                            f"(via {len(path) - 2} intermediate node(s)"
+                            f"{'; possible via shared state' if via_state else ''})"
                         ),
                         remediation=pattern_info.get("remediation", ""),
                         graph_path=path,
@@ -302,8 +307,14 @@ class ToolChainAnalyzer:
         chains: list[DangerousChain] = []
         tool_ids = {nid for nid, _ in tool_nodes}
 
+        # A cycle with a tool lies inside that tool's descendants, so enumerate only
+        # there: unbounded cycles among agent nodes (spec 050) can never hold a tool.
+        g = self.graph.graph
+        scope = set(tool_ids)
+        for tid in tool_ids:
+            scope |= nx.descendants(g, tid)
         try:
-            cycles: list[list[str]] = list(nx.simple_cycles(self.graph.graph))
+            cycles: list[list[str]] = list(nx.simple_cycles(g.subgraph(scope)))
         except nx.NetworkXError:
             return chains
 
