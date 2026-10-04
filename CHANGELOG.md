@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.42.0](https://github.com/taoq-ai/ziran/compare/v0.41.0...v0.42.0) (2026-10-04)
+
+
+### Features
+
+* **adapters:** LangGraph state-graph native scanning ([7e1ef38](https://github.com/taoq-ai/ziran/commit/7e1ef38e6660f1a274e38ad7eae760d4031024d9))
+* **adapters:** LangGraph state-graph native scanning ([32fb290](https://github.com/taoq-ai/ziran/commit/32fb2907b71eb0019ff182b44f5aa59b170675e8)), closes [#393](https://github.com/taoq-ai/ziran/issues/393)
+* **http:** add configurable delay between discovery probes ([2dcbdb6](https://github.com/taoq-ai/ziran/commit/2dcbdb64f394dce49b0a6619858338b650ed307f))
+* **http:** add configurable delay between discovery probes ([#73](https://github.com/taoq-ai/ziran/issues/73)) ([1c403e0](https://github.com/taoq-ai/ziran/commit/1c403e0defe35d62c51f60235c681e8c2eef5f27))
+* **scan:** opt-in incremental scan cache ([c538453](https://github.com/taoq-ai/ziran/commit/c538453e2681851f72d7a6e628ea67bc6c4971e3))
+* **scan:** opt-in incremental scan cache (--incremental, --no-cache, ziran cache clear) ([86e850a](https://github.com/taoq-ai/ziran/commit/86e850a11079f956d86d3c9198749fb4333d2057)), closes [#288](https://github.com/taoq-ai/ziran/issues/288)
+
+
+### Bug Fixes
+
+* **benchmarks:** compute PR comment delta against the PR base branch ([b53be0b](https://github.com/taoq-ai/ziran/commit/b53be0be56203b6d6a86b2abf4b890aafc5607fe))
+* **benchmarks:** compute PR comment delta against the PR base branch ([2b709c6](https://github.com/taoq-ai/ziran/commit/2b709c677babc3642658f827f497cd47cc990d32))
+* **chain-analyzer:** limit cycle enumeration to tools and their descendants ([eb2c3a2](https://github.com/taoq-ai/ziran/commit/eb2c3a272c861a4fce7040fb534c4fdc14a971c8))
+* **scan:** never cache results with swallowed prompt or turn failures ([6aace17](https://github.com/taoq-ai/ziran/commit/6aace17d8b13dae3ae66a0a640bd55b427a150cf))
+
+
+### Performance Improvements
+
+* **graph:** link ENABLES edges only from implicated capabilities ([48e6cf9](https://github.com/taoq-ai/ziran/commit/48e6cf9557ca01b3c1541e27f8fb2f01ac675400))
+* **graph:** link ENABLES edges only from implicated capabilities ([#451](https://github.com/taoq-ai/ziran/issues/451)) ([13f6fa3](https://github.com/taoq-ai/ziran/commit/13f6fa3104c7384d3bf078ce73bbce102a82dd45))
+
 ## [0.41.0](https://github.com/taoq-ai/ziran/compare/v0.40.0...v0.41.0) (2026-10-03)
 
 
