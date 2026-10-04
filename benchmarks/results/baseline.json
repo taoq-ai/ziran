@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-03-20T20:04:16.311438+00:00",
-  "total_vectors": 445,
+  "timestamp": "2026-10-04T11:38:28.714010+00:00",
+  "total_vectors": 661,
   "categories": 11,
-  "owasp_coverage_pct": 90.0,
-  "owasp_covered": 9,
-  "multi_turn_vectors": 99,
+  "owasp_coverage_pct": 100.0,
+  "owasp_covered": 10,
+  "multi_turn_vectors": 229,
   "harm_category_count": 11,
   "tactics_count": 11,
   "benchmark_count": 20,
@@ -14,9 +14,9 @@
       "metrics": [
         {
           "dimension": "Multi-step vectors",
-          "implemented": 41,
+          "implemented": 173,
           "target": 440,
-          "pct": 9.3
+          "pct": 39.3
         }
       ]
     },
@@ -25,9 +25,9 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 50,
+          "implemented": 63,
           "target": 1054,
-          "pct": 4.7
+          "pct": 6.0
         }
       ]
     },
@@ -36,9 +36,15 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 50,
+          "implemented": 63,
           "target": 629,
-          "pct": 7.9
+          "pct": 10.0
+        },
+        {
+          "dimension": "Utility measurement (baseline + post-attack)",
+          "implemented": 1,
+          "target": 1,
+          "pct": 100.0
         }
       ]
     },
@@ -53,9 +59,9 @@
         },
         {
           "dimension": "Jailbreak vectors",
-          "implemented": 138,
+          "implemented": 218,
           "target": 510,
-          "pct": 27.1
+          "pct": 42.7
         }
       ]
     },
@@ -70,20 +76,26 @@
         },
         {
           "dimension": "Prompt injection vectors",
-          "implemented": 138,
+          "implemented": 218,
           "target": 100,
           "pct": 100
         }
       ]
     },
     "StrongREJECT": {
-      "status": "open",
+      "status": "closed",
       "metrics": [
         {
-          "dimension": "Quality-aware scoring",
-          "implemented": 0,
-          "target": null,
-          "pct": null
+          "dimension": "StrongREJECT composite formula",
+          "implemented": 1,
+          "target": 1,
+          "pct": 100.0
+        },
+        {
+          "dimension": "Scoring dimensions (refusal, specificity, convincingness)",
+          "implemented": 3,
+          "target": 3,
+          "pct": 100.0
         }
       ]
     },
@@ -109,9 +121,15 @@
         },
         {
           "dimension": "Total vectors",
-          "implemented": 445,
+          "implemented": 661,
           "target": 400,
           "pct": 100
+        },
+        {
+          "dimension": "Utility-under-attack measurement",
+          "implemented": 1,
+          "target": 1,
+          "pct": 100.0
         }
       ]
     },
@@ -120,9 +138,15 @@
       "metrics": [
         {
           "dimension": "Prompt injection vectors",
-          "implemented": 138,
+          "implemented": 218,
           "target": 126000,
-          "pct": 0.1
+          "pct": 0.2
+        },
+        {
+          "dimension": "Representative pattern families",
+          "implemented": 11,
+          "target": null,
+          "pct": null
         }
       ]
     },
@@ -134,15 +158,21 @@
           "implemented": 11,
           "target": 105000,
           "pct": 0.0
+        },
+        {
+          "dimension": "WildJailbreak-inspired multi-turn vectors",
+          "implemented": 10,
+          "target": null,
+          "pct": null
         }
       ]
     },
-    "LLMail-Inject": {
+    "LLMail-Inject / RAG Poisoning": {
       "status": "open",
       "metrics": [
         {
-          "dimension": "RAG injection vectors",
-          "implemented": 0,
+          "dimension": "RAG retrieval-targeted vectors",
+          "implemented": 13,
           "target": null,
           "pct": null
         }
@@ -164,7 +194,7 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 50,
+          "implemented": 63,
           "target": null,
           "pct": null
         }
@@ -174,8 +204,14 @@
       "status": "open",
       "metrics": [
         {
-          "dimension": "Total vectors",
-          "implemented": 445,
+          "dimension": "Code-generation safety vectors",
+          "implemented": 10,
+          "target": null,
+          "pct": null
+        },
+        {
+          "dimension": "Total library overlap",
+          "implemented": 661,
           "target": null,
           "pct": null
         }
@@ -186,9 +222,15 @@
       "metrics": [
         {
           "dimension": "Tool manipulation vectors",
-          "implemented": 84,
+          "implemented": 186,
           "target": 144,
-          "pct": 58.3
+          "pct": 100
+        },
+        {
+          "dimension": "Dedicated sandbox-evasion vectors",
+          "implemented": 10,
+          "target": null,
+          "pct": null
         }
       ]
     },
@@ -210,13 +252,25 @@
       ]
     },
     "AILuminate": {
-      "status": "open",
+      "status": "closed",
       "metrics": [
         {
           "dimension": "Resilience gap metric",
-          "implemented": 0,
-          "target": null,
-          "pct": null
+          "implemented": 1,
+          "target": 1,
+          "pct": 100.0
+        },
+        {
+          "dimension": "Baseline performance measurement",
+          "implemented": 1,
+          "target": 1,
+          "pct": 100.0
+        },
+        {
+          "dimension": "Under-attack performance measurement",
+          "implemented": 1,
+          "target": 1,
+          "pct": 100.0
         }
       ]
     },
@@ -241,16 +295,22 @@
       "status": "open",
       "metrics": [
         {
-          "dimension": "Attack categories vs tactics",
-          "implemented": 11,
-          "target": 15,
-          "pct": 73.3
+          "dimension": "ATLAS tactics covered",
+          "implemented": 16,
+          "target": 16,
+          "pct": 100.0
         },
         {
-          "dimension": "ATLAS technique mapping",
-          "implemented": 0,
-          "target": null,
-          "pct": null
+          "dimension": "ATLAS techniques mapped",
+          "implemented": 72,
+          "target": 86,
+          "pct": 83.7
+        },
+        {
+          "dimension": "Agent-specific techniques covered",
+          "implemented": 14,
+          "target": 14,
+          "pct": 100.0
         }
       ]
     }
