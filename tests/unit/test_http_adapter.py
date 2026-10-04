@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import httpx
 import pytest
@@ -18,6 +18,7 @@ from ziran.infrastructure.adapters.protocols import ProtocolError
 
 if TYPE_CHECKING:
     from ziran.application.attacks.library import AttackLibrary
+    from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 
 # ──────────────────────────────────────────────────────────────────────
 # ProtocolError
@@ -742,6 +743,74 @@ class TestProbeDiscoverExtended:
         adapter._handler = handler
         caps = await adapter._probe_discover()
         assert caps == []
+
+
+_SLEEP = "ziran.infrastructure.adapters.http_adapter.asyncio.sleep"
+
+
+@pytest.mark.unit
+class TestProbeDelay:
+    """Tests for the configurable delay between discovery probes (spec 051)."""
+
+    @staticmethod
+    def _adapter(handler: AsyncMock, **kwargs: float) -> HttpAgentAdapter:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com", **kwargs))
+        adapter._handler = handler
+        return adapter
+
+    async def test_sleeps_between_probes_only(self) -> None:
+        from ziran.infrastructure.adapters.http_adapter import _DISCOVERY_PROBES
+
+        handler = AsyncMock()
+        handler.send.return_value = {"content": ""}
+        with patch(_SLEEP, new_callable=AsyncMock) as sleep:
+            await self._adapter(handler, probe_delay=1.5)._probe_discover()
+        assert sleep.await_count == len(_DISCOVERY_PROBES) - 1
+        assert sleep.await_args_list == [call(1.5)] * (len(_DISCOVERY_PROBES) - 1)
+        assert handler.send.await_count == len(_DISCOVERY_PROBES)
+
+    async def test_sleep_order(self) -> None:
+        events: list[str] = []
+
+        async def send(_: str) -> dict[str, str]:
+            events.append("send")
+            return {"content": "- search_files: searches files\n"}
+
+        async def sleep(_: float) -> None:
+            events.append("sleep")
+
+        handler = AsyncMock()
+        handler.send.side_effect = send
+        with patch(_SLEEP, new_callable=AsyncMock) as sleep_mock:
+            sleep_mock.side_effect = sleep
+            await self._adapter(handler)._probe_discover()
+        assert events == ["send", "sleep", "send", "sleep", "send"]
+
+    async def test_default_delay(self) -> None:
+        handler = AsyncMock()
+        handler.send.return_value = {"content": ""}
+        with patch(_SLEEP, new_callable=AsyncMock) as sleep:
+            await self._adapter(handler)._probe_discover()
+        assert sleep.await_count > 0
+        assert all(c == call(0.5) for c in sleep.await_args_list)
+
+    async def test_zero_delay_never_sleeps(self) -> None:
+        handler = AsyncMock()
+        handler.send.return_value = {"content": ""}
+        with patch(_SLEEP, new_callable=AsyncMock) as sleep:
+            await self._adapter(handler, probe_delay=0)._probe_discover()
+        sleep.assert_not_awaited()
+        assert handler.send.await_count == 3
+
+    async def test_failed_probes_still_paced(self) -> None:
+        handler = AsyncMock()
+        handler.send.side_effect = ProtocolError("fail")
+        with patch(_SLEEP, new_callable=AsyncMock) as sleep:
+            caps = await self._adapter(handler)._probe_discover()
+        assert caps == []
+        assert sleep.await_count == 2
 
 
 # ──────────────────────────────────────────────────────────────────────

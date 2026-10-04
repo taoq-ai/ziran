@@ -69,6 +69,7 @@ retry:
 
 # Timeout in seconds
 timeout: 30
+probe_delay: 0.5    # Seconds between discovery probes (0 disables)
 
 # Custom headers (optional)
 headers:
