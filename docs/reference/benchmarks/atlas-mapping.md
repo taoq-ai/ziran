@@ -97,14 +97,24 @@ JSON output is deterministic (stable key + array ordering, no timestamps) so dow
 
 ## Coverage scope (honest)
 
-ZIRAN's library does not cover **every** ATLAS tactic uniformly. Two tactics have limited coverage by design:
+`AML.TA0000` AI Model Access and `AML.TA0001` AI Attack Staging describe adversary activities (getting access to a model, preparing an attack) rather than outcomes on a target, so their coverage needs a note. The numbers below come from `uv run python benchmarks/atlas_coverage.py --json`; the script is the source of truth and the figures will drift as vectors are added.
 
-| Tactic | ZIRAN coverage | Why |
-|---|---|---|
-| `AML.TA0000` AI Model Access | Partial | ZIRAN tests *through* the inference API rather than attempting to acquire AI model access as an adversary goal. |
-| `AML.TA0001` AI Attack Staging | Partial | ZIRAN *executes* adversarial attacks; it is not an attacker's staging workflow. |
+| Tactic | Technique | Vectors | Basis |
+|---|---|---:|---|
+| `AML.TA0000` AI Model Access (3/4) | `AML.T0040` AI Model Inference API Access | 468 | Premise of every scan (see below) |
+| | `AML.T0047` AI-Enabled Product or Service | 457 | Premise of every scan (see below) |
+| | `AML.T0044` Full AI Model Access | 2 | Model-theft vectors (`mt_systematic_extraction`, `mt_deterministic_weight_approximation`) |
+| | `AML.T0041` Physical Environment Access | 0 | Out of scope: ZIRAN tests software agents over their APIs and has no physical access to the deployment |
+| `AML.TA0001` AI Attack Staging (7/7) | `AML.T0042` Verify Attack | 384 | Prompt-injection, indirect-injection, tool-manipulation, MCP, A2A and harmful-task vectors that check whether the attack landed |
+| | `AML.T0043` Craft Adversarial Data | 175 | Prompt-injection, jailbreak, harmful-task, MCP and A2A vectors (the payload is the crafted adversarial data) |
+| | `AML.T0018` Manipulate AI Model (and `.000` / `.001` / `.002`) | 19 / 17 / 17 / 13 | Memory-poisoning, supply-chain, A2A and multi-turn vectors; shared with `AML.TA0006` Persistence |
+| | `AML.T0005` Create Proxy AI Model | 1 | Model extraction (`mt_systematic_extraction`) |
 
-See issue [#264](https://github.com/taoq-ai/ziran/issues/264) for the follow-up work that extends coverage into these two tactics via dedicated reconnaissance and staging vectors.
+`AML.T0040` and `AML.T0047` coverage comes from the premise that every ZIRAN scan reaches the target through its inference API, inside an AI-enabled product or service. It is not a separate model-access attack, so read these two counts as context, not as a distinct capability.
+
+The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 661-vector library); the table above therefore lists techniques.
+
+No dedicated staging or reconnaissance vectors are added for AI Attack Staging: adversary-side staging has no observable outcome on a target, and tagging vectors with it would only pad counts.
 
 ## Updating the snapshot
 
