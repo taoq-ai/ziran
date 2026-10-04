@@ -30,6 +30,7 @@ from ziran.application.agent_scanner.checkpoint import (
     IncrementalCheckpointer,
     load_resume_state,
 )
+from ziran.application.agent_scanner.enables_links import enabling_capabilities
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
 from ziran.application.agent_scanner.progress import (
     ProgressEmitter as ProgressEmitter,
@@ -639,8 +640,9 @@ class AgentScanner:
     def _update_graph_from_phase(self, result: PhaseResult) -> None:
         """Update the knowledge graph with phase execution results.
 
-        Adds phase node, links vulnerabilities via proper edges so that
-        ``find_all_attack_paths`` can discover capability → vulnerability paths.
+        Adds phase node, links each vulnerability from the capabilities implicated
+        in it (see ``enables_links``) so that ``find_all_attack_paths`` can
+        discover capability → vulnerability paths.
 
         Args:
             result: The phase result to record in the graph.
@@ -664,16 +666,10 @@ class AgentScanner:
                 EdgeType.DISCOVERED_IN,
             )
 
-            # For every capability in the graph, create an ENABLES edge
-            # to the vulnerability so that attack-path search can traverse
-            # capability → vulnerability.  Previously this was gated on
-            # ``dangerous`` which left most graphs disconnected.
-            for cap_id, _cap_data in self.graph.get_nodes_by_type(NodeType.CAPABILITY):
+            evidence = result.artifacts.get(vuln_id, {}).get("evidence", {})
+            for cap_id in enabling_capabilities(self.graph, evidence):
                 self.graph.add_edge(
-                    cap_id,
-                    vuln_id,
-                    EdgeType.ENABLES,
-                    {"phase": result.phase.value},
+                    cap_id, vuln_id, EdgeType.ENABLES, {"phase": result.phase.value}
                 )
 
     # ── Backward-compatible delegation methods ───────────────────────────
