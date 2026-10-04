@@ -15,6 +15,7 @@ from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.domain.entities.phase import CampaignResult, PhaseResult, compute_resilience
 
 if TYPE_CHECKING:
+    from ziran.application.agent_scanner.scan_cache import ScanCache
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
     from ziran.application.usage import CampaignBudget
     from ziran.domain.entities.attack import AttackResult, TokenUsage
@@ -73,6 +74,7 @@ class ResultBuilder:
         defence_profile: DefenceProfile | None = None,
         judge_tiers: dict[str, int] | None = None,
         usage: CampaignBudget | None = None,
+        scan_cache: ScanCache | None = None,
     ) -> tuple[CampaignResult, list[Any]]:
         """Build the final campaign result.
 
@@ -115,6 +117,8 @@ class ResultBuilder:
             metadata["usage"] = usage.summary().model_dump(mode="json")
             if usage.stopped:
                 metadata["status"] = "budget_exceeded"
+        if scan_cache is not None:  # incremental cache counts (spec 049); absent when off
+            metadata["scan_cache"] = scan_cache.stats.model_dump()
 
         if baseline_score is not None and post_score is not None:
             metadata["utility"] = _compute_utility(

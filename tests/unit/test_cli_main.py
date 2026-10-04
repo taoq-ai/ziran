@@ -1575,3 +1575,164 @@ class TestLangGraphFramework:
         assert result.exit_code == 0, result.output
         assert "tool_read_file" in result.output
         assert "tool_http_request" in result.output
+
+
+# ── Spec 049: incremental scan cache on `ziran scan` ─────────────────
+
+
+@pytest.mark.unit
+class TestScanIncrementalWiring:
+    """`ziran scan --incremental/--no-cache` wiring (spec 049 US4.4-4.7, US5.1-5.3)."""
+
+    @pytest.fixture
+    def scanner_cls(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock:
+        from ziran.domain.entities.phase import CampaignResult
+
+        monkeypatch.chdir(tmp_path)
+        Path("agent.py").write_text("agent_executor = None\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "ziran.infrastructure.llm.create_llm_client",
+            lambda **kw: _cli_usage_stub(kw["model"]),
+        )
+        monkeypatch.setattr("ziran.interfaces.cli.main.load_agent_adapter", MagicMock())
+        monkeypatch.setattr("ziran.interfaces.cli.main.build_strategy", MagicMock())
+        mock_asyncio = MagicMock()
+        mock_asyncio.run.return_value = CampaignResult.model_validate(_minimal_campaign_result())
+        monkeypatch.setattr("ziran.interfaces.cli.main.asyncio", mock_asyncio)
+        cls = MagicMock()
+        monkeypatch.setattr("ziran.interfaces.cli.main.AgentScanner", cls)
+        return cls
+
+    @staticmethod
+    def _scan(runner: CliRunner, *extra: str, agent_path: str = "agent.py") -> Any:
+        args = ["scan", "--framework", "langchain", "--agent-path", agent_path, *extra]
+        return runner.invoke(cli, [*args, "--output", "out"])
+
+    @staticmethod
+    def _config(scanner_cls: MagicMock) -> dict[str, Any]:
+        config: dict[str, Any] = scanner_cls.call_args.kwargs["config"]
+        return config
+
+    def test_off_by_default(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        result = self._scan(runner)
+        assert result.exit_code == 0, result.output
+        assert "scan_cache" not in self._config(scanner_cls)
+        assert "Incremental" not in result.output
+
+    def test_incremental_builds_cache(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        import hashlib
+
+        from ziran.application.agent_scanner.scan_cache import DEFAULT_CACHE_DIR, ScanCache
+
+        result = self._scan(runner, "--incremental")
+        assert result.exit_code == 0, result.output
+        cache = self._config(scanner_cls)["scan_cache"]
+        assert isinstance(cache, ScanCache)
+        assert cache.root == DEFAULT_CACHE_DIR
+        expected = hashlib.sha256(Path("agent.py").read_bytes()).hexdigest()
+        assert cache.context.target_sha256 == expected
+        assert cache.context.framework == "langchain"
+        assert "Incremental" in result.output
+        assert "on" in result.output
+        assert not Path(".ziran/scan_cache").exists()
+
+    def test_no_cache_wins(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        result = self._scan(runner, "--incremental", "--no-cache")
+        assert result.exit_code == 0, result.output
+        assert "scan_cache" not in self._config(scanner_cls)
+        assert "off (--no-cache)" in result.output
+
+    def test_no_cache_alone_is_noop(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        result = self._scan(runner, "--no-cache")
+        assert result.exit_code == 0, result.output
+        assert "scan_cache" not in self._config(scanner_cls)
+        assert "Incremental" not in result.output
+
+    def test_word_shuffle_disables(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        result = self._scan(runner, "--incremental", "--encoding", "word_shuffle")
+        assert result.exit_code == 0, result.output
+        assert "scan_cache" not in self._config(scanner_cls)
+        assert "--incremental disabled: word_shuffle encoding is randomised" in _flat(result.output)
+
+    def test_llm_adaptive_disables(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        result = self._scan(
+            runner, "--incremental", "--strategy", "llm-adaptive", "--llm-provider", "litellm"
+        )
+        assert result.exit_code == 0, result.output
+        assert "scan_cache" not in self._config(scanner_cls)
+        assert "--incremental disabled: the llm-adaptive strategy is not deterministic" in _flat(
+            result.output
+        )
+
+    def test_directory_target_disables(self, runner: CliRunner, scanner_cls: MagicMock) -> None:
+        Path("agent_dir").mkdir()
+        result = self._scan(runner, "--incremental", agent_path="agent_dir")
+        assert result.exit_code == 0, result.output
+        assert "scan_cache" not in self._config(scanner_cls)
+        assert "--incremental disabled: the target path is not a file" in _flat(result.output)
+        assert not Path(".ziran/scan_cache").exists()
+
+
+@pytest.mark.unit
+class TestCacheClear:
+    """`ziran cache clear` (spec 049 US5.4)."""
+
+    def test_clears_entries(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        entry_dir = Path(".ziran/scan_cache/k")
+        entry_dir.mkdir(parents=True)
+        (entry_dir / "a.json").write_text("{}")
+        (entry_dir / "b.json").write_text("{}")
+        result = runner.invoke(cli, ["cache", "clear"])
+        assert result.exit_code == 0, result.output
+        assert "Removed 2 cached result(s) from .ziran/scan_cache" in result.output
+        assert not Path(".ziran/scan_cache").exists()
+
+    def test_missing_dir(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["cache", "clear"])
+        assert result.exit_code == 0, result.output
+        assert "Removed 0 cached result(s)" in result.output
+
+    def test_os_error_is_click_error(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _boom(root: Any = None) -> int:
+            raise OSError("permission denied")
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("ziran.application.agent_scanner.scan_cache.clear_cache", _boom)
+        result = runner.invoke(cli, ["cache", "clear"])
+        assert result.exit_code == 1
+        assert "permission denied" in result.output
+
+    def test_help_lists_clear(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["cache", "--help"])
+        assert result.exit_code == 0
+        assert "clear" in result.output
+
+
+@pytest.mark.unit
+class TestDisplayScanCache:
+    """Incremental Cache summary row (spec 049 FR-010)."""
+
+    def test_row_present(self) -> None:
+        out = TestDisplayUsage._render({"scan_cache": {"executed": 1, "cached": 1234}})
+        assert "Incremental Cache" in out
+        assert "1,234 cached · 1 executed" in out
+
+    def test_row_absent(self) -> None:
+        assert "Incremental Cache" not in TestDisplayUsage._render({})
+
+    def test_json_dump_keeps_metadata(self) -> None:
+        from ziran.domain.entities.phase import CampaignResult
+        from ziran.interfaces.cli.reports import _dump_campaign_result
+
+        data = _minimal_campaign_result()
+        data["metadata"] = {"scan_cache": {"executed": 1, "cached": 4}}
+        dumped = _dump_campaign_result(CampaignResult.model_validate(data))
+        assert dumped["metadata"]["scan_cache"] == {"executed": 1, "cached": 4}

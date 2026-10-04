@@ -173,7 +173,7 @@ Expand framework reach and unlock enterprise-facing positioning: incremental sca
 - [ ] **AutoGen adapter** — Microsoft's multi-agent framework ([#285](https://github.com/taoq-ai/ziran/issues/285))
 - [ ] **Anthropic SDK native adapter** — direct path, no LangChain wrapping ([#286](https://github.com/taoq-ai/ziran/issues/286))
 - [ ] **Langfuse API trace ingestor** — live pulls, not file exports ([#287](https://github.com/taoq-ai/ziran/issues/287))
-- [ ] **Incremental / diff scanning** — only re-test changed vectors; unlock pre-commit-hook and fast-CI-gate use ([#288](https://github.com/taoq-ai/ziran/issues/288))
+- [x] **Incremental / diff scanning** — only re-test changed vectors; unlock pre-commit-hook and fast-CI-gate use ([#288](https://github.com/taoq-ai/ziran/issues/288))
 - [ ] **Compliance evidence bundles** — EU AI Act / NIST AI RMF / ISO 42001 mapping + export ([#289](https://github.com/taoq-ai/ziran/issues/289))
 
 ### Opportunistic — Not in a theme
