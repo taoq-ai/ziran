@@ -183,7 +183,7 @@ These don't block a milestone but are worth landing when someone has a slot:
 - [ ] **Attack library community submission workflow** — clear contributor path, PR template, CI schema linter ([#290](https://github.com/taoq-ai/ziran/issues/290)) — `good first issue`
 - [ ] **Supply-chain signing** — cosign signatures on releases, CycloneDX SBOM, SLSA provenance ([#291](https://github.com/taoq-ai/ziran/issues/291))
 - [ ] **`ziran init` scaffolding command** — one-liner onboarding ([#292](https://github.com/taoq-ai/ziran/issues/292)) — `good first issue`
-- [ ] **Expand ATLAS coverage to remaining tactics** — AI Model Access, AI Attack Staging ([#264](https://github.com/taoq-ai/ziran/issues/264))
+- [x] **Expand ATLAS coverage to remaining tactics** — AI Model Access, AI Attack Staging ([#264](https://github.com/taoq-ai/ziran/issues/264))
 - [ ] **asqav signing integration sketch** — downstream signing of ZIRAN outputs ([#259](https://github.com/taoq-ai/ziran/issues/259))
 - [x] **HTML report graph size cap** — perf improvement for large campaigns ([#217](https://github.com/taoq-ai/ziran/issues/217))
 
