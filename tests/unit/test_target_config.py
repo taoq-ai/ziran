@@ -386,3 +386,31 @@ class TestTargetConfigOpenAI:
         config = load_target_config(config_file)
         assert config.openai is not None
         assert config.openai.model == "gpt-4"
+
+
+@pytest.mark.unit
+class TestProbeDelayConfig:
+    """Tests for TargetConfig.probe_delay (spec 051)."""
+
+    def test_default(self) -> None:
+        assert TargetConfig(url="https://x.com").probe_delay == 0.5
+
+    @pytest.mark.parametrize("value", [0, 30])
+    def test_bounds_accepted(self, value: float) -> None:
+        assert TargetConfig(url="https://x.com", probe_delay=value).probe_delay == value
+
+    @pytest.mark.parametrize("value", [-0.1, 30.01])
+    def test_bounds_rejected(self, value: float) -> None:
+        with pytest.raises(ValidationError):
+            TargetConfig(url="https://x.com", probe_delay=value)
+
+    def test_yaml_load(self, tmp_path: Path) -> None:
+        path = tmp_path / "target.yaml"
+        path.write_text("url: https://x.com\nprobe_delay: 2\n")
+        assert load_target_config(path).probe_delay == 2.0
+
+    def test_yaml_rejects_negative(self, tmp_path: Path) -> None:
+        path = tmp_path / "target.yaml"
+        path.write_text("url: https://x.com\nprobe_delay: -1\n")
+        with pytest.raises(TargetConfigError):
+            load_target_config(path)

@@ -10,7 +10,7 @@ in [plan.md §Public contract](plan.md#public-contract). Existing tests MUST NOT
 
 ## Phase 1 - Config field (FR-001, FR-004; US1.3, US1.5, US3)
 
-- [ ] T001 [P] Failing tests in `tests/unit/test_target_config.py`, new class
+- [x] T001 [P] Failing tests in `tests/unit/test_target_config.py`, new class
       `TestProbeDelayConfig` (`@pytest.mark.unit`):
       - default: `TargetConfig(url="https://x.com").probe_delay == 0.5`;
       - bounds: `probe_delay=0` and `probe_delay=30` accepted; `-0.1` and `30.01` raise
@@ -19,12 +19,12 @@ in [plan.md §Public contract](plan.md#public-contract). Existing tests MUST NOT
         `load_target_config(path).probe_delay == 2.0`;
       - YAML rejection: same with `probe_delay: -1` -> `pytest.raises(TargetConfigError)`.
       Run `uv run pytest tests/unit/test_target_config.py -k ProbeDelay` and confirm failures.
-- [ ] T002 Add `TargetConfig.probe_delay` in `ziran/domain/entities/target.py` exactly per plan §1
+- [x] T002 Add `TargetConfig.probe_delay` in `ziran/domain/entities/target.py` exactly per plan §1
       (after `timeout`). T001 passes.
 
 ## Phase 2 - Pacing in `_probe_discover` (FR-002, FR-003; US1.1, US1.2, US1.4, US2)
 
-- [ ] T003 Failing tests in `tests/unit/test_http_adapter.py`, new class `TestProbeDelay`
+- [x] T003 Failing tests in `tests/unit/test_http_adapter.py`, new class `TestProbeDelay`
       (`@pytest.mark.unit`), placed after `TestProbeDiscoverExtended`; each builds
       `HttpAgentAdapter(TargetConfig(url="https://x.com", probe_delay=...))`, assigns an
       `AsyncMock` handler to `adapter._handler`, and patches sleep with `AsyncMock`:
@@ -42,7 +42,7 @@ in [plan.md §Public contract](plan.md#public-contract). Existing tests MUST NOT
       Import `_DISCOVERY_PROBES` from `ziran.infrastructure.adapters.http_adapter` rather than
       hard-coding 3. Run `uv run pytest tests/unit/test_http_adapter.py -k ProbeDelay` and confirm
       failures (no sleep awaited today).
-- [ ] T004 Implement the guarded sleep in `HttpAgentAdapter._probe_discover`
+- [x] T004 Implement the guarded sleep in `HttpAgentAdapter._probe_discover`
       (`ziran/infrastructure/adapters/http_adapter.py`) per plan §2: `enumerate` the probes,
       `if index and delay: await asyncio.sleep(delay)` outside the `try`; keep
       `except ProtocolError: continue`; add one docstring line. T003 passes; T001 still passes;
@@ -50,12 +50,12 @@ in [plan.md §Public contract](plan.md#public-contract). Existing tests MUST NOT
 
 ## Phase 3 - Docs (FR-005)
 
-- [ ] T005 [P] `docs/guides/remote-agents.md` `## Retry & Timeout`: add
+- [x] T005 [P] `docs/guides/remote-agents.md` `## Retry & Timeout`: add
       `probe_delay: 0.5    # Seconds between discovery probes (0 disables)` after `timeout: 30`,
       and one sentence below the block: 0.5 s default between the three discovery probes, about
       1 s added per discovery run versus earlier releases, `probe_delay: 0` restores back-to-back
       probes.
-- [ ] T006 [P] `docs/concepts/remote-scanning.md`: add the same YAML line after `timeout: 30` in
+- [x] T006 [P] `docs/concepts/remote-scanning.md`: add the same YAML line after `timeout: 30` in
       the configuration example.
 
 ## Phase 4 - Gates (FR-006, SC-003)
