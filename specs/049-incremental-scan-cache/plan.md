@@ -37,8 +37,8 @@ the CLI summary. The scanner only forwards the cache object and the capabilities
 dicts) and one over the vector JSON, plus one small file read (hit) or write (miss), off the event
 loop via `asyncio.to_thread`.
 **Constraints**: `scanner.py` is 750 lines (cap 750, `test_scanner_size.py`): net-zero or negative
-diff. Any other `agent_scanner` module <= 400 lines. `attack_executor.py` (395) and
-`checkpoint.py` are not touched. mypy strict; line length 100. No prompt/response text in logs.
+diff. Any other `agent_scanner` module <= 400 lines. `attack_executor.py` (395) changes only to
+record `evidence["prompt_errors"]` (FR-008, review round 1); `checkpoint.py` is not touched. mypy strict; line length 100. No prompt/response text in logs.
 **Measured today** (`develop` @ cff8b7f, `wc -l`): `scanner.py` 750, `phase_executor.py` 350,
 `result_builder.py` 155, `attack_executor.py` 395, `checkpoint.py` 316.
 

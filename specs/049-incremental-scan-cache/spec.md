@@ -211,7 +211,11 @@ Reusing the checkpoint `tested_vector_ids` exclude path would drop cached succes
 - **FR-007 (miss)**: on a miss the vector executes as today and the result is passed to
   `ScanCache.record`, which counts it as executed and writes it only when `is_cacheable(result)`.
 - **FR-008 (never cached)**: `is_cacheable(result)` is `result.error is None and (result.successful
-  or result.agent_response is not None)`; `word_shuffle` encoding and the `llm-adaptive`
+  or (result.agent_response is not None and not result.evidence.get("prompt_errors")))`.
+  `AttackExecutor` and `TacticExecutor` swallow per-prompt / per-turn timeouts, connection errors
+  and other exceptions (and `AttackExecutor` skips error-sentinel responses); an unsuccessful
+  result now carries `evidence["prompt_errors"] = n` when any of those happened, so a vector whose
+  later prompt failed transiently is never cached as "not vulnerable" (review round 1). `word_shuffle` encoding and the `llm-adaptive`
   strategy disable the cache (CLI) and `ScanCache` rejects a `word_shuffle` context; unsafe vector
   ids are never cached.
 - **FR-009 (budget order)**: the spec-047 budget check stays first inside the concurrency slot;
@@ -229,7 +233,8 @@ Reusing the checkpoint `tested_vector_ids` exclude path would drop cached succes
   `PhaseExecutor` and `ResultBuilder.build`, and `capabilities` to `PhaseExecutor.execute`; the
   diff is net-zero or negative; `_discover_and_map_capabilities` is not touched.
 - **FR-014 (size guards)**: `scanner.py` <= 750 lines; `scan_cache.py`, `phase_executor.py`,
-  `result_builder.py` <= 400 lines; `attack_executor.py` and `checkpoint.py` not touched.
+  `result_builder.py` and `attack_executor.py` <= 400 lines; `attack_executor.py` and
+  `tactics.py` change only to record `prompt_errors` (FR-008); `checkpoint.py` not touched.
 - **FR-015 (docs)**: `docs/guides/incremental-scanning.md` (what is hashed, what is never cached,
   flags, counts, `ziran cache clear`, the staleness warning in plain words, "do not use for
   release gates", "do not commit `.ziran/scan_cache/`", a pre-commit recipe and a CI recipe in
@@ -277,8 +282,8 @@ Reusing the checkpoint `tested_vector_ids` exclude path would drop cached succes
 - **SC-002**: a cached success is counted in `total_vulnerabilities` (US3.1 test).
 - **SC-003**: `tests/unit/application/test_scanner_size.py` passes; `git diff --numstat
   origin/develop -- ziran/application/agent_scanner/scanner.py` shows deletions >= insertions;
-  `_discover_and_map_capabilities` unchanged; `attack_executor.py` and `checkpoint.py` absent
-  from the diff.
+  `_discover_and_map_capabilities` unchanged; `attack_executor.py` <= 400 lines and changed only
+  for FR-008 `prompt_errors`; `checkpoint.py` absent from the diff.
 - **SC-004**: all gates pass: `uv run ruff check .`, `uv run ruff format --check .`,
   `uv run mypy ziran/`, `uv run pytest --cov=ziran` (>= 85%).
 - **SC-005 (unverified offline)**: wall-clock speed-up on a real remote target and the real

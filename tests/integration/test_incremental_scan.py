@@ -153,3 +153,45 @@ async def test_no_cache_key_is_unchanged_behaviour(tmp_path: Path) -> None:
     assert len(adapter.invocations) == 5
     assert all("cached" not in r["evidence"] for r in result.attack_results)
     assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
+
+
+_TWO_PROMPT_YAML = """
+vectors:
+  - id: inc_two
+    name: Two prompts
+    category: prompt_injection
+    target_phase: reconnaissance
+    severity: medium
+    description: one prompt fails transiently
+{tactic}    prompts:
+      - template: "first prompt"
+        success_indicators: ["unlikely-indicator-xyz"]
+      - template: "second prompt"
+        success_indicators: ["unlikely-indicator-xyz"]
+"""
+
+
+class _FlakyAdapter(MockAgentAdapter):
+    async def invoke(self, message: str, **kwargs: Any) -> Any:
+        if message == "second prompt":
+            raise ConnectionError("transient")
+        return await super().invoke(message, **kwargs)
+
+
+@pytest.mark.parametrize("tactic", ["", "    tactic: crescendo\n"])
+async def test_swallowed_prompt_error_is_not_cached(tmp_path: Path, tactic: str) -> None:
+    vectors = tmp_path / "vectors"
+    vectors.mkdir()
+    (vectors / "two.yaml").write_text(_TWO_PROMPT_YAML.format(tactic=tactic))
+    root = tmp_path / "scan_cache"
+
+    first = await _scan(vectors, root, _FlakyAdapter())
+    assert first.metadata["scan_cache"] == {"executed": 1, "cached": 0}
+    assert first.attack_results[0]["evidence"]["prompt_errors"] == 1
+    assert not list(root.rglob("*.json"))
+
+    adapter = MockAgentAdapter(vulnerable=True)
+    second = await _scan(vectors, root, adapter)
+    assert second.metadata["scan_cache"] == {"executed": 1, "cached": 0}
+    assert adapter.invocations
+    assert second.total_vulnerabilities == 1

@@ -77,7 +77,9 @@ A result is reused only when all of these are unchanged:
 
 - Results that carry an error, and failed attacks without any agent response (a connection
   failure looks like that; caching it would hide a finding).
-- Attacks that timed out.
+- Failed attacks in which any prompt or multi-turn turn timed out, raised a connection or other
+  error, or got an error response, even when another prompt was answered. The vector runs again
+  next time.
 - Vectors whose id is not a safe file name (letters, digits, `_`, `.`, `-`, at most 128
   characters).
 - Scans with `--encoding word_shuffle` (the shuffle is random) and scans with
@@ -120,6 +122,8 @@ jobs:
           key: ziran-scan-${{ github.head_ref }}-${{ github.sha }}
           restore-keys: ziran-scan-${{ github.head_ref }}-
       - run: pip install ziran
+      # Remote target: see the "stale cache hides findings" warning above. restore-keys can
+      # restore a cache that is days old, so target-side changes since then are not seen.
       - run: ziran scan --target target.yaml --incremental
 
   release-scan:
@@ -152,9 +156,12 @@ committed, so do not ignore the whole `.ziran/` directory.)
   the modules it imports.
 - **Editable installs.** The ZIRAN version is the installed package version; editing ZIRAN's own
   source in a development checkout does not invalidate the cache. Run `ziran cache clear`.
-- **Degraded judge verdicts.** When an LLM judge call times out, the detector pipeline falls back
-  silently, and that verdict can be cached. Use `--no-cache` or `ziran cache clear` if a judge
+- **Degraded judge verdicts.** When an LLM judge call fails, the detector pipeline falls back
+  silently to a neutral score, and that verdict can be cached. Use `--no-cache` or `ziran cache clear` if a judge
   outage hit a run.
+- **Conversation state.** The adapter is not reset between attacks in a phase. On a partial hit the
+  re-executed vectors see a shorter conversation history than in a full run, so results for
+  stateful agents can differ from a full scan.
 - **Counts.** `executed` counts vectors run in this invocation, `cached` counts reused results.
   Vectors skipped by a token budget, or restored from a checkpoint with `--resume`, are in
   neither.

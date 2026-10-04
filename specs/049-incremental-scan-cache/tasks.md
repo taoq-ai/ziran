@@ -127,8 +127,8 @@ Shared test helpers (defined in the test file that first needs them; copied, not
 - [x] T009 Implement plan §4 in `scanner.py`: exactly the listed five edits. Verify
       `wc -l ziran/application/agent_scanner/scanner.py` <= 750 and
       `git diff --numstat origin/develop -- ziran/application/agent_scanner/scanner.py` shows
-      deletions >= insertions; `_discover_and_map_capabilities`, `attack_executor.py` and
-      `checkpoint.py` untouched. T008, `tests/unit/application/test_scanner_size.py` and
+      deletions >= insertions; `_discover_and_map_capabilities` and `checkpoint.py` untouched
+      (`attack_executor.py` changes only for FR-008, see T016). T008, `tests/unit/application/test_scanner_size.py` and
       `tests/unit/test_scanner.py` pass.
 
 ## Phase 5 - CLI (FR-010, FR-011, FR-012, US1, US4.4-4.7, US5)
@@ -187,6 +187,11 @@ Shared test helpers (defined in the test file that first needs them; copied, not
       (report if it is not; do not claim it).
 - [x] T015 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%). `git diff --stat origin/develop` shows no `uv.lock`,
-      no `attack_executor.py`, no `checkpoint.py`, no `CHANGELOG.md`, and `scanner.py` with
+      no `checkpoint.py`, no `CHANGELOG.md`, and `scanner.py` with
       deletions >= insertions. PR body (against `develop`): the commands run and their real
       output, the integration test cached ratio actually observed, SC-005 unverified.
+- [x] T016 Review round 1: `AttackExecutor` and `TacticExecutor` record swallowed prompt/turn
+      failures as `evidence["prompt_errors"]` on unsuccessful results and `is_cacheable` refuses
+      them (FR-008). Regression: `test_swallowed_prompt_error_is_not_cached` (single-turn and
+      crescendo, prompt 2 raises `ConnectionError`: nothing written, the next run re-executes and
+      finds the vulnerability) and `TestCacheability::test_swallowed_prompt_errors_never_cached`.

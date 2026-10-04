@@ -147,8 +147,13 @@ def vector_key(campaign_key: str, vector: AttackVector) -> str:
 
 
 def is_cacheable(result: AttackResult) -> bool:
-    """Errors and response-less failures are never cached (they would hide findings)."""
-    return result.error is None and (result.successful or result.agent_response is not None)
+    """Errors, swallowed prompt/turn failures and response-less failures are never
+    cached (they would hide findings)."""
+    if result.error is not None:
+        return False
+    if result.successful:
+        return True
+    return result.agent_response is not None and not result.evidence.get("prompt_errors")
 
 
 def cache_disabled_reason(

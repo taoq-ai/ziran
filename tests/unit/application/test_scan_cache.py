@@ -221,6 +221,12 @@ class TestCacheability:
     def test_error_never_cached(self) -> None:
         assert not is_cacheable(_result(error="boom"))
 
+    def test_swallowed_prompt_errors_never_cached(self) -> None:
+        assert not is_cacheable(_result(successful=False, evidence={"prompt_errors": 1}))
+
+    def test_success_with_prompt_errors_cached(self) -> None:
+        assert is_cacheable(_result(evidence={"prompt_errors": 1}))
+
     def test_unsuccessful_without_response(self) -> None:
         assert not is_cacheable(_result(successful=False, agent_response=None))
 
