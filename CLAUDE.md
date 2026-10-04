@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-10-03
+Auto-generated from all feature plans. Last updated: 2026-10-04
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -56,6 +56,8 @@ Auto-generated from all feature plans. Last updated: 2026-10-03
 - shipped `ziran/infrastructure/llm/prices.yaml` plus optional operator `.ziran/prices.yaml`; usage ledger snapshot inside the existing `<output>/.checkpoint.json`. (047-token-budget-cost-cap)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies. (046-ci-suppression-baseline)
 - one user-committed YAML file, read only by `ziran ci`. (046-ci-suppression-baseline)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + pytest, `fastapi.testclient.TestClient` (fastapi from the `ui` extra), stdlib `unittest.mock`. Tests only, no production change. No new dependencies. (052-web-route-handler-tests)
+- N/A (no database, no files). (052-web-route-handler-tests)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -75,10 +77,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 052-web-route-handler-tests: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + pytest, `fastapi.testclient.TestClient` (fastapi from the `ui` extra), stdlib `unittest.mock`. Tests only, no production change. No new dependencies.
 - 047-token-budget-cost-cap: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (usage + price models), PyYAML `safe_load` (price table), Click (scan flags); reuses `BaseLLMClient`, `many_shot.estimate_tokens`, the checkpoint/resume path, `PhaseExecutor`, `ResultBuilder`. No new dependencies.
 - 046-ci-suppression-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies.
-- 042-semantic-embedding-detection: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `math`/`hashlib`/`asyncio`, existing optional `llm` extra (litellm `aembedding`). No new dependencies.
-- 044-claude-code-plugin-guide: Added Markdown (MkDocs Material); Python 3.11+ test and example stdio server (CI matrix 3.11, 3.12, 3.13) + None new; shipped `ziran audit` / `analyze-traces` / `watch-registry` CLI, Click `CliRunner`, stdlib `json`/`sys`
 
 
 <!-- MANUAL ADDITIONS START -->

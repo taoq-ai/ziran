@@ -91,7 +91,7 @@
 - [X] T032 Run `uv run ruff format .` and fix any formatting issues
 - [X] T033 Run `uv run mypy ziran/` and fix any type errors
 - [X] T034 Run `uv run pytest --cov=ziran` and verify all tests pass
-- [ ] T035 Create unit tests for library and configs routes in `tests/unit/test_library_api.py` and `tests/unit/test_configs_api.py` — **NOT DONE**. The feature shipped without these; neither file exists. `test_web_schemas.py`/`test_web_models.py` cover schemas and models only, not the route handlers. Tracked as a follow-up (see issue #368).
+- [X] T035 Create unit tests for library and configs routes in `tests/unit/test_library_api.py` and `tests/unit/test_configs_api.py` (done in spec 052, issue #368)
 
 ---
 
