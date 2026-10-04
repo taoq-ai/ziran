@@ -64,6 +64,8 @@ Auto-generated from all feature plans. Last updated: 2026-10-04
 - N/A (target YAML is read by the existing `load_target_config`). (051-probe-rate-limiting)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + pytest, `fastapi.testclient.TestClient` (fastapi from the `ui` extra), stdlib `unittest.mock`. Tests only, no production change. No new dependencies. (052-web-route-handler-tests)
 - N/A (no database, no files). (052-web-route-handler-tests)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only (053-enables-edge-fanout)
+- N/A (in-memory graph). (053-enables-edge-fanout)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -83,12 +85,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 053-enables-edge-fanout: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only
 - 050-langgraph-native-scanning: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (domain models), existing `AttackKnowledgeGraph` (NetworkX) and `ToolChainAnalyzer`, `langgraph` 1.2.x + `langchain-core` via the existing `langchain` extra (transitive). No new dependencies.
 - 049-incremental-scan-cache: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cache models), stdlib `hashlib`/`json`/`os`/`re`/`shutil`/`asyncio.to_thread`, Click (scan flags, `cache clear`); reuses `PhaseExecutor`, `ResultBuilder`, the `CheckpointManager.save` atomic-write pattern. No new dependencies.
-- 051-probe-rate-limiting: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`Field` validation), stdlib `asyncio`. No new dependencies.
-- 052-web-route-handler-tests: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + pytest, `fastapi.testclient.TestClient` (fastapi from the `ui` extra), stdlib `unittest.mock`. Tests only, no production change. No new dependencies.
-- 047-token-budget-cost-cap: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (usage + price models), PyYAML `safe_load` (price table), Click (scan flags); reuses `BaseLLMClient`, `many_shot.estimate_tokens`, the checkpoint/resume path, `PhaseExecutor`, `ResultBuilder`. No new dependencies.
-- 046-ci-suppression-baseline: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (suppression file + finding models), PyYAML `safe_load`, stdlib `hashlib`/`json`/`datetime`, Click. No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->
