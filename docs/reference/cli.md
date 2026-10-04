@@ -24,7 +24,7 @@ ziran scan [OPTIONS]
 
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
-| `--framework` | Yes\* | — | Agent framework: `langchain`, `crewai`, `bedrock` |
+| `--framework` | Yes\* | — | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock` |
 | `--agent-path` | Yes\* | — | Path to agent code/config file |
 | `--target` | Yes\* | — | YAML target config for remote scanning |
 | `--protocol` | No | `auto` | Protocol override: `rest`, `openai`, `mcp`, `a2a`, `auto` |
@@ -111,7 +111,7 @@ ziran discover [OPTIONS] [AGENT_PATH]
 
 | Option | Description |
 |--------|-------------|
-| `--framework` | Agent framework: `langchain`, `crewai`, `bedrock` |
+| `--framework` | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock` |
 | `--target` | YAML target config for remote discovery |
 | `--protocol` | Protocol override |
 

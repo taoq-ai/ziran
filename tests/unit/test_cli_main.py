@@ -1549,3 +1549,29 @@ class TestDisplayUsage:
         data["metadata"] = {"usage": self._USAGE}
         dumped = _dump_campaign_result(CampaignResult.model_validate(data))
         assert dumped["metadata"]["usage"] == self._USAGE
+
+
+@pytest.mark.unit
+class TestLangGraphFramework:
+    """Spec 050: ``--framework langgraph`` wiring."""
+
+    @pytest.mark.parametrize("command", ["scan", "discover"])
+    def test_choice_offered(self, command: str) -> None:
+        param = next(p for p in cli.commands[command].params if p.name == "framework")
+        assert "langgraph" in param.type.choices  # type: ignore[attr-defined]
+
+    def test_init_offers_langgraph(self) -> None:
+        from ziran.interfaces.cli import init_command
+
+        assert "langgraph" in init_command._FRAMEWORKS
+
+    def test_discover_lists_graph_tools(self, tmp_path: Path) -> None:
+        pytest.importorskip("langgraph")
+        agent = tmp_path / "my_graph.py"
+        agent.write_text(
+            "from tests.unit.test_langgraph_adapter import exfil_graph\ngraph = exfil_graph()\n"
+        )
+        result = CliRunner().invoke(cli, ["discover", "--framework", "langgraph", str(agent)])
+        assert result.exit_code == 0, result.output
+        assert "tool_read_file" in result.output
+        assert "tool_http_request" in result.output

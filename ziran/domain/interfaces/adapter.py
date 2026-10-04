@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from ziran.domain.entities.capability import AgentCapability
+    from ziran.domain.entities.multi_agent import MultiAgentTopology
     from ziran.domain.entities.streaming import AgentResponseChunk
 
 
@@ -92,6 +93,15 @@ class BaseAgentAdapter(ABC):
         Returns:
             List of discovered capabilities.
         """
+
+    async def discover_structure(self) -> MultiAgentTopology | None:
+        """Return the agent's internal graph structure, if the framework exposes one.
+
+        Override in adapters for graph-shaped frameworks (e.g. LangGraph). The scanner imports
+        the returned topology into the knowledge graph next to the discovered capabilities.
+        Default: ``None`` (no structure; the flat capability graph is used).
+        """
+        return None
 
     @abstractmethod
     def get_state(self) -> AgentState:

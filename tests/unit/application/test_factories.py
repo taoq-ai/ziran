@@ -129,6 +129,22 @@ class TestLoadAgentAdapter:
             adapter = load_agent_adapter("agentcore", "/fake/path.py")
             assert adapter.__class__.__name__ == "AgentCoreAdapter"
 
+    def test_langgraph_adapter(self) -> None:
+        pytest.importorskip("langgraph")
+        from langgraph.graph import END, START, MessagesState, StateGraph
+
+        from ziran.application.factories import load_agent_adapter
+
+        builder = StateGraph(MessagesState)
+        builder.add_node("noop", lambda state: {"messages": []})
+        builder.add_edge(START, "noop")
+        builder.add_edge("noop", END)
+        with patch("ziran.application.factories._load_python_object") as mock_load:
+            mock_load.return_value = builder.compile()
+            adapter = load_agent_adapter("langgraph", "/fake/graph.py")
+        assert adapter.__class__.__name__ == "LangGraphAdapter"
+        mock_load.assert_called_once_with("/fake/graph.py", "graph")
+
     def test_unsupported_framework_raises_value_error(self) -> None:
         from ziran.application.factories import load_agent_adapter
 

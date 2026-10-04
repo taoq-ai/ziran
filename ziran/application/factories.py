@@ -185,8 +185,9 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
     dependencies optional (lazy loading).
 
     Args:
-        framework: Framework name (``langchain``, ``crewai``, ``bedrock``,
-            ``agentcore``).
+        framework: Framework name (``langchain``, ``langgraph``, ``crewai``,
+            ``bedrock``, ``agentcore``). For ``langgraph`` the agent file must
+            expose a compiled graph as ``graph``.
         agent_path: Path to the agent code/config.
 
     Returns:
@@ -207,6 +208,17 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
 
         agent_executor = _load_python_object(agent_path, "agent_executor")
         return LangChainAdapter(agent_executor)
+
+    if framework == "langgraph":
+        try:
+            from ziran.infrastructure.adapters.langgraph_adapter import LangGraphAdapter
+        except ImportError as e:
+            raise ImportError(
+                f"LangGraph not installed. Run: uv sync --extra langchain\n{e}"
+            ) from e
+
+        graph = _load_python_object(agent_path, "graph")
+        return LangGraphAdapter(graph)
 
     if framework == "crewai":
         try:

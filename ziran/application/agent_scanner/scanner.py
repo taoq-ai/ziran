@@ -46,6 +46,7 @@ from ziran.application.agent_scanner.result_builder import (
 from ziran.application.agent_scanner.result_builder import (
     _compute_utility as _compute_utility,
 )
+from ziran.application.agent_scanner.structure_import import import_adapter_structure
 from ziran.application.attacks.library import AttackLibrary, get_attack_library
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.application.knowledge_graph.graph import (
@@ -550,7 +551,6 @@ class AgentScanner:
         for cap in capabilities:
             self.graph.add_capability(cap.id, cap)
 
-            # Add edges for dangerous capabilities
             if cap.dangerous:
                 self.graph.add_data_source(
                     "sensitive_data",
@@ -562,6 +562,7 @@ class AgentScanner:
                     EdgeType.ACCESSES_DATA,
                     {"risk": "high", "capability_type": cap.type.value},
                 )
+        await import_adapter_structure(self.adapter, self.graph)
 
         logger.info(
             "capabilities_discovered",
@@ -569,7 +570,6 @@ class AgentScanner:
             dangerous=sum(1 for c in capabilities if c.dangerous),
         )
 
-        # Run MCP metadata poisoning analysis on discovered capabilities
         if capabilities:
             from ziran.application.static_analysis.mcp_metadata_analyzer import (
                 MCPMetadataAnalyzer,

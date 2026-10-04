@@ -750,3 +750,33 @@ class TestMultiAgentScanner:
         assert len(starts) == 3
         # All starts should come before the first end (concurrent execution)
         assert max(starts) < min(ends)
+
+
+@pytest.mark.unit
+class TestStructureModels:
+    """Spec 050: additive structure fields and the adapter structure hook."""
+
+    def test_agent_edge_defaults(self) -> None:
+        edge = AgentEdge(source_id="a", target_id="b")
+        assert edge.conditional is False
+        assert edge.branch_label is None
+
+    def test_state_channel_defaults(self) -> None:
+        from ziran.domain.entities.multi_agent import StateChannel
+
+        channel = StateChannel(name="m")
+        assert channel.writers == []
+        assert channel.readers == []
+
+    def test_topology_state_channels_default_and_round_trip(self) -> None:
+        from ziran.domain.entities.multi_agent import StateChannel
+
+        assert MultiAgentTopology().state_channels == []
+        topo = MultiAgentTopology(
+            edges=[AgentEdge(source_id="a", target_id="b", conditional=True, branch_label="go")],
+            state_channels=[StateChannel(name="m", writers=["tool_x"], readers=["tool_y"])],
+        )
+        assert MultiAgentTopology.model_validate(topo.model_dump()) == topo
+
+    async def test_default_discover_structure_is_none(self, mock_adapter: Any) -> None:
+        assert await mock_adapter.discover_structure() is None

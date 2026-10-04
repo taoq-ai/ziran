@@ -24,18 +24,18 @@ Shared fixture (defined in `tests/unit/test_langgraph_adapter.py`; copied, not a
 
 ## Phase 1 - Domain model and port hook (FR-001, FR-002)
 
-- [ ] T001 [P] Failing tests, extend `tests/unit/test_multi_agent.py` (new class
+- [x] T001 [P] Failing tests, extend `tests/unit/test_multi_agent.py` (new class
       `TestStructureModels`): `AgentEdge(source_id="a", target_id="b")` has
       `conditional is False` and `branch_label is None`; `StateChannel(name="m")` has empty
       `writers` / `readers`; `MultiAgentTopology().state_channels == []`; a topology with a
       channel round-trips through `model_dump()` / `model_validate()`;
       an async test asserting `await mock_adapter.discover_structure() is None` (conftest
       `mock_adapter` fixture).
-- [ ] T002 Implement plan §1 (`multi_agent.py`) and §2 (`adapter.py`). T001 passes; mypy clean.
+- [x] T002 Implement plan §1 (`multi_agent.py`) and §2 (`adapter.py`). T001 passes; mypy clean.
 
 ## Phase 2 - Knowledge-graph import + scanner wiring (FR-004, FR-005, FR-009)
 
-- [ ] T003 [P] Failing tests `tests/unit/application/test_structure_import.py` (no langgraph
+- [x] T003 [P] Failing tests `tests/unit/application/test_structure_import.py` (no langgraph
       needed; hand-built `MultiAgentTopology` with agents `n:a` (capabilities `["tool_read_file"]`,
       entry point), `n:b` (`["tool_http_request"]`), edges `a -> b` (`conditional=True`,
       `branch_label="go"`) and `b -> a`, channel `messages` with both tools as writers and readers;
@@ -61,22 +61,22 @@ Shared fixture (defined in `tests/unit/test_langgraph_adapter.py`; copied, not a
         a non-topology object returns `None` and logs `structure_discovery_ignored`; with one
         returning the topology imports it and returns it.
       Confirm they fail (`ModuleNotFoundError`).
-- [ ] T004 Implement plan §5 (`structure_import.py`). T003 passes.
-- [ ] T005 Failing test, extend `tests/unit/application/test_structure_import.py`: an
+- [x] T004 Implement plan §5 (`structure_import.py`). T003 passes.
+- [x] T005 Failing test, extend `tests/unit/application/test_structure_import.py`: an
       `AgentScanner(adapter=<stub adapter returning the T003 topology and the two capabilities>,
       attack_library=shared_attack_library)` after `await scanner._discover_and_map_capabilities()`
       has the `state:messages` node and the `delegates_to` edges. Confirm it fails.
-- [ ] T006 Implement plan §6 (`scanner.py`: +1 import, +1 call, -2 comments). T005 passes;
+- [x] T006 Implement plan §6 (`scanner.py`: +1 import, +1 call, -2 comments). T005 passes;
       `uv run pytest tests/unit/application/test_scanner_size.py` passes; `git diff --numstat
       ziran/application/agent_scanner/scanner.py` shows insertions == deletions; `run_campaign`
       not in the diff.
 
 ## Phase 3 - LangGraph adapter (FR-003)
 
-- [ ] T007 Run the existing LangChain adapter tests (`tests/unit/test_langchain_crewai_adapters.py`)
+- [x] T007 Run the existing LangChain adapter tests (`tests/unit/test_langchain_crewai_adapters.py`)
       green, then implement plan §3 (extract `tool_to_capability`, no behaviour change); they stay
       green unmodified.
-- [ ] T008 [P] Failing tests `tests/unit/test_langgraph_adapter.py`:
+- [x] T008 [P] Failing tests `tests/unit/test_langgraph_adapter.py`:
       - `TestConstruction`: `LangGraphAdapter(StateGraph(MessagesState))` (uncompiled) and
         `LangGraphAdapter(object())` raise `TypeError` mentioning `.compile()`.
       - `TestDiscoverCapabilities`: `exfil_graph()` -> ids `["tool_read_file",
@@ -93,12 +93,12 @@ Shared fixture (defined in `tests/unit/test_langgraph_adapter.py`; copied, not a
         `get_state().session_id` and the next turn starts a fresh thread); US4.3 history and
         `observe_tool_call`.
       Confirm they fail.
-- [ ] T009 Implement plan §4 (`langgraph_adapter.py`). T008 passes; mypy strict clean with the
+- [x] T009 Implement plan §4 (`langgraph_adapter.py`). T008 passes; mypy strict clean with the
       extras installed; module imports nothing from `ziran.application`.
 
 ## Phase 4 - End-to-end chain finding (FR-006)
 
-- [ ] T010 [P] Failing tests, `tests/unit/test_langgraph_adapter.py::TestChainFinding`:
+- [x] T010 [P] Failing tests, `tests/unit/test_langgraph_adapter.py::TestChainFinding`:
       - US2.1: `AgentScanner(adapter=LangGraphAdapter(exfil_graph()),
         attack_library=shared_attack_library)`, `await scanner._discover_and_map_capabilities()`,
         `ToolChainAnalyzer(scanner.graph).analyze()` -> the `data_exfiltration` indirect chain
@@ -117,7 +117,7 @@ Shared fixture (defined in `tests/unit/test_langgraph_adapter.py`; copied, not a
 
 ## Phase 5 - Factory, CLI, init (FR-007)
 
-- [ ] T011 [P] Failing tests:
+- [x] T011 [P] Failing tests:
       - `tests/unit/application/test_factories.py::TestLoadAgentAdapter::test_langgraph_adapter`:
         `_load_python_object` patched to return a compiled one-node graph (importorskip inside
         the test) -> `LangGraphAdapter`, and the patch was called with `(path, "graph")`;
@@ -126,22 +126,22 @@ Shared fixture (defined in `tests/unit/test_langgraph_adapter.py`; copied, not a
         `CliRunner().invoke(cli, ["discover", "--framework", "langgraph", <tmp file exposing
         exfil-style graph as graph>])` exits `0` and its output contains `tool_read_file` and
         `tool_http_request`; `"langgraph"` in `init_command._FRAMEWORKS`.
-- [ ] T012 Implement plan §7 and §8. T011 passes.
+- [x] T012 Implement plan §7 and §8. T011 passes.
 
 ## Phase 6 - Docs and gates (FR-008, FR-010)
 
-- [ ] T013 Failing test `tests/unit/test_langgraph_adapter.py::test_guide_example_runs`: read
+- [x] T013 Failing test `tests/unit/test_langgraph_adapter.py::test_guide_example_runs`: read
       `docs/guides/adapters.md`, take the first fenced `python` block after the line
       `<!-- runnable: langgraph-example -->`, write it to `tmp_path / "my_graph.py"`,
       `load_agent_adapter("langgraph", str(path))`, assert `discover_capabilities()` returns
       `tool_read_file` and `tool_http_request` and one `invoke("hello")` returns without error.
-- [ ] T014 Write plan §9 (`docs/guides/adapters.md` LangGraph section, `docs/reference/cli.md`).
+- [x] T014 Write plan §9 (`docs/guides/adapters.md` LangGraph section, `docs/reference/cli.md`).
       T013 passes. Run once by hand (record the real output in the PR, nothing invented):
       `uv run ziran discover --framework langgraph <the guide file>`.
-- [ ] T015 `.specify/scripts/bash/update-agent-context.sh claude` only if the plan's Technical
+- [x] T015 (not needed: Technical Context unchanged) `.specify/scripts/bash/update-agent-context.sh claude` only if the plan's Technical
       Context changed during implementation (CLAUDE.md "Recent Changes" churn is expected; keep
       sibling entries on conflict).
-- [ ] T016 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T016 Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran` (>= 85%). `git diff --stat origin/develop` lists only the files
       in plan §Project Structure (plus this spec dir and CLAUDE.md); `pyproject.toml` and
       `uv.lock` unchanged (revert `uv run` lock drift).
