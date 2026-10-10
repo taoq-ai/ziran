@@ -50,7 +50,8 @@ map shared with trace analysis. Reported chains keep the original tool names.
 | `Agent` | `spawn_subagent` |
 | `mcp__<server>__<tool>` whose first tool word (ignoring server words) is `send`, `post`, `create`, `reply`, `publish` or `update` | `send_email` (outbound message) |
 
-Matching is exact and case-sensitive; any other id is left unchanged. Tool lists carry no call
+Matching is exact and case-sensitive. Any other id is checked against the LangChain-style names
+below, then left unchanged. Tool lists carry no call
 arguments, so argument-specific risks use the Claude Code permission-rule form `Name(specifier)`:
 
 - `Read(./.env)`, `Read(~/.ssh/id_rsa)`, `Grep(.aws/credentials)`, `Read(*.pem)` and other secret
@@ -73,6 +74,22 @@ An unscoped `Bash` (or `Bash(*)`) tool is also reported on its own as a single-t
 generation skips single-tool findings.
 
 `ziran analyze-traces` builds the same graph from trace tool calls, so it uses the same names.
+
+## LangChain-style RAG tool names
+
+Common RAG agent tools also resolve to existing pattern keywords. Matching ignores case and
+separators and finds the name anywhere in the id, so the LangChain adapter's `tool_<name>` ids
+match too.
+
+| Tool name (and variants) | Matched as |
+|--------------------------|------------|
+| `recursive_url_loader`, `RecursiveUrlLoader` | `http_request` |
+| `tavily_search`, `TavilySearch`, `tavily_search_results_json`, `TavilySearchResults` | `browse_url` |
+| `vector_store_query`, `vectorstore_query`, `vector_store_search` | `vector_store_read` |
+
+For example, `tool_recursive_url_loader` -> `tool_execute_code` is reported as
+`remote_code_execution`, and `tool_vector_store_write` -> `tool_vector_store_query` as
+`rag_poisoning`.
 
 ## Risk Scoring
 

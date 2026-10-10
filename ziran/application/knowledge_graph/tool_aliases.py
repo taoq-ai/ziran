@@ -1,15 +1,17 @@
-"""Claude Code tool-name aliases for chain matching.
+"""Claude Code and LangChain-style tool-name aliases for chain matching.
 
-This is the single shared Claude Code vocabulary used by chain analysis
+This is the single shared tool-name vocabulary used by chain analysis
 (:mod:`ziran.application.knowledge_graph.chain_analyzer`) and trace
 analysis (#421). Do not duplicate it elsewhere; import from here, and only
 from application-layer code.
 
 :func:`canonical_tool_name` maps a Claude Code tool id (``Read``, ``Bash``,
 ``mcp__slack__slack_send_message``, ``Read(./.env)`` ...) to the capability
-keyword the chain patterns already use. Any other id is returned unchanged,
-so matching for non-Claude-Code tools is not affected. The result is for
-matching only; node ids and reported findings keep the original names.
+keyword the chain patterns already use. Ids that are not Claude Code tools
+are checked against a short table of LangChain-style names
+(``recursive_url_loader``, ``tavily_search``, ``vector_store_query`` and their
+variants); any other id is returned unchanged. The result is for matching
+only; node ids and reported findings keep the original names.
 """
 
 from __future__ import annotations
@@ -29,6 +31,16 @@ _BUILTIN_ALIASES: dict[str, str] = {
     "Agent": "spawn_subagent",
 }
 
+#: LangChain-style tool names -> chain-pattern keyword. Keys are squashed (lowercase,
+#: non-alphanumerics removed) and match anywhere in the squashed id, like the patterns'
+#: own substring matching: ``tool_tavily_search`` and ``TavilySearchResults`` both match.
+_FRAMEWORK_ALIASES: dict[str, str] = {
+    "recursiveurlloader": "http_request",
+    "tavilysearch": "browse_url",
+    "vectorstorequery": "vector_store_read",
+    "vectorstoresearch": "vector_store_read",
+}
+
 #: Tool ids that grant unscoped shell execution (bare ``Bash`` or ``Bash(*)``).
 UNRESTRICTED_EXEC_TOOLS: frozenset[str] = frozenset({"Bash", "Bash(*)"})
 
@@ -45,10 +57,17 @@ _SECRET_PATH = re.compile(
 )
 _GIT_PUSH = re.compile(r"\bgit\s+push\b")
 _TOKEN_SEP = re.compile(r"[_-]+")
+_NON_ALNUM = re.compile(r"[\W_]+")
+
+
+def _framework_alias(tool_id: str) -> str:
+    """Return the keyword for a LangChain-style tool id, else ``tool_id``."""
+    squashed = _NON_ALNUM.sub("", tool_id.lower())
+    return next((kw for key, kw in _FRAMEWORK_ALIASES.items() if key in squashed), tool_id)
 
 
 def canonical_tool_name(tool_id: str) -> str:
-    """Return the chain-pattern keyword for a Claude Code tool id, else ``tool_id``."""
+    """Return the chain-pattern keyword for a known tool id, else ``tool_id``."""
     if tool_id.startswith("mcp__"):
         parts = tool_id.split("__", 2)
         if len(parts) == 3:
@@ -59,13 +78,13 @@ def canonical_tool_name(tool_id: str) -> str:
             )
             if verb in _OUTBOUND_VERBS:
                 return "send_email"
-        return tool_id
+        return _framework_alias(tool_id)
 
     m = _RULE.fullmatch(tool_id)
     name, spec = (m[1], m[2]) if m else (tool_id, "")
     canonical = _BUILTIN_ALIASES.get(name)
     if canonical is None:
-        return tool_id
+        return _framework_alias(tool_id)
     if canonical == "read_file" and _SECRET_PATH.search(spec):
         return "read_secret_file"
     if name == "Bash" and _GIT_PUSH.search(spec):

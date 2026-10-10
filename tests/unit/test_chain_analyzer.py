@@ -424,6 +424,35 @@ class TestClaudeCodeToolNames:
 
 
 @pytest.mark.unit
+class TestRagToolNames:
+    """LangChain-style RAG tool names match existing patterns (spec 056)."""
+
+    @pytest.mark.parametrize(
+        ("source", "target", "vuln_type", "risk"),
+        [
+            ("tool_recursive_url_loader", "tool_execute_code", "remote_code_execution", "critical"),
+            (
+                "tool_recursive_url_loader",
+                "tool_vector_store_write",
+                "external_rag_poisoning",
+                "high",
+            ),
+            ("tool_read_file", "tool_recursive_url_loader", "data_exfiltration", "critical"),
+            ("tool_tavily_search", "tool_execute_code", "web_content_to_rce", "critical"),
+            ("tool_vector_store_write", "tool_vector_store_query", "rag_poisoning", "high"),
+        ],
+    )
+    def test_existing_pattern_fires(
+        self, source: str, target: str, vuln_type: str, risk: str
+    ) -> None:
+        chains = ToolChainAnalyzer(_cc_graph([source, target], [(source, target)])).analyze()
+        chain = next(c for c in chains if c.tools == [source, target])
+        assert chain.vulnerability_type == vuln_type
+        assert chain.risk_level == risk
+        assert chain.graph_path == [source, target]
+
+
+@pytest.mark.unit
 class TestUnrestrictedExecution:
     @pytest.mark.parametrize("tool", ["Bash", "Bash(*)"])
     def test_unscoped_bash_alone_is_flagged(self, tool: str) -> None:
