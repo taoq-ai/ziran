@@ -6,57 +6,57 @@ file (no markers). Names, keys and messages are those in [plan.md](plan.md#publi
 
 ## Phase 1: shared chain construction (FR-008, US5.2)
 
-- [ ] T001 Failing test in `tests/unit/test_claude_code_audit.py`: `tool_chains([])` is `[]`;
+- [x] T001 Failing test in `tests/unit/test_claude_code_audit.py`: `tool_chains([])` is `[]`;
       `tool_chains(["FileReadTool", "send_email"])` holds a `data_exfiltration` chain; for a
       Claude Code agent, `agent_chains(agent)` equals `tool_chains(agent.effective_tools)`.
-- [ ] T002 Extract `tool_chains(tools)` in `claude_code_audit.py`; `agent_chains` calls it.
+- [x] T002 Extract `tool_chains(tools)` in `claude_code_audit.py`; `agent_chains` calls it.
       Existing tests pass unmodified.
 
 ## Phase 2: domain models (FR-004 to FR-006)
 
-- [ ] T003 [P] Failing tests in `tests/unit/test_crewai_project.py` for `CrewAIAgent.tools`
+- [x] T003 [P] Failing tests in `tests/unit/test_crewai_project.py` for `CrewAIAgent.tools`
       (order, de-duplication, empty) and `CrewAIScan.detected`.
-- [ ] T004 Add `ziran/domain/entities/crewai.py`.
+- [x] T004 Add `ziran/domain/entities/crewai.py`.
 
 ## Phase 3: loader (FR-001 to FR-007, US2, US3)
 
-- [ ] T005 Failing loader tests in `tests/unit/test_crewai_project.py` with `tmp_path` projects:
+- [x] T005 Failing loader tests in `tests/unit/test_crewai_project.py` with `tmp_path` projects:
       discovery (directory, agents.yaml file target, agents.yaml without tasks.yaml, skip dirs,
       several projects), YAML tools, crew.py precedence, config-key mapping, task assignment by
       YAML and by `agent=`, crew.py-only task, tool-name forms, union order, empty tool set.
-- [ ] T006 Failing hostile-input tests: import marker never written, syntax error, null byte,
+- [x] T006 Failing hostile-input tests: import marker never written, syntax error, null byte,
       oversized file, deep AST, deep YAML, invalid and non-mapping YAML, non-mapping entries,
       bad `tools` values, non-literal `tools=`, unsupported elements, unresolvable `agent=`,
       symlink escape, undecodable bytes; no message contains a planted file-content string.
-- [ ] T007 Implement `ziran/infrastructure/config/crewai_project.py` until T005 and T006 pass.
+- [x] T007 Implement `ziran/infrastructure/config/crewai_project.py` until T005 and T006 pass.
 
 ## Phase 4: audit use case (FR-009)
 
-- [ ] T008 Failing tests in `tests/unit/test_crewai_audit.py`: CR000 per scan issue and per unit
+- [x] T008 Failing tests in `tests/unit/test_crewai_audit.py`: CR000 per scan issue and per unit
       error, CR001 per chain with file, line, agent, tools and message; no findings for a clean
       unit; order.
-- [ ] T009 Implement `ziran/application/static_analysis/crewai_audit.py`.
+- [x] T009 Implement `ziran/application/static_analysis/crewai_audit.py`.
 
 ## Phase 5: CLI (FR-010, US1, US5.1)
 
-- [ ] T010 Fixtures `tests/fixtures/crewai/vulnerable_crew` and `tests/fixtures/crewai/safe_crew`
+- [x] T010 Fixtures `tests/fixtures/crewai/vulnerable_crew` and `tests/fixtures/crewai/safe_crew`
       (src layout: `src/<pkg>/crew.py`, `src/<pkg>/config/{agents,tasks}.yaml`).
-- [ ] T011 Failing CLI tests in `TestAuditCommand`: vulnerable JSON (exit 1, CR001 row, `crewai`
+- [x] T011 Failing CLI tests in `TestAuditCommand`: vulnerable JSON (exit 1, CR001 row, `crewai`
       units), vulnerable text (exit 1 on the critical chain, `CR001` printed), safe JSON
       (exit 0, units listed, no CR001), agents.yaml file target, no `crewai` key without a
       project.
-- [ ] T012 Wire `load_crewai` and `audit_crewai` into `audit` in `ziran/interfaces/cli/main.py`.
+- [x] T012 Wire `load_crewai` and `audit_crewai` into `audit` in `ziran/interfaces/cli/main.py`.
 
 ## Phase 6: sampler (FR-011, US4)
 
-- [ ] T013 Failing tests in `tests/unit/test_sample_crewai_units.py`: same seed same output,
+- [x] T013 Failing tests in `tests/unit/test_sample_crewai_units.py`: same seed same output,
       fewer units than `--n`, errored units left out and counted, missing `crewai` key exits 2.
-- [ ] T014 Implement `scripts/sample_crewai_units.py`.
+- [x] T014 Implement `scripts/sample_crewai_units.py`.
 
 ## Phase 7: docs and gates (FR-012, SC-004)
 
-- [ ] T015 Add the CrewAI section to `docs/reference/cli.md`.
-- [ ] T016 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+- [x] T015 Add the CrewAI section to `docs/reference/cli.md`.
+- [x] T016 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran`.
 
 ## Dependencies

@@ -327,6 +327,57 @@ above. Each `CC001` row is unique per `(agent, tools)`.
 Exit codes are unchanged and apply to the merged report. SARIF output for `audit` is not
 provided yet.
 
+#### CrewAI projects
+
+`ziran audit` also reads CrewAI projects without importing or running them. A project is a
+directory that holds both `agents.yaml` and `tasks.yaml` (usually `src/<pkg>/config/`), found
+anywhere under `PATH`, or `PATH` itself when it is that `agents.yaml` file. The YAML files are read
+with `yaml.safe_load`. `crew.py` (beside the config directory, else inside it) is read with Python's
+`ast` module only. Directories in the analyzer's `skip_directories` are not walked.
+
+Each `agents.yaml` entry is one agent. Its tools are:
+
+- agent tools: the `tools=[...]` argument of its `@agent` method when set, else the entry's
+  `tools:` key (an explicit argument wins, as in CrewAI);
+- task tools: the same rule for each task assigned to it, by the task's `agent=` argument or its
+  `agent:` key.
+
+The agent's tool set is the union of both. A tool id is the name as written: `FileReadTool` for
+`FileReadTool()` or `crewai_tools.FileReadTool(...)`, `my_tool` for `self.my_tool()`, the YAML
+string for a YAML entry. Ids are not normalised.
+
+| Rule | Severity | Finding | File and line |
+|------|----------|---------|---------------|
+| `CR000` | high | A project file could not be used (syntax error, over 1 MiB, nested too deeply, outside `PATH`, a `tools=` value that is not a literal list) | the file and line of the problem |
+| `CR001` | the chain's risk | A dangerous tool chain over the agent's tool set | `agents.yaml`, the entry's line |
+
+A problem that touches one agent is reported on that agent; a broken `crew.py` or `tasks.yaml` is
+reported on every agent of the project, and the tools read from the other files are kept. With
+`--format json`, rows carry `agent` and `tools` (as for Claude Code), and the document gains a
+`crewai` list with every agent, including those without findings:
+
+```json
+{
+  "agent": "researcher",
+  "file": "my_crew/src/my_crew/config/agents.yaml",
+  "line": 1,
+  "tools": ["FileReadTool", "send_email"],
+  "agent_tools": ["FileReadTool"],
+  "tasks": [{"name": "send_task", "tools": ["send_email"]}],
+  "errors": []
+}
+```
+
+To check the reader by hand, sample agents from a saved JSON output with a fixed seed:
+
+```bash
+ziran audit ./crews/ --format json > audit.json
+python scripts/sample_crewai_units.py audit.json --seed 42 --n 50
+```
+
+The script prints each sampled agent's file, agent tools, task tools and union. Agents with
+`errors` are left out of the sample and counted in the header.
+
 #### Allowlist baseline
 
 A baseline records what each Claude Code agent is allowed to have today, so CI fails only when an
