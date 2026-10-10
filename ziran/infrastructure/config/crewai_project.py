@@ -1,13 +1,15 @@
-"""Read CrewAI projects statically: agents.yaml and tasks.yaml with ``yaml.safe_load``, crew.py
-with ``ast.parse``. Project code is never imported, executed or evaluated.
+"""Read CrewAI projects statically: agents.yaml and tasks.yaml with a ``yaml.SafeLoader``
+subclass that refuses aliases, crew.py with ``ast.parse``. Project code is never imported,
+executed or evaluated.
 
 Discovery for ``load_crewai(path)``:
 
 * ``path`` is a file named ``agents.yaml``: its directory is the project when ``tasks.yaml`` is
   beside it. Files are read from the directory above (where crew.py lives) downwards.
 * ``path`` is a directory: every directory below it (symlinked directories and ``skip_dirs`` are
-  not walked) that holds both ``agents.yaml`` and ``tasks.yaml`` is a project. When ``path`` is
-  itself such a directory, files are read from the directory above, as for an agents.yaml target.
+  not walked) that holds both ``agents.yaml`` and ``tasks.yaml`` is a project. Files are read
+  from ``path`` downwards only, so a config directory given as ``path`` cannot reach
+  ``config/../crew.py``.
 * crew.py is ``config/../crew.py``, else ``config/crew.py``.
 
 A unit is one agents.yaml entry. Its agent tools are the ``tools=`` argument of the matching
@@ -91,11 +93,14 @@ def _yaml(file: Path, base: Path) -> tuple[Any, dict[str, int]]:
     try:
         data = yaml.load(text, Loader=_Loader)  # a SafeLoader subclass
         node = yaml.compose(text, Loader=_Loader)
+        if isinstance(data, dict):
+            data = {str(k): v for k, v in data.items()}
     except _AliasError:
         raise _UnusableError(file, "YAML aliases are not supported") from None
     except (yaml.YAMLError, ValueError) as exc:
         # Class name only: str(exc) and exc.problem can quote source text (aliases, tags).
-        # ValueError: an impossible date or an integer over Python's digit limit.
+        # ValueError: an impossible date, or an integer over Python's digit limit (YAML builds
+        # hex, octal and sexagesimal keys of any length; str() of one raises).
         mark = getattr(exc, "problem_mark", None)
         line = mark.line + 1 if mark else None
         raise _UnusableError(file, f"invalid YAML ({type(exc).__name__})", line) from None
@@ -286,8 +291,8 @@ class _Project:
 
         agent_methods, task_methods = self.crew()
         units: dict[str, CrewAIAgent] = {}
-        for key, entry in agents.items():
-            name, line = str(key), lines.get(str(key), 1)
+        for name, entry in agents.items():
+            line = lines.get(name, 1)
             unit = CrewAIAgent(name=name, file=str(self.agents_file), line=line)
             unit.agent_tools = self.entry_tools(name, line, entry)
             method = agent_methods.get(name)
@@ -335,8 +340,11 @@ class _Project:
         try:
             agents = {m.key: m for m in _methods(tree, self.crew_file, "agent", "Agent", bindings)}
             tasks = {m.key: m for m in _methods(tree, self.crew_file, "task", "Task", bindings)}
-        except RecursionError:  # ast.unparse recurses more per level than the depth check counts
-            self.error(None, _issue(self.crew_file, "Python source is nested too deeply"))
+        except (RecursionError, ValueError, MemoryError) as exc:
+            # ast.unparse recurses more per level than the depth check counts, and gives
+            # repr(int), which raises ValueError over Python's digit limit.
+            message = f"cannot unparse a tool expression ({type(exc).__name__})"
+            self.error(None, _issue(self.crew_file, message))
             return {}, {}
         return agents, tasks
 
@@ -354,8 +362,8 @@ class _Project:
             data = None
         entries: dict[Any, Any] = data or {}
 
-        for key, entry in entries.items():
-            name, line = str(key), lines.get(str(key), 1)
+        for name, entry in entries.items():
+            line = lines.get(name, 1)
             if not isinstance(entry, dict):
                 self.error(None, _issue(self.tasks_file, f"entry '{name}' must be a mapping", line))
                 continue
@@ -405,10 +413,7 @@ def load_crewai(path: Path, skip_dirs: Collection[str] = ()) -> CrewAIScan:
     """Read every CrewAI project under *path*. Never raises for file content or missing files."""
     scan = CrewAIScan(root=str(path))
     if os.path.isdir(path):
-        # A config directory gets the same base as its agents.yaml, so config/../crew.py is read.
-        is_config = all(os.path.isfile(path / f) for f in ("agents.yaml", "tasks.yaml"))
-        base = _real(path).parent if is_config else _real(path)
-        dirs = sorted(_project_dirs(path, skip_dirs), key=str)
+        base, dirs = _real(path), sorted(_project_dirs(path, skip_dirs), key=str)
     elif path.name == "agents.yaml" and os.path.isfile(path.parent / "tasks.yaml"):
         base, dirs = _real(path.parent.parent), [path.parent]
     else:

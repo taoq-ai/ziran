@@ -141,16 +141,20 @@ class TestDiscovery:
         (cfg / "crew.py").write_text(CREW_HEAD + method.format("Inside"))
         assert _units(load_crewai(tmp_path))["a"].agent_tools == ["Beside"]
 
-    def test_config_dir_target_reads_crew_py_above(self, tmp_path: Path) -> None:
+    def test_config_dir_target_refuses_crew_py_above(self, tmp_path: Path) -> None:
+        # The scanned root of a directory target is the directory itself, so config/../crew.py
+        # is outside it.
         cfg = _project(
             tmp_path,
-            "a:\n  role: R\n",
+            "a:\n  role: R\n  tools: [x]\n",
             crew=CREW_HEAD
             + "    @agent\n    def a(self) -> Agent:\n        return Agent(tools=[T()])\n",
         )
-        scan = load_crewai(cfg)
-        assert _units(scan)["a"].agent_tools == ["T"]
-        assert _units(scan)["a"].errors == [] and scan.issues == []
+        unit = _units(load_crewai(cfg))["a"]
+        assert unit.agent_tools == ["x"]
+        [err] = unit.errors
+        assert err.file.endswith("crew.py")
+        assert err.message == "file resolves outside the scanned root"
 
 
 # ── Tool sets ─────────────────────────────────────────────────────────
@@ -359,6 +363,25 @@ class TestToolSets:
 
 def _all_errors(scan: CrewAIScan) -> list[CrewAIIssue]:
     return [e for a in scan.agents for e in a.errors]
+
+
+VICTIM = "ziran-victim-content-056"
+
+
+def _victim(root: Path) -> None:
+    """A sibling directory beside the scanned one, whose content must never be read."""
+    victim = root / "victim"
+    victim.mkdir()
+    (victim / "agents.yaml").write_text(f"{VICTIM}:\n  role: R\n  tools: [{VICTIM}]\n")
+    (victim / "app.py").write_text(
+        CREW_HEAD
+        + f"    @agent\n    def b(self) -> Agent:\n        return Agent(tools=['{VICTIM}'])\n"
+    )
+
+
+def _assert_no_victim(scan: CrewAIScan) -> None:
+    assert VICTIM not in scan.model_dump_json()
+    assert VICTIM not in repr(audit_crewai(scan))
 
 
 @pytest.mark.unit
@@ -603,7 +626,7 @@ class TestHostileInput:
         assert units["a"].agent_tools == ["x"]
         for unit in units.values():
             [err] = unit.errors
-            assert err.file.endswith("crew.py") and "nested too deeply" in err.message
+            assert err.file.endswith("crew.py") and "RecursionError" in err.message
 
     @pytest.mark.parametrize("value", ["2001-13-45", "1" * 4301], ids=["date", "bigint"])
     def test_yaml_value_error_in_agents_yaml(self, tmp_path: Path, value: str) -> None:
@@ -619,6 +642,37 @@ class TestHostileInput:
         for unit in load_crewai(tmp_path).agents:
             [err] = unit.errors
             assert err.file.endswith("tasks.yaml") and "ValueError" in err.message
+
+    # YAML builds hex integers with no digit limit; str() of one raises ValueError.
+    HEX_KEY = "? 0x" + "f" * 4000 + "\n: {role: R}\n"
+
+    def test_long_hex_key_in_agents_yaml(self, tmp_path: Path) -> None:
+        _project(tmp_path, "a:\n  role: R\n" + self.HEX_KEY)
+        scan = load_crewai(tmp_path)
+        assert scan.agents == []
+        [issue] = scan.issues
+        assert issue.message == "invalid YAML (ValueError)"
+
+    def test_long_hex_key_in_tasks_yaml(self, tmp_path: Path) -> None:
+        _project(tmp_path, "a:\n  role: R\nb:\n  role: R\n", tasks=self.HEX_KEY)
+        for unit in load_crewai(tmp_path).agents:
+            [err] = unit.errors
+            assert err.file.endswith("tasks.yaml") and err.message == "invalid YAML (ValueError)"
+
+    def test_long_hex_literal_tool_element(self, tmp_path: Path) -> None:
+        # ast.unparse gives repr(int), which raises ValueError over 4300 decimal digits.
+        _project(
+            tmp_path,
+            "a:\n  role: R\n  tools: [x]\nb:\n  role: R\n",
+            crew=CREW_HEAD
+            + "    @agent\n    def a(self) -> Agent:\n"
+            + f"        return Agent(tools=[0x{'f' * 4000}])\n",
+        )
+        units = _units(load_crewai(tmp_path))
+        assert units["a"].agent_tools == ["x"]
+        for unit in units.values():
+            [err] = unit.errors
+            assert err.file.endswith("crew.py") and "ValueError" in err.message
 
     def test_yaml_alias_in_agents_yaml_is_refused(self, tmp_path: Path) -> None:
         _project(tmp_path, f"a: &{PLANTED}\n  role: R\nb: *{PLANTED}\n")
@@ -646,6 +700,38 @@ class TestHostileInput:
         os.symlink(tmp_path / "outside", root / "linked")
         scan = load_crewai(root)
         assert scan.agents == [] and scan.issues == []
+
+    def test_root_level_project_cannot_read_a_sibling(self, tmp_path: Path) -> None:
+        _victim(tmp_path)
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "tasks.yaml").write_text("")
+        os.symlink("../victim/agents.yaml", repo / "agents.yaml")
+        scan = load_crewai(repo)
+        assert scan.agents == []
+        [issue] = scan.issues
+        assert issue.message == "file resolves outside the scanned root"
+        _assert_no_victim(scan)
+
+    def test_root_level_project_does_not_widen_nested_reads(self, tmp_path: Path) -> None:
+        _victim(tmp_path)
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "agents.yaml").write_text("top:\n  role: R\n")
+        (repo / "tasks.yaml").write_text("")
+        leak = repo / "sub" / "config"
+        leak.mkdir(parents=True)
+        (leak / "tasks.yaml").write_text("")
+        os.symlink("../../../victim/agents.yaml", leak / "agents.yaml")
+        crew = _project(repo, "b:\n  role: R\n", pkg="other").parent
+        os.symlink("../../victim/app.py", crew / "crew.py")
+        scan = load_crewai(repo)
+        outside = "file resolves outside the scanned root"
+        assert [i.message for i in scan.issues] == [outside]
+        assert scan.issues[0].file.endswith("sub/config/agents.yaml")
+        [err] = _units(scan)["b"].errors
+        assert err.file.endswith("crew.py") and err.message == outside
+        _assert_no_victim(scan)
 
     def test_file_target_root_stops_above_the_config_dir(self, tmp_path: Path) -> None:
         cfg = _project(tmp_path / "root", "a:\n  role: R\n")

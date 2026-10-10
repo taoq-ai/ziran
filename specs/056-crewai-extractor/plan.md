@@ -4,8 +4,8 @@
 
 ## Summary
 
-A new infrastructure loader reads CrewAI projects (agents.yaml and tasks.yaml with
-`yaml.safe_load`, crew.py with `ast.parse`) into domain models, one unit per agents.yaml entry.
+A new infrastructure loader reads CrewAI projects (agents.yaml and tasks.yaml with a
+`yaml.SafeLoader` subclass, crew.py with `ast.parse`) into domain models, one unit per agents.yaml entry.
 A new application module turns the scan into `CR000`/`CR001` findings. Chains come from the
 construction `agent_chains` already uses, extracted into `tool_chains(tools)` so both sources call
 one function. `ziran audit` calls the loader next to the Claude Code loader and, in JSON mode, adds
@@ -14,7 +14,7 @@ a `crewai` list of units. A stdlib script samples units from that JSON for a han
 ## Technical Context
 
 **Language/Version**: Python 3.11+ (CI matrix 3.11, 3.12, 3.13)
-**Primary Dependencies**: PyYAML `safe_load`/`compose`, stdlib `ast`/`os`/`random`/`argparse`/`json`, Pydantic v2, Click; reuses `tool_chains` and `StaticFinding`. No new dependencies.
+**Primary Dependencies**: PyYAML `load`/`compose` with a `SafeLoader` subclass, stdlib `ast`/`os`/`random`/`argparse`/`json`, Pydantic v2, Click; reuses `tool_chains` and `StaticFinding`. No new dependencies.
 **Storage**: N/A (reads project files only).
 **Testing**: pytest with `@pytest.mark.unit`; `tmp_path` projects for the loader; committed
 fixtures under `tests/fixtures/crewai/` for CLI acceptance through `CliRunner` in the existing
@@ -82,8 +82,9 @@ def load_crewai(path: Path, skip_dirs: Collection[str] = ()) -> CrewAIScan: ...
 Never raises for file content or missing files. Reuses `MAX_FILE_BYTES` (1 MiB) from
 `claude_code_plugin`. Steps per project directory `d` (holding `agents.yaml` and `tasks.yaml`):
 
-1. Read agents.yaml (containment, size, decode, `safe_load`, `compose` for key lines, both with a
-   `SafeLoader` subclass that refuses aliases). Failure or a non-mapping document: one scan issue,
+1. Read agents.yaml (containment, size, decode, `load`, `compose` for key lines, both with a
+   `SafeLoader` subclass that refuses aliases; top-level keys turned into strings inside the same
+   error handler). Failure or a non-mapping document: one scan issue,
    no units.
 2. Read tasks.yaml the same way. Failure: an error on every unit.
 3. Find `d.parent / "crew.py"`, then `d / "crew.py"`. Read, `ast.parse`, check depth. Failure: an
@@ -92,7 +93,8 @@ Never raises for file content or missing files. Reuses `MAX_FILE_BYTES` (1 MiB) 
    In each, the first call to `Agent`/`Task` (name or attribute) gives `config=` key, `tools=` and,
    for tasks, `agent=`. Tool element names follow FR-007: a map of simple assignments in crew.py
    (one callee per name) resolves names; other elements become `ast.unparse` text. A
-   `RecursionError` while walking (deep `ast.unparse`) is an error on every unit.
+   `RecursionError`, `ValueError` or `MemoryError` while walking (`ast.unparse`) is an error on
+   every unit.
 5. Apply FR-004 to FR-006.
 
 ### 3. `ziran/application/static_analysis/claude_code_audit.py` (edit)

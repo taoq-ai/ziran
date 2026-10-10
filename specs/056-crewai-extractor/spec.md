@@ -154,8 +154,8 @@ and compares the output.
 - An agents.yaml without a sibling tasks.yaml is not treated as a CrewAI project (other tools use
   that file name).
 - A crew.py is looked up next to the config directory (`config/../crew.py`) and then inside it. If
-  neither exists, units use the YAML tools only. A config directory given as PATH is read with the
-  same root as its agents.yaml given as PATH, so `config/../crew.py` is inside it.
+  neither exists, units use the YAML tools only. A config directory given as PATH is the scanned
+  root, so `config/../crew.py` lies outside it and is refused (FR-003).
 - An agents.yaml entry whose value is not a mapping becomes a unit with an error and no tools.
 - `tools:` in YAML must be a list of strings or empty; another value is a unit error.
 - A task whose agent cannot be resolved (no `agent` key, or a name that is not a unit) adds tools to
@@ -174,15 +174,17 @@ and compares the output.
 - **FR-001**: Discovery. For PATH as a directory, walk it (no symlinked directories, skipping
   `skip_directories`) and take each directory that holds both `agents.yaml` and `tasks.yaml` as one
   project. For PATH as a file named `agents.yaml`, its directory is the project when `tasks.yaml`
-  is beside it. In both cases, when PATH names the config directory or its agents.yaml, the scanned
-  root (FR-003) is the config directory's parent.
-- **FR-002**: YAML is read with `yaml.safe_load` only. Python is read with `ast.parse` only.
+  is beside it.
+- **FR-002**: YAML is read with a `yaml.SafeLoader` subclass only. Python is read with
+  `ast.parse` only.
   Project code is never imported, executed or evaluated.
-- **FR-003**: Each file is read only when its real path lies inside PATH's real path and its size
-  is at most 1 MiB. A crew.py AST deeper than 200 levels is rejected. A YAML file that holds an
+- **FR-003**: Each file is read only when its real path lies inside the scanned root and its size
+  is at most 1 MiB. The scanned root is PATH's real path for a directory, and the real path of
+  the directory above the config directory for an agents.yaml file. A crew.py AST deeper than 200 levels is rejected. A YAML file that holds an
   alias (`*name`) is rejected. `SyntaxError`, `ValueError` (from Python or from YAML, such as an
-  impossible date or an integer over Python's digit limit), `RecursionError` (from parsing, or
-  from walking crew.py), `yaml.YAMLError`, `OSError` and `UnicodeDecodeError` become errors.
+  impossible date or an integer over Python's digit limit in a value or a key),
+  `RecursionError` (from parsing), `RecursionError`, `ValueError` and `MemoryError` from walking
+  crew.py (`ast.unparse`), `yaml.YAMLError`, `OSError` and `UnicodeDecodeError` become errors.
 - **FR-004**: A unit is one agents.yaml entry. Its `agent_tools` are the names in the `tools=`
   argument of the matching `@agent` method when that argument is present, else the entry's
   `tools:` key. The matching method is the one whose `config=self.agents_config['<key>']` names the
@@ -256,8 +258,13 @@ and compares the output.
 - A YAML alias makes its file unusable (FR-003), reported like any other unusable file: an
   agents.yaml becomes a scan issue, a tasks.yaml an error on every unit. Assumed because an alias
   copies its anchored value into every use (a 278 KB tasks.yaml expanded to 64 million tool
-  references and 1.7 GB), and CrewAI's generated configs do not use anchors. Overturn: the hand
-  check finds real projects that use anchors or merge keys.
+  references and 1.7 GB), and CrewAI's generated configs do not use anchors. Merge keys
+  (`<<: *x`) are refused too, since they copy the merged pairs and amplify the same way.
+  Measured: 0 of 196 sampled real agents.yaml and tasks.yaml files use an alias; a code search
+  found 3 agents.yaml files in 2 repositories using merge keys, out of about 10,464 indexed.
+  The hand check cannot see refused files, since they yield no units or only errored ones.
+  Overturn: more than 1% of the CrewAI config files in a corpus audit's JSON are refused with
+  "YAML aliases are not supported".
 - The sampling frame leaves out units with errors (FR-011), since those units cannot be
   checked against a complete extraction. Overturn: the reviewer wants errored units sampled too.
 - Spec directory `specs/056-crewai-extractor` follows the item name so the workflow hooks find it.

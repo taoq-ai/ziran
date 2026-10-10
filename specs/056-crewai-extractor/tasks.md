@@ -77,6 +77,19 @@ file (no markers). Names, keys and messages are those in [plan.md](plan.md#publi
 - [x] T021 Tests pin the crew.py lookup order, the unwalked symlinked directory and the file-target
       root; a config-directory PATH reads `config/../crew.py`.
 
+## Phase 9: fix round 2
+
+- [x] T022 Revert the config-directory root widening from T021: a directory PATH is the scanned
+      root for every project under it. Tests: `config/../crew.py` refused for a `config/`
+      target; root-level and nested symlinks to a sibling directory refused, no content leaked.
+      FR-001, the Edge Case, FR-003 and cli.md (target advice, CR000 root) updated.
+- [x] T023 YAML top-level keys turned into strings inside the parse handler, so a long hex key
+      is an invalid file (agents.yaml and tasks.yaml tests).
+- [x] T024 `ValueError` and `MemoryError` from `ast.unparse` caught with `RecursionError` (long
+      hex literal test).
+- [x] T025 Alias assumption: measured evidence and a corpus-share overturn; FR-002 and cli.md
+      name the `SafeLoader` subclass.
+
 ## Dependencies
 
 T001 -> T002. T003 -> T004 -> T005/T006 -> T007 -> T008 -> T009 -> T010/T011 -> T012.
