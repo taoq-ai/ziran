@@ -348,7 +348,7 @@ string for a YAML entry. Ids are not normalised.
 
 | Rule | Severity | Finding | File and line |
 |------|----------|---------|---------------|
-| `CR000` | high | A project file could not be used (syntax error, over 1 MiB, nested too deeply, a symlink out of the scanned directory, a `tools=` value that is not a literal list) | the file and line of the problem |
+| `CR000` | high | A project file could not be used (syntax error, over 1 MiB, nested too deeply, a symlink out of the scanned directory, a `tools=` value that is not a literal list), or an agent with more than 64 tools, whose chains are not built | the file and line of the problem; the agents.yaml entry line for the tool bound |
 | `CR001` | the chain's risk | A dangerous tool chain over the agent's tool set | `agents.yaml`, the entry's line |
 
 A problem that touches one agent is reported on that agent; a broken `crew.py` or `tasks.yaml` is

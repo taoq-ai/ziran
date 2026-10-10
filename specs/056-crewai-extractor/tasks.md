@@ -37,6 +37,10 @@ file (no markers). Names, keys and messages are those in [plan.md](plan.md#publi
       unit; order.
 - [x] T009 Implement `ziran/application/static_analysis/crewai_audit.py`.
 
+- [x] T009a Failing test in `tests/unit/test_crewai_audit.py`: a unit over `MAX_UNIT_TOOLS` gets
+      one CR000 at its entry line and no CR001; a unit at the bound gets its chains. Then add the
+      bound in `crewai_audit.py` (FR-009).
+
 ## Phase 5: CLI (FR-010, US1, US5.1)
 
 - [x] T010 Fixtures `tests/fixtures/crewai/vulnerable_crew` and `tests/fixtures/crewai/safe_crew`

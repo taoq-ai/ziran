@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from ziran.application.static_analysis import crewai_audit
 from ziran.application.static_analysis.crewai_audit import audit_crewai
 from ziran.domain.entities.crewai import CrewAIAgent, CrewAIIssue, CrewAIScan, CrewAITask
 
@@ -56,3 +57,17 @@ class TestAuditCrewAI:
         ]
         assert all(f.severity == "high" for f in findings[:2])
         assert findings[1].message == "invalid Python syntax"
+
+    def test_unit_over_tool_bound_gets_cr000_and_no_chains(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(crewai_audit, "MAX_UNIT_TOOLS", 2)
+        within = _unit("within", ["FileReadTool"], ["send_email"])
+        over = _unit("over", ["FileReadTool", "send_email"], ["SerperDevTool"])
+        findings = audit_crewai(CrewAIScan(root=".", agents=[within, over])).findings
+        assert [(f.check_id, f.agent) for f in findings] == [
+            ("CR001", "within"),
+            ("CR000", "over"),
+        ]
+        assert (findings[1].file_path, findings[1].line_number) == ("cfg/agents.yaml", 4)
+        assert findings[1].message == "agent has more than 2 tools; chains not built"

@@ -191,6 +191,7 @@ and compares the output.
 - **FR-009**: `ziran audit` appends findings: `CR000` (high) for each scan issue and each unit
   error, `CR001` (the chain's risk level) for each chain, with `agent` and `tools` set. The
   `file` and `line` of `CR001` are the agents.yaml path and the entry's key line.
+  A unit with more than 64 tools gets one `CR000` at its agents.yaml entry line and no chains.
 - **FR-010**: With `--format json` and a CrewAI project found, rows carry `agent` and `tools` (as
   for Claude Code) and the document gains `crewai`, the list of units (FR-004 to FR-006 fields and
   `errors`, each `{file, line, message}`).
@@ -222,6 +223,11 @@ and compares the output.
 - A unit with errors still lists the tools that were read and gets its chains. Assumed because a
   partial set is a lower bound and the `errors` list tells a consumer to treat it as such.
   Overturn: a consumer wants errored units to report no chains.
+- A unit with more than 64 tools gets `CR000` and no chains (FR-009). Assumed because chain
+  construction is quadratic in tools (measured: 6 s at 100 tools, 58 s at 300) and a 1 MiB file
+  can name thousands, so one hostile unit could stall the audit. Truncating the set would hide
+  chains, so the unit is reported instead. The `crewai` list still carries its full tool set.
+  Overturn: real projects with more than 64 tools on one agent show up in the hand check.
 - The sampling frame leaves out units with errors (FR-011), since those units cannot be
   checked against a complete extraction. Overturn: the reviewer wants errored units sampled too.
 - Spec directory `specs/056-crewai-extractor` follows the item name so the workflow hooks find it.
