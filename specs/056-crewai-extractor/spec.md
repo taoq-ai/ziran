@@ -183,6 +183,8 @@ and compares the output.
   assigned to it, ordered as in US3.7.
 - **FR-007**: A tool element's name is the called or referenced name: the last attribute of an
   attribute, the identifier of a name, the callee of a call. Anything else is a unit error.
+  YAML tool names are taken as written. The id is never normalised (see Assumptions, tool id
+  form); a test pins case and suffix.
 - **FR-008**: Chains for a unit are built by the same construction as `agent_chains` for Claude
   Code: one capability node per tool, an edge for each ordered pair, `analyze(include_cycles=False)`.
   The shared construction is extracted into one function used by both.
@@ -210,6 +212,13 @@ and compares the output.
 - Tool names are the source names (FR-007), not resolved through assignments or `@tool` methods.
   Assumed because resolution adds code for little gain and the source name is what a reader checks.
   Overturn: the hand check shows name resolution would change chain results.
+- Tool id form. A tool id is the tool class or function name exactly as written in agents.yaml,
+  tasks.yaml or crew.py (for example `FileReadTool` from `FileReadTool()` or
+  `crewai_tools.FileReadTool(...)`, `my_tool` from `self.my_tool()`, `search_tool` from YAML).
+  No normalisation: no case change, no suffix stripping, no alias mapping in the reader. Only
+  exact duplicates are dropped. Assumed because chain pattern matching and
+  `canonical_tool_name` work on this string, so the reader must hand them the id unchanged.
+  Overturn: a consumer of the output fixes a different id form.
 - A unit with errors still lists the tools that were read and gets its chains. Assumed because a
   partial set is a lower bound and the `errors` list tells a consumer to treat it as such.
   Overturn: a consumer wants errored units to report no chains.
