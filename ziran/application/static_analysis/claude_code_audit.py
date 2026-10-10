@@ -45,15 +45,21 @@ _REC_SA007 = "Add a 'tools' list with only the tools the agent needs."
 _REC_CC001 = "Remove one tool of the chain from the agent's 'tools' list, or split the agent."
 
 
-def agent_chains(agent: ClaudeCodeAgent) -> list[DangerousChain]:
-    """Dangerous chains over the agent's declared (or inherited) tool set. No execution."""
+def tool_chains(tools: list[str]) -> list[DangerousChain]:
+    """Dangerous chains over a declared tool set: one node per tool, an edge per ordered pair."""
     graph = AttackKnowledgeGraph()
-    for cap in agent.capabilities:
+    for tool in tools:
+        cap = claude_code_tool_capability(tool)
         graph.add_capability(cap.id, cap)
-    for a, b in itertools.permutations(agent.effective_tools, 2):
+    for a, b in itertools.permutations(tools, 2):
         graph.add_tool_chain([a, b], risk_score=0.5)
     # Cycle enumeration is exponential on a complete graph (12 tools never finish).
     return ToolChainAnalyzer(graph).analyze(include_cycles=False)
+
+
+def agent_chains(agent: ClaudeCodeAgent) -> list[DangerousChain]:
+    """Dangerous chains over the agent's declared (or inherited) tool set. No execution."""
+    return tool_chains(agent.effective_tools)
 
 
 def _is_wildcard(tool: str) -> bool:

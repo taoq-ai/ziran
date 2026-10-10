@@ -7,7 +7,11 @@ import time
 import pytest
 
 from ziran.application.static_analysis.analyzer import StaticFinding
-from ziran.application.static_analysis.claude_code_audit import agent_chains, audit_claude_code
+from ziran.application.static_analysis.claude_code_audit import (
+    agent_chains,
+    audit_claude_code,
+    tool_chains,
+)
 from ziran.application.static_analysis.config import (
     CheckDefinition,
     PatternRule,
@@ -103,6 +107,23 @@ class TestAgentChains:
         assert ["Bash"] in tools
         read_fetch = next(c for c in chains if c.tools == ["Read", "WebFetch"])
         assert read_fetch.risk_level == "critical"
+
+
+@pytest.mark.unit
+class TestToolChains:
+    def test_empty_tool_set_has_no_chain(self) -> None:
+        assert tool_chains([]) == []
+
+    def test_source_neutral_names(self) -> None:
+        chains = tool_chains(["FileReadTool", "send_email"])
+        assert [(c.tools, c.vulnerability_type) for c in chains] == [
+            (["FileReadTool", "send_email"], "data_exfiltration")
+        ]
+
+    @pytest.mark.parametrize("tools", [None, "Read, Grep, WebFetch, mcp__slack__send_message"])
+    def test_agent_chains_is_tool_chains(self, tools: str | None) -> None:
+        agent = _agent(tools=tools)
+        assert agent_chains(agent) == tool_chains(agent.effective_tools)
 
 
 @pytest.mark.unit
