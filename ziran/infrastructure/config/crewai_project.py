@@ -14,7 +14,9 @@ A unit is one agents.yaml entry. Its agent tools are the ``tools=`` argument of 
 method of the same name) when that argument is set, else the entry's ``tools:`` key. Tasks follow
 the same rule for ``tools`` and ``agent``; that is how CrewAI's ``process_config`` merges an
 explicit argument with its YAML config. In an ``@agent``/``@task`` method the first ``Agent(...)``/
-``Task(...)`` call in ``ast.walk`` order is read.
+``Task(...)`` call in ``ast.walk`` order is read. A tool element gives its called or referenced
+name; a name bound in crew.py only by simple assignments calling one callee gives that callee; any
+other element gives its source text.
 
 Nothing in a file makes this raise. A failure that only touches one unit becomes an error on that
 unit; a failure in tasks.yaml or crew.py that could touch any unit becomes an error on every unit
@@ -146,7 +148,32 @@ class _Method:
     errors: list[CrewAIIssue] = field(default_factory=list)
 
 
-def _methods(tree: ast.Module, file: Path, decorator: str, factory: str) -> Iterator[_Method]:
+def _bindings(tree: ast.Module) -> dict[str, str]:
+    """Names whose every binding in the file is a simple assignment calling one callee."""
+    simple: dict[int, str | None] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target, value = node.targets[0], node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            target, value = node.target, node.value
+        else:
+            continue
+        simple[id(target)] = _ref(value) if isinstance(value, ast.Call) else None
+    callees: dict[str, set[str | None]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            callees.setdefault(node.id, set()).add(simple.get(id(node)))
+    resolved: dict[str, str] = {}
+    for name, found in callees.items():
+        callee = found.pop() if len(found) == 1 else None
+        if callee:
+            resolved[name] = callee
+    return resolved
+
+
+def _methods(
+    tree: ast.Module, file: Path, decorator: str, factory: str, bindings: dict[str, str]
+) -> Iterator[_Method]:
     for fn in ast.walk(tree):
         if not isinstance(fn, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
@@ -171,7 +198,7 @@ def _methods(tree: ast.Module, file: Path, decorator: str, factory: str) -> Iter
         }
         method = _Method(fn.name, _config_key(kwargs.get("config")) or fn.name)
         if "tools" in kwargs:
-            method.tools = _tool_list(kwargs["tools"], file, owner, method.errors)
+            method.tools = _tool_list(kwargs["tools"], file, owner, method.errors, bindings)
         if "agent" in kwargs:
             method.agent = _ref(kwargs["agent"])
             if method.agent is None:
@@ -189,17 +216,17 @@ def _config_key(node: ast.expr | None) -> str | None:
     return None
 
 
-def _tool_list(node: ast.expr, file: Path, owner: str, errors: list[CrewAIIssue]) -> list[str]:
+def _tool_list(
+    node: ast.expr, file: Path, owner: str, errors: list[CrewAIIssue], bindings: dict[str, str]
+) -> list[str]:
+    """FR-007: a bound name gives its callee, a call, name or attribute its name, else source text."""
     if not isinstance(node, ast.List | ast.Tuple):
         errors.append(_issue(file, f"tools of {owner} is not a literal list", node.lineno))
         return []
-    names: list[str] = []
-    for element in node.elts:
-        name = _ref(element)
-        if name is None:
-            errors.append(_issue(file, f"unsupported tool expression in {owner}", element.lineno))
-        else:
-            names.append(name)
+    names = [
+        bindings.get(e.id, e.id) if isinstance(e, ast.Name) else _ref(e) or ast.unparse(e)
+        for e in node.elts
+    ]
     return list(dict.fromkeys(names))
 
 
@@ -284,8 +311,9 @@ class _Project:
         except _UnusableError as exc:
             self.error(None, exc.issue)
             return {}, {}
-        agents = {m.key: m for m in _methods(tree, self.crew_file, "agent", "Agent")}
-        tasks = {m.key: m for m in _methods(tree, self.crew_file, "task", "Task")}
+        bindings = _bindings(tree)
+        agents = {m.key: m for m in _methods(tree, self.crew_file, "agent", "Agent", bindings)}
+        tasks = {m.key: m for m in _methods(tree, self.crew_file, "task", "Task", bindings)}
         return agents, tasks
 
     def tasks(self, scan: CrewAIScan, methods: dict[str, _Method]) -> Iterator[_Task]:

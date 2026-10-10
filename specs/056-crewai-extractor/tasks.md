@@ -29,6 +29,9 @@ file (no markers). Names, keys and messages are those in [plan.md](plan.md#publi
       bad `tools` values, non-literal `tools=`, unsupported elements, unresolvable `agent=`,
       symlink escape, undecodable bytes; no message contains a planted file-content string.
 - [x] T007 Implement `ziran/infrastructure/config/crewai_project.py` until T005 and T006 pass.
+- [x] T007a Failing tests for FR-007 as revised (US3.8, US3.9): a simple assignment resolves to
+      the callee, two callees or a non-call binding stay as written, other elements are kept as
+      source text with no error. Then resolve names and unparse other elements in the loader.
 
 ## Phase 4: audit use case (FR-009)
 

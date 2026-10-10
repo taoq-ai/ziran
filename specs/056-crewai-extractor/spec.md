@@ -27,7 +27,9 @@ under Assumptions.
   crew.py argument (CrewAI's `process_config` keeps an explicit value).
 - Q: Is a unit's tool set per task or per agent? A: per agent, the union of agent and task tools;
   per-task sets are kept in the output.
-- Q: Are tool names resolved through variables and `@tool` methods? A: no, source names are used.
+- Q: Are tool names resolved through variables and `@tool` methods? A: a variable bound once in
+  crew.py by a simple assignment to a call resolves to the callee name; `@tool` methods are not
+  resolved. Any other element is kept as its source text.
 - Q: Does a unit with an error still get chains? A: yes, over the tools that were read; the error
   is reported next to them.
 - Q: Which crew.py belongs to a config directory? A: `crew.py` beside the config directory, then
@@ -84,9 +86,8 @@ trust boundary.
    `RecursionError`.
 5. **Given** an agents.yaml that is not valid YAML or not a mapping, **Then** the project yields no
    unit and one scan issue for that file.
-6. **Given** a `tools=` argument that is not a literal list (`tools=self.get_tools()`) or holds an
-   element that is not a call, name or attribute (`*base_tools`), **Then** only the unit it belongs
-   to carries an error, and the other units are unaffected.
+6. **Given** a `tools=` argument that is not a literal list (`tools=self.get_tools()`), **Then**
+   only the unit it belongs to carries an error, and the other units are unaffected.
 7. **Given** a file that resolves outside the scanned root through a symlink, **Then** it is not
    read and an error says so.
 8. **Given** any error, **Then** its message holds no file content beyond the names of keys and
@@ -112,6 +113,12 @@ trust boundary.
 6. **Given** an agent with no tools anywhere, **Then** its unit has `tools: []` and no chain.
 7. **Given** the union, **Then** order is agent tools first, then each task's tools in task order,
    duplicates removed.
+8. **Given** `search = SerperDevTool()` and `reader: Any = crewai_tools.FileReadTool(path="x")`
+   in crew.py and `tools=[search, reader]`, **Then** the names are `SerperDevTool` and
+   `FileReadTool`. A name bound more than once to different callees, or bound to something that
+   is not a call, stays as written.
+9. **Given** a tool element that is not a call, name or attribute (`*base_tools`, `tools[0]`),
+   **Then** it is kept as its source text (`*base_tools`, `tools[0]`) and the unit has no error.
 
 ### User Story 4: one sample for a hand check (Priority: P2)
 
@@ -182,7 +189,10 @@ and compares the output.
 - **FR-006**: A unit's `tools` is the union of its `agent_tools` and the tools of every task
   assigned to it, ordered as in US3.7.
 - **FR-007**: A tool element's name is the called or referenced name: the last attribute of an
-  attribute, the identifier of a name, the callee of a call. Anything else is a unit error.
+  attribute, the identifier of a name, the callee of a call. A name bound in crew.py only by
+  simple assignments (`x = F(...)` or `x: T = F(...)`, anywhere in the file) that all call the
+  same callee resolves to that callee's name. Any other element is kept as its source text
+  (`ast.unparse`), with no error.
   YAML tool names are taken as written. The id is never normalised (see Assumptions, tool id
   form); a test pins case and suffix.
 - **FR-008**: Chains for a unit are built by the same construction as `agent_chains` for Claude
@@ -210,9 +220,12 @@ and compares the output.
   task with `task.tools or agent.tools` and a task's output passes to later tasks as context, so a
   chain can span tasks. It is an upper bound. Per-task sets stay available in `tasks`. Overturn: a
   per-task tool set is wanted as the primary set.
-- Tool names are the source names (FR-007), not resolved through assignments or `@tool` methods.
-  Assumed because resolution adds code for little gain and the source name is what a reader checks.
-  Overturn: the hand check shows name resolution would change chain results.
+- A variable bound by a simple assignment to a call in crew.py resolves to the callee name, and any
+  other element is kept as its source text (FR-007). Assumed because the common CrewAI pattern is
+  `search_tool = SerperDevTool()` at module level, and the class name is what chain patterns
+  match; keeping odd elements as text lets a hand check judge them instead of dropping them. A name
+  bound to two different callees, an attribute such as `self.x`, a tuple unpacking and `@tool`
+  methods are not resolved. Overturn: the hand check shows those forms are common.
 - Tool id form. A tool id is the tool class or function name exactly as written in agents.yaml,
   tasks.yaml or crew.py (for example `FileReadTool` from `FileReadTool()` or
   `crewai_tools.FileReadTool(...)`, `my_tool` from `self.my_tool()`, `search_tool` from YAML).

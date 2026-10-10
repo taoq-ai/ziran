@@ -89,7 +89,8 @@ Never raises for file content or missing files. Reuses `MAX_FILE_BYTES` (1 MiB) 
    error on every unit, YAML data kept.
 4. Collect `@agent` and `@task` functions (decorator `agent`/`task` as a name, attribute or call).
    In each, the first call to `Agent`/`Task` (name or attribute) gives `config=` key, `tools=` and,
-   for tasks, `agent=`.
+   for tasks, `agent=`. Tool element names follow FR-007: a map of simple assignments in crew.py
+   (one callee per name) resolves names; other elements become `ast.unparse` text.
 5. Apply FR-004 to FR-006.
 
 ### 3. `ziran/application/static_analysis/claude_code_audit.py` (edit)

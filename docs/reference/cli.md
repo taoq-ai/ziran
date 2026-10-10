@@ -344,7 +344,10 @@ Each `agents.yaml` entry is one agent. Its tools are:
 
 The agent's tool set is the union of both. A tool id is the name as written: `FileReadTool` for
 `FileReadTool()` or `crewai_tools.FileReadTool(...)`, `my_tool` for `self.my_tool()`, the YAML
-string for a YAML entry. Ids are not normalised.
+string for a YAML entry. A variable bound in crew.py by a simple assignment to a call
+(`search = SerperDevTool()`, then `tools=[search]`) gives the called name, `SerperDevTool`; a name
+bound more than once to different calls stays as written. Any other element, such as `*base_tools`,
+is kept as its source text. Ids are not normalised.
 
 | Rule | Severity | Finding | File and line |
 |------|----------|---------|---------------|

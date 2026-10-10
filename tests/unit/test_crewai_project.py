@@ -235,6 +235,28 @@ class TestToolSets:
         units = _units(load_crewai(tmp_path))
         assert units["a"].agent_tools == ["Search_Tool", "search_tool", "FileReadTool"]
 
+    def test_simple_assignment_resolves_to_callee(self, tmp_path: Path) -> None:
+        _project(
+            tmp_path,
+            "b:\n  role: R\n",
+            crew="search = SerperDevTool()\n"
+            + "twice = A()\ntwice = B()\nsame = C()\nsame = C(x=1)\nplain = other\n"
+            + CREW_HEAD
+            + "    @agent\n    def b(self) -> Agent:\n"
+            + "        reader: Any = crewai_tools.FileReadTool(path='x')\n"
+            + "        return Agent(tools=[search, reader, twice, same, plain, unbound])\n",
+        )
+        unit = _units(load_crewai(tmp_path))["b"]
+        assert unit.agent_tools == [
+            "SerperDevTool",
+            "FileReadTool",
+            "twice",
+            "C",
+            "plain",
+            "unbound",
+        ]
+        assert unit.errors == []
+
     def test_crew_tool_ids_are_verbatim(self, tmp_path: Path) -> None:
         _project(
             tmp_path,
@@ -433,8 +455,8 @@ class TestHostileInput:
         units = _units(load_crewai(tmp_path))
         [err_a] = units["a"].errors
         assert err_a.line == 9 and "literal list" in err_a.message
-        assert units["b"].agent_tools == ["T"]
-        assert [e.line for e in units["b"].errors] == [12, 12]
+        assert units["b"].agent_tools == ["*base", "T", "tools[0]"]
+        assert units["b"].errors == []
 
     def test_bad_task_tools_go_to_its_agent(self, tmp_path: Path) -> None:
         _project(
