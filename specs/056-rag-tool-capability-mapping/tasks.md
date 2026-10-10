@@ -12,8 +12,8 @@ implementation task. Existing tests are not modified, only extended.
       `mcp__tavily__send_tavily_search_digest` stays `send_email` (FR-002 precedence). Run `uv run pytest tests/unit/test_tool_aliases.py` and see the new mapping
       cases fail.
 - [x] T002 Add `_FRAMEWORK_ALIASES` and `_framework_alias` to
-      `ziran/application/knowledge_graph/tool_aliases.py` and call it at both unchanged-id exits
-      of `canonical_tool_name`; widen the module docstring. T001 passes.
+      `ziran/application/knowledge_graph/tool_aliases.py` and call it at the non-Claude-Code
+      unchanged-id exit of `canonical_tool_name`; widen the module docstring. T001 passes.
 
 - [x] T006 Anchor the match (review fix): add cases where an id contains a name next to other
       words (`shell_execute_tavily_search`, `vectorstore_search_database`,
@@ -22,6 +22,11 @@ implementation task. Existing tests are not modified, only extended.
       (`delegation_to_rce`) and `tool_read_file -> send_email_tavily_search`
       (`data_exfiltration`). See them fail on the substring match, then anchor
       `_framework_alias`.
+- [x] T007 Leave MCP ids unmapped (review fix): add cases `mcp__send_email__tavily_search`,
+      `mcp__shell_execute__tavily_search`, `mcp__tavily__tavily_search` and
+      `mcp__tavily__tavily-search` staying unchanged, plus chain case
+      `tool_read_file -> mcp__send_email__tavily_search` (`data_exfiltration`). See them fail on
+      the MCP prefix stripping, then remove `_MCP_PREFIX` and the MCP-branch call.
 
 ## Phase 2 - Chains fire (US2)
 

@@ -456,6 +456,7 @@ class TestRagToolNames:
         [
             ("Agent", "shell_execute_tavily_search", "delegation_to_rce", "critical"),
             ("tool_read_file", "send_email_tavily_search", "data_exfiltration", "critical"),
+            ("tool_read_file", "mcp__send_email__tavily_search", "data_exfiltration", "critical"),
         ],
     )
     def test_id_containing_a_name_keeps_its_chains(

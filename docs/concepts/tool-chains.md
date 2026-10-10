@@ -78,10 +78,12 @@ generation skips single-tool findings.
 ## LangChain-style RAG tool names
 
 Common RAG agent tools also resolve to existing pattern keywords. Matching ignores case and
-separators. The id must be the name itself, optionally with a `tool_` or `mcp__<server>__`
-prefix and a `_results` or `_json` suffix, so the LangChain adapter's `tool_<name>` ids match
-too. An id with other words around the name, such as `shell_execute_tavily_search`, is left
-unchanged and keeps its own chains.
+separators. The id must be the name itself, optionally with a `tool_` prefix and a `_results`
+or `_json` suffix, so the LangChain adapter's `tool_<name>` ids match too. An id with other
+words around the name, such as `shell_execute_tavily_search`, is left unchanged and keeps its
+own chains. MCP-prefixed forms (`mcp__<server>__<name>`) are deliberately not mapped, because
+the server name can carry capability words: `mcp__send_email__tavily_search` keeps its
+`send_email` chains.
 
 | Tool name (and variants) | Matched as |
 |--------------------------|------------|

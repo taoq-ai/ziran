@@ -77,12 +77,17 @@ chain patterns that already describe those capabilities.
 
 ### Edge Cases
 
-- **Anchored match after squashing**: the id is lowercased, an `mcp__<server>__` prefix is
-  dropped and every non-alphanumeric character is removed. What is left must equal a key, with
+- **Anchored match after squashing**: the id is lowercased and every non-alphanumeric
+  character is removed. What is left must equal a key, with
   an optional `tool` prefix and an optional `results`, `json` or `resultsjson` suffix. The alias
   replaces the whole id, so a looser substring match would drop the id's other words: a tool
   named `shell_execute_tavily_search` would lose its `shell_execute` chains. An id with any other
   word around the name is left unchanged and matches the patterns on its own words.
+- **MCP ids are deliberately not mapped**: an `mcp__<server>__<tool>` id keeps the existing MCP
+  outbound rule and is otherwise left unchanged, as before this change. The server name can
+  carry capability words: `mcp__send_email__tavily_search` matches the `send_email` patterns
+  by substring, and mapping it to `browse_url` would drop its `data_exfiltration` chain. So
+  `mcp__tavily__tavily_search` is not mapped either.
 - **A graph with only these three tools** forms no chain: no existing pattern links
   `http_request` or `browse_url` to `vector_store_read`. Chains fire when the agent also has a
   tool on the other side of a pattern (code execution, file write, vector store write, file
@@ -119,14 +124,17 @@ chain patterns that already describe those capabilities.
 - **Variants.** `recursive_url_loader`: `RecursiveUrlLoader` (the LangChain loader class name),
   `recursive-url-loader`. `tavily_search`: `TavilySearch`, `tavily_search_results`,
   `tavily_search_results_json` (LangChain's `TavilySearchResults` default tool name),
-  `TavilySearchResults`, and MCP forms such as `mcp__tavily__tavily-search`.
+  `TavilySearchResults`.
   `vector_store_query`: `vectorstore_query`, `VectorStoreQuery`, `vector_store_search`,
-  `vectorstore_search`. Each also with the `tool_` prefix the LangChain adapter adds, and the
-  MCP form `mcp__<server>__<name>`. Matching is anchored (see Edge Cases): the squashed id,
-  after those prefixes, must equal a key or a key plus `results`, `json` or `resultsjson`.
-  Why: these are the spellings a reader would expect for the same tool, and an anchored match
-  never drops the words of an id that only contains a name. Overturn: a common real tool id
-  with another wrapper word (for example a `_tool` suffix) that should map but does not.
+  `vectorstore_search`. Each also with the `tool_` prefix the LangChain adapter adds.
+  Matching is anchored (see Edge Cases): the squashed id, after that prefix, must equal a key
+  or a key plus `results`, `json` or `resultsjson`. MCP-prefixed forms
+  (`mcp__<server>__<name>`) are deliberately not mapped, because the server name can carry
+  capability words that the alias would drop. Why: these are the spellings a reader would
+  expect for the same tool, and an anchored match never drops the words of an id that only
+  contains a name. Overturn: a common real tool id with another wrapper word (for example a
+  `_tool` suffix) that should map but does not, or a need to map MCP RAG tools that a
+  server-word check can make safe.
 - **Not mapped**: generic names such as `search`, `web_search`, `retriever` or
   `similarity_search`. They do not name these tools, and broad names would change matching for
   unrelated agents. `TavilySearchAPIWrapper` and `TavilySearchAPIRetriever` are LangChain
@@ -150,9 +158,9 @@ chain patterns that already describe those capabilities.
 - Q: Alias map or tool classifier? A: alias map. Chain matching reads `canonical_tool_name`;
   the classifier gives risk tiers and is not read by the analyzer.
 - Q: Exact names only? A: no, but anchored. LangChain capability ids carry a `tool_` prefix,
-  so exact matching would miss the adapter's own ids. Match the squashed id after optional
-  `mcp__<server>__` and `tool` prefixes, with an optional `results`/`json` suffix, and nothing
-  else (see Edge Cases). A substring match was rejected: the alias replaces the whole id, so an
+  so exact matching would miss the adapter's own ids. Match the squashed id after an optional
+  `tool` prefix, with an optional `results`/`json` suffix, and nothing else (see Edge Cases).
+  MCP ids are not mapped, since their server name can carry capability words. A substring match was rejected: the alias replaces the whole id, so an
   id such as `shell_execute_tavily_search` would lose its `delegation_to_rce` chain.
 - Q: Add a pattern so the three tools chain with each other? A: no, out of scope; the item
   maps names to existing capabilities only.

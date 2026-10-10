@@ -63,7 +63,6 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("tavily_search_results", "browse_url"),
         ("tavily_search_results_json", "browse_url"),
         ("TavilySearchResults", "browse_url"),
-        ("mcp__tavily__tavily-search", "browse_url"),
         ("vector_store_query", "vector_store_read"),
         ("tool_vector_store_query", "vector_store_read"),
         ("vectorstore_query", "vector_store_read"),
@@ -84,6 +83,11 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("save_vectors_to_research_db", "save_vectors_to_research_db"),
         ("recursive_url_loader_write_file", "recursive_url_loader_write_file"),
         ("Foo(tavily_search)", "Foo(tavily_search)"),
+        # MCP ids are not mapped: the server name can carry capability words
+        ("mcp__send_email__tavily_search", "mcp__send_email__tavily_search"),
+        ("mcp__shell_execute__tavily_search", "mcp__shell_execute__tavily_search"),
+        ("mcp__tavily__tavily_search", "mcp__tavily__tavily_search"),
+        ("mcp__tavily__tavily-search", "mcp__tavily__tavily-search"),
         # Claude Code rules keep precedence over the LangChain-style names
         ("Read(notes/tavily_search.md)", "read_file"),
         ("mcp__tavily__send_tavily_search_digest", "send_email"),

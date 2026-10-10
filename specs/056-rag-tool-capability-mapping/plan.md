@@ -7,7 +7,7 @@
 Add a small framework alias table to `ziran/application/knowledge_graph/tool_aliases.py` and
 consult it from `canonical_tool_name` wherever that function returns an id unchanged today. Keys
 are squashed (lowercase, non-alphanumerics removed). The squashed id must equal a key after an
-optional `mcp__<server>__` and `tool` prefix, with an optional `results`/`json` suffix.
+optional `tool` prefix, with an optional `results`/`json` suffix. MCP ids are not mapped.
 
 ## Technical Context
 
@@ -36,16 +36,17 @@ _FRAMEWORK_ALIASES: dict[str, str] = {
     "vectorstoresearch": "vector_store_read",
 }
 
-_MCP_PREFIX = re.compile(r"^mcp__.*?__")
 _FRAMEWORK_NAME = re.compile(r"(?:tool)?(.+?)(?:results)?(?:json)?")
 
 def _framework_alias(tool_id: str) -> str:
-    m = _FRAMEWORK_NAME.fullmatch(_NON_ALNUM.sub("", _MCP_PREFIX.sub("", tool_id.lower())))
+    m = _FRAMEWORK_NAME.fullmatch(_NON_ALNUM.sub("", tool_id.lower()))
     return _FRAMEWORK_ALIASES.get(m[1], tool_id) if m else tool_id
 ```
 
-`canonical_tool_name` calls `_framework_alias(tool_id)` at its two `return tool_id` exits (MCP
-non-outbound id; id that is not a Claude Code built-in). Claude Code results are untouched.
+`canonical_tool_name` calls `_framework_alias(tool_id)` where an id that is not a Claude Code
+built-in is returned unchanged today. The MCP branch still returns a non-outbound id unchanged:
+the server name can carry capability words (`mcp__send_email__tavily_search`) that the alias
+would drop. Claude Code results are untouched.
 
 The alias replaces the whole id, so the match is anchored: an id with other words around a
 name (`shell_execute_tavily_search`) keeps its own words and chains.
@@ -54,7 +55,7 @@ name (`shell_execute_tavily_search`) keeps its own words and chains.
 
 | File | Change |
 |------|--------|
-| `ziran/application/knowledge_graph/tool_aliases.py` | table, helper, two call sites, docstring |
+| `ziran/application/knowledge_graph/tool_aliases.py` | table, helper, one call site, docstring |
 | `tests/unit/test_tool_aliases.py` | new parametrized cases and regressions |
 | `tests/unit/test_chain_analyzer.py` | new `TestRagToolNames` class |
 | `docs/concepts/tool-chains.md` | short section listing the new names |
