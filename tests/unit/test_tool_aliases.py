@@ -75,7 +75,9 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("web_search", "web_search"),
         ("url_loader", "url_loader"),
         ("vector_store_write", "vector_store_write"),
-        ("mcp__tavily__tavily_send_report", "send_email"),
+        # Claude Code rules keep precedence over the LangChain-style names
+        ("Read(notes/tavily_search.md)", "read_file"),
+        ("mcp__tavily__send_tavily_search_digest", "send_email"),
     ],
 )
 def test_canonical_tool_name(tool_id: str, expected: str) -> None:
