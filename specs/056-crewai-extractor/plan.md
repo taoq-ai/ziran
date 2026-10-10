@@ -14,8 +14,7 @@ a `crewai` list of units. A stdlib script samples units from that JSON for a han
 ## Technical Context
 
 **Language/Version**: Python 3.11+ (CI matrix 3.11, 3.12, 3.13)
-**Primary Dependencies**: PyYAML `safe_load`/`compose`, stdlib `ast`, `os`, `random`, `argparse`,
-`json`; Pydantic v2 models; Click (existing `audit`). No new dependencies.
+**Primary Dependencies**: PyYAML `safe_load`/`compose`, stdlib `ast`/`os`/`random`/`argparse`/`json`, Pydantic v2, Click; reuses `tool_chains` and `StaticFinding`. No new dependencies.
 **Storage**: N/A (reads project files only).
 **Testing**: pytest with `@pytest.mark.unit`; `tmp_path` projects for the loader; committed
 fixtures under `tests/fixtures/crewai/` for CLI acceptance through `CliRunner` in the existing
