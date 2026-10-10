@@ -95,3 +95,9 @@ class TestSampleCrewAIUnits:
 
     def test_seed_is_required(self, tmp_path: Path) -> None:
         assert _run({"crewai": []}, tmp_path).returncode == 2
+
+    @pytest.mark.parametrize("n", ["0", "-1"])
+    def test_n_below_one_exits_2(self, tmp_path: Path, n: str) -> None:
+        result = _run({"crewai": [_unit(1)]}, tmp_path, "--seed", "1", "--n", n)
+        assert result.returncode == 2
+        assert "--n must be at least 1" in result.stderr

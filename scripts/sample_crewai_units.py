@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--n", type=int, default=50)
     args = parser.parse_args(argv)
+    if args.n < 1:
+        parser.error("--n must be at least 1")
 
     units = _load_units(args.audit_json)
     frame = sorted((u for u in units if not u["errors"]), key=lambda u: (u["file"], u["agent"]))
