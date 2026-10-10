@@ -1,6 +1,6 @@
-# Implementation Plan: bump multidict and langgraph-sdk to clear two pip-audit CVEs
+# Implementation Plan: bump multidict, langgraph-sdk and source-map-js to clear the dependency audit
 
-**Branch**: `ziran-dep-bump` | **Date**: 2026-10-10 | **Spec**: [spec.md](spec.md)
+**Branch**: `ziran-dep-bump`, then `ziran-audit-green` | **Date**: 2026-10-10 | **Spec**: [spec.md](spec.md)
 **Base**: `develop` @ b813e4f
 
 ## Summary
@@ -15,13 +15,19 @@ uv lock --upgrade-package multidict --upgrade-package langgraph-sdk --upgrade-pa
 Probe result in a detached scratch copy at b813e4f: multidict 6.7.1 -> 6.9.1, langgraph-sdk
 0.3.15 -> 0.4.6, langgraph 1.2.2 -> 1.2.4, websockets 17.1 -> 16.1.1. Nothing else moves.
 
+The job's npm step also fails, on source-map-js 1.2.1. Plain `npm audit fix` in `ui/` (no
+`--force`) moves source-map-js 1.2.1 -> 1.2.2 in `ui/package-lock.json` and nothing else.
+`ui/package.json` stays unchanged: postcss and @tailwindcss/node already allow `^1.2.1`.
+
 ## Technical context
 **Language/Version**: Python 3.11+ (CI matrix 3.11, 3.12, 3.13)
-**Primary dependencies**: uv (lock), pip-audit via `uvx` (audit). No new dependency.
+**Primary dependencies**: uv (lock), pip-audit via `uvx` (audit), npm 10 on Node 22 (ui lock and
+audit). No new dependency.
 **Storage**: N/A
 **Testing**: pytest; CI installs with `uv sync --frozen --group test --extra all`
 (`.github/workflows/test.yml`), so the LangGraph and websockets code paths are installed.
-**Project type**: single Python package; this change touches `uv.lock` only.
+**Project type**: Python package plus the `ui/` frontend; this change touches `uv.lock` and
+`ui/package-lock.json` only.
 
 ## Why each package moves
 
@@ -31,6 +37,7 @@ Probe result in a detached scratch copy at b813e4f: multidict 6.7.1 -> 6.9.1, la
 | langgraph-sdk | 0.3.15 | 0.4.6 | CVE-2026-104873, fixed in 0.4.4; `--upgrade-package` takes the highest 0.4.x |
 | langgraph | 1.2.2 | 1.2.4 | 1.2.2 requires `langgraph-sdk<0.4.0`; 1.2.3 is yanked; 1.2.4 requires `langgraph-sdk<0.5.0,>=0.4.2` |
 | websockets | 17.1 | 16.1.1 | every langgraph-sdk 0.4.x requires `websockets<17` |
+| source-map-js (ui) | 1.2.1 | 1.2.2 | GHSA-68fv-2mgg-jv7q (high), affects 1.0.0 to 1.2.1; `npm audit fix` |
 
 Requirement metadata was read from `https://pypi.org/pypi/<name>/<version>/json` on 2026-10-10.
 
@@ -56,11 +63,17 @@ Requirement metadata was read from `https://pypi.org/pypi/<name>/<version>/json`
    `tests/unit/application/test_factories.py`, `tests/unit/test_ws_handler.py`).
 6. Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
    `uv run pytest -m "not integration" --cov=ziran`, `uv run pytest -m integration`.
+7. ui red: `npm audit --audit-level=high` in `ui/` on d09ee30 exits 1 (recorded in spec.md).
+8. ui fix: `npm audit fix` in `ui/`; the diff shows only the source-map-js entry in
+   `ui/package-lock.json`.
+9. ui green: `npm audit --audit-level=high` exits 0, then the `frontend-build` job steps
+   (`npm ci`, `npm run build`, `npm run lint`) pass.
 
 ## Project structure
 ```text
 specs/057-ziran-dep-bump/   spec.md, plan.md, tasks.md, analysis.md, checklists/
-uv.lock                     the only non-spec file changed
+uv.lock                     Python lock (multidict, langgraph-sdk, langgraph, websockets)
+ui/package-lock.json        ui lock (source-map-js)
 ```
 
 ## Complexity tracking

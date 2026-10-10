@@ -1,9 +1,9 @@
-# Feature Specification: bump multidict and langgraph-sdk to clear two pip-audit CVEs
+# Feature Specification: bump multidict, langgraph-sdk and source-map-js to clear the dependency audit
 
-**Feature Branch**: `ziran-dep-bump`
+**Feature Branch**: `ziran-dep-bump`, carried forward on `ziran-audit-green` (adds the ui lockfile fix)
 **Created**: 2026-10-10
 **Status**: Active
-**Track**: SLICE (lockfile only; no contract, schema or source change)
+**Track**: SLICE (lockfiles only; no contract, schema or source change)
 **Base**: `develop` @ b813e4f.
 **Input**: the `dependency-audit` job in `.github/workflows/ci.yml` fails on develop's `uv.lock`.
 Its pip-audit step, run locally on b813e4f, exits 1 with:
@@ -15,6 +15,19 @@ Name          Version ID              Fix Versions
 multidict     6.7.1   CVE-2026-104874 6.9.1
 langgraph-sdk 0.3.15  CVE-2026-104873 0.4.4
 ```
+
+Its npm step (`npm audit --audit-level=high` in `ui/`) also exits 1 on d09ee30 (the first fix):
+
+```text
+source-map-js  1.0.0 - 1.2.1
+Severity: high
+source-map-js allows event-loop denial of service through indexed source-map section offsets - https://github.com/advisories/GHSA-68fv-2mgg-jv7q
+fix available via `npm audit fix`
+```
+
+source-map-js 1.2.1 comes in through vite 8.2.2 > postcss 8.5.26 and
+@tailwindcss/vite 4.3.3 > @tailwindcss/node 4.3.3. The job is green only when both steps pass,
+so one branch carries both fixes.
 
 ## Clarifications
 
@@ -30,15 +43,18 @@ langgraph-sdk 0.3.15  CVE-2026-104873 0.4.4
 A contributor opens a PR against develop and the `dependency-audit` job is green, so a red
 audit no longer hides new advisories.
 
-**Independent Test**: run the job's two Python steps on the branch head (`uv export --frozen
+**Independent Test**: run every step of the job on the branch head: `uv export --frozen
 --no-emit-project --all-extras --format requirements-txt`, then `uvx pip-audit -r ... --no-deps`
-with the job's seven `--ignore-vuln` flags). Exit 0.
+with the job's seven `--ignore-vuln` flags, then `npm audit --audit-level=high` in `ui/`. Each
+exits 0.
 
 **Acceptance Scenarios**:
-1. **Given** the branch `uv.lock`, **When** the audit command runs, **Then** it reports no known
-   vulnerability and exits 0.
+1. **Given** the branch `uv.lock`, **When** the pip-audit command runs, **Then** it reports no
+   known vulnerability and exits 0.
 2. **Given** the branch `uv.lock`, **Then** multidict is at 6.9.1 or later and langgraph-sdk is at
    0.4.4 or later.
+3. **Given** the branch `ui/package-lock.json`, **When** `npm audit --audit-level=high` runs in
+   `ui/`, **Then** it exits 0 and source-map-js is at 1.2.2.
 
 ### User Story 2 - Nothing else moves (Priority: P1)
 
@@ -90,9 +106,10 @@ integration tier, then the full gates.
   already has 1.4.8.
 - **FR-004**: `uv.lock` pins websockets 16.1.1, forced by langgraph-sdk 0.4.x's `websockets<17`.
 - **FR-005**: no other `[[package]]` entry changes version, no `pyproject.toml` change, no source
-  change, no frontend lockfile change.
-- **FR-006**: the `dependency-audit` pip-audit command exits 0 on the branch lockfile with the
-  existing `--ignore-vuln` list unchanged.
+  change. In `ui/package-lock.json` only source-map-js moves (1.2.1 to 1.2.2, via plain
+  `npm audit fix`, fixes GHSA-68fv-2mgg-jv7q); `ui/package.json` and the CI workflow are unchanged.
+- **FR-006**: every step of the `dependency-audit` job exits 0 on the branch: the export, the
+  pip-audit command with the existing `--ignore-vuln` list unchanged, and the npm audit step.
 
 ### Assumptions
 - **langgraph version: lowest compatible, not latest.** Assumed 1.2.4 (via
@@ -107,15 +124,20 @@ integration tier, then the full gates.
   uses `websockets.connect` and `websockets.ClientConnection` only
   (`ziran/infrastructure/adapters/protocols/ws_handler.py`), both present in 16.x. Overturned if
   pip-audit flags 16.1.1 or the ws tests fail.
+- **One spec for both fixes.** The ui lockfile fix (item ZIRAN-AUDIT-GREEN) amends this spec
+  instead of opening a new directory, because the two fixes ship in one PR for one CI job.
+  Overturned if a reviewer wants a separate spec per lockfile.
 - **Spec directory name.** The brief names `specs/057-dep-bump-cves/`; the spec tooling
   looks for `specs/*-ziran-dep-bump`, so the directory is `specs/057-ziran-dep-bump/`. Number 057
   is kept. Overturned by a reviewer who wants the brief's name; renaming is a one-line move.
 
 ## Success criteria *(mandatory)*
 
-- **SC-001**: the pip-audit command from `.github/workflows/ci.yml` exits 0 on the branch lockfile
-  (it exits 1 on b813e4f, output above).
+- **SC-001**: every step of the `dependency-audit` job in `.github/workflows/ci.yml` exits 0 on the
+  branch (pip-audit exits 1 on b813e4f and npm audit exits 1 on d09ee30, output above).
 - **SC-002**: the package-level lock comparison lists exactly the four version changes in
   FR-001 to FR-004.
 - **SC-003**: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
   `uv run pytest -m "not integration" --cov=ziran` and `uv run pytest -m integration` pass.
+- **SC-004**: the `frontend-build` job steps pass in `ui/` with Node 22: `npm ci`,
+  `npm run build`, `npm run lint`.

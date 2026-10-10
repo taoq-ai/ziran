@@ -20,7 +20,7 @@ changes.
 
 ## Coverage
 - [x] CHK008 Are the code paths that use a moved package covered by a named test? [Spec US3: LangGraph adapter tests; ws_handler tests for websockets]
-- [x] CHK009 Is the frontend lockfile explicitly out of scope? [Spec FR-005]
+- [x] CHK009 Is the frontend lockfile change bounded to source-map-js, with `ui/package.json` unchanged? [Spec FR-005]
 
 ## Assumptions
 - [x] CHK010 Is each two-way choice (langgraph patch, sdk patch, websockets downgrade, spec dir name) recorded with what would overturn it? [Spec Assumptions]
