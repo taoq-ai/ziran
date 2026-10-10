@@ -491,7 +491,93 @@ class TestAuditCommand:
             for r in data["findings"]
         )
 
+    # ── CrewAI projects (spec 056) ──
 
+    def test_audit_crewai_vulnerable_json(self, runner: CliRunner) -> None:
+        root = CREW_FIXTURES / "vulnerable_crew"
+        agents_yaml = str(root / "src" / "vuln_crew" / "config" / "agents.yaml")
+        code, data, _ = self._json(runner, str(root))
+        assert code == 1
+        assert data["files_analyzed"] == 3  # crew.py plus the two YAML files
+        assert all(set(r) == CC_KEYS for r in data["findings"])
+        [chain] = [r for r in data["findings"] if r["rule"] == "CR001"]
+        assert chain == {
+            "rule": "CR001",
+            "severity": "critical",
+            "file": agents_yaml,
+            "line": 1,
+            "message": "Agent 'researcher': data_exfiltration via FileReadTool -> send_email",
+            "agent": "researcher",
+            "tools": ["FileReadTool", "send_email"],
+        }
+        assert data["crewai"] == [
+            {
+                "agent": "researcher",
+                "file": agents_yaml,
+                "line": 1,
+                "tools": ["FileReadTool", "send_email"],
+                "agent_tools": ["FileReadTool"],
+                "tasks": [
+                    {"name": "research_task", "tools": []},
+                    {"name": "send_task", "tools": ["send_email"]},
+                ],
+                "errors": [],
+            },
+            {
+                "agent": "reporter",
+                "file": agents_yaml,
+                "line": 6,
+                "tools": ["SerperDevTool"],
+                "agent_tools": ["SerperDevTool"],
+                "tasks": [{"name": "report_task", "tools": []}],
+                "errors": [],
+            },
+        ]
+
+    def test_audit_crewai_vulnerable_text(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["audit", str(CREW_FIXTURES / "vulnerable_crew")])
+        assert result.exit_code == 1
+        assert "CR001" in result.output
+
+    def test_audit_crewai_safe_json(self, runner: CliRunner) -> None:
+        code, data, _ = self._json(runner, str(CREW_FIXTURES / "safe_crew"))
+        assert code == 0
+        assert data["findings"] == []
+        [unit] = data["crewai"]
+        assert unit["tools"] == ["SerperDevTool", "ScrapeWebsiteTool"]
+
+    def test_audit_crewai_agents_yaml_target(self, runner: CliRunner) -> None:
+        cfg = CREW_FIXTURES / "vulnerable_crew" / "src" / "vuln_crew" / "config"
+        code, data, _ = self._json(runner, str(cfg / "agents.yaml"))
+        assert code == 1
+        assert data["files_analyzed"] == 2
+        assert {r["rule"] for r in data["findings"]} == {"CR001"}
+        assert [u["agent"] for u in data["crewai"]] == ["researcher", "reporter"]
+
+    def test_audit_crewai_parse_error_row(self, runner: CliRunner, tmp_path: Path) -> None:
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        (cfg / "agents.yaml").write_text("a:\n  role: R\n")
+        (cfg / "tasks.yaml").write_text("")
+        (tmp_path / "crew.py").write_text("def broken(:\n")
+        code, data, _ = self._json(runner, str(tmp_path), "--severity", "high")
+        assert code == 1
+        [row] = [r for r in data["findings"] if r["rule"] == "CR000"]
+        assert (row["agent"], row["line"], row["severity"]) == ("a", 1, "high")
+        assert data["crewai"][0]["errors"] == [
+            {"file": str(tmp_path / "crew.py"), "line": 1, "message": "invalid Python syntax"}
+        ]
+
+    def test_audit_without_crewai_has_no_crewai_key(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        (tmp_path / "agents.yaml").write_text("a:\n  tools: [x]\n")
+        (tmp_path / "agent.py").write_text("x = 1\n")
+        _, data, _ = self._json(runner, str(tmp_path))
+        assert data == {"files_analyzed": 1, "findings": []}
+
+
+CREW_FIXTURES = Path(__file__).parents[1] / "fixtures" / "crewai"
 CC_FIXTURES = Path(__file__).parents[1] / "fixtures" / "claude_code"
 CC_KEYS = {"rule", "severity", "file", "line", "message", "agent", "tools"}
 

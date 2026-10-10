@@ -1276,6 +1276,10 @@ def audit(
     .claude/agents/ or agents/ directory, or a single agent .md file):
     declared tools, secrets in prompts and dangerous tool chains.
 
+    Also audits CrewAI projects (config/agents.yaml with tasks.yaml, and
+    crew.py) without importing them: dangerous chains over each agent's
+    tools and its tasks' tools. JSON output lists every agent under "crewai".
+
     PATH can be a single file or a directory (recursive scan).
 
     \b
@@ -1302,7 +1306,9 @@ def audit(
         apply_baseline,
         build_baseline,
     )
+    from ziran.application.static_analysis.crewai_audit import audit_crewai
     from ziran.infrastructure.config.claude_code_plugin import load_claude_code
+    from ziran.infrastructure.config.crewai_project import load_crewai
 
     if baseline_path and write_baseline_path:
         raise click.UsageError("--baseline and --write-baseline are mutually exclusive")
@@ -1310,8 +1316,10 @@ def audit(
     target = Path(path)
     analyzer = StaticAnalyzer()
     scan = load_claude_code(target)
+    crew = load_crewai(target, analyzer.config.skip_directories)
+    agents_detected = scan.detected or crew.detected
 
-    if target.is_file() and scan.detected:
+    if target.is_file() and agents_detected:
         report = AnalysisReport()
     elif target.is_file():
         report = AnalysisReport(files_analyzed=1, findings=analyzer.analyze_file(target))
@@ -1322,6 +1330,10 @@ def audit(
         cc = audit_claude_code(scan, analyzer.config)
         report.files_analyzed += cc.files_analyzed
         report.findings.extend(cc.findings)
+    if crew.detected:
+        cr = audit_crewai(crew)
+        report.files_analyzed += cr.files_analyzed
+        report.findings.extend(cr.findings)
 
     narrowed: list[BaselineNarrowing] | None = None
     if baseline_path or write_baseline_path:
@@ -1391,10 +1403,23 @@ def audit(
                 "line": f.line_number,
                 "message": f.message,
             }
-            if scan.detected:
+            if agents_detected:
                 row |= {"agent": f.agent, "tools": list(f.tools)}
             rows.append(row)
         doc: dict[str, Any] = {"files_analyzed": report.files_analyzed, "findings": rows}
+        if crew.detected:
+            doc["crewai"] = [
+                {
+                    "agent": a.name,
+                    "file": a.file,
+                    "line": a.line,
+                    "tools": a.tools,
+                    "agent_tools": a.agent_tools,
+                    "tasks": [t.model_dump() for t in a.tasks],
+                    "errors": [e.model_dump() for e in a.errors],
+                }
+                for a in crew.agents
+            ]
         if narrowed is not None:
             doc["baseline"] = {"narrowed": [n.model_dump() for n in narrowed]}
         click.echo(json.dumps(doc, indent=2))

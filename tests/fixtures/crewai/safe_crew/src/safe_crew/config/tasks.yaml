@@ -1,0 +1,4 @@
+research_task:
+  description: Find news.
+  expected_output: A list of links.
+  agent: researcher

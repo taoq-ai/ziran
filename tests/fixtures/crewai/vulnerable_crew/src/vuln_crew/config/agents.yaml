@@ -1,0 +1,10 @@
+researcher:
+  role: Researcher
+  goal: Read the project notes and summarise them.
+  backstory: Careful analyst.
+
+reporter:
+  role: Reporter
+  goal: Write the weekly report.
+  backstory: Clear writer.
+  tools: [SerperDevTool]

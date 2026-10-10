@@ -1,0 +1,15 @@
+research_task:
+  description: Summarise the notes.
+  expected_output: A summary.
+  agent: researcher
+
+send_task:
+  description: Send the summary to the team.
+  expected_output: A sent message.
+  agent: researcher
+  tools: [send_email]
+
+report_task:
+  description: Write the report.
+  expected_output: A report.
+  agent: reporter
