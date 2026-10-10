@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from ziran.application.static_analysis.crewai_audit import audit_crewai
 from ziran.domain.entities.crewai import CrewAIAgent, CrewAIIssue, CrewAIScan, CrewAITask
 from ziran.infrastructure.config.claude_code_plugin import MAX_FILE_BYTES
 from ziran.infrastructure.config.crewai_project import MAX_AST_DEPTH, load_crewai
@@ -134,6 +135,23 @@ class TestDiscovery:
         )
         assert _units(load_crewai(tmp_path))["a"].agent_tools == ["T"]
 
+    def test_crew_py_beside_config_dir_wins(self, tmp_path: Path) -> None:
+        method = "    @agent\n    def a(self) -> Agent:\n        return Agent(tools=[{}()])\n"
+        cfg = _project(tmp_path, "a:\n  role: R\n", crew=CREW_HEAD + method.format("Beside"))
+        (cfg / "crew.py").write_text(CREW_HEAD + method.format("Inside"))
+        assert _units(load_crewai(tmp_path))["a"].agent_tools == ["Beside"]
+
+    def test_config_dir_target_reads_crew_py_above(self, tmp_path: Path) -> None:
+        cfg = _project(
+            tmp_path,
+            "a:\n  role: R\n",
+            crew=CREW_HEAD
+            + "    @agent\n    def a(self) -> Agent:\n        return Agent(tools=[T()])\n",
+        )
+        scan = load_crewai(cfg)
+        assert _units(scan)["a"].agent_tools == ["T"]
+        assert _units(scan)["a"].errors == [] and scan.issues == []
+
 
 # ── Tool sets ─────────────────────────────────────────────────────────
 
@@ -225,7 +243,39 @@ class TestToolSets:
             "FileReadTool",
             "my_tool",
             "search",
+            "self.search",
         ]
+
+    def test_attribute_is_not_resolved_through_class_body(self, tmp_path: Path) -> None:
+        _project(
+            tmp_path,
+            "a:\n  role: R\n",
+            crew=CREW_HEAD
+            + "    scrape_tool = ScrapeWebsiteTool()\n"
+            + "    @agent\n    def a(self) -> Agent:\n"
+            + "        return Agent(tools=[self.scrape_tool, scrape_tool, crewai_tools.X])\n",
+        )
+        assert _units(load_crewai(tmp_path))["a"].agent_tools == [
+            "self.scrape_tool",
+            "ScrapeWebsiteTool",
+            "crewai_tools.X",
+        ]
+
+    def test_attribute_ids_give_the_same_chains(self, tmp_path: Path) -> None:
+        def chains(tools: str, pkg: str) -> list[str]:
+            _project(
+                tmp_path,
+                "a:\n  role: R\n",
+                crew=CREW_HEAD
+                + f"    @agent\n    def a(self) -> Agent:\n        return Agent(tools=[{tools}])\n",
+                pkg=pkg,
+            )
+            findings = audit_crewai(load_crewai(tmp_path / pkg)).findings
+            return [f"{f.check_id} {f.message.split(' via ')[0]}" for f in findings]
+
+        plain = chains("read_file, send_email", "p1")
+        assert plain == chains("self.read_file, self.send_email", "p2")
+        assert plain == ["CR001 Agent 'a': data_exfiltration"]
 
     def test_tool_ids_are_verbatim(self, tmp_path: Path) -> None:
         _project(
@@ -537,3 +587,70 @@ class TestHostileInput:
         scan = load_crewai(tmp_path)
         assert len(scan.issues) == 3
         assert all(PLANTED not in m for m in _messages(scan))
+
+    def test_nested_dict_tool_element_under_depth_limit(self, tmp_path: Path) -> None:
+        # ast.unparse needs several frames per dict level, so this passes the depth check
+        # and still exhausts the stack.
+        depth = MAX_AST_DEPTH - 20
+        element = "{1: " * depth + "1" + "}" * depth
+        _project(
+            tmp_path,
+            "a:\n  role: R\n  tools: [x]\nb:\n  role: R\n",
+            crew=CREW_HEAD
+            + f"    @agent\n    def a(self) -> Agent:\n        return Agent(tools=[{element}])\n",
+        )
+        units = _units(load_crewai(tmp_path))
+        assert units["a"].agent_tools == ["x"]
+        for unit in units.values():
+            [err] = unit.errors
+            assert err.file.endswith("crew.py") and "nested too deeply" in err.message
+
+    @pytest.mark.parametrize("value", ["2001-13-45", "1" * 4301], ids=["date", "bigint"])
+    def test_yaml_value_error_in_agents_yaml(self, tmp_path: Path, value: str) -> None:
+        _project(tmp_path, f"a:\n  role: {value}\n")
+        scan = load_crewai(tmp_path)
+        assert scan.agents == []
+        [issue] = scan.issues
+        assert issue.message == "invalid YAML (ValueError)"
+
+    @pytest.mark.parametrize("value", ["2001-13-45", "1" * 4301], ids=["date", "bigint"])
+    def test_yaml_value_error_in_tasks_yaml(self, tmp_path: Path, value: str) -> None:
+        _project(tmp_path, "a:\n  role: R\nb:\n  role: R\n", tasks=f"t:\n  description: {value}\n")
+        for unit in load_crewai(tmp_path).agents:
+            [err] = unit.errors
+            assert err.file.endswith("tasks.yaml") and "ValueError" in err.message
+
+    def test_yaml_alias_in_agents_yaml_is_refused(self, tmp_path: Path) -> None:
+        _project(tmp_path, f"a: &{PLANTED}\n  role: R\nb: *{PLANTED}\n")
+        scan = load_crewai(tmp_path)
+        assert scan.agents == []
+        [issue] = scan.issues
+        assert issue.file.endswith("agents.yaml") and "alias" in issue.message
+        assert PLANTED not in issue.message
+
+    def test_yaml_alias_in_tasks_yaml_is_refused(self, tmp_path: Path) -> None:
+        _project(
+            tmp_path,
+            "a:\n  role: R\nb:\n  role: R\n",
+            tasks="t0:\n  agent: a\n  tools: &T [x, y]\nt1:\n  agent: a\n  tools: *T\n",
+        )
+        for unit in load_crewai(tmp_path).agents:
+            assert unit.tasks == []
+            [err] = unit.errors
+            assert err.file.endswith("tasks.yaml") and "alias" in err.message
+
+    def test_symlinked_directory_is_not_walked(self, tmp_path: Path) -> None:
+        _project(tmp_path / "outside", "a:\n  role: R\n")
+        root = tmp_path / "root"
+        root.mkdir()
+        os.symlink(tmp_path / "outside", root / "linked")
+        scan = load_crewai(root)
+        assert scan.agents == [] and scan.issues == []
+
+    def test_file_target_root_stops_above_the_config_dir(self, tmp_path: Path) -> None:
+        cfg = _project(tmp_path / "root", "a:\n  role: R\n")
+        outside = cfg.parent.parent / "outside.py"
+        outside.write_text(CREW_HEAD)
+        os.symlink(outside, cfg.parent / "crew.py")
+        [err] = load_crewai(cfg / "agents.yaml").agents[0].errors
+        assert "outside" in err.message

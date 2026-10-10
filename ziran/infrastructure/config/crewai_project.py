@@ -6,7 +6,8 @@ Discovery for ``load_crewai(path)``:
 * ``path`` is a file named ``agents.yaml``: its directory is the project when ``tasks.yaml`` is
   beside it. Files are read from the directory above (where crew.py lives) downwards.
 * ``path`` is a directory: every directory below it (symlinked directories and ``skip_dirs`` are
-  not walked) that holds both ``agents.yaml`` and ``tasks.yaml`` is a project.
+  not walked) that holds both ``agents.yaml`` and ``tasks.yaml`` is a project. When ``path`` is
+  itself such a directory, files are read from the directory above, as for an agents.yaml target.
 * crew.py is ``config/../crew.py``, else ``config/crew.py``.
 
 A unit is one agents.yaml entry. Its agent tools are the ``tools=`` argument of the matching
@@ -14,9 +15,9 @@ A unit is one agents.yaml entry. Its agent tools are the ``tools=`` argument of 
 method of the same name) when that argument is set, else the entry's ``tools:`` key. Tasks follow
 the same rule for ``tools`` and ``agent``; that is how CrewAI's ``process_config`` merges an
 explicit argument with its YAML config. In an ``@agent``/``@task`` method the first ``Agent(...)``/
-``Task(...)`` call in ``ast.walk`` order is read. A tool element gives its called or referenced
-name; a name bound in crew.py only by simple assignments calling one callee gives that callee; any
-other element gives its source text.
+``Task(...)`` call in ``ast.walk`` order is read. A tool call gives its callee name; a name bound
+in crew.py only by simple assignments calling one callee gives that callee, any other name gives
+itself; any other element, an attribute such as ``self.search`` included, gives its source text.
 
 Nothing in a file makes this raise. A failure that only touches one unit becomes an error on that
 unit; a failure in tasks.yaml or crew.py that could touch any unit becomes an error on every unit
@@ -70,14 +71,31 @@ def _read(file: Path, base: Path) -> str:
         raise _UnusableError(file, f"cannot read file ({type(exc).__name__})") from None
 
 
+class _AliasError(Exception):
+    pass
+
+
+class _Loader(yaml.SafeLoader):
+    """``yaml.SafeLoader`` without aliases. Each use of an alias copies its anchored value, so a
+    small file can expand to gigabytes; CrewAI configs have no need for them."""
+
+    def compose_node(self, parent: yaml.Node | None, index: object) -> yaml.Node | None:
+        if self.check_event(yaml.AliasEvent):  # type: ignore[no-untyped-call]
+            raise _AliasError
+        return super().compose_node(parent, index)  # type: ignore[arg-type]
+
+
 def _yaml(file: Path, base: Path) -> tuple[Any, dict[str, int]]:
     """(document, top-level key -> 1-based line)."""
     text = _read(file, base)
     try:
-        data = yaml.safe_load(text)
-        node = yaml.compose(text, Loader=yaml.SafeLoader)
-    except yaml.YAMLError as exc:
+        data = yaml.load(text, Loader=_Loader)  # a SafeLoader subclass
+        node = yaml.compose(text, Loader=_Loader)
+    except _AliasError:
+        raise _UnusableError(file, "YAML aliases are not supported") from None
+    except (yaml.YAMLError, ValueError) as exc:
         # Class name only: str(exc) and exc.problem can quote source text (aliases, tags).
+        # ValueError: an impossible date or an integer over Python's digit limit.
         mark = getattr(exc, "problem_mark", None)
         line = mark.line + 1 if mark else None
         raise _UnusableError(file, f"invalid YAML ({type(exc).__name__})", line) from None
@@ -216,18 +234,20 @@ def _config_key(node: ast.expr | None) -> str | None:
     return None
 
 
+def _tool_name(node: ast.expr, bindings: dict[str, str]) -> str:
+    if isinstance(node, ast.Name):
+        return bindings.get(node.id, node.id)
+    return (_ref(node) if isinstance(node, ast.Call) else None) or ast.unparse(node)
+
+
 def _tool_list(
     node: ast.expr, file: Path, owner: str, errors: list[CrewAIIssue], bindings: dict[str, str]
 ) -> list[str]:
-    """FR-007: a bound name gives its callee, a call, name or attribute its name, else source text."""
+    """FR-007: a bound name gives its callee, a call its callee name, else the source text."""
     if not isinstance(node, ast.List | ast.Tuple):
         errors.append(_issue(file, f"tools of {owner} is not a literal list", node.lineno))
         return []
-    names = [
-        bindings.get(e.id, e.id) if isinstance(e, ast.Name) else _ref(e) or ast.unparse(e)
-        for e in node.elts
-    ]
-    return list(dict.fromkeys(names))
+    return list(dict.fromkeys(_tool_name(e, bindings) for e in node.elts))
 
 
 def _issue(file: Path, message: str, line: int | None = None) -> CrewAIIssue:
@@ -312,8 +332,12 @@ class _Project:
             self.error(None, exc.issue)
             return {}, {}
         bindings = _bindings(tree)
-        agents = {m.key: m for m in _methods(tree, self.crew_file, "agent", "Agent", bindings)}
-        tasks = {m.key: m for m in _methods(tree, self.crew_file, "task", "Task", bindings)}
+        try:
+            agents = {m.key: m for m in _methods(tree, self.crew_file, "agent", "Agent", bindings)}
+            tasks = {m.key: m for m in _methods(tree, self.crew_file, "task", "Task", bindings)}
+        except RecursionError:  # ast.unparse recurses more per level than the depth check counts
+            self.error(None, _issue(self.crew_file, "Python source is nested too deeply"))
+            return {}, {}
         return agents, tasks
 
     def tasks(self, scan: CrewAIScan, methods: dict[str, _Method]) -> Iterator[_Task]:
@@ -381,7 +405,10 @@ def load_crewai(path: Path, skip_dirs: Collection[str] = ()) -> CrewAIScan:
     """Read every CrewAI project under *path*. Never raises for file content or missing files."""
     scan = CrewAIScan(root=str(path))
     if os.path.isdir(path):
-        base, dirs = _real(path), sorted(_project_dirs(path, skip_dirs), key=str)
+        # A config directory gets the same base as its agents.yaml, so config/../crew.py is read.
+        is_config = all(os.path.isfile(path / f) for f in ("agents.yaml", "tasks.yaml"))
+        base = _real(path).parent if is_config else _real(path)
+        dirs = sorted(_project_dirs(path, skip_dirs), key=str)
     elif path.name == "agents.yaml" and os.path.isfile(path.parent / "tasks.yaml"):
         base, dirs = _real(path.parent.parent), [path.parent]
     else:

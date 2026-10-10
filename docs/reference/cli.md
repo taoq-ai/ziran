@@ -333,7 +333,8 @@ provided yet.
 directory that holds both `agents.yaml` and `tasks.yaml` (usually `src/<pkg>/config/`), found
 anywhere under `PATH`, or `PATH` itself when it is that `agents.yaml` file. The YAML files are read
 with `yaml.safe_load`. `crew.py` (beside the config directory, else inside it) is read with Python's
-`ast` module only. Directories in the analyzer's `skip_directories` are not walked.
+`ast` module only. Directories in the analyzer's `skip_directories` are not walked. A YAML file
+with an alias (`*name`) is not read.
 
 Each `agents.yaml` entry is one agent. Its tools are:
 
@@ -346,12 +347,13 @@ The agent's tool set is the union of both. A tool id is the name as written: `Fi
 `FileReadTool()` or `crewai_tools.FileReadTool(...)`, `my_tool` for `self.my_tool()`, the YAML
 string for a YAML entry. A variable bound in crew.py by a simple assignment to a call
 (`search = SerperDevTool()`, then `tools=[search]`) gives the called name, `SerperDevTool`; a name
-bound more than once to different calls stays as written. Any other element, such as `*base_tools`,
-is kept as its source text. Ids are not normalised.
+bound more than once to different calls stays as written. Any other element, such as `*base_tools`
+or an uncalled attribute like `self.search_tool`, is kept as its source text. Ids are not
+normalised.
 
 | Rule | Severity | Finding | File and line |
 |------|----------|---------|---------------|
-| `CR000` | high | A project file could not be used (syntax error, over 1 MiB, nested too deeply, a symlink out of the scanned directory, a `tools=` value that is not a literal list), or an agent with more than 64 tools, whose chains are not built | the file and line of the problem; the agents.yaml entry line for the tool bound |
+| `CR000` | high | A project file could not be used (syntax error, over 1 MiB, nested too deeply, a YAML alias, a symlink out of the scanned directory, a `tools=` value that is not a literal list), or an agent with more than 64 tools, whose chains are not built | the file and line of the problem; the agents.yaml entry line for the tool bound |
 | `CR001` | the chain's risk | A dangerous tool chain over the agent's tool set | `agents.yaml`, the entry's line |
 
 A problem that touches one agent is reported on that agent; a broken `crew.py` or `tasks.yaml` is

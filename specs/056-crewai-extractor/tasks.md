@@ -66,6 +66,17 @@ file (no markers). Names, keys and messages are those in [plan.md](plan.md#publi
 - [x] T016 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran`.
 
+## Phase 8: fix round 1
+
+- [x] T017 Uncalled attribute tool elements kept as source text (`self.search`); US3.4, US3.9,
+      FR-007 and the cli.md paragraph updated; chains pinned unchanged.
+- [x] T018 `RecursionError` from `ast.unparse` while walking crew.py becomes a crew.py error on
+      every unit (nested-dict test under `MAX_AST_DEPTH`).
+- [x] T019 YAML `ValueError` (impossible date, integer over the digit limit) becomes a file error.
+- [x] T020 YAML aliases refused in agents.yaml and tasks.yaml; 64-tool assumption revised.
+- [x] T021 Tests pin the crew.py lookup order, the unwalked symlinked directory and the file-target
+      root; a config-directory PATH reads `config/../crew.py`.
+
 ## Dependencies
 
 T001 -> T002. T003 -> T004 -> T005/T006 -> T007 -> T008 -> T009 -> T010/T011 -> T012.

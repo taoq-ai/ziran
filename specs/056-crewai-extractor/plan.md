@@ -82,15 +82,17 @@ def load_crewai(path: Path, skip_dirs: Collection[str] = ()) -> CrewAIScan: ...
 Never raises for file content or missing files. Reuses `MAX_FILE_BYTES` (1 MiB) from
 `claude_code_plugin`. Steps per project directory `d` (holding `agents.yaml` and `tasks.yaml`):
 
-1. Read agents.yaml (containment, size, decode, `safe_load`, `compose` for key lines). Failure or a
-   non-mapping document: one scan issue, no units.
+1. Read agents.yaml (containment, size, decode, `safe_load`, `compose` for key lines, both with a
+   `SafeLoader` subclass that refuses aliases). Failure or a non-mapping document: one scan issue,
+   no units.
 2. Read tasks.yaml the same way. Failure: an error on every unit.
 3. Find `d.parent / "crew.py"`, then `d / "crew.py"`. Read, `ast.parse`, check depth. Failure: an
    error on every unit, YAML data kept.
 4. Collect `@agent` and `@task` functions (decorator `agent`/`task` as a name, attribute or call).
    In each, the first call to `Agent`/`Task` (name or attribute) gives `config=` key, `tools=` and,
    for tasks, `agent=`. Tool element names follow FR-007: a map of simple assignments in crew.py
-   (one callee per name) resolves names; other elements become `ast.unparse` text.
+   (one callee per name) resolves names; other elements become `ast.unparse` text. A
+   `RecursionError` while walking (deep `ast.unparse`) is an error on every unit.
 5. Apply FR-004 to FR-006.
 
 ### 3. `ziran/application/static_analysis/claude_code_audit.py` (edit)
