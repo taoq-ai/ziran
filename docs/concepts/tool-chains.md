@@ -78,8 +78,10 @@ generation skips single-tool findings.
 ## LangChain-style RAG tool names
 
 Common RAG agent tools also resolve to existing pattern keywords. Matching ignores case and
-separators and finds the name anywhere in the id, so the LangChain adapter's `tool_<name>` ids
-match too.
+separators. The id must be the name itself, optionally with a `tool_` or `mcp__<server>__`
+prefix and a `_results` or `_json` suffix, so the LangChain adapter's `tool_<name>` ids match
+too. An id with other words around the name, such as `shell_execute_tavily_search`, is left
+unchanged and keeps its own chains.
 
 | Tool name (and variants) | Matched as |
 |--------------------------|------------|

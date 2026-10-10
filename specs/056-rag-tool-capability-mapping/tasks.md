@@ -15,6 +15,14 @@ implementation task. Existing tests are not modified, only extended.
       `ziran/application/knowledge_graph/tool_aliases.py` and call it at both unchanged-id exits
       of `canonical_tool_name`; widen the module docstring. T001 passes.
 
+- [x] T006 Anchor the match (review fix): add cases where an id contains a name next to other
+      words (`shell_execute_tavily_search`, `vectorstore_search_database`,
+      `vector_store_query_writer`, `save_vectors_to_research_db`, `Foo(tavily_search)` and
+      others) and stays unchanged, plus chain cases `Agent -> shell_execute_tavily_search`
+      (`delegation_to_rce`) and `tool_read_file -> send_email_tavily_search`
+      (`data_exfiltration`). See them fail on the substring match, then anchor
+      `_framework_alias`.
+
 ## Phase 2 - Chains fire (US2)
 
 - [x] T003 Add `TestRagToolNames` to `tests/unit/test_chain_analyzer.py` with the five US2

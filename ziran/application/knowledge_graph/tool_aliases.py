@@ -32,8 +32,10 @@ _BUILTIN_ALIASES: dict[str, str] = {
 }
 
 #: LangChain-style tool names -> chain-pattern keyword. Keys are squashed (lowercase,
-#: non-alphanumerics removed) and match anywhere in the squashed id, like the patterns'
-#: own substring matching: ``tool_tavily_search`` and ``TavilySearchResults`` both match.
+#: non-alphanumerics removed). The squashed id must equal a key, after an optional
+#: ``mcp__<server>__`` and ``tool`` prefix and before an optional ``results``/``json``
+#: suffix: ``tool_tavily_search`` and ``TavilySearchResults`` match, while
+#: ``shell_execute_tavily_search`` keeps its own words.
 _FRAMEWORK_ALIASES: dict[str, str] = {
     "recursiveurlloader": "http_request",
     "tavilysearch": "browse_url",
@@ -58,12 +60,14 @@ _SECRET_PATH = re.compile(
 _GIT_PUSH = re.compile(r"\bgit\s+push\b")
 _TOKEN_SEP = re.compile(r"[_-]+")
 _NON_ALNUM = re.compile(r"[\W_]+")
+_MCP_PREFIX = re.compile(r"^mcp__.*?__")
+_FRAMEWORK_NAME = re.compile(r"(?:tool)?(.+?)(?:results)?(?:json)?")
 
 
 def _framework_alias(tool_id: str) -> str:
     """Return the keyword for a LangChain-style tool id, else ``tool_id``."""
-    squashed = _NON_ALNUM.sub("", tool_id.lower())
-    return next((kw for key, kw in _FRAMEWORK_ALIASES.items() if key in squashed), tool_id)
+    m = _FRAMEWORK_NAME.fullmatch(_NON_ALNUM.sub("", _MCP_PREFIX.sub("", tool_id.lower())))
+    return _FRAMEWORK_ALIASES.get(m[1], tool_id) if m else tool_id
 
 
 def canonical_tool_name(tool_id: str) -> str:

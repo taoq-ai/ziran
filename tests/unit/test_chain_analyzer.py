@@ -451,6 +451,19 @@ class TestRagToolNames:
         assert chain.risk_level == risk
         assert chain.graph_path == [source, target]
 
+    @pytest.mark.parametrize(
+        ("source", "target", "vuln_type", "risk"),
+        [
+            ("Agent", "shell_execute_tavily_search", "delegation_to_rce", "critical"),
+            ("tool_read_file", "send_email_tavily_search", "data_exfiltration", "critical"),
+        ],
+    )
+    def test_id_containing_a_name_keeps_its_chains(
+        self, source: str, target: str, vuln_type: str, risk: str
+    ) -> None:
+        chains = ToolChainAnalyzer(_cc_graph([source, target], [(source, target)])).analyze()
+        assert (vuln_type, risk) in {(c.vulnerability_type, c.risk_level) for c in chains}
+
 
 @pytest.mark.unit
 class TestUnrestrictedExecution:

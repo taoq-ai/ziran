@@ -75,6 +75,15 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("web_search", "web_search"),
         ("url_loader", "url_loader"),
         ("vector_store_write", "vector_store_write"),
+        # Ids that only contain one of the names keep their own words
+        ("shell_execute_tavily_search", "shell_execute_tavily_search"),
+        ("mcp__x__shell_execute_tavily_search", "mcp__x__shell_execute_tavily_search"),
+        ("tavily_search_and_send_email", "tavily_search_and_send_email"),
+        ("vectorstore_search_database", "vectorstore_search_database"),
+        ("vector_store_query_writer", "vector_store_query_writer"),
+        ("save_vectors_to_research_db", "save_vectors_to_research_db"),
+        ("recursive_url_loader_write_file", "recursive_url_loader_write_file"),
+        ("Foo(tavily_search)", "Foo(tavily_search)"),
         # Claude Code rules keep precedence over the LangChain-style names
         ("Read(notes/tavily_search.md)", "read_file"),
         ("mcp__tavily__send_tavily_search_digest", "send_email"),

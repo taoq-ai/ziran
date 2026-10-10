@@ -6,7 +6,8 @@
 
 Add a small framework alias table to `ziran/application/knowledge_graph/tool_aliases.py` and
 consult it from `canonical_tool_name` wherever that function returns an id unchanged today. Keys
-are squashed (lowercase, non-alphanumerics removed) and matched as substrings of the squashed id.
+are squashed (lowercase, non-alphanumerics removed). The squashed id must equal a key after an
+optional `mcp__<server>__` and `tool` prefix, with an optional `results`/`json` suffix.
 
 ## Technical Context
 
@@ -27,7 +28,7 @@ are squashed (lowercase, non-alphanumerics removed) and matched as substrings of
 
 ```python
 #: LangChain-style tool names -> chain-pattern keyword. Keys are squashed (lowercase,
-#: non-alphanumerics removed) and match anywhere in the squashed id.
+#: non-alphanumerics removed); the squashed id must equal a key (anchored).
 _FRAMEWORK_ALIASES: dict[str, str] = {
     "recursiveurlloader": "http_request",
     "tavilysearch": "browse_url",
@@ -35,15 +36,19 @@ _FRAMEWORK_ALIASES: dict[str, str] = {
     "vectorstoresearch": "vector_store_read",
 }
 
+_MCP_PREFIX = re.compile(r"^mcp__.*?__")
+_FRAMEWORK_NAME = re.compile(r"(?:tool)?(.+?)(?:results)?(?:json)?")
+
 def _framework_alias(tool_id: str) -> str:
-    squashed = _NON_ALNUM.sub("", tool_id.lower())
-    return next((kw for key, kw in _FRAMEWORK_ALIASES.items() if key in squashed), tool_id)
+    m = _FRAMEWORK_NAME.fullmatch(_NON_ALNUM.sub("", _MCP_PREFIX.sub("", tool_id.lower())))
+    return _FRAMEWORK_ALIASES.get(m[1], tool_id) if m else tool_id
 ```
 
 `canonical_tool_name` calls `_framework_alias(tool_id)` at its two `return tool_id` exits (MCP
 non-outbound id; id that is not a Claude Code built-in). Claude Code results are untouched.
 
-Keys are disjoint, so the first-match order does not matter.
+The alias replaces the whole id, so the match is anchored: an id with other words around a
+name (`shell_execute_tavily_search`) keeps its own words and chains.
 
 ## Files
 
@@ -56,6 +61,6 @@ Keys are disjoint, so the first-match order does not matter.
 
 ## Risks
 
-- Substring matching after squashing can map an unrelated id that contains a key. Keys are
-  three-word compounds, which keeps this unlikely.
+- An id that equals a mapped name takes that one keyword, even if the tool does more. Every
+  alias in this module has that limit.
 - A graph holding only the three tools still yields no chain (spec, Edge Cases).

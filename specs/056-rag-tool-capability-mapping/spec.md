@@ -67,20 +67,31 @@ chain patterns that already describe those capabilities.
    `tool_http_request` and `harmless_a` stay unchanged.
 2. Ids that only share a word with the new names stay unchanged: `search`, `web_search`,
    `vector_store_write`, `url_loader`.
-3. No chain pattern, pattern YAML, classifier entry, node, edge type or output field changes.
+3. Ids that contain a name next to other words keep their own words and chains:
+   `shell_execute_tavily_search`, `tavily_search_and_send_email`, `vectorstore_search_database`,
+   `vector_store_query_writer`, `save_vectors_to_research_db`, `recursive_url_loader_write_file`
+   and `Foo(tavily_search)` stay unchanged. `Agent -> shell_execute_tavily_search` still gives
+   `delegation_to_rce` (critical) and `tool_read_file -> send_email_tavily_search` still gives
+   `data_exfiltration` (critical).
+4. No chain pattern, pattern YAML, classifier entry, node, edge type or output field changes.
 
 ### Edge Cases
 
-- **Substring after squashing**: the key is matched after lowercasing and removing every
-  non-alphanumeric character, anywhere in the id. An unrelated id that happens to contain, for
-  example, `vectorstorequery` would also map. This follows the patterns' own substring semantics
-  (`read_file` matches `fs_read_file`).
+- **Anchored match after squashing**: the id is lowercased, an `mcp__<server>__` prefix is
+  dropped and every non-alphanumeric character is removed. What is left must equal a key, with
+  an optional `tool` prefix and an optional `results`, `json` or `resultsjson` suffix. The alias
+  replaces the whole id, so a looser substring match would drop the id's other words: a tool
+  named `shell_execute_tavily_search` would lose its `shell_execute` chains. An id with any other
+  word around the name is left unchanged and matches the patterns on its own words.
 - **A graph with only these three tools** forms no chain: no existing pattern links
   `http_request` or `browse_url` to `vector_store_read`. Chains fire when the agent also has a
   tool on the other side of a pattern (code execution, file write, vector store write, file
   read). Adding a pattern is out of scope.
 - **Risk tier** (`ziran/domain/tool_classifier.py`) is not changed: it does not feed chain
   matching, and `WebFetch` / `WebSearch` are not classified dangerous either.
+- **Scope is naming only.** The item maps names. It does not make an agent with these tools
+  report a chain it has no tool for: an expected `rag_poisoning` finding still needs a
+  vector store write tool on the agent.
 
 ## Requirements *(mandatory)*
 
@@ -110,12 +121,16 @@ chain patterns that already describe those capabilities.
   `tavily_search_results_json` (LangChain's `TavilySearchResults` default tool name),
   `TavilySearchResults`, and MCP forms such as `mcp__tavily__tavily-search`.
   `vector_store_query`: `vectorstore_query`, `VectorStoreQuery`, `vector_store_search`,
-  `vectorstore_search`. Each also with a prefix such as `tool_`. Why: these are the spellings a
-  reader would expect for the same tool, and the LangChain adapter adds `tool_`. Overturn: a
-  false positive on a real tool id that contains a key but is a different tool.
+  `vectorstore_search`. Each also with the `tool_` prefix the LangChain adapter adds, and the
+  MCP form `mcp__<server>__<name>`. Matching is anchored (see Edge Cases): the squashed id,
+  after those prefixes, must equal a key or a key plus `results`, `json` or `resultsjson`.
+  Why: these are the spellings a reader would expect for the same tool, and an anchored match
+  never drops the words of an id that only contains a name. Overturn: a common real tool id
+  with another wrapper word (for example a `_tool` suffix) that should map but does not.
 - **Not mapped**: generic names such as `search`, `web_search`, `retriever` or
   `similarity_search`. They do not name these tools, and broad names would change matching for
-  unrelated agents.
+  unrelated agents. `TavilySearchAPIWrapper` and `TavilySearchAPIRetriever` are LangChain
+  helper classes, not tool names, and stay unmapped.
 - **Placement.** The map sits in `tool_aliases.py`, the single alias map the analyzer and trace
   analysis already share. The module docstring is widened from "Claude Code" to "Claude Code and
   LangChain-style" ids. Overturn: if a reviewer wants framework aliases in their own module.
@@ -134,7 +149,10 @@ chain patterns that already describe those capabilities.
 
 - Q: Alias map or tool classifier? A: alias map. Chain matching reads `canonical_tool_name`;
   the classifier gives risk tiers and is not read by the analyzer.
-- Q: Exact names only? A: no. LangChain capability ids carry a `tool_` prefix, so exact
-  matching would miss the adapter's own ids. Match squashed substrings (see Edge Cases).
+- Q: Exact names only? A: no, but anchored. LangChain capability ids carry a `tool_` prefix,
+  so exact matching would miss the adapter's own ids. Match the squashed id after optional
+  `mcp__<server>__` and `tool` prefixes, with an optional `results`/`json` suffix, and nothing
+  else (see Edge Cases). A substring match was rejected: the alias replaces the whole id, so an
+  id such as `shell_execute_tavily_search` would lose its `delegation_to_rce` chain.
 - Q: Add a pattern so the three tools chain with each other? A: no, out of scope; the item
   maps names to existing capabilities only.
