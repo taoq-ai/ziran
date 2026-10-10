@@ -102,7 +102,7 @@ chain patterns that already describe those capabilities.
 - **FR-002**: the mapping applies only when the Claude Code rules do not: built-in names, rule
   forms and MCP outbound verbs keep precedence (US3.1).
 - **FR-003**: no change to `chain_patterns.yaml`, `ChainPatternRegistry`, `ToolChainAnalyzer`,
-  the tool classifier, adapters or any output shape (US3.3).
+  the tool classifier, adapters or any output shape (US3.4).
 - **FR-004**: `docs/concepts/tool-chains.md` lists the new names next to the Claude Code table.
 - **FR-005**: no new dependency; `uv.lock` unchanged.
 
