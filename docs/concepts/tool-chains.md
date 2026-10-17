@@ -33,8 +33,8 @@ ZIRAN ships with 30+ dangerous tool chain patterns:
 | Session Hijacking | `get_session` -> `http_request` | Critical |
 | MCP Exploitation | `mcp_list_servers` -> `mcp_invoke` | High |
 
-Email exfiltration from query and REPL tools (the last two patterns in
-`chain_patterns.yaml`, after every other pattern, so no pair matched before changes type):
+Email exfiltration from query and REPL tools (added by spec 058 after every earlier pattern in
+`chain_patterns.yaml`, so no pair matched before changes type):
 
 | Pattern | Type | Risk |
 |---------|------|------|

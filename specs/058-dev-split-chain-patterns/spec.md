@@ -30,8 +30,8 @@ Done means:
 2. Compared with `b813e4f`, the pattern list gains exactly these two entries at its end; none
    is removed or reordered.
 3. On the ziran-paper dev split with cycles off, chain recall goes from 4 of 10 to 6 of 10
-   (gt_ca_tp_006#0 and gt_tc_tp_003#0 now found), measured without loading any held-out
-   scenario.
+   (gt_ca_tp_006#0 and gt_tc_tp_003#0 now found), with no held-out scenario scored, printed
+   or inspected.
 
 ## Study note: these patterns are post-hoc
 
@@ -41,7 +41,14 @@ seen on 2026-10-09T08:26:11Z. Under the study's decision D-1 and the owner's ans
 2026-10-17, every pattern, alias or classifier change made after that time is post-hoc. Both
 patterns in this spec are post-hoc: corpus findings they produce are reported separately, next
 to the study-v1 headline and not inside it. The fix used dev-split scenario ids only. No
-held-out scenario file was opened, no ground-truth label changed, and no corpus data was read.
+ground-truth label changed and no corpus data was read.
+
+Held-out scenario files were parsed, but not used. The dev recall run (task T006) used
+ziran-paper's `study/scripts/dev_benchmark.py`, which calls run.py's `load_scenarios()`. That
+parses every scenario file in the tool_chain, side_effect and campaign categories, held-out ones
+included, into memory. It then keeps only the split's dev ids before any analyzer call. No
+held-out scenario was scored, printed or inspected. A scratch probe that opened only the dev
+scenario files, chosen by file name, gave the same counts.
 
 ## Current behaviour (read on `develop` @ 2e403cb)
 
@@ -89,15 +96,21 @@ ways and run `ToolChainAnalyzer.analyze(include_cycles=False)`.
 **Acceptance Scenarios**:
 1. With ziran-paper's dev scoring at the branch head and cycles off, run.py-style recall is
    6 of 10, up from 4 of 10 at `b813e4f` and at `develop` @ 2e403cb.
-2. The measurement loads no held-out scenario.
+2. The measurement scores, prints and inspects no held-out scenario, and a probe that opens
+   only dev scenario files gives the same counts.
 
 ### Edge Cases
 
 - **First match wins.** A tool pair already matched by an earlier pattern keeps that pattern.
   For example `database_query` to `send_email` stays on its own earlier entry.
-- **Other tool names.** Matching is by substring or keyword overlap, so ids such as
-  `run_sql_query` or `tool_python_repl` paired with an email tool also gain these chains. That
-  is the intended reach; it follows the matching every other pattern uses.
+- **Other tool names.** Matching is by substring or by keyword overlap in both directions
+  (`ToolChainAnalyzer._pattern_matches`), so the reach is wider than ids that contain
+  `sql_query` or `python_repl`. Sources such as `run_sql_query`, `query_sql`, `sql_db_query`,
+  `mcp__sqlite__read_query`, `PythonREPLTool` and `python_repl_ast`, and targets such as
+  `send_mail`, `email_sender`, `outlook_send_mail` and `mcp__gmail__send_email`, also give these
+  chains. That includes MCP and LangChain-style ids, so these post-hoc patterns can add more
+  corpus findings than the two names suggest. The reach follows the matching every other
+  pattern uses.
 - **Expected chain gt_ca_tp_006#1** (`execute_code` then `http_request`) stays a miss: neither
   tool name matches `python_repl` or `send_email` under the scorer, and the agent has no HTTP
   tool. The dev analysis classes it as label suspect; labels are out of scope.

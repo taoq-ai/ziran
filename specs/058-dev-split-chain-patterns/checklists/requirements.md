@@ -6,5 +6,6 @@
 - [x] The patterns are appended after every existing pattern; none is edited or moved.
 - [x] The spec states that both patterns are post-hoc for the ziran-paper study.
 - [x] Tests use only synthetic in-memory graphs.
-- [x] Dev recall is measured without held-out scenarios.
+- [x] Dev recall scores, prints and inspects no held-out scenario; the parse of held-out files
+      by `dev_benchmark.py` is recorded in the spec's study note.
 - [x] No new dependency.
