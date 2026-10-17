@@ -33,6 +33,14 @@ ZIRAN ships with 30+ dangerous tool chain patterns:
 | Session Hijacking | `get_session` -> `http_request` | Critical |
 | MCP Exploitation | `mcp_list_servers` -> `mcp_invoke` | High |
 
+Email exfiltration from query and REPL tools (the last two patterns in
+`chain_patterns.yaml`, after every other pattern, so no pair matched before changes type):
+
+| Pattern | Type | Risk |
+|---------|------|------|
+| `sql_query` -> `send_email` | `database_exfiltration` | Critical |
+| `python_repl` -> `send_email` | `repl_exfiltration` | Critical |
+
 ## Claude Code tool names
 
 Claude Code tools (`Read`, `Bash`, `mcp__slack__slack_send_message`, ...) do not share keywords
