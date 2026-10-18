@@ -1,0 +1,29 @@
+# Tasks: ziran Claude Code plugin with four skills and a CLI drift test
+
+Base: `develop` @ 5c3f90c. Test first: T001 runs red before any plugin file exists.
+
+## Phase 1 - Drift test (FR-006; US2, US3)
+
+- [ ] T001 Write `tests/unit/test_claude_plugin_skills.py`: frontmatter, CLI references, checker
+      self-test, action inputs, ATLAS coverage, audit/triage/scan offline runs. Run
+      `uv run pytest tests/unit/test_claude_plugin_skills.py` and see it fail (no skills yet).
+
+## Phase 2 - Plugin (FR-001 to FR-005; US1, US2, US3)
+
+- [ ] T002 Add `.claude-plugin/marketplace.json` and `plugins/ziran/.claude-plugin/plugin.json`.
+- [ ] T003 Add `plugins/ziran/skills/threat-model-agent/references/atlas-chains.md` covering all
+      chain types in `chain_patterns.yaml`.
+- [ ] T004 Add the four `SKILL.md` files and `plugins/ziran/README.md`. T001 passes.
+- [ ] T005 Add the README install section (FR-007).
+
+## Phase 3 - Evidence and gates (SC-001 to SC-004)
+
+- [ ] T006 Rename a flag in a scratch copy of a skill and confirm the test fails naming the file
+      and flag (SC-003).
+- [ ] T007 `claude plugin validate --strict .` and `plugins/ziran` from a `git archive` of the
+      head; isolated `CLAUDE_CONFIG_DIR` install and `claude plugin details ziran@ziran` (SC-001,
+      SC-002).
+- [ ] T008 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
+      `uv run pytest --cov=ziran`; confirm `git diff --stat origin/develop -- ziran/` is empty.
+- [ ] T009 Push, open the draft PR to `develop`, then install via the GitHub shorthand of the
+      pushed branch in an isolated `CLAUDE_CONFIG_DIR`.

@@ -1,0 +1,16 @@
+{
+  "name": "ziran",
+  "description": "ZIRAN agent security skills for Claude Code: audit agents and plugins for dangerous tool chains, triage scan findings, set up scans and threat-model an agent against MITRE ATLAS.",
+  "owner": {
+    "name": "TaoQ AI",
+    "url": "https://www.taoq.ai"
+  },
+  "plugins": [
+    {
+      "name": "ziran",
+      "source": "./plugins/ziran",
+      "description": "Skills that drive the ZIRAN CLI and explain its findings: audit-agents, triage-findings, set-up-scan, threat-model-agent.",
+      "category": "security"
+    }
+  ]
+}
