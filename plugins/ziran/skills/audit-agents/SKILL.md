@@ -80,7 +80,8 @@ chain patterns add `BL003` rows for unchanged agents), record the baseline again
 ## GitHub Actions
 
 Give this workflow for a plugin repository with a committed baseline. Pin `ziran-version` to the
-release the baseline was recorded with.
+release the baseline was recorded with, and pin the action to that release's commit SHA: a tag
+can be moved, a SHA cannot.
 
 ```yaml
 name: Claude Code plugin audit
@@ -93,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: taoq-ai/ziran@v0
+      - uses: taoq-ai/ziran@b813e4fb9076397098b7135785de15b98bb6528e  # v0.42.0
         with:
           command: audit
           path: "."
