@@ -25,5 +25,5 @@ Base: `develop` @ 5c3f90c. Test first: T001 runs red before any plugin file exis
       SC-002).
 - [x] T008 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran`; confirm `git diff --stat origin/develop -- ziran/` is empty.
-- [ ] T009 Push, open the draft PR to `develop`, then install via the GitHub shorthand of the
+- [x] T009 Push, open the draft PR to `develop`, then install via the GitHub shorthand of the
       pushed branch in an isolated `CLAUDE_CONFIG_DIR`.
