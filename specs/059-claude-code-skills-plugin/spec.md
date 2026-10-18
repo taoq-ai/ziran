@@ -117,6 +117,12 @@ A maintainer renames or removes a CLI flag; CI fails before a stale skill ships.
   fenced code are parsed.
 - `taoq-ai/ziran@v0`, `pip install ziran`, `ziran-version:` are not command invocations.
 - `ziran cache clear` is a group plus subcommand; the parser walks groups.
+- A flag named alone in code (`--max-cost 5` in a bullet) must be an option of a command the same
+  file invokes; otherwise a rename would slip past the full-command check.
+- `--phases a b` is a Click error (the option is `multiple=True`); parsing with the command's own
+  Click parser reports the leftover argument. The CLI's own `scan --help` example has this bug.
+- `unrestricted_execution` is reported by `ziran audit` but is not in `chain_patterns.yaml`; the
+  coverage test reads `vulnerability_type="..."` literals from `chain_analyzer.py` as well.
 - `ziran init` writes `ziran.yaml`, which `ziran scan` does not read; the set-up skill says so and
   passes flags instead.
 - The dry run probes `localhost:8899` from the example (connection refused when nothing listens);
@@ -133,8 +139,9 @@ A maintainer renames or removes a CLI flag; CI fails before a stale skill ships.
   `name` equal to the directory and a `description` that says when to trigger. Bodies are
   imperative and say what Claude adds beyond the command.
 - **FR-004 (ATLAS table)**: one shared `plugins/ziran/skills/threat-model-agent/references/
-  atlas-chains.md` whose rows map every chain type in `chain_patterns.yaml` to `AtlasTechnique`
-  IDs. The other skills link to it.
+  atlas-chains.md` whose rows map every chain type in `chain_patterns.yaml`, plus the single-tool
+  type hard-coded in `chain_analyzer.py` (`unrestricted_execution`), to `AtlasTechnique` IDs. The
+  other skills link to it.
 - **FR-005 (threat model without ziran)**: `threat-model-agent` works from a tool list alone and
   runs `ziran audit` only when `ziran` is on `PATH`.
 - **FR-006 (drift test)**: `tests/unit/test_claude_plugin_skills.py` covers US2 and US3; it does

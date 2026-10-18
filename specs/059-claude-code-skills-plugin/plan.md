@@ -41,9 +41,12 @@ README.md   (one "Claude Code plugin" subsection under Install)
 ### Parse only code, not prose
 Commands are taken from fenced code blocks and inline code spans. A match is `ziran` not preceded
 by a word character, `/`, `.`, `@` or `-`, followed by whitespace and a word; the rest of that
-code line (cut at `|`, `;`, `&&`, `#`) holds the options. Long flags (`--x`) and short flags
-(`-o`) are resolved on the Click command; a following plain word is checked against a
-`click.Choice`. A `click.Group` (such as `cache`) consumes the next word as its subcommand.
+code line (cut at `|`, `;`, `&&`, `#`) holds the arguments. A `click.Group` (such as `cache`)
+consumes the next word as its subcommand. The arguments go through the command's own Click
+parser (`Command.make_parser(...).parse_args`), which reports unknown options and leftover
+positional arguments; `click.Choice` values are then checked unless they are `<placeholders>`.
+A `--flag` that appears in code outside any invocation must be an option of a command the same
+file invokes.
 
 ### Errors name file and token
 The checker returns strings `"<skill>/SKILL.md: ziran <cmd> <flag>: <reason>"`; the test asserts
@@ -59,7 +62,8 @@ wrong key in the template fails the test.
 
 ### ATLAS table rows group chain types
 Each row's first cell lists chain types in backticks; the second lists `AML.T` IDs. The test
-collects all types from rows and compares both ways with `chain_patterns.yaml`; every `AML.T` ID
+collects all types from rows and compares both ways with the types in `chain_patterns.yaml` plus
+the `vulnerability_type="..."` literals in `chain_analyzer.py`; every `AML.T` ID
 anywhere under `plugins/ziran/` must be an `AtlasTechnique` value.
 
 ### Environment isolation in the test
