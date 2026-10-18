@@ -1,0 +1,13 @@
+{
+  "name": "ziran",
+  "version": "0.1.0",
+  "description": "Agent security skills built on the ZIRAN CLI: audit Claude Code agents for dangerous tool chains, triage scan findings, set up scans and threat-model an agent against MITRE ATLAS.",
+  "author": {
+    "name": "TaoQ AI",
+    "url": "https://www.taoq.ai"
+  },
+  "homepage": "https://taoq-ai.github.io/ziran/",
+  "repository": "https://github.com/taoq-ai/ziran",
+  "license": "Apache-2.0",
+  "keywords": ["security", "ai-agents", "claude-code", "mitre-atlas", "sarif"]
+}

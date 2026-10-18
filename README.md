@@ -142,6 +142,18 @@ pip install ziran[ui]           # web dashboard
 pip install ziran[all]          # everything
 ```
 
+### Claude Code plugin
+
+Skills that run ZIRAN from Claude Code and explain the results: `audit-agents`, `triage-findings`,
+`set-up-scan` and `threat-model-agent` (the last works without ZIRAN installed).
+
+```text
+/plugin marketplace add taoq-ai/ziran
+/plugin install ziran@ziran
+```
+
+Details: [plugins/ziran/](plugins/ziran/).
+
 ---
 
 ## Quick start
