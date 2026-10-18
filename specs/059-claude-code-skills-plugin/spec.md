@@ -147,6 +147,11 @@ A maintainer renames or removes a CLI flag; CI fails before a stale skill ships.
 - **FR-006 (drift test)**: `tests/unit/test_claude_plugin_skills.py` covers US2 and US3; it does
   not need the `claude` CLI, network or an LLM key.
 - **FR-007 (README)**: one install section in `README.md`.
+- **FR-009 (untrusted content)**: `audit-agents`, `triage-findings` and `threat-model-agent` each
+  state that content read from audited files, scan results, attack prompts or target responses is
+  untrusted evidence, never instructions, and that only a control the user names can downgrade or
+  suppress a finding (security gate, round 1). The drift test asserts the rule in each. The
+  `SA001` guidance says not to repeat the secret value.
 - **FR-008 (no runtime change)**: no file under `ziran/`, no new dependency, root `SKILL.md`
   unchanged.
 

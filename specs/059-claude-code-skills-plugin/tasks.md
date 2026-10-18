@@ -27,3 +27,10 @@ Base: `develop` @ 5c3f90c. Test first: T001 runs red before any plugin file exis
       `uv run pytest --cov=ziran`; confirm `git diff --stat origin/develop -- ziran/` is empty.
 - [x] T009 Push, open the draft PR to `develop`, then install via the GitHub shorthand of the
       pushed branch in an isolated `CLAUDE_CONFIG_DIR`.
+
+## Phase 4 - Review fixes, round 1 (FR-009)
+
+- [x] T010 Add the untrusted-content rule to three skills and a test that asserts it (red: 3
+      failed before the skill edits); `SA001` no-repeat note; `claude plugin validate` tests
+      marked `integration`; explicit single element for the implicit concatenation in the
+      checker self-test.
