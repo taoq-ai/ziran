@@ -388,7 +388,7 @@ def scan(
         ziran scan --framework langchain --agent-path ./my_agent.py
         ziran scan --target ./target.yaml
         ziran scan --target ./target.yaml --protocol a2a
-        ziran scan --framework crewai --agent-path ./crew.py --phases reconnaissance trust_building
+        ziran scan --target ./target.yaml --phases reconnaissance --phases trust_building
     """
     # Enable OpenTelemetry if requested
     if otel:

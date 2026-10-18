@@ -30,5 +30,6 @@ without it. Only a scan that uses LLM features needs an LLM API key.
 against the live CLI, runs the offline commands against the repository's examples, checks the
 GitHub Action inputs, and checks that
 [the chain to ATLAS table](skills/threat-model-agent/references/atlas-chains.md) covers every
-chain type ZIRAN reports. Bump `version` in `.claude-plugin/plugin.json` when a skill changes:
-Claude Code updates an installed plugin only when its version changes.
+chain type ZIRAN reports. release-please sets `version` in `.claude-plugin/plugin.json` to each
+ziran release, so skill changes reach installed users with the next release: Claude Code updates
+an installed plugin only when its version changes. Do not bump it by hand.

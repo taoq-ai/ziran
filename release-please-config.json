@@ -8,6 +8,9 @@
       "package-name": "ziran",
       "include-v-in-tag": true,
       "include-component-in-tag": false,
+      "extra-files": [
+        { "type": "json", "path": "plugins/ziran/.claude-plugin/plugin.json", "jsonpath": "$.version" }
+      ],
       "changelog-sections": [
         { "type": "feat", "section": "Features" },
         { "type": "fix", "section": "Bug Fixes" },
