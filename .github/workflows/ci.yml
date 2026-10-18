@@ -63,6 +63,8 @@ jobs:
     # dev-server advisory is below threshold). Accepted-risk advisories
     # (--ignore-vuln below) mirror the pip rows in docs/security/risk-acceptances.md
     # — keep the two lists in sync.
+    # --disable-pip (spec 056): audit the exact exported lock versions without
+    # pip re-resolving them; pip rejects the uv mcp override against crewai's pin.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -84,7 +86,7 @@ jobs:
 
       - name: Python audit (pip-audit)
         run: >-
-          uvx pip-audit -r /tmp/requirements.txt --no-deps
+          uvx pip-audit -r /tmp/requirements.txt --no-deps --disable-pip
           --ignore-vuln GHSA-f4j7-r4q5-qw2c
           --ignore-vuln GHSA-w8v5-vhqr-4h9v
           --ignore-vuln GHSA-gr75-jv2w-4656
