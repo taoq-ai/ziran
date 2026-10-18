@@ -38,6 +38,7 @@ FENCE = re.compile(r"^```[^\n]*\n(.*?)^```", re.S | re.M)
 INLINE = re.compile(r"`([^`\n]+)`")
 INVOCATION = re.compile(r"(?<![\w/.@-])ziran\s+([a-z][a-z-]*)")
 TOKEN_END = re.compile(r"\||;|&&|#|$")
+BARE_FLAG = re.compile(r"(?<![\w-])--[a-z][a-z0-9-]*")
 ATLAS_ID = re.compile(r"AML\.T\d{4}(?:\.\d{3})?")
 
 
@@ -88,12 +89,21 @@ def _check_options(cmd: click.Command, words: list[str], where: str) -> list[str
 
 
 def stale_cli_refs(text: str, label: str) -> list[str]:
-    """Every ``ziran <command> --flag`` in code that the live CLI does not accept."""
+    """Every ``ziran <command> --flag`` in code that the live CLI does not accept.
+
+    A ``--flag`` named alone in code (``--max-cost 5`` in a bullet) must be an option of a
+    command the same text invokes.
+    """
     errors: list[str] = []
+    invoked: list[click.Command] = [cli]
+    bare: list[str] = []
     for line in _code_lines(text):
+        rest_of_line = line
         for match in INVOCATION.finditer(line):
-            name, rest = match.group(1), line[match.end() :]
-            words = TOKEN_END.split(rest, maxsplit=1)[0].split()
+            segment = TOKEN_END.split(line[match.end() :], maxsplit=1)[0]
+            rest_of_line = rest_of_line.replace(match.group(0) + segment, " ", 1)
+            words = segment.split()
+            name = match.group(1)
             cmd: click.Command | None = cli.commands.get(name)
             path = f"ziran {name}"
             while isinstance(cmd, click.Group) and words and words[0] in cmd.commands:
@@ -102,8 +112,15 @@ def stale_cli_refs(text: str, label: str) -> list[str]:
             if cmd is None:
                 errors.append(f"{label}: {path}: no such command")
                 continue
+            invoked.append(cmd)
             errors.extend(_check_options(cmd, words, f"{label}: {path}"))
-    return errors
+        bare += BARE_FLAG.findall(rest_of_line)
+    known = {o for cmd in invoked for p in cmd.params for o in (*p.opts, *p.secondary_opts)}
+    return errors + [
+        f"{label}: {flag}: not an option of any command it names"
+        for flag in bare
+        if flag not in known
+    ]
 
 
 # ── Frontmatter and CLI references ──────────────────────────────────────────
@@ -144,6 +161,14 @@ def test_checker_names_file_and_stale_reference() -> None:
         "['essential', 'standard', 'comprehensive']",
         "x/SKILL.md: ziran scan: unexpected extra argument trust_building",
         "x/SKILL.md: ziran poc --format pdf: not one of ['python', 'curl', 'markdown', 'all']",
+    ]
+
+
+def test_checker_checks_flags_named_alone() -> None:
+    text = "`ziran scan --dry-run`; cap it with `--max-cost 5` or `--max-costs 5`."
+    assert stale_cli_refs(text, "x") == ["x: --max-costs: not an option of any command it names"]
+    assert stale_cli_refs("`--sarif out.sarif`", "x") == [
+        "x: --sarif: not an option of any command it names"
     ]
 
 
