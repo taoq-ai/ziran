@@ -1038,3 +1038,21 @@ patterns:
     category: crypto_wallet
     description: Decrypted data exfiltrated over HTTP
     remediation: Decrypted data must not flow to network tools
+
+  # ── Email Exfiltration (spec 058) ─────────────────────────────────
+  # Appended last so no pair matched earlier changes type (first match wins).
+  - source: sql_query
+    target: send_email
+    type: database_exfiltration
+    risk: critical
+    category: data_exfiltration
+    description: SQL query results can be emailed to an external recipient
+    remediation: Restrict email recipients; audit outbound content from database queries
+
+  - source: python_repl
+    target: send_email
+    type: repl_exfiltration
+    risk: critical
+    category: framework_tools
+    description: Python REPL output can be emailed to an external recipient
+    remediation: Sandbox REPL execution; restrict email recipients and attachments
