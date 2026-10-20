@@ -68,7 +68,7 @@ browser = [
     "playwright>=1.40,<2",
 ]
 langfuse = [
-    "langfuse>=2.0,<5",
+    "langfuse>=2.0,<6",
 ]
 promptfoo = []
 otel = [
