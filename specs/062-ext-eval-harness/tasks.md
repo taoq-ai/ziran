@@ -73,3 +73,13 @@ package, or the new assertion failed) before its implementation task.
       filter; the exploratory boundary; `--expect-split` and `--expect-harness`.
 - [x] T016 Code: compression-method allow-list, `GIT_NO_LAZY_FETCH=1` and the promisor check,
       the data-filter error mapped to a refusal, the two expect flags, one `installed_sha256`.
+
+## Phase 8 - Gate fix round 3 (security at a8056a0)
+
+- [x] T017 Tests first (10 failed on the previous code): a central-directory offset one byte
+      too large, a UTF-8-flagged invalid local name, extract version 25.5 and a UTF-8-flagged
+      invalid central name each fail intake and end not evaluated (exit 3); a seeded
+      3,000-case byte-mutation fuzz lets only intake errors out; `installed_sha256` against
+      `importlib.metadata`; a non-prefix `--expect-harness` value; an unreadable git config.
+- [x] T018 Code: `open_zip` and `read_member` map `ValueError` (and in `open_zip`,
+      `NotImplementedError`) to intake failures; `require_full_clone` checks git's exit code.
