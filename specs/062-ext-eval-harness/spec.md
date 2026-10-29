@@ -134,6 +134,11 @@ current commit.
 - **FR-005**: outputs are JSON lines of unit rows plus a JSON summary, both holding only counts,
   hashes, unit ids, model, suite and case ids, labels and verdicts.
 - **FR-006**: no change under `ziran/`, and no new dependency.
+- **FR-007**: the summary counts, per predictor, the units whose verdict differs between the
+  first pin and each other pin (protocol section 4: a difference with matching hashes is
+  reported and explained).
+- **FR-008**: data and output folders sit apart from the harness folder; the default download
+  folder is `downloads/external-eval/` at the repository root, git-ignored.
 
 ### Assumptions
 
@@ -152,6 +157,11 @@ current commit.
   section 1. No InjecAgent data file was read.
 - **One worker process per pin and benchmark.** The protocol asks for a fresh process per pin;
   a fresh one per benchmark as well keeps each benchmark's run independent.
+- **Cells.** Per-cell rows group by each cell key on its own (AgentDojo model, suite and suite
+  version; InjecAgent model, case type and setting; HarmBench model). Overturn: the run report
+  needs crossed cells, which the rows file allows without a harness change.
+- **Excluded units are scored.** Their rows carry verdicts next to the exclusion reason;
+  metrics use analysed units only. Overturn: none expected.
 - **Run environment.** The summary records the sha256 of the sorted installed distributions
   (`name==version`) next to the `uv.lock` hash, so the versions that ran are checkable against
   the lock (arch note 3 on the protocol at 655a222).
