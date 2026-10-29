@@ -865,6 +865,8 @@ def test_a_second_pin_that_times_out_writes_no_summary_and_no_rows(tmp_path: Pat
     repo, good, stall = _fake_pin_repo(tmp_path)
     first = _run_pins(tmp_path / "one", repo, f"a={good}")
     assert first.returncode == 0, first.stderr[-300:]
+    done = json.loads((tmp_path / "one" / "out" / "agentdojo.summary.json").read_text())
+    assert done["run_settings"]["worker_timeout_seconds"] == 3.0
     proc = _run_pins(tmp_path, repo, f"a={good}", f"b={stall}")
     assert proc.returncode == 2
     assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
