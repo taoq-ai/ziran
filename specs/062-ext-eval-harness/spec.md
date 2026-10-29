@@ -205,11 +205,19 @@ current commit.
   with exit 2 and writes no summary and no rows, so no summary ever holds another pin's metrics.
   The verdict stream is read only after the worker exits: at most 4,000,000 bytes plus 200 per
   unit are read, and more is a refusal (the bytes read count, not the file offset, which a pin
-  could move). The worker's process group is killed on every way out of the wait: a timeout, a
-  Ctrl-C or other signal to the harness, a stderr file past `STDERR_LIMIT` (100,000,000 bytes,
-  checked every 0.5 s and at exit), and normal exit, so no grandchild outlives the worker. On
-  macOS `killpg` on an exited but unreaped leader raises `PermissionError`; the leader is then
-  reaped and the kill retried. `--worker-timeout` must be finite and positive.
+  could move). The worker's process group is killed on every way out of the wait: a timeout;
+  SIGINT, SIGTERM or SIGHUP to the harness, whether sent to its pid or its process group
+  (`main` turns SIGTERM and SIGHUP into `SystemExit`, and SIGINT is `KeyboardInterrupt`); a
+  verdict file past its cap or a stderr file past `STDERR_LIMIT` (100,000,000 bytes), both
+  checked every 0.5 s and at exit; and normal exit, so no grandchild outlives the worker. The
+  pin's temporary export folder is removed on the same paths. SIGKILL to the harness cannot be
+  handled: the worker and its export folder then remain, bounded only by the work the worker
+  has left. On macOS `killpg` on an exited but unreaped leader raises `PermissionError`; the
+  leader is then reaped and the kill retried (a test drives this branch with a stand-in
+  `killpg`, since Linux never raises it). `--worker-timeout` must be finite and positive.
+- **Other writes by the pinned code.** The worker's stdin file, its working folder and any file
+  the pinned code opens on purpose are not capped. Detector code writes none of them; such a
+  write is a residual, bounded by the timeout.
 - **What the summary records about the run.** `run_settings` holds the worker timeout in effect
   and the `--expect-split` and `--expect-harness` values (null when not passed); each pin
   records `worker_wall_seconds`.

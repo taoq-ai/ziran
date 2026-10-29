@@ -122,3 +122,14 @@ package, or the new assertion failed) before its implementation task.
       still fails.
 - [x] T025 Code: the process-group kill on every exit from the wait, the `PermissionError` retry,
       the stderr cap, the byte-count read cap, the timeout validator.
+
+## Phase 12 - Gate fix round 7 (arch, security at 42e6e30)
+
+- [x] T026 Tests first (4 failed on the previous code: SIGTERM and SIGHUP, each to the
+      harness pid and its group): SIGINT, SIGTERM and SIGHUP to the pid and to the group leave
+      no worker, no same-group grandchild, no summary and no export folder; the stalling pin
+      now sleeps 600 s, longer than any test waits. Both caps hold at their exact size and
+      refuse one byte more; the verdict reader asks for `limit + 1` bytes; the group kill's
+      `ProcessLookupError` and `PermissionError` branches, with a stand-in `killpg`.
+- [x] T027 Code: SIGTERM and SIGHUP handlers in `main`, the verdict-file cap at each poll, the
+      `_worker` docstring.

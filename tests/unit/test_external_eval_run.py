@@ -837,6 +837,25 @@ def test_a_run_whose_worker_times_out_stops_with_no_summary(tmp_path: Path) -> N
 # ── round 5: no pipes to the worker, timeouts stop the run ────────────
 
 
+#: Prepended to the stand-in pipeline at the stalling pin: start a grandchild in the worker's
+#: group, record its pid, then stall far longer than any test waits.
+STALL = """
+def _stall_linger():
+    import os, time
+    os.closerange(3, 4096)
+    time.sleep(600)
+
+import multiprocessing as _mp, multiprocessing.process as _mpp, time as _time
+if _mp.current_process().name == "MainProcess":
+    _child = _mp.get_context("spawn").Process(target=_stall_linger)
+    _child.start()
+    _mpp._children.discard(_child)
+    with open({pidfile!r}, "w") as _f:
+        _f.write(str(_child.pid))
+    _time.sleep(600)
+"""
+
+
 def _fake_pin_repo(tmp_path: Path) -> tuple[Path, str, str]:
     """A git repo holding the stand-in ziran: commit A scores, commit B stalls at import."""
     repo = tmp_path / "pins"
@@ -850,7 +869,8 @@ def _fake_pin_repo(tmp_path: Path) -> tuple[Path, str, str]:
         ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
     ).stdout.strip()
     pipeline = repo / "ziran/application/detectors/pipeline.py"
-    pipeline.write_text("import time\ntime.sleep(120)\n" + pipeline.read_text())
+    pidfile = tmp_path / "grandchild.pid"
+    pipeline.write_text(STALL.format(pidfile=str(pidfile)) + pipeline.read_text())
     _git(repo, "commit", "-qam", "stalls")
     stall = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
@@ -1022,35 +1042,52 @@ def test_a_finished_worker_leaves_no_grandchild(tmp_path: Path) -> None:
         _kill_if_alive(pid)
 
 
-def test_ctrl_c_on_the_harness_kills_its_worker(tmp_path: Path) -> None:
+@pytest.mark.parametrize("target", ["pid", "group"])
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
+def test_a_signal_to_the_harness_kills_its_worker_and_grandchild(
+    tmp_path: Path, signum: int, target: str
+) -> None:
     import time
 
     repo, _good, stall = _fake_pin_repo(tmp_path)
     data, manifest = _small_agentdojo(tmp_path)
+    temp = tmp_path / "tmp"
+    temp.mkdir()
     harness = subprocess.Popen(
         [sys.executable, "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(data),
          "--manifest", str(manifest), "--ziran-repo", str(repo), "--pin", f"a={stall}",
          "--out", str(tmp_path / "out"), "--practice", "--worker-timeout", "600"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=tmp_path, env=isolation.worker_env(),
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=tmp_path, start_new_session=True,
+        env={**isolation.worker_env(), "TMPDIR": str(temp)},
     )  # fmt: skip
-    worker = None
+    pidfile = tmp_path / "grandchild.pid"
+    worker = grandchild = None
     deadline = time.monotonic() + 30 + LOAD_MARGIN
-    while worker is None and time.monotonic() < deadline:
+    while grandchild is None and time.monotonic() < deadline:
         found = subprocess.run(["pgrep", "-f", str(WORKER)], capture_output=True, text=True)
         pids = [int(p) for p in found.stdout.split()]
-        worker = pids[0] if pids else None
+        worker = worker or (pids[0] if pids else None)
+        if pidfile.exists() and pidfile.read_text():
+            grandchild = int(pidfile.read_text())
         time.sleep(0.25)
     try:
         assert worker is not None, "the worker never started"
-        harness.send_signal(signal.SIGINT)
+        assert grandchild is not None, "the grandchild never started"
+        if target == "pid":
+            harness.send_signal(signum)
+        else:
+            os.killpg(harness.pid, signum)
         harness.communicate(timeout=30 + LOAD_MARGIN)
         assert harness.returncode != 0
         assert _gone(worker)
+        assert _gone(grandchild)
         assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
+        assert not list(temp.glob("ext-eval-*"))  # the pin export is removed
     finally:
         harness.kill()
-        if worker is not None:
-            _kill_if_alive(worker)
+        for pid in (worker, grandchild):
+            if pid is not None:
+                _kill_if_alive(pid)
 
 
 def test_a_worker_flooding_stderr_past_the_cap_is_refused(
@@ -1083,3 +1120,103 @@ def test_the_cli_refuses_a_nan_timeout(tmp_path: Path) -> None:
     proc = run_cli(tmp_path, "agentdojo", data, manifest, "--worker-timeout", "nan")
     assert proc.returncode == 2
     assert "finite and positive" in proc.stderr
+
+
+# ── round 7: caps at their exact bounds, the kill path's branches ─────
+
+
+def test_the_verdict_cap_holds_at_its_exact_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from benchmarks.external_eval import run as run_module
+
+    size = len(fake_worker(tmp_path, {}).stdout.encode())
+    root = tmp_path / "export"  # written by fake_worker; _worker reuses it
+    monkeypatch.setattr(run_module, "_output_limit", lambda n: size)
+    assert len(_worker(root, tmp_path, _units_with({}), timeout=60)[1]) == 1
+    monkeypatch.setattr(run_module, "_output_limit", lambda n: size - 1)
+    with pytest.raises(HarnessError, match="output is over its size limit"):
+        _worker(root, tmp_path, _units_with({}), timeout=60)
+
+
+def test_the_stderr_cap_holds_at_its_exact_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from benchmarks.external_eval import run as run_module
+
+    root = _fake_export(tmp_path)
+    pipeline = root / "ziran/application/detectors/pipeline.py"
+    pipeline.write_text("import sys\nsys.stderr.write('e' * 5000)\n" + pipeline.read_text())
+    stdin = json.dumps({"key": 0, "prompt": "", "content": "{}", "tool_calls": []}) + "\n"
+    size = len(python("-I", str(WORKER), str(root), cwd=tmp_path, stdin=stdin).stderr.encode())
+    assert size >= 5000
+    monkeypatch.setattr(run_module, "STDERR_LIMIT", size)
+    assert len(_worker(root, tmp_path, _units_with({}), timeout=60)[1]) == 1
+    monkeypatch.setattr(run_module, "STDERR_LIMIT", size - 1)
+    with pytest.raises(HarnessError, match="stderr is over its size limit"):
+        _worker(root, tmp_path, _units_with({}), timeout=60)
+
+
+def test_the_verdict_reader_reads_one_byte_past_the_limit_at_most(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import tempfile
+
+    from benchmarks.external_eval import run as run_module
+
+    reads: list[int] = []
+    real = tempfile.TemporaryFile
+
+    class Spy:
+        def __init__(self) -> None:
+            self._file = real()
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._file, name)
+
+        def __enter__(self) -> Spy:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            self._file.close()
+
+        def read(self, n: int = -1) -> bytes:
+            reads.append(n)
+            return bytes(self._file.read(n))
+
+    monkeypatch.setattr(tempfile, "TemporaryFile", Spy)
+    _worker(_fake_export(tmp_path), tmp_path, _units_with({}), timeout=60)
+    assert reads == [run_module._output_limit(1) + 1]
+
+
+@pytest.mark.parametrize(
+    ("first", "calls"),
+    [
+        (None, ["kill", "wait"]),
+        (ProcessLookupError, ["kill", "wait"]),
+        (PermissionError, ["kill", "wait", "kill", "wait"]),
+    ],
+)
+def test_the_group_kill_reaps_and_retries_after_permission_error(
+    monkeypatch: pytest.MonkeyPatch, first: type[Exception] | None, calls: list[str]
+) -> None:
+    """macOS raises PermissionError on an exited, unreaped leader; Linux cannot reach it."""
+    from benchmarks.external_eval import run as run_module
+
+    seen: list[str] = []
+
+    def killpg(pid: int, signum: int) -> None:
+        seen.append("kill")
+        if first is not None and seen.count("kill") == 1:
+            raise first
+
+    class Proc:
+        pid = 12345
+
+        def wait(self) -> int:
+            seen.append("wait")
+            return 0
+
+    monkeypatch.setattr(run_module.os, "killpg", killpg)
+    run_module._kill_group(Proc())  # type: ignore[arg-type]
+    assert seen == calls

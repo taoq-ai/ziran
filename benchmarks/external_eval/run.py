@@ -97,8 +97,10 @@ def _worker(
     """Run one fresh worker on every unit; its stderr is kept and never printed.
 
     stdin, stdout and stderr are temporary files, not pipes, so neither side can block on a
-    full pipe and the timeout waits on the process alone. On a timeout the worker's whole
-    process group is killed and the run stops (exit 2, no summary).
+    full pipe and the timeout waits on the process alone. The worker's whole process group is
+    killed on every way out of the wait: a timeout (exit 2, no summary), Ctrl-C, SIGTERM or
+    SIGHUP to the harness (``main`` turns the last two into ``SystemExit``), a verdict or stderr
+    file past its cap, and normal exit. SIGKILL to the harness cannot be handled.
     """
     payload = "".join(
         json.dumps({"key": i, "prompt": u.prompt, "content": u.content, "tool_calls": u.tool_calls})
@@ -119,7 +121,8 @@ def _worker(
             start_new_session=True,
         )  # fmt: skip
         try:
-            returncode = _wait(proc, timeout, stderr.fileno())
+            limit = _output_limit(len(units.units))
+            returncode = _wait(proc, timeout, stdout.fileno(), limit, stderr.fileno())
         except subprocess.TimeoutExpired:
             _kill_group(proc)
             raise WorkerTimeoutError(f"worker timed out after {timeout:g} s") from None
@@ -130,7 +133,6 @@ def _worker(
         wall = time.monotonic() - started
         if returncode != 0:
             raise HarnessError(f"worker exited {returncode}")
-        limit = _output_limit(len(units.units))
         stdout.seek(0)
         data = stdout.read(limit + 1)  # the bytes read, not tell(): a pin can truncate fd 1
         if len(data) > limit:
@@ -153,8 +155,10 @@ def _worker(
     return header, verdicts
 
 
-def _wait(proc: subprocess.Popen[bytes], timeout: float, stderr_fd: int) -> int:
-    """Wait for the worker, refusing it once its stderr file passes STDERR_LIMIT bytes."""
+def _wait(
+    proc: subprocess.Popen[bytes], timeout: float, stdout_fd: int, limit: int, stderr_fd: int
+) -> int:
+    """Wait for the worker, refusing it once its verdict or stderr file passes its cap."""
     deadline = time.monotonic() + timeout
     while True:
         remaining = deadline - time.monotonic()
@@ -164,6 +168,8 @@ def _wait(proc: subprocess.Popen[bytes], timeout: float, stderr_fd: int) -> int:
             returncode = proc.wait(timeout=min(_POLL_SECONDS, remaining))
         except subprocess.TimeoutExpired:
             returncode = None
+        if os.fstat(stdout_fd).st_size > limit:
+            raise HarnessError("worker output is over its size limit")
         if os.fstat(stderr_fd).st_size > STDERR_LIMIT:
             raise HarnessError("worker stderr is over its size limit")
         if returncode is not None:
@@ -368,7 +374,14 @@ def run(args: argparse.Namespace, removed: int) -> int:
     return 0
 
 
+def _exit_on_signal(signum: int, _frame: object) -> None:
+    """Turn SIGTERM and SIGHUP into SystemExit, so the worker's group is killed on the way out."""
+    sys.exit(128 + signum)
+
+
 def main(argv: list[str] | None = None) -> int:
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, _exit_on_signal)
     try:
         isolation.require_interpreter_flags()
         if any(name.split(".")[0] == "ziran" for name in sys.modules):
