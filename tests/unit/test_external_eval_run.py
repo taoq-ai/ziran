@@ -6,9 +6,12 @@ hand-made AgentDojo and InjecAgent fixtures; no benchmark item is involved.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import json
+import os
+import signal
 import subprocess
 import sys
 import zipfile
@@ -47,6 +50,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = REPO_ROOT / "benchmarks" / "external_eval"
 RUN = PACKAGE / "run.py"
 WORKER = PACKAGE / "worker.py"
+#: Seconds added to a time bound so a loaded machine is not read as a hang; a real hang is
+#: still caught, since every stall in these tests lasts 120 s or more past its timeout.
+LOAD_MARGIN = 90
 TEXT_MARKERS = ("Summarise my files", "Sending now", "Reading it", "x@y.z", "INFORMATION")
 
 
@@ -394,6 +400,13 @@ class DetectorPipeline:
             m = types.ModuleType("ziran.planted")
             m.__file__ = "/elsewhere/planted.py"
             sys.modules["ziran.planted"] = m
+        if s.get("grandchild"):
+            import multiprocessing, multiprocessing.process, time
+            child = multiprocessing.get_context("spawn").Process(target=time.sleep, args=(120,))
+            child.start()
+            multiprocessing.process._children.discard(child)  # so exit does not join it
+            with open(s["grandchild"], "w") as f:
+                f.write(str(child.pid))
         if s.get("sleep"):
             import time
             time.sleep(s["sleep"])
@@ -801,7 +814,7 @@ def test_a_worker_past_its_timeout_is_killed(tmp_path: Path) -> None:
     start = time.monotonic()
     with pytest.raises(WorkerTimeoutError):
         _worker(root, tmp_path, units, timeout=2)
-    assert time.monotonic() - start < 20
+    assert time.monotonic() - start < 2 + LOAD_MARGIN
 
 
 def test_a_run_whose_worker_times_out_stops_with_no_summary(tmp_path: Path) -> None:
@@ -855,7 +868,7 @@ def test_a_stalled_worker_stops_the_run_within_its_timeout(tmp_path: Path) -> No
     repo, _good, stall = _fake_pin_repo(tmp_path)
     start = time.monotonic()
     proc = _run_pins(tmp_path, repo, f"a={stall}")
-    assert time.monotonic() - start < 30
+    assert time.monotonic() - start < 3 + LOAD_MARGIN
     assert proc.returncode == 2
     assert "worker timed out after 3 s" in proc.stderr
     assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
@@ -898,7 +911,8 @@ print(len(verdicts))
 """
     proc = subprocess.run(
         [sys.executable, "-I", "-c", code],
-        capture_output=True, text=True, timeout=120, env=isolation.worker_env(), check=False,
+        capture_output=True, text=True, timeout=60 + LOAD_MARGIN, env=isolation.worker_env(),
+        check=False,
     )  # fmt: skip
     assert proc.returncode == 0, proc.stderr[-300:]
     assert proc.stdout.strip() == "3"
@@ -940,3 +954,125 @@ def test_worker_output_over_its_limit_is_refused(
     monkeypatch.setattr(run_module, "_output_limit", lambda n: 10)
     with pytest.raises(HarnessError, match="over its size limit"):
         _worker(root, tmp_path, units, timeout=60)
+
+
+# ── round 6: the worker never outlives the harness ────────────────────
+
+
+def _fake_export(tmp_path: Path) -> Path:
+    root = tmp_path / "export"
+    for rel, text in _FAKE.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+    return root
+
+
+def _units_with(content: dict[str, Any]) -> Collected:
+    unit = _unit("whole", "a", True).model_copy(update={"content": json.dumps(content)})
+    return Collected(
+        units=[unit], counts={}, spdx="MIT", terms_spdx=None, manifest_files=1, extra_hashes={}
+    )
+
+
+def _gone(pid: int, within: float = 15.0) -> bool:
+    import time
+
+    deadline = time.monotonic() + within
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def _kill_if_alive(pid: int) -> None:
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.kill(pid, signal.SIGKILL)
+
+
+def test_a_timed_out_worker_leaves_no_grandchild(tmp_path: Path) -> None:
+    pidfile = tmp_path / "grandchild.pid"
+    units = _units_with({"grandchild": str(pidfile), "sleep": 120})
+    with pytest.raises(WorkerTimeoutError):
+        _worker(_fake_export(tmp_path), tmp_path, units, timeout=8)
+    pid = int(pidfile.read_text())
+    try:
+        assert _gone(pid)
+    finally:
+        _kill_if_alive(pid)
+
+
+def test_a_finished_worker_leaves_no_grandchild(tmp_path: Path) -> None:
+    pidfile = tmp_path / "grandchild.pid"
+    units = _units_with({"grandchild": str(pidfile)})
+    assert len(_worker(_fake_export(tmp_path), tmp_path, units, timeout=60)[1]) == 1
+    pid = int(pidfile.read_text())
+    try:
+        assert _gone(pid)
+    finally:
+        _kill_if_alive(pid)
+
+
+def test_ctrl_c_on_the_harness_kills_its_worker(tmp_path: Path) -> None:
+    import time
+
+    repo, _good, stall = _fake_pin_repo(tmp_path)
+    data, manifest = _small_agentdojo(tmp_path)
+    harness = subprocess.Popen(
+        [sys.executable, "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(data),
+         "--manifest", str(manifest), "--ziran-repo", str(repo), "--pin", f"a={stall}",
+         "--out", str(tmp_path / "out"), "--practice", "--worker-timeout", "600"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=tmp_path, env=isolation.worker_env(),
+    )  # fmt: skip
+    worker = None
+    deadline = time.monotonic() + 30 + LOAD_MARGIN
+    while worker is None and time.monotonic() < deadline:
+        found = subprocess.run(["pgrep", "-f", str(WORKER)], capture_output=True, text=True)
+        pids = [int(p) for p in found.stdout.split()]
+        worker = pids[0] if pids else None
+        time.sleep(0.25)
+    try:
+        assert worker is not None, "the worker never started"
+        harness.send_signal(signal.SIGINT)
+        harness.communicate(timeout=30 + LOAD_MARGIN)
+        assert harness.returncode != 0
+        assert _gone(worker)
+        assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
+    finally:
+        harness.kill()
+        if worker is not None:
+            _kill_if_alive(worker)
+
+
+def test_a_worker_flooding_stderr_past_the_cap_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from benchmarks.external_eval import run as run_module
+
+    assert run_module.STDERR_LIMIT == 100_000_000
+    root = _fake_export(tmp_path)
+    pipeline = root / "ziran/application/detectors/pipeline.py"
+    pipeline.write_text("import sys\nsys.stderr.write('e' * 5000)\n" + pipeline.read_text())
+    monkeypatch.setattr(run_module, "STDERR_LIMIT", 1000)
+    with pytest.raises(HarnessError, match="stderr is over its size limit"):
+        _worker(root, tmp_path, _units_with({}), timeout=60)
+
+
+@pytest.mark.parametrize("text", ["nan", "inf", "-inf", "0", "-1", "soon"])
+def test_a_worker_timeout_must_be_finite_and_positive(text: str) -> None:
+    import argparse
+
+    from benchmarks.external_eval import run as run_module
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        run_module._timeout(text)
+    assert run_module._timeout("2.5") == 2.5
+
+
+def test_the_cli_refuses_a_nan_timeout(tmp_path: Path) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--worker-timeout", "nan")
+    assert proc.returncode == 2
+    assert "finite and positive" in proc.stderr

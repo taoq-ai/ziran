@@ -111,3 +111,14 @@ package, or the new assertion failed) before its implementation task.
 - [x] T023 Code: temporary files for the worker's stdin, stdout and stderr; its own session and a
       process-group kill on timeout; no not-evaluated summary on a timeout; the output size
       limit; `--expect-harness` checked before intake as a refusal; run settings recorded.
+
+## Phase 11 - Gate fix round 6 (security at ebd2f15)
+
+- [x] T024 Tests first (10 failed on the previous code): Ctrl-C on the harness kills a stalled
+      worker; a worker whose grandchild outlives a normal exit leaves no process; a timed-out
+      worker's grandchild is killed with it; a stderr file past the cap is a refusal; nan, inf,
+      zero, negative and non-numeric timeouts are refused, also through the CLI. Timing bounds
+      take a load margin of 90 s; every stall in them lasts 120 s or more, so a real hang
+      still fails.
+- [x] T025 Code: the process-group kill on every exit from the wait, the `PermissionError` retry,
+      the stderr cap, the byte-count read cap, the timeout validator.

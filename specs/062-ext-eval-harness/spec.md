@@ -203,8 +203,13 @@ current commit.
   the timeout waits on the process alone. The worker starts in its own session, and a timeout
   kills its whole process group. A timeout is a worker failure like any other: the run stops
   with exit 2 and writes no summary and no rows, so no summary ever holds another pin's metrics.
-  The verdict stream is read only after the worker exits, under a size limit of 4,000,000 bytes
-  plus 200 per unit.
+  The verdict stream is read only after the worker exits: at most 4,000,000 bytes plus 200 per
+  unit are read, and more is a refusal (the bytes read count, not the file offset, which a pin
+  could move). The worker's process group is killed on every way out of the wait: a timeout, a
+  Ctrl-C or other signal to the harness, a stderr file past `STDERR_LIMIT` (100,000,000 bytes,
+  checked every 0.5 s and at exit), and normal exit, so no grandchild outlives the worker. On
+  macOS `killpg` on an exited but unreaped leader raises `PermissionError`; the leader is then
+  reaped and the kill retried. `--worker-timeout` must be finite and positive.
 - **What the summary records about the run.** `run_settings` holds the worker timeout in effect
   and the `--expect-split` and `--expect-harness` values (null when not passed); each pin
   records `worker_wall_seconds`.

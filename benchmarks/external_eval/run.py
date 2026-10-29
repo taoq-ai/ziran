@@ -25,6 +25,7 @@ if str(HARNESS_ROOT) not in sys.path:  # -I leaves the script's folder off sys.p
 
 import argparse  # noqa: E402
 import json  # noqa: E402
+import math  # noqa: E402
 import os  # noqa: E402
 import signal  # noqa: E402
 import subprocess  # noqa: E402
@@ -49,6 +50,9 @@ PREDICTORS = ("refusal", "side_effect", "pipeline")
 EXPLORATORY_BELOW = 50
 #: Seconds one pin's worker may take; a scored unit takes milliseconds.
 WORKER_TIMEOUT = 3600.0
+#: Bytes the worker's stderr may hold; logging only, so far above any real run.
+STDERR_LIMIT = 100_000_000
+_POLL_SECONDS = 0.5
 PROTOCOL = {
     "repository": "taoq-ai/ziran-paper",
     "file": "prereg/ext-eval-protocol.md",
@@ -68,7 +72,7 @@ def _args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--expect-split", type=int, help="split count from the intake addendum")
     p.add_argument("--expect-harness", help="harness commit from the intake addendum")
     p.add_argument(
-        "--worker-timeout", type=float, default=WORKER_TIMEOUT, help="seconds per pin worker"
+        "--worker-timeout", type=_timeout, default=WORKER_TIMEOUT, help="seconds per pin worker"
     )
     return p.parse_args(argv)
 
@@ -115,18 +119,23 @@ def _worker(
             start_new_session=True,
         )  # fmt: skip
         try:
-            returncode = proc.wait(timeout=timeout)
+            returncode = _wait(proc, timeout, stderr.fileno())
         except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait()
+            _kill_group(proc)
             raise WorkerTimeoutError(f"worker timed out after {timeout:g} s") from None
+        except BaseException:  # Ctrl-C, a stderr flood, anything: never leave the worker running
+            _kill_group(proc)
+            raise
+        _kill_group(proc)  # the worker exited; no grandchild outlives it
         wall = time.monotonic() - started
         if returncode != 0:
             raise HarnessError(f"worker exited {returncode}")
-        if stdout.tell() > _output_limit(len(units.units)):
-            raise HarnessError("worker output is over its size limit")
+        limit = _output_limit(len(units.units))
         stdout.seek(0)
-        text = stdout.read().decode("utf-8")
+        data = stdout.read(limit + 1)  # the bytes read, not tell(): a pin can truncate fd 1
+        if len(data) > limit:
+            raise HarnessError("worker output is over its size limit")
+        text = data.decode("utf-8")
     lines = [json.loads(line) for line in text.splitlines()]
     if len(lines) < 2 or "header" not in lines[0] or lines[-1].get("end") != len(units.units):
         raise HarnessError("worker output is incomplete")
@@ -142,6 +151,47 @@ def _worker(
         "worker_wall_seconds": round(wall, 3),
     }
     return header, verdicts
+
+
+def _wait(proc: subprocess.Popen[bytes], timeout: float, stderr_fd: int) -> int:
+    """Wait for the worker, refusing it once its stderr file passes STDERR_LIMIT bytes."""
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(proc.args, timeout)
+        try:
+            returncode = proc.wait(timeout=min(_POLL_SECONDS, remaining))
+        except subprocess.TimeoutExpired:
+            returncode = None
+        if os.fstat(stderr_fd).st_size > STDERR_LIMIT:
+            raise HarnessError("worker stderr is over its size limit")
+        if returncode is not None:
+            return returncode
+
+
+def _kill_group(proc: subprocess.Popen[bytes]) -> None:
+    """SIGKILL the worker's process group; an empty or already-reaped group is gone already."""
+    for _ in range(2):
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+            break
+        except ProcessLookupError:  # nothing left in the group
+            break
+        except PermissionError:  # macOS, on an exited but unreaped leader: reap it, then retry
+            proc.wait()
+    proc.wait()
+
+
+def _timeout(text: str) -> float:
+    """A finite, positive number of seconds."""
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a number") from None
+    if not math.isfinite(value) or value <= 0:
+        raise argparse.ArgumentTypeError("the worker timeout must be finite and positive")
+    return value
 
 
 def _output_limit(n_units: int) -> int:
