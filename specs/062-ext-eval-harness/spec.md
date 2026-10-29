@@ -154,7 +154,8 @@ current commit.
   ships another research-use licence.
 - **The InjecAgent evaluator source was read.** The copy needs the pinned
   `src/output_parsing.py` (code, not data); it was fetched once at the pin and its sha256 matched
-  section 1. No InjecAgent data file was read.
+  section 1. No InjecAgent data file was read. [evaluator-diff.md](evaluator-diff.md) records
+  every difference between the copy and the source.
 - **One worker process per pin and benchmark.** The protocol asks for a fresh process per pin;
   a fresh one per benchmark as well keeps each benchmark's run independent.
 - **Cells.** Per-cell rows group by each cell key on its own (AgentDojo model, suite and suite
@@ -162,6 +163,20 @@ current commit.
   needs crossed cells, which the rows file allows without a harness change.
 - **Excluded units are scored.** Their rows carry verdicts next to the exclusion reason;
   metrics use analysed units only. Overturn: none expected.
+- **Each pin runs in the harness's environment.** Protocol section 4 runs one frozen harness
+  with each pin's export first on `sys.path`, so third-party packages come from the harness's
+  `uv.lock` at both pins. Each pin's own `uv.lock` is hashed for the record only. The worker
+  reports its Python version and installed-distribution hash per pin.
+- **Isolation scope.** The audit hook blocks network calls, new processes and C-library loads in
+  the worker, and network calls in the harness process, which itself starts only git and its
+  workers. A hook does not reach another process, so `--ziran-repo` must be a full clone: a
+  partial clone is refused, because `git archive` there would fetch blobs over the network.
+- **Empty split.** A benchmark whose split or analysed units come out at 0 fails intake (protocol
+  sections 9 check 4 and 10), so an unexpected layout is reported as not evaluated.
+- **Every loaded module is hashed.** Besides the seven pinned files, the worker hashes every
+  `ziran` module it loaded, so a verdict difference between pins can be traced to a file.
+- **Archive text stays out of messages.** Intake messages name a member by its index, and member
+  names are admitted only in a safe character set, since the model cell and unit id come from them.
 - **Run environment.** The summary records the sha256 of the sorted installed distributions
   (`name==version`) next to the `uv.lock` hash, so the versions that ran are checkable against
   the lock (arch note 3 on the protocol at 655a222).

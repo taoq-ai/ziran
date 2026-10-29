@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import hashlib
 import json
 import os
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-#: Audit events that reach the network; any of them raises (protocol section 9).
+#: Audit events that reach the network (protocol section 9).
 _NETWORK_EVENTS = frozenset(
     {
         "socket.bind",
@@ -29,22 +31,40 @@ _NETWORK_EVENTS = frozenset(
         "socket.sendto",
     }
 )
+#: Events that start a process or load a C library, which would bypass the hook.
+_PROCESS_EVENTS = frozenset(
+    {
+        "ctypes.dlopen",
+        "os.exec",
+        "os.fork",
+        "os.forkpty",
+        "os.posix_spawn",
+        "os.spawn",
+        "os.system",
+        "subprocess.Popen",
+    }
+)
 
 
-def block_sockets() -> None:
-    """Refuse every network call for the rest of the process (audit hooks cannot be removed)."""
+def block_network(*, processes: bool = True) -> None:
+    """Refuse network calls, and by default new processes and C libraries, from now on.
+
+    Audit hooks cannot be removed. The worker blocks both; the harness process blocks the
+    network only, since it starts git and its workers itself.
+    """
+    blocked = _NETWORK_EVENTS | (_PROCESS_EVENTS if processes else frozenset())
 
     def hook(event: str, _args: tuple[Any, ...]) -> None:
-        if event in _NETWORK_EVENTS:
+        if event in blocked:
             raise RuntimeError(f"{event} is blocked")
 
     sys.addaudithook(hook)
 
 
-def check_loaded_modules(root: Path) -> int:
-    """Count the loaded ziran modules; refuse if any resolves outside the export."""
-    count = 0
-    for name, module in list(sys.modules.items()):
+def check_loaded_modules(root: Path) -> dict[str, str]:
+    """sha256 of each loaded ziran module file; refuse if any resolves outside the export."""
+    hashes: dict[str, str] = {}
+    for name, module in sorted(sys.modules.items()):
         if name.split(".")[0] != "ziran":
             continue
         file = getattr(module, "__file__", None)
@@ -52,8 +72,22 @@ def check_loaded_modules(root: Path) -> int:
         for loc in locations:
             if not Path(loc).resolve().is_relative_to(root):
                 raise SystemExit(f"{name} resolves outside the export")
-        count += 1
-    return count
+        if file:
+            path = Path(file).resolve()
+            hashes[path.relative_to(root).as_posix()] = hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+    return hashes
+
+
+def _environment() -> dict[str, str]:
+    lines = sorted(
+        f"{(d.metadata['Name'] or '').lower()}=={d.version}" for d in metadata.distributions()
+    )
+    return {
+        "python": sys.version.split()[0],
+        "installed_sha256": hashlib.sha256("\n".join(lines).encode()).hexdigest(),
+    }
 
 
 def _jsonable(value: object) -> object:
@@ -79,7 +113,8 @@ async def _score(lines: Any, out: Any, root: Path) -> int:
         "config": {f.name: _jsonable(getattr(config, f.name)) for f in dataclasses.fields(config)},
     }
     pipeline = DetectorPipeline(detector_config=config)
-    out.write(json.dumps({"header": defaults, "modules": check_loaded_modules(root)}) + "\n")
+    check_loaded_modules(root)
+    out.write(json.dumps({"header": defaults, "environment": _environment()}) + "\n")
     hit = thresholds.hit
     n = 0
     for line in lines:
@@ -108,12 +143,13 @@ def main(argv: list[str]) -> int:
     if not sys.flags.isolated or sys.flags.optimize:
         raise SystemExit("run the worker with python -I and without -O")
     root = Path(argv[1]).resolve()
-    block_sockets()
+    block_network()
     out = os.fdopen(os.dup(sys.stdout.fileno()), "w", encoding="utf-8")
-    sys.stdout = sys.stderr  # nothing the export prints can reach the verdict stream
+    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())  # nothing the export writes reaches it
+    sys.stdout = sys.stderr
     sys.path.insert(0, str(root))
     n = asyncio.run(_score(sys.stdin, out, root))
-    out.write(json.dumps({"end": n, "modules": check_loaded_modules(root)}) + "\n")
+    out.write(json.dumps({"end": n, "module_sha256": check_loaded_modules(root)}) + "\n")
     out.close()
     return 0
 

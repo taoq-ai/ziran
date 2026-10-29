@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import struct
 import subprocess
 import zipfile
 from pathlib import Path
@@ -63,7 +64,7 @@ def test_symlink_member_fails_the_archive() -> None:
 def test_a_clean_archive_opens_and_members_read_in_memory() -> None:
     zf = intake.open_zip(_zip({"r/prompted_x_InjecAgent/test_cases_dh_base.json": b"{}\n"}))
     (info,) = zf.infolist()
-    assert intake.read_member(zf, info) == b"{}\n"
+    assert intake.read_member(zf, 0, info) == b"{}\n"
 
 
 def test_limits_are_the_registered_values() -> None:
@@ -190,3 +191,56 @@ def test_a_tracked_path_inside_the_repo_is_refused(tmp_path: Path) -> None:
     intake.require_outside_or_ignored(REPO_ROOT, REPO_ROOT / intake.DOWNLOADS)
     with pytest.raises(intake.HarnessError, match="not git-ignored"):
         intake.require_outside_or_ignored(REPO_ROOT, REPO_ROOT / "benchmarks" / "results")
+
+
+# ── damaged archives fail intake, naming the member index only ────────
+
+_NAME = "IGNORE_PREVIOUS_INSTRUCTIONS/prompted_x_InjecAgent/test_cases_dh_base.json"
+
+
+def _damaged(kind: str) -> bytes:
+    method = zipfile.ZIP_DEFLATED if kind == "stream" else zipfile.ZIP_STORED
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", method) as zf:
+        zf.writestr(_NAME, b"hello world " * 10)
+    raw = bytearray(buf.getvalue())
+    data_at = 30 + len(_NAME)
+    central = raw.find(b"PK\x01\x02")
+    if kind == "crc":
+        raw[data_at] ^= 1
+    elif kind == "stream":
+        raw[data_at] ^= 0xFF
+        raw[data_at + 1] ^= 0xFF
+    elif kind == "encrypted":
+        raw[6] |= 1
+        raw[central + 8] |= 1
+    elif kind == "size":
+        size = struct.unpack_from("<I", raw, central + 24)[0]
+        struct.pack_into("<I", raw, central + 24, size + 5)
+    return bytes(raw)
+
+
+@pytest.mark.parametrize("kind", ["crc", "stream", "encrypted", "size"])
+def test_a_damaged_member_fails_intake_by_index(kind: str) -> None:
+    with pytest.raises(IntakeError, match=r"archive member 0") as err:
+        zf = intake.open_zip(_damaged(kind))
+        intake.read_member(zf, 0, zf.infolist()[0])
+    assert "IGNORE" not in str(err.value)
+
+
+def test_each_limit_is_inclusive() -> None:
+    data = _zip({"a.json": b"a" * 120, "b.json": b"b" * 120})
+    infos = zipfile.ZipFile(io.BytesIO(data)).infolist()
+    ratio = max(-(-i.file_size // i.compress_size) for i in infos)
+    exact = ZipLimits(
+        compressed_bytes=len(data), members=2, member_bytes=120, total_bytes=240, ratio=ratio
+    )
+    assert len(intake.open_zip(data, exact).infolist()) == 2
+
+
+def test_load_caps_the_bytes_before_reading(tmp_path: Path) -> None:
+    (tmp_path / "f.zip").write_bytes(b"x" * 11)
+    listed = {"f.zip": hashlib.sha256(b"x" * 11).hexdigest()}
+    assert intake.load(tmp_path, "f.zip", listed, {}, max_bytes=11) == b"x" * 11
+    with pytest.raises(IntakeError, match="compressed limit"):
+        intake.load(tmp_path, "f.zip", listed, {}, max_bytes=10)

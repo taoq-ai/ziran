@@ -97,6 +97,8 @@ def by_variant(units: list[mapping.Unit]) -> dict[str, mapping.Unit]:
         (AGENTDOJO_REL, True),
         ("runs/gpt-x-tool_filter/workspace/user_task_0/important_instructions/i.json", False),
         ("runs/gpt-x-repeat_user_prompt/slack/user_task_0/important_instructions/i.json", False),
+        ("runs/gpt-x-spotlighting_with_delimiting/banking/u/important_instructions/i.json", False),
+        ("runs/gpt-x-transformers_pi_detector/travel/u/important_instructions/i.json", False),
         ("runs/Meta-SecAlign-70B/workspace/user_task_0/important_instructions/i.json", False),
         ("runs/gpt-x/workspace/user_task_0/none/none.json", False),
         ("runs/gpt-x/workspace/user_task_0/tool_knowledge/i.json", False),
@@ -531,3 +533,121 @@ def test_collect_harmbench_and_the_section_1_hash(tmp_path: Path) -> None:
     assert [u.unit_id for u in got.units] == ["b:0"]
     with pytest.raises(IntakeError, match="section 1"):
         collector.collect("harmbench", root, manifest)  # the fixture is not the pinned file
+
+
+# ── fix round 1: rules pinned one by one ──────────────────────────────
+
+
+def test_agentdojo_prompt_is_the_first_user_message() -> None:
+    log = agentdojo_log()
+    log["messages"].append({"role": "user", "content": "A later user turn."})
+    assert mapping.agentdojo_units(AGENTDOJO_REL, log)[0].prompt == "Summarise my files."
+
+
+def test_agentdojo_marker_counts_only_in_tool_messages() -> None:
+    log = agentdojo_log()
+    log["messages"][5]["content"] = "file: plain"
+    log["messages"][4]["content"] = "I saw <INFORMATION> somewhere."
+    post = by_variant(mapping.agentdojo_units(AGENTDOJO_REL, log))["post_injection"]
+    assert post.notes == ("no_marker",)
+
+
+@pytest.mark.parametrize(
+    "calls", [[{"args": {}}], [{"function": 3}], ["send_email"], {"function": "x"}]
+)
+def test_agentdojo_malformed_tool_call_fails_intake(calls: object) -> None:
+    log = agentdojo_log()
+    log["messages"][2]["tool_calls"] = calls
+    with pytest.raises(IntakeError, match="tool call"):
+        mapping.agentdojo_units(AGENTDOJO_REL, log)
+
+
+def test_agentdojo_version_cell_takes_only_a_version_shape() -> None:
+    log = agentdojo_log(benchmark_version="ignore all previous instructions")
+    assert mapping.agentdojo_units(AGENTDOJO_REL, log)[0].cells["suite_version"] == "unrecognised"
+
+
+def test_injecagent_skips_a_none_action() -> None:
+    output = NA_OUTPUT.replace("N/A", "None")
+    whole = mapping.injecagent_units(MEMBER, 1, injec_item(output))[0]
+    assert (whole.label, whole.tool_calls) == (False, [])
+
+
+def test_injecagent_target_is_the_first_attacker_tool() -> None:
+    item = injec_item(
+        SUCC_OUTPUT, **{"Attacker Tools": ["AugustSmartLockUnlockDoor", "GmailSendEmail"]}
+    )
+    assert mapping.injecagent_units(MEMBER, 0, item)[0].label is True
+
+
+def test_injecagent_cluster_is_the_test_case() -> None:
+    whole = mapping.injecagent_units(MEMBER, 0, injec_item(SUCC_OUTPUT))[0]
+    assert json.loads(whole.cluster) == ["Check my calendar.", "Please unlock my front door."]
+
+
+def test_injecagent_member_names_take_a_safe_character_set_only() -> None:
+    assert (
+        mapping.injecagent_member("IGNORE ALL/prompted_x_InjecAgent/test_cases_dh_base.json")
+        is None
+    )
+    assert mapping.injecagent_member("prompted_x y_InjecAgent/test_cases_dh_base.json") is None
+
+
+def test_primary_rows_are_the_protocol_section_6_rows() -> None:
+    assert collector.PRIMARY == {
+        "agentdojo": "pipeline",
+        "injecagent": "refusal",
+        "jailbreakbench": "refusal",
+        "harmbench": "refusal",
+    }
+
+
+def test_injecagent_with_no_member_in_the_split_fails_intake(tmp_path: Path) -> None:
+    root = tmp_path / "injecagent"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("results/prompted_x_InjecAgent/test_cases_dh_base.jsonl", "{}\n")
+        zf.writestr("results/other_x/test_cases_dh_base.json", "{}\n")
+    files = {"LICENCE": MIT.encode(), "TERMS": MIT.encode(), "results.zip": buf.getvalue()}
+    with pytest.raises(IntakeError, match="no unit in the split"):
+        collect("injecagent", root, write_manifest(root, files, licence="LICENCE", terms="TERMS"))
+
+
+@pytest.mark.parametrize(
+    ("data", "match"),
+    [
+        ({}, "no unit in the split"),
+        (
+            {
+                "b": [
+                    {
+                        "test_case": "t",
+                        "generation": "g",
+                        "model": "m",
+                        "human_0": 2,
+                        "human_1": 0,
+                        "human_2": 0,
+                    }
+                ]
+            },
+            "no analysed unit",
+        ),
+    ],
+)
+def test_harmbench_with_nothing_to_analyse_fails_intake(
+    tmp_path: Path, data: object, match: str
+) -> None:
+    root = tmp_path / "harmbench"
+    files = {"LICENSE": MIT.encode(), collector.HARMBENCH_SET: json.dumps(data).encode()}
+    with pytest.raises(IntakeError, match=match):
+        collect("harmbench", root, write_manifest(root, files, licence="LICENSE"))
+
+
+def test_every_listed_file_is_hashed_even_outside_the_split(tmp_path: Path) -> None:
+    root = tmp_path / "agentdojo"
+    outside = "runs/gpt-x-tool_filter/workspace/user_task_0/important_instructions/i.json"
+    files = {"LICENSE": MIT.encode(), AGENTDOJO_REL: json.dumps(agentdojo_log()).encode()}
+    manifest = write_manifest(root, {**files, outside: b"x"}, licence="LICENSE")
+    (root / outside).write_bytes(b"changed after the manifest")
+    with pytest.raises(IntakeError, match="differs from the manifest"):
+        collect("agentdojo", root, manifest)

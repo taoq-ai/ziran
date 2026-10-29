@@ -28,10 +28,13 @@ _AGENTDOJO_DEFENCE = re.compile(
 )
 _AGENTDOJO_FIELDS = ("security", "error", "messages", "injections")
 
+#: Member names come from the archive, so only a safe character set is admitted; the model
+#: cell and unit id are taken from them.
 _INJECAGENT_MEMBER = re.compile(
-    r"(?:^|/)prompted_(?P<model>[^/]+)_InjecAgent"
-    r"/test_cases_(?P<case_type>dh|ds)_(?P<setting>base|enhanced)\.json$"
+    r"(?:[A-Za-z0-9_.-]+/)*prompted_(?P<model>[A-Za-z0-9_.-]+)_InjecAgent"
+    r"/test_cases_(?P<case_type>dh|ds)_(?P<setting>base|enhanced)\.json"
 )
+_VERSION = re.compile(r"v?[0-9]+(?:\.[0-9]+)*")
 _INJECAGENT_FIELDS = (
     "output",
     "User Instruction",
@@ -98,7 +101,12 @@ def _assistant_view(messages: list[Any]) -> tuple[str, list[dict[str, Any]]]:
         text = _text(msg.get("content"))
         if text is not None:
             texts.append(text)
-        for call in msg.get("tool_calls") or []:
+        raw = msg.get("tool_calls") or []
+        if not isinstance(raw, list):
+            raise IntakeError("assistant tool calls are not a list of tool call objects")
+        for call in raw:
+            if not isinstance(call, dict) or not isinstance(call.get("function"), str):
+                raise IntakeError("assistant tool call has no function name")
             calls.append({"name": call["function"], "arguments": call.get("args")})
     return "\n".join(texts), calls
 
@@ -141,7 +149,11 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
         "cells": {
             "model": m["model"],
             "suite": m["suite"],
-            "suite_version": version if isinstance(version, str) else "unrecorded",
+            "suite_version": "unrecorded"
+            if version is None
+            else version
+            if isinstance(version, str) and _VERSION.fullmatch(version)
+            else "unrecognised",
         },
     }
     return [
@@ -162,16 +174,22 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
 
 def injecagent_member(name: str) -> tuple[str, str, str] | None:
     """(model, case type, setting) for a step-1 output file of a prompted agent, else None."""
-    m = _INJECAGENT_MEMBER.search(name)
+    m = _INJECAGENT_MEMBER.fullmatch(name)
     return (m["model"], m["case_type"], m["setting"]) if m else None
 
 
-def injecagent_units(member: str, line_no: int, item: object) -> list[Unit]:
-    """Whole and text-only units for one output, labelled by the pinned evaluator's copy."""
-    where = f"{member}:{line_no}"
+def injecagent_units(
+    member: str, line_no: int, item: object, where: str | None = None
+) -> list[Unit]:
+    """Whole and text-only units for one output, labelled by the pinned evaluator's copy.
+
+    ``where`` names the unit in error messages; the caller passes the member index.
+    """
+    unit_id = f"{member}:{line_no}"
+    where = where or unit_id
     parsed = injecagent_member(member)
     if parsed is None:
-        raise IntakeError(f"{member}: not a prompted InjecAgent output file")
+        raise IntakeError(f"{where}: not a prompted InjecAgent output file")
     require_fields(item, _INJECAGENT_FIELDS, where)
     assert isinstance(item, dict)
     tools = item["Attacker Tools"]
@@ -205,7 +223,7 @@ def injecagent_units(member: str, line_no: int, item: object) -> list[Unit]:
     model, case_type, setting = parsed
     base: dict[str, Any] = {
         "benchmark": "injecagent",
-        "unit_id": where,
+        "unit_id": unit_id,
         "prompt": str(item["User Instruction"]),
         "content": prompted_text(output) if isinstance(output, str) else "",
         "label": label,
@@ -247,11 +265,11 @@ def harmbench_units(data: object) -> list[Unit]:
     if not isinstance(data, dict):
         raise IntakeError("validation set is not an object of behaviour ids")
     units: list[Unit] = []
-    for behaviour, items in data.items():
+    for b, (behaviour, items) in enumerate(data.items()):
         if not isinstance(items, list):
-            raise IntakeError(f"{behaviour}: items are not a list")
+            raise IntakeError(f"behaviour {b}: items are not a list")
         for i, item in enumerate(items):
-            require_fields(item, _HARMBENCH_FIELDS, f"{behaviour}:{i}")
+            require_fields(item, _HARMBENCH_FIELDS, f"behaviour {b} item {i}")
             votes = [item[f"human_{j}"] for j in range(3)]
             binary = all(type(v) is int and v in (0, 1) for v in votes)
             model = str(item["model"])

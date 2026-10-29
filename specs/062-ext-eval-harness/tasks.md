@@ -43,3 +43,21 @@ package, or the new assertion failed) before its implementation task.
       section 4 table.
 - [x] T011 Mutation probes on a `git archive` copy: each guarded check removed in turn is
       caught by a test.
+
+## Phase 6 - Gate fix round 1 (arch, quality, security at 9e65607)
+
+- [x] T012 Tests first: empty split and no analysed unit fail intake (InjecAgent with unexpected
+      member names, HarmBench `{}` and all non-binary); damaged members (bad CRC, corrupt stream,
+      encrypted flag, size mismatch) fail by index with the member name kept out; limits are
+      inclusive; the `max_bytes` cap; malformed AgentDojo tool calls; the version cell; the
+      `None` action skip, first-user rule, tool-only marker, cluster key and `tools[0]` target;
+      all four defence folders; PRIMARY; the hash-all loop; predictor direction and the `hit`
+      cut on a stand-in export; worker socket, process and end-of-run module checks; frozen
+      guard; PINNED_FILES; partial clones; bootstrap predictor and row; pin differences; an
+      end-to-end AgentDojo run with excluded and negative units; an InjecAgent end-to-end run.
+- [x] T013 Code: `read_member` maps zip errors to intake failures, encrypted members refused,
+      member names anchored to a safe set, empty split refused, tool calls validated, process
+      and C-library events blocked in the worker, fd 1 redirected, every loaded module hashed,
+      per-pin environment recorded, partial clones refused.
+- [x] T014 [evaluator-diff.md](evaluator-diff.md): syntax-tree diff of the copy against the
+      pinned source.

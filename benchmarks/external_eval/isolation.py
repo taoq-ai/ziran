@@ -65,6 +65,17 @@ def resolve_sha(repo: Path, rev: str) -> str:
     return _git(repo, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}").decode().strip()
 
 
+def require_full_clone(repo: Path) -> None:
+    """Refuse a partial clone: git would fetch missing blobs from the network during export."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "config", "--get", "extensions.partialClone"],
+        capture_output=True,
+        check=False,
+    )
+    if proc.stdout.strip():
+        raise HarnessError(f"{repo.name} is a partial clone; use a full clone")
+
+
 def export_pin(repo: Path, sha: str, dest: Path) -> None:
     """Write the pinned tree into dest with git archive; the repository is only read."""
     with tarfile.open(fileobj=io.BytesIO(_git(repo, "archive", "--format=tar", sha))) as tar:

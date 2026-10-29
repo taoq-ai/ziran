@@ -13,6 +13,7 @@ import re
 import stat
 import subprocess
 import zipfile
+import zlib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
@@ -140,6 +141,8 @@ def open_zip(data: bytes, limits: ZipLimits | None = None) -> zipfile.ZipFile:
             raise IntakeError(f"archive member {i}: member name is not a safe relative path")
         if stat.S_ISLNK(info.external_attr >> 16):
             raise IntakeError(f"archive member {i}: symlink")
+        if info.flag_bits & 0x1:
+            raise IntakeError(f"archive member {i}: encrypted")
         if info.file_size > lim.member_bytes:
             raise IntakeError(f"archive member {i}: member over {lim.member_bytes} bytes")
         if info.file_size > lim.ratio * info.compress_size:
@@ -150,12 +153,15 @@ def open_zip(data: bytes, limits: ZipLimits | None = None) -> zipfile.ZipFile:
     return zf
 
 
-def read_member(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
-    """A member's bytes, refused if it inflates past its declared size."""
-    with zf.open(info) as f:
-        data = f.read(info.file_size + 1)
+def read_member(zf: zipfile.ZipFile, index: int, info: zipfile.ZipInfo) -> bytes:
+    """A member's bytes; a damaged member fails intake. Messages name the index, never the name."""
+    try:
+        with zf.open(info) as f:
+            data = f.read(info.file_size + 1)
+    except (zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError) as exc:
+        raise IntakeError(f"archive member {index}: unreadable ({type(exc).__name__})") from None
     if len(data) != info.file_size:
-        raise IntakeError(f"archive member {info.filename!r} differs from its declared size")
+        raise IntakeError(f"archive member {index}: differs from its declared size")
     return data
 
 

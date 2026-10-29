@@ -77,15 +77,16 @@ def _injecagent(load: Callable[[str], bytes], _files: list[str]) -> tuple[list[m
     zf = intake.open_zip(load(INJECAGENT_ZIP))
     units: list[mapping.Unit] = []
     outside = 0
-    for info in zf.infolist():
+    for index, info in enumerate(zf.infolist()):
         if info.is_dir():
             continue
         if mapping.injecagent_member(info.filename) is None:
             outside += 1
             continue
-        text = _decode(intake.read_member(zf, info), info.filename)
-        for i, item in _injecagent_items(text, info.filename):
-            units += mapping.injecagent_units(info.filename, i, item)
+        where = f"archive member {index}"
+        text = _decode(intake.read_member(zf, index, info), where)
+        for i, item in _injecagent_items(text, where):
+            units += mapping.injecagent_units(info.filename, i, item, f"{where} line {i}")
     return units, outside
 
 
@@ -166,6 +167,10 @@ def collect(
     skip = {manifest.licence, manifest.terms}
     data_files = sorted(rel for rel in manifest.files if rel not in skip)
     units, outside = _BUILDERS[benchmark](load, data_files)
+    if not any(u.variant == "whole" for u in units):
+        raise IntakeError("no unit in the split")
+    if not any(u.variant == "whole" and u.excluded is None for u in units):
+        raise IntakeError("no analysed unit: every unit in the split is excluded")
     return Collected(
         units=units,
         counts=_tally(units, outside),

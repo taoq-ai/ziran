@@ -69,13 +69,12 @@ def truncate_at_marker(text: str, marker: str = "[/INST]") -> str:
     return text
 
 
-def detect_overly_long_sequences(text: str) -> bool | None:
+def detect_overly_long_sequences(text: str) -> bool | None:  # type: ignore[return]
     long_sequence_pattern = r"\b\w{50,}\b"  # words longer than 40 characters
     long_words = re.findall(long_sequence_pattern, text)
     for word in long_words:
         if "http" not in word:
             return True
-    return None
 
 
 def detect_repetitive_language(text: str, n_gram: int = 8, n_rep: int = 10) -> bool:

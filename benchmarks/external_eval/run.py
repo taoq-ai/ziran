@@ -40,7 +40,7 @@ from benchmarks.external_eval.intake import (  # noqa: E402
     require_outside_or_ignored,
     sha256,
 )
-from benchmarks.external_eval.worker import block_sockets  # noqa: E402
+from benchmarks.external_eval.worker import block_network  # noqa: E402
 
 WORKER = Path(__file__).resolve().parent / "worker.py"
 PREDICTORS = ("refusal", "side_effect", "pipeline")
@@ -96,7 +96,13 @@ def _worker(
     verdicts = lines[1:-1]
     if [v["key"] for v in verdicts] != list(range(len(units.units))):
         raise HarnessError("worker verdicts are out of order")
-    header = {"defaults": lines[0]["header"], "modules_checked": lines[-1]["modules"]}
+    modules = lines[-1]["module_sha256"]
+    header = {
+        "defaults": lines[0]["header"],
+        "environment": lines[0]["environment"],
+        "modules_checked": len(modules),
+        "modules_sha256": modules,
+    }
     return header, verdicts
 
 
@@ -146,6 +152,18 @@ def _bootstrap(units: Collected, verdicts: list[dict[str, Any]], pred: str) -> d
     return {k: list(v) if v else None for k, v in metrics.cluster_bootstrap(analysed).items()}
 
 
+def _pin_differences(by_pin: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, int]]:
+    """Per predictor, the units whose verdict differs between the first pin and each other."""
+    first = next(iter(by_pin))
+    return {
+        f"{first} vs {name}": {
+            p: sum(a[p] != b[p] for a, b in zip(by_pin[first], v, strict=True)) for p in PREDICTORS
+        }
+        for name, v in by_pin.items()
+        if name != first
+    }
+
+
 def _write(path: Path, text: str) -> str:
     path.write_text(text, encoding="utf-8")
     return sha256(text.encode())
@@ -158,6 +176,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
         require_outside_or_ignored(HARNESS_ROOT, path)
         require_outside_or_ignored(args.ziran_repo, path)
     harness = isolation.harness_record(HARNESS_ROOT, args.practice)
+    isolation.require_full_clone(args.ziran_repo)
     pins = _pins(args.ziran_repo, args.pin)
     bench = args.benchmark
     summary_path = args.out / f"{bench}.summary.json"
@@ -212,14 +231,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
                 **{p: bool(v[p]) for p in PREDICTORS},
             }  # fmt: skip
             rows.append(json.dumps(row, sort_keys=True) + "\n")
-    first = next(iter(by_pin))
-    summary["pin_differences"] = {
-        f"{first} vs {name}": {
-            p: sum(a[p] != b[p] for a, b in zip(by_pin[first], v, strict=True)) for p in PREDICTORS
-        }
-        for name, v in by_pin.items()
-        if name != first
-    }
+    summary["pin_differences"] = _pin_differences(by_pin)
     summary["status"] = "evaluated"
     summary["rows_sha256"] = _write(args.out / f"{bench}.rows.jsonl", "".join(rows))
     digest = _write(summary_path, json.dumps(summary, indent=2, sort_keys=True) + "\n")
@@ -245,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
         if any(name.split(".")[0] == "ziran" for name in sys.modules):
             raise HarnessError("ziran is loaded in the harness process; only workers load it")
         removed = isolation.scrub_environ(os.environ)
-        block_sockets()
+        block_network(processes=False)
         return run(_args(argv), removed)
     except HarnessError as exc:
         print(f"error: {exc}", file=sys.stderr)
