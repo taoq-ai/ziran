@@ -1220,3 +1220,17 @@ def test_the_group_kill_reaps_and_retries_after_permission_error(
     monkeypatch.setattr(run_module.os, "killpg", killpg)
     run_module._kill_group(Proc())  # type: ignore[arg-type]
     assert seen == calls
+
+
+def test_a_verdict_flood_during_the_run_is_refused_at_the_next_poll(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from benchmarks.external_eval import run as run_module
+
+    root = _fake_export(tmp_path)
+    pipeline = root / "ziran/application/detectors/pipeline.py"
+    flood = "import os, time\nos.write(3, b'v' * 5000)\ntime.sleep(600)\n"
+    pipeline.write_text(flood + pipeline.read_text())
+    monkeypatch.setattr(run_module, "_output_limit", lambda n: 1000)
+    with pytest.raises(HarnessError, match="output is over its size limit"):
+        _worker(root, tmp_path, _units_with({}), timeout=30 + LOAD_MARGIN)
