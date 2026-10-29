@@ -103,6 +103,16 @@ For example, `tool_recursive_url_loader` -> `tool_execute_code` is reported as
 `remote_code_execution`, and `tool_vector_store_write` -> `tool_vector_store_query` as
 `rag_poisoning`.
 
+DevOps agent tools follow the same rule (spec 061):
+
+| Tool name (and variants) | Matched as |
+|--------------------------|------------|
+| `read_secrets`, `ReadSecrets` | `secrets_manager` |
+| `execute_command`, `ExecuteCommand` | `execute_code` |
+
+So `read_secrets` -> `execute_command` is reported as `cloud_secret_to_rce`. Names such as
+`read_secret`, `read_secrets_from_vault` or `mcp__shell__execute_command` stay unchanged.
+
 ## Risk Scoring
 
 Each chain receives a 0.0--1.0 risk score based on:
