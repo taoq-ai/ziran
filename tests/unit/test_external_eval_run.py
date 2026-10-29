@@ -18,6 +18,8 @@ from typing import Any
 import pytest
 
 from benchmarks.external_eval import isolation
+from benchmarks.external_eval.intake import HarnessError
+from benchmarks.external_eval.run import _pins
 from tests.unit.test_external_eval_mapping import (
     AGENTDOJO_REL,
     MEMBER,
@@ -208,6 +210,21 @@ def test_data_inside_the_harness_folder_is_refused(tmp_path: Path) -> None:
     )  # fmt: skip
     assert proc.returncode == 2
     assert "harness folder" in proc.stderr
+
+
+@pytest.mark.parametrize("specs", [["a=HEAD", "a=HEAD"], ["HEAD"], ["=HEAD"], ["a="]])
+def test_pins_must_be_distinct_name_rev_pairs(specs: list[str]) -> None:
+    with pytest.raises(HarnessError, match="NAME=REV"):
+        _pins(REPO_ROOT, specs)
+
+
+def test_a_second_run_into_the_same_output_is_refused(tmp_path: Path) -> None:
+    data = tmp_path / "injecagent"
+    manifest = fixture_dir(data, {"LICENCE": MIT.encode()}, licence="LICENCE")
+    assert run_cli(tmp_path, "injecagent", data, manifest).returncode == 3
+    again = run_cli(tmp_path, "injecagent", data, manifest)
+    assert again.returncode == 2
+    assert "already holds" in again.stderr
 
 
 def test_output_inside_the_repo_and_not_ignored_is_refused(tmp_path: Path) -> None:

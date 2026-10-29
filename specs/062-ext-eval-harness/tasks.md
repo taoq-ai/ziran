@@ -28,7 +28,8 @@ package, or the new assertion failed) before its implementation task.
 
 - [x] T007 `tests/unit/test_external_eval_run.py`: `-I` required, `-O` refused, sockets
       blocked, environment scrub and allow-list, module check, AgentDojo end to end at two
-      pins, InjecAgent `..` member reported not evaluated, path refusals.
+      pins, InjecAgent `..` member reported not evaluated, path refusals, malformed or duplicate
+      pins, a second run into the same output refused.
 - [x] T008 `benchmarks/external_eval/isolation.py`, `worker.py`, `run.py`; `.gitignore` line
       for `/downloads/external-eval/`. T007 passes.
 

@@ -159,8 +159,11 @@ def run(args: argparse.Namespace, removed: int) -> int:
         require_outside_or_ignored(args.ziran_repo, path)
     harness = isolation.harness_record(HARNESS_ROOT, args.practice)
     pins = _pins(args.ziran_repo, args.pin)
-    args.out.mkdir(parents=True, exist_ok=True)
     bench = args.benchmark
+    summary_path = args.out / f"{bench}.summary.json"
+    if summary_path.exists():  # one run per pin; a second run is a recorded deviation
+        raise HarnessError(f"{args.out.name} already holds a {bench} summary")
+    args.out.mkdir(parents=True, exist_ok=True)
     summary: dict[str, Any] = {
         "benchmark": bench,
         "protocol": PROTOCOL,
@@ -169,7 +172,6 @@ def run(args: argparse.Namespace, removed: int) -> int:
         "pins": {name: {"sha": sha} for name, sha in pins.items()},
         "primary": PRIMARY[bench],
     }
-    summary_path = args.out / f"{bench}.summary.json"
     try:
         if args.manifest.is_file():
             summary["manifest_sha256"] = sha256(args.manifest.read_bytes())
