@@ -132,8 +132,9 @@ def open_zip(data: bytes, limits: ZipLimits | None = None) -> zipfile.ZipFile:
         raise IntakeError(f"archive is over the {lim.compressed_bytes} byte compressed limit")
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile as exc:
-        raise IntakeError("archive is not a readable zip") from exc
+    except (zipfile.BadZipFile, ValueError, NotImplementedError) as exc:
+        # ValueError covers UnicodeDecodeError on a UTF-8 flagged name
+        raise IntakeError(f"archive is not a readable zip ({type(exc).__name__})") from None
     infos = zf.infolist()
     if len(infos) > lim.members:
         raise IntakeError(f"archive has {len(infos)} members, over {lim.members}")
@@ -162,7 +163,9 @@ def read_member(zf: zipfile.ZipFile, index: int, info: zipfile.ZipInfo) -> bytes
     try:
         with zf.open(info) as f:
             data = f.read(info.file_size + 1)
-    except (zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError) as exc:
+    except (
+        zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError, ValueError
+    ) as exc:  # fmt: skip
         raise IntakeError(f"archive member {index}: unreadable ({type(exc).__name__})") from None
     if len(data) != info.file_size:
         raise IntakeError(f"archive member {index}: differs from its declared size")

@@ -261,3 +261,73 @@ def test_only_stored_and_deflate_members_are_read(method: str) -> None:
     with pytest.raises(IntakeError, match="archive member 0: compression method") as err:
         intake.open_zip(buf.getvalue())
     assert "IGNORE" not in str(err.value)
+
+
+# ── round 3: damaged headers fail intake, never a traceback ───────────
+
+_MEMBER = "prompted_x_InjecAgent/test_cases_dh_base.json"
+
+
+def damaged_header(kind: str) -> bytes:
+    """A one-member archive with one header field broken in the named way."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(_MEMBER, b"{}\n")
+    raw = bytearray(buf.getvalue())
+    central = raw.find(b"PK\x01\x02")
+    end = raw.find(b"PK\x05\x06")
+    if kind == "cd_offset":  # central directory offset one byte too large
+        offset = struct.unpack_from("<I", raw, end + 16)[0]
+        struct.pack_into("<I", raw, end + 16, offset + 1)
+    elif kind == "local_name":  # UTF-8 flag and invalid name bytes in the local header
+        raw[7] |= 0x08
+        raw[30 : 30 + len(_MEMBER)] = b"\xff" * len(_MEMBER)
+    elif kind == "version":  # extract version 25.5
+        raw[central + 6] = 0xFF
+    elif kind == "cd_name":  # UTF-8 flag and invalid name bytes in the central directory
+        raw[central + 9] |= 0x08
+        raw[central + 46] = 0xFF
+    return bytes(raw)
+
+
+@pytest.mark.parametrize("kind", ["cd_offset", "local_name", "version", "cd_name"])
+def test_a_damaged_header_fails_intake(kind: str) -> None:
+    with pytest.raises(IntakeError):
+        zf = intake.open_zip(damaged_header(kind))
+        for i, info in enumerate(zf.infolist()):
+            intake.read_member(zf, i, info)
+
+
+def test_byte_mutation_fuzz_lets_only_intake_errors_out() -> None:
+    import random
+
+    from benchmarks.external_eval import collect as collector
+
+    seeds = []
+    for method in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
+        for zip64 in (False, True):
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", method, allowZip64=True) as zf:
+                zf.writestr("pad.txt", b"hello" * 20)
+                with zf.open(_MEMBER, "w", force_zip64=zip64) as f:
+                    f.write(b'{"a": 1}\n' * 3)
+            seeds.append(buf.getvalue())
+    rng = random.Random(20261029)
+    for _ in range(3000):
+        data = bytearray(rng.choice(seeds))
+        for _ in range(rng.randint(1, 4)):
+            at = rng.randrange(len(data))
+            for j in range(rng.choice((1, 2, 4))):
+                if at + j < len(data):
+                    data[at + j] = rng.choice((0, 0xFF, rng.randrange(256)))
+        try:
+            zf = intake.open_zip(bytes(data))
+            for i, info in enumerate(zf.infolist()):
+                if info.is_dir() or collector.mapping.injecagent_member(info.filename) is None:
+                    continue
+                where = f"archive member {i}"
+                collector._injecagent_items(
+                    collector._decode(intake.read_member(zf, i, info), where), where
+                )
+        except IntakeError:
+            pass

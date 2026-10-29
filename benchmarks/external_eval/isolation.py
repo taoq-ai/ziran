@@ -83,6 +83,8 @@ def require_full_clone(repo: Path) -> None:
         capture_output=True,
         check=False,
     )
+    if proc.returncode not in (0, 1):  # 1: no key matched
+        raise HarnessError(f"git config failed in {repo.name}")
     values = [line.split(maxsplit=1)[-1].lower() for line in proc.stdout.decode().splitlines()]
     if any(v not in ("false", "") for v in values):
         raise HarnessError(f"{repo.name} is a partial clone; use a full clone")

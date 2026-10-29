@@ -680,6 +680,47 @@ def test_an_unexpected_split_or_harness_is_not_evaluated(
     assert reason in summary["reason"]
 
 
+@pytest.mark.parametrize("kind", ["cd_offset", "local_name", "version", "cd_name"])
+def test_a_damaged_zip_header_is_not_evaluated(tmp_path: Path, kind: str) -> None:
+    from tests.unit.test_external_eval_intake import damaged_header
+
+    data = tmp_path / "injecagent"
+    files = {"LICENCE": MIT.encode(), "TERMS": MIT.encode(), "results.zip": damaged_header(kind)}
+    proc = run_cli(
+        tmp_path, "injecagent", data, fixture_dir(data, files, licence="LICENCE", terms="TERMS")
+    )
+    assert proc.returncode == 3, proc.stderr[-300:]
+    summary = json.loads((tmp_path / "out" / "injecagent.summary.json").read_text())
+    assert summary["status"] == "not_evaluated"
+    assert "Traceback" not in proc.stderr
+
+
+def test_an_expected_harness_value_must_be_a_prefix(tmp_path: Path) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[1:13])
+    assert proc.returncode == 3
+
+
+def test_installed_sha256_is_the_sorted_distribution_list() -> None:
+    from importlib import metadata
+
+    lines = sorted(
+        f"{(d.metadata['Name'] or '').lower()}=={d.version}" for d in metadata.distributions()
+    )
+    expected = hashlib.sha256("\n".join(lines).encode()).hexdigest()
+    assert isolation.worker.installed_sha256() == expected
+    assert expected != hashlib.sha256(b"").hexdigest()
+
+
+def test_an_unreadable_git_config_is_a_refusal(tmp_path: Path) -> None:
+    repo = tmp_path / "r"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    (repo / ".git" / "config").write_text("[[[ not a config\n")
+    with pytest.raises(HarnessError, match="git config"):
+        isolation.require_full_clone(repo)
+
+
 def test_a_short_expected_harness_prefix_is_not_enough(tmp_path: Path) -> None:
     data, manifest = _small_agentdojo(tmp_path)
     proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[:6])
