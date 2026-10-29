@@ -390,6 +390,13 @@ class _V:
     def __init__(self, successful, results):
         self.successful, self.detector_results = successful, results
 
+def _linger():
+    # A grandchild that holds no inherited descriptor (multiprocessing's resource tracker would
+    # otherwise wait on it at the worker's exit) and outlives the worker unless killed.
+    import os, time
+    os.closerange(3, 4096)
+    time.sleep(120)
+
 class DetectorPipeline:
     def __init__(self, detector_config=None):
         pass
@@ -401,8 +408,8 @@ class DetectorPipeline:
             m.__file__ = "/elsewhere/planted.py"
             sys.modules["ziran.planted"] = m
         if s.get("grandchild"):
-            import multiprocessing, multiprocessing.process, time
-            child = multiprocessing.get_context("spawn").Process(target=time.sleep, args=(120,))
+            import multiprocessing, multiprocessing.process
+            child = multiprocessing.get_context("spawn").Process(target=_linger)
             child.start()
             multiprocessing.process._children.discard(child)  # so exit does not join it
             with open(s["grandchild"], "w") as f:
