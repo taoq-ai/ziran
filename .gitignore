@@ -70,6 +70,8 @@ site/
 
 # Output
 reports/
+# External benchmark inputs (spec 062): never committed
+/downloads/external-eval/
 ziran_results/
 ziran-results.sarif
 .ziran/scan_cache/
