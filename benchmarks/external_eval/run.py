@@ -10,8 +10,8 @@ Usage (from any folder; ``-I`` is required)::
         --data <intake folder> --manifest <manifest.json> --ziran-repo <ziran clone> \\
         --pin study-v1=<sha> --pin study-v0=b813e4f --out <git-ignored folder>
 
-Exit codes: 0 evaluated, 2 refused (flags, paths, pins, worker), 3 not evaluated (intake failed,
-protocol section 10).
+Exit codes: 0 evaluated; 2 refused, with no summary (flags, paths, pins, --expect-harness, a
+worker failure or timeout); 3 not evaluated (intake failed, protocol section 10).
 """
 
 from __future__ import annotations
@@ -26,8 +26,10 @@ if str(HARNESS_ROOT) not in sys.path:  # -I leaves the script's folder off sys.p
 import argparse  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
+import signal  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
+import time  # noqa: E402
 from collections import defaultdict  # noqa: E402
 from typing import Any  # noqa: E402
 
@@ -82,7 +84,7 @@ def _pins(repo: Path, specs: list[str]) -> dict[str, str]:
 
 
 class WorkerTimeoutError(HarnessError):
-    """A worker that runs past ``--worker-timeout``; the benchmark is not evaluated."""
+    """A worker that runs past ``--worker-timeout``; the run stops with exit 2."""
 
 
 def _worker(
@@ -90,25 +92,42 @@ def _worker(
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Run one fresh worker on every unit; its stderr is kept and never printed.
 
-    ``subprocess.run`` writes stdin and drains stdout and stderr together (``communicate``),
-    so neither side blocks on a full pipe; on timeout it kills the worker.
+    stdin, stdout and stderr are temporary files, not pipes, so neither side can block on a
+    full pipe and the timeout waits on the process alone. On a timeout the worker's whole
+    process group is killed and the run stops (exit 2, no summary).
     """
     payload = "".join(
         json.dumps({"key": i, "prompt": u.prompt, "content": u.content, "tool_calls": u.tool_calls})
         + "\n"
         for i, u in enumerate(units.units)
-    )
-    try:
-        proc = subprocess.run(
+    ).encode()
+    with (
+        tempfile.TemporaryFile() as stdin,
+        tempfile.TemporaryFile() as stdout,
+        tempfile.TemporaryFile() as stderr,
+    ):
+        stdin.write(payload)
+        stdin.seek(0)
+        started = time.monotonic()
+        proc = subprocess.Popen(
             [sys.executable, "-I", str(WORKER), str(export)],
-            input=payload, capture_output=True, text=True, env=isolation.worker_env(), cwd=cwd,
-            check=False, timeout=timeout,
+            stdin=stdin, stdout=stdout, stderr=stderr, env=isolation.worker_env(), cwd=cwd,
+            start_new_session=True,
         )  # fmt: skip
-    except subprocess.TimeoutExpired:
-        raise WorkerTimeoutError("worker_timeout") from None
-    if proc.returncode != 0:
-        raise HarnessError(f"worker exited {proc.returncode}")
-    lines = [json.loads(line) for line in proc.stdout.splitlines()]
+        try:
+            returncode = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+            raise WorkerTimeoutError(f"worker timed out after {timeout:g} s") from None
+        wall = time.monotonic() - started
+        if returncode != 0:
+            raise HarnessError(f"worker exited {returncode}")
+        if stdout.tell() > _output_limit(len(units.units)):
+            raise HarnessError("worker output is over its size limit")
+        stdout.seek(0)
+        text = stdout.read().decode("utf-8")
+    lines = [json.loads(line) for line in text.splitlines()]
     if len(lines) < 2 or "header" not in lines[0] or lines[-1].get("end") != len(units.units):
         raise HarnessError("worker output is incomplete")
     verdicts = lines[1:-1]
@@ -120,8 +139,14 @@ def _worker(
         "environment": lines[0]["environment"],
         "modules_checked": len(modules),
         "modules_sha256": modules,
+        "worker_wall_seconds": round(wall, 3),
     }
     return header, verdicts
+
+
+def _output_limit(n_units: int) -> int:
+    """Bytes the verdict stream may hold: a fixed allowance plus one short line per unit."""
+    return 4_000_000 + 200 * n_units
 
 
 def _block(pairs: list[tuple[bool, bool]]) -> dict[str, Any]:
@@ -203,6 +228,10 @@ def run(args: argparse.Namespace, removed: int) -> int:
         require_outside_or_ignored(HARNESS_ROOT, path)
         require_outside_or_ignored(args.ziran_repo, path)
     harness = isolation.harness_record(HARNESS_ROOT, args.practice)
+    if args.expect_harness is not None and not (
+        len(args.expect_harness) >= 7 and harness["commit"].startswith(args.expect_harness)
+    ):  # operator error, nothing parsed yet: a refusal, not a section 10 report
+        raise HarnessError("the harness commit differs from --expect-harness")
     isolation.require_full_clone(args.ziran_repo)
     pins = _pins(args.ziran_repo, args.pin)
     bench = args.benchmark
@@ -217,15 +246,16 @@ def run(args: argparse.Namespace, removed: int) -> int:
         "environment_variables_removed": removed,
         "pins": {name: {"sha": sha} for name, sha in pins.items()},
         "primary": PRIMARY[bench],
+        "run_settings": {
+            "worker_timeout_seconds": args.worker_timeout,
+            "expect_split": args.expect_split,
+            "expect_harness": args.expect_harness,
+        },
     }
     phase = "manifest"
     try:
         if args.manifest.is_file():
             summary["manifest_sha256"] = sha256(args.manifest.read_bytes())
-        if args.expect_harness is not None and not (
-            len(args.expect_harness) >= 7 and harness["commit"].startswith(args.expect_harness)
-        ):
-            raise IntakeError("the harness commit differs from --expect-harness")
         manifest = read_manifest(args.manifest)
         phase = "collect"
         units = collect(bench, args.data, manifest)
@@ -256,10 +286,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
             summary["pins"][name]["files_sha256"] = isolation.file_hashes(
                 export, isolation.PINNED_FILES
             )
-            try:
-                header, verdicts = _worker(export.resolve(), cwd, units, args.worker_timeout)
-            except WorkerTimeoutError:
-                return _not_evaluated(summary, summary_path, f"worker_timeout at pin {name}")
+            header, verdicts = _worker(export.resolve(), cwd, units, args.worker_timeout)
         summary["pins"][name] |= header
         by_pin[name] = verdicts
         summary["metrics"][name] = _metrics(units, verdicts)

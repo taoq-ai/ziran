@@ -184,8 +184,7 @@ current commit.
 - **Compression methods.** Only stored and deflate members are read; bzip2, LZMA and Zstandard
   members fail intake, because their decoders raise errors outside the handled set.
 - **Addendum values checked by the harness.** `--expect-split` and `--expect-harness` take the
-  split count and harness commit from the intake addendum. A mismatch is an intake failure, so
-  the run is reported not evaluated.
+  split count and harness commit from the intake addendum; exit codes are below.
 - **Percentile method.** The bootstrap interval takes the 2.5% and 97.5% cuts of
   `statistics.quantiles(..., n=40, method="inclusive")`. The protocol says only "percentile 95%
   interval"; this is the choice, fixed before any run.
@@ -198,11 +197,20 @@ current commit.
   for JSON (integers over 4,300 digits, deep nesting), and `csv.Error` for a CSV field over
   `CSV_FIELD_CHARS` (10,000,000 characters, far above a model completion).
 - **Worker timeout.** Each pin's worker has `--worker-timeout` seconds (default 3,600; a unit
-  takes milliseconds). On a timeout the worker is killed and the benchmark is reported not
-  evaluated, reason `worker_timeout at pin <name>`. `subprocess.run` writes stdin and drains
-  stdout and stderr together, so neither side waits on a full pipe. The security gate saw two
-  hangs on Python 3.11 with a worker that failed at import; the cause is unexplained, and the
-  timeout bounds it.
+  takes milliseconds). The worker's stdin, stdout and stderr are temporary files, not pipes:
+  under macOS pipe pressure a pipe holds only 512 bytes, and `subprocess.run(input=...)` then
+  blocked in `os.write` with its timeout never firing (security gate, 3.11 to 3.13). With files
+  the timeout waits on the process alone. The worker starts in its own session, and a timeout
+  kills its whole process group. A timeout is a worker failure like any other: the run stops
+  with exit 2 and writes no summary and no rows, so no summary ever holds another pin's metrics.
+  The verdict stream is read only after the worker exits, under a size limit of 4,000,000 bytes
+  plus 200 per unit.
+- **What the summary records about the run.** `run_settings` holds the worker timeout in effect
+  and the `--expect-split` and `--expect-harness` values (null when not passed); each pin
+  records `worker_wall_seconds`.
+- **Exit codes for the addendum checks.** A `--expect-harness` mismatch is an operator error
+  found before anything is parsed: exit 2, no summary. A `--expect-split` mismatch is found after
+  intake: not evaluated, exit 3.
 - **Python versions.** ziran's `test.yml` runs the unit tests on 3.11, 3.12 and 3.13; `ci.yml`
   runs lint, type check and the dependency audit on 3.12 only. 3.11 is the floor. Local runs
   of this harness used 3.12 and 3.14 on macOS. CI is not changed here.

@@ -100,3 +100,14 @@ package, or the new assertion failed) before its implementation task.
       overlapped entry, so `zf.open` raised `TypeError`. A test patches `warnings.warn` the same
       way (red first); `read_member` now maps `TypeError` to an intake failure. The harness
       process never imports crewai, but the test suite does.
+
+## Phase 10 - Gate fix round 5 (arch, security at b5350c8)
+
+- [x] T022 Tests first (10 failed on the previous code): a worker that writes 200,000 bytes to
+      stderr before reading a 300,000-byte input completes under a 120 s wall clock; a stand-in
+      pin that stalls at import stops the run with exit 2 within 30 s and no summary; a two-pin
+      run whose second pin stalls writes no summary and no rows; `--expect-harness` mismatches
+      exit 2; `run_settings` and `worker_wall_seconds` in the summary; the `manifest` phase label.
+- [x] T023 Code: temporary files for the worker's stdin, stdout and stderr; its own session and a
+      process-group kill on timeout; no not-evaluated summary on a timeout; the output size
+      limit; `--expect-harness` checked before intake as a refusal; run settings recorded.

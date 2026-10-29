@@ -218,6 +218,12 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
     assert pin["modules_checked"] == len(pin["modules_sha256"]) > len(isolation.PINNED_FILES)
     assert "ziran/application/detectors/ensemble.py" in pin["modules_sha256"]
     assert pin["environment"]["python"] == summary["harness"]["python"]
+    assert 0 < pin["worker_wall_seconds"] < 300
+    assert summary["run_settings"] == {
+        "worker_timeout_seconds": 3600.0,
+        "expect_split": 4,
+        "expect_harness": None,
+    }
     # hashes are the files' own, computed apart from the harness
     assert pin["sha"] == summary["harness"]["commit"] == git_rev("HEAD")
     for rel in isolation.PINNED_FILES:
@@ -383,7 +389,7 @@ class DetectorPipeline:
         pass
 
     async def evaluate(self, prompt, response, spec, vector):
-        s = json.loads(response.content)
+        s = json.loads(response.content) if response.content.startswith("{") else {}
         if s.get("plant"):
             m = types.ModuleType("ziran.planted")
             m.__file__ = "/elsewhere/planted.py"
@@ -397,7 +403,10 @@ class DetectorPipeline:
         if s.get("connect"):
             import socket
             socket.socket().connect(("127.0.0.1", 9))
-        return _V(s["pipeline"], [_R("refusal", s["refusal"]), _R("side_effect", s["side_effect"])])
+        return _V(
+            s.get("pipeline", False),
+            [_R("refusal", s.get("refusal", 1.0)), _R("side_effect", s.get("side_effect", 0.0))],
+        )
 """,
 }
 
@@ -668,22 +677,22 @@ def _small_agentdojo(tmp_path: Path) -> tuple[Path, Path]:
     return data, fixture_dir(data, files, licence="LICENSE")
 
 
-@pytest.mark.parametrize(
-    ("extra", "reason"),
-    [
-        (("--expect-split", "2"), "split holds 1 units"),
-        (("--expect-harness", "0000000"), "harness commit differs"),
-        (("--expect-harness", "abc"), "harness commit differs"),
-    ],
-)
-def test_an_unexpected_split_or_harness_is_not_evaluated(
-    tmp_path: Path, extra: tuple[str, str], reason: str
-) -> None:
+def test_an_unexpected_split_is_not_evaluated(tmp_path: Path) -> None:
     data, manifest = _small_agentdojo(tmp_path)
-    proc = run_cli(tmp_path, "agentdojo", data, manifest, *extra)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-split", "2")
     assert proc.returncode == 3
     summary = json.loads((tmp_path / "out" / "agentdojo.summary.json").read_text())
-    assert reason in summary["reason"]
+    assert "split holds 1 units" in summary["reason"]
+    assert summary["run_settings"]["expect_split"] == 2
+
+
+@pytest.mark.parametrize("value", ["0000000", "abc"])
+def test_an_unexpected_harness_commit_is_refused(tmp_path: Path, value: str) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", value)
+    assert proc.returncode == 2
+    assert "harness commit differs" in proc.stderr
+    assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
 
 
 @pytest.mark.parametrize("kind", ["cd_offset", "local_name", "version", "cd_name"])
@@ -704,7 +713,7 @@ def test_a_damaged_zip_header_is_not_evaluated(tmp_path: Path, kind: str) -> Non
 def test_an_expected_harness_value_must_be_a_prefix(tmp_path: Path) -> None:
     data, manifest = _small_agentdojo(tmp_path)
     proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[1:13])
-    assert proc.returncode == 3
+    assert proc.returncode == 2
 
 
 def test_installed_sha256_is_the_sorted_distribution_list() -> None:
@@ -730,7 +739,7 @@ def test_an_unreadable_git_config_is_a_refusal(tmp_path: Path) -> None:
 def test_a_short_expected_harness_prefix_is_not_enough(tmp_path: Path) -> None:
     data, manifest = _small_agentdojo(tmp_path)
     proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[:6])
-    assert proc.returncode == 3
+    assert proc.returncode == 2
 
 
 def test_output_inside_the_harness_repo_is_refused_with_another_ziran_clone(tmp_path: Path) -> None:
@@ -795,11 +804,117 @@ def test_a_worker_past_its_timeout_is_killed(tmp_path: Path) -> None:
     assert time.monotonic() - start < 20
 
 
-def test_a_run_whose_worker_times_out_is_not_evaluated(tmp_path: Path) -> None:
+def test_a_run_whose_worker_times_out_stops_with_no_summary(tmp_path: Path) -> None:
     assert WORKER_TIMEOUT == 3600.0
     data, manifest = _small_agentdojo(tmp_path)
     proc = run_cli(tmp_path, "agentdojo", data, manifest, "--worker-timeout", "0.01")
-    assert proc.returncode == 3
-    summary = json.loads((tmp_path / "out" / "agentdojo.summary.json").read_text())
-    assert summary["reason"] == "worker_timeout at pin head"
+    assert proc.returncode == 2
+    assert "worker timed out after 0.01 s" in proc.stderr
+    assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
     assert not (tmp_path / "out" / "agentdojo.rows.jsonl").exists()
+
+
+# ── round 5: no pipes to the worker, timeouts stop the run ────────────
+
+
+def _fake_pin_repo(tmp_path: Path) -> tuple[Path, str, str]:
+    """A git repo holding the stand-in ziran: commit A scores, commit B stalls at import."""
+    repo = tmp_path / "pins"
+    for rel, text in _FAKE.items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text)
+    _git(repo, "init", "-q")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "scores")
+    good = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    pipeline = repo / "ziran/application/detectors/pipeline.py"
+    pipeline.write_text("import time\ntime.sleep(120)\n" + pipeline.read_text())
+    _git(repo, "commit", "-qam", "stalls")
+    stall = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    return repo, good, stall
+
+
+def _run_pins(tmp_path: Path, repo: Path, *pins: str) -> subprocess.CompletedProcess[str]:
+    data, manifest = _small_agentdojo(tmp_path)
+    args = [a for pin in pins for a in ("--pin", pin)]
+    return python(
+        "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(data),
+        "--manifest", str(manifest), "--ziran-repo", str(repo), *args,
+        "--out", str(tmp_path / "out"), "--practice", "--worker-timeout", "3",
+        cwd=tmp_path,
+    )  # fmt: skip
+
+
+def test_a_stalled_worker_stops_the_run_within_its_timeout(tmp_path: Path) -> None:
+    import time
+
+    repo, _good, stall = _fake_pin_repo(tmp_path)
+    start = time.monotonic()
+    proc = _run_pins(tmp_path, repo, f"a={stall}")
+    assert time.monotonic() - start < 30
+    assert proc.returncode == 2
+    assert "worker timed out after 3 s" in proc.stderr
+    assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
+
+
+def test_a_second_pin_that_times_out_writes_no_summary_and_no_rows(tmp_path: Path) -> None:
+    repo, good, stall = _fake_pin_repo(tmp_path)
+    first = _run_pins(tmp_path / "one", repo, f"a={good}")
+    assert first.returncode == 0, first.stderr[-300:]
+    proc = _run_pins(tmp_path, repo, f"a={good}", f"b={stall}")
+    assert proc.returncode == 2
+    assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
+    assert not (tmp_path / "out" / "agentdojo.rows.jsonl").exists()
+
+
+def test_a_worker_flooding_stderr_before_reading_a_large_input_never_hangs(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "export"
+    for rel, text in _FAKE.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+    pipeline = root / "ziran/application/detectors/pipeline.py"
+    pipeline.write_text("import sys\nsys.stderr.write('e' * 200_000)\n" + pipeline.read_text())
+    code = f"""
+import json, sys
+sys.path.insert(0, {str(REPO_ROOT)!r})
+from pathlib import Path
+from benchmarks.external_eval.collect import Collected
+from benchmarks.external_eval.mapping import Unit
+from benchmarks.external_eval.run import _worker
+unit = Unit(benchmark="b", unit_id="u", variant="whole", prompt="p", content="x" * 100_000,
+            tool_calls=[], label=True, excluded=None, cluster="c", cells={{}})
+units = Collected(units=[unit] * 3, counts={{}}, spdx="MIT", terms_spdx=None,
+                  manifest_files=1, extra_hashes={{}})
+header, verdicts = _worker(Path({str(root)!r}), Path({str(tmp_path)!r}), units, 60)
+print(len(verdicts))
+"""
+    proc = subprocess.run(
+        [sys.executable, "-I", "-c", code],
+        capture_output=True, text=True, timeout=120, env=isolation.worker_env(), check=False,
+    )  # fmt: skip
+    assert proc.returncode == 0, proc.stderr[-300:]
+    assert proc.stdout.strip() == "3"
+
+
+def test_an_unexpected_manifest_error_names_the_manifest_phase(tmp_path: Path) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    code = (
+        f"import sys; sys.path.insert(0, {str(REPO_ROOT)!r})\n"
+        "from benchmarks.external_eval import run\n"
+        "def broken(*a, **k):\n    raise KeyError('SECRET-INPUT-TEXT')\n"
+        "run.read_manifest = broken\n"
+        f"sys.exit(run.main(['--benchmark', 'agentdojo', '--data', {str(data)!r},"
+        f" '--manifest', {str(manifest)!r}, '--ziran-repo', {str(REPO_ROOT)!r},"
+        f" '--pin', 'head=HEAD', '--out', {str(tmp_path / 'out')!r}, '--practice']))\n"
+    )
+    proc = python("-I", "-c", code, cwd=tmp_path)
+    assert proc.returncode == 3, proc.stderr[-300:]
+    text = (tmp_path / "out" / "agentdojo.summary.json").read_text()
+    assert json.loads(text)["reason"] == "manifest: KeyError"
+    assert "SECRET" not in text + proc.stdout + proc.stderr
