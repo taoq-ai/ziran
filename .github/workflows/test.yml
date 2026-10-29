@@ -46,7 +46,8 @@ jobs:
           fail_ci_if_error: false
 
   integration-test:
-    runs-on: ubuntu-latest
+    # ubuntu-latest is ubuntu26.04, which Playwright does not support for chromium (2026-10-29)
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
