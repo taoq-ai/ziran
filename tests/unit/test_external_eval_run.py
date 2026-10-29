@@ -21,7 +21,13 @@ from benchmarks.external_eval import isolation
 from benchmarks.external_eval.collect import Collected
 from benchmarks.external_eval.intake import HarnessError
 from benchmarks.external_eval.mapping import Unit
-from benchmarks.external_eval.run import _bootstrap, _pin_differences, _pins
+from benchmarks.external_eval.run import (
+    EXPLORATORY_BELOW,
+    _block,
+    _bootstrap,
+    _pin_differences,
+    _pins,
+)
 from tests.unit.test_external_eval_mapping import (
     AGENTDOJO_REL,
     MEMBER,
@@ -42,7 +48,7 @@ TEXT_MARKERS = ("Summarise my files", "Sending now", "Reading it", "x@y.z", "INF
 
 
 def python(
-    *args: str, cwd: Path | None = None, stdin: str = ""
+    *args: str, cwd: Path | None = None, stdin: str = "", env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, *args],
@@ -50,7 +56,7 @@ def python(
         text=True,
         input=stdin,
         cwd=cwd,
-        env=isolation.worker_env(),
+        env={**isolation.worker_env(), **(env or {})},
         check=False,
         timeout=300,
     )
@@ -116,7 +122,12 @@ def fixture_dir(root: Path, files: dict[str, bytes], **extra: str) -> Path:
 
 
 def run_cli(
-    tmp_path: Path, benchmark: str, data: Path, manifest: Path
+    tmp_path: Path,
+    benchmark: str,
+    data: Path,
+    manifest: Path,
+    *extra: str,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return python(
         "-I",
@@ -129,8 +140,18 @@ def run_cli(
         "--pin", "again=HEAD",
         "--out", str(tmp_path / "out"),
         "--practice",
+        *extra,
         cwd=tmp_path,
+        env=env,
     )  # fmt: skip
+
+
+def git_sha256(rev: str, rel: str) -> str:
+    """sha256 of a file at a commit, computed apart from the harness."""
+    blob = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "show", f"{rev}:{rel}"], capture_output=True, check=True
+    ).stdout
+    return hashlib.sha256(blob).hexdigest()
 
 
 def rows_of(path: Path) -> list[dict[str, Any]]:
@@ -159,7 +180,9 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
         error_rel: json.dumps(refusing_log(error="server error")).encode(),
         negative_rel: json.dumps(refusing_log(security=False)).encode(),
     }
-    proc = run_cli(tmp_path, "agentdojo", data, fixture_dir(data, files, licence="LICENSE"))
+    manifest = fixture_dir(data, files, licence="LICENSE")
+    leak = {"ZZ_LEAK": "1", "FAKE_API_KEY": "not-a-key"}
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-split", "4", env=leak)
     assert proc.returncode == 0, proc.stdout
     out = tmp_path / "out"
     rows = rows_of(out / "agentdojo.rows.jsonl")
@@ -192,6 +215,23 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
     assert pin["modules_checked"] == len(pin["modules_sha256"]) > len(isolation.PINNED_FILES)
     assert "ziran/application/detectors/ensemble.py" in pin["modules_sha256"]
     assert pin["environment"]["python"] == summary["harness"]["python"]
+    # hashes are the files' own, computed apart from the harness
+    assert pin["sha"] == summary["harness"]["commit"] == git_rev("HEAD")
+    for rel in isolation.PINNED_FILES:
+        assert pin["files_sha256"][rel] == git_sha256("HEAD", rel)
+    for rel in ("ziran/application/detectors/pipeline.py", "ziran/domain/tool_classifier.py"):
+        assert pin["modules_sha256"][rel] == git_sha256("HEAD", rel)
+    run_py = "benchmarks/external_eval/run.py"
+    assert (
+        summary["harness"]["files_sha256"][run_py] == hashlib.sha256(RUN.read_bytes()).hexdigest()
+    )
+    assert summary["manifest_sha256"] == hashlib.sha256(manifest.read_bytes()).hexdigest()
+    rows_bytes = (out / "agentdojo.rows.jsonl").read_bytes()
+    assert summary["rows_sha256"] == hashlib.sha256(rows_bytes).hexdigest()
+    # the key-like variable is removed and counted; the worker sees only the allow-list
+    assert summary["environment_variables_removed"] == 1
+    assert "PYTHONHASHSEED" in pin["environment"]["variables"]
+    assert not {"ZZ_LEAK", "FAKE_API_KEY"} & set(pin["environment"]["variables"])
     assert pin["environment"]["installed_sha256"] == summary["harness"]["installed_sha256"]
     # the excluded error log counts nowhere: two positives and one negative are analysed
     whole = summary["metrics"]["head"]["whole"]["pipeline"]["all"]
@@ -345,6 +385,9 @@ class DetectorPipeline:
             m = types.ModuleType("ziran.planted")
             m.__file__ = "/elsewhere/planted.py"
             sys.modules["ziran.planted"] = m
+        if s.get("fdwrite"):
+            import os
+            os.write(1, b"junk on fd 1\\n")
         if s.get("connect"):
             import socket
             socket.socket().connect(("127.0.0.1", 9))
@@ -487,3 +530,157 @@ def test_run_refuses_when_ziran_is_already_loaded(tmp_path: Path) -> None:
     proc = python("-I", "-c", code, cwd=tmp_path)
     assert proc.returncode == 2
     assert "ziran is loaded" in proc.stderr
+
+
+def git_rev(rev: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", rev], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+# ── fix round 2 ───────────────────────────────────────────────────────
+
+
+def test_worker_writes_to_fd_1_never_reach_the_verdict_stream(tmp_path: Path) -> None:
+    proc = fake_worker(
+        tmp_path, {"fdwrite": True, "refusal": 1, "side_effect": 0, "pipeline": False}
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "junk" not in proc.stdout
+    assert "junk on fd 1" in proc.stderr
+
+
+@pytest.mark.parametrize(
+    ("code", "event"),
+    [
+        ("import ctypes; ctypes.CDLL(None)", "ctypes.dlopen"),
+        ("import os; os.execv('/bin/echo', ['echo', 'ran'])", "os.exec"),
+        ("import os; os.system('echo ran')", "os.system"),
+    ],
+)
+def test_worker_blocks_c_libraries_and_exec(tmp_path: Path, code: str, event: str) -> None:
+    prelude = (
+        f"import sys; sys.path.insert(0, {str(PACKAGE)!r}); import worker; worker.block_network()\n"
+    )
+    proc = python("-I", "-c", prelude + code, cwd=tmp_path)
+    assert f"{event} is blocked" in proc.stderr
+    assert "ran" not in proc.stdout
+
+
+def test_the_harness_process_blocks_the_network(tmp_path: Path) -> None:
+    code = (
+        f"import sys; sys.path.insert(0, {str(REPO_ROOT)!r})\n"
+        "from benchmarks.external_eval import run\n"
+        "def probe(args, removed):\n"
+        "    import socket; socket.socket().connect(('127.0.0.1', 9)); return 0\n"
+        "run.run = probe\n"
+        "sys.exit(run.main(['--benchmark', 'agentdojo', '--data', 'd', '--manifest', 'm',"
+        " '--ziran-repo', 'r', '--pin', 'a=HEAD', '--out', 'o']))\n"
+    )
+    assert "socket.connect is blocked" in python("-I", "-c", code, cwd=tmp_path).stderr
+
+
+def test_data_inside_the_repo_and_not_ignored_is_refused(tmp_path: Path) -> None:
+    proc = python(
+        "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(REPO_ROOT / "benchmarks" / "results"),
+        "--manifest", str(tmp_path / "m.json"), "--ziran-repo", str(REPO_ROOT),
+        "--pin", "head=HEAD", "--out", str(tmp_path / "out"), "--practice",
+        cwd=tmp_path,
+    )  # fmt: skip
+    assert proc.returncode == 2
+    assert "not git-ignored" in proc.stderr
+
+
+def test_output_inside_another_ziran_clone_is_refused(tmp_path: Path) -> None:
+    other = tmp_path / "ziran"
+    other.mkdir()
+    _git(other, "init", "-q")
+    proc = python(
+        "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(tmp_path),
+        "--manifest", str(tmp_path / "m.json"), "--ziran-repo", str(other),
+        "--pin", "head=HEAD", "--out", str(other / "out"), "--practice",
+        cwd=tmp_path,
+    )  # fmt: skip
+    assert proc.returncode == 2
+    assert "not git-ignored" in proc.stderr
+
+
+def _small_repo(tmp_path: Path) -> tuple[Path, str]:
+    src = tmp_path / "src"
+    src.mkdir()
+    _git(src, "init", "-q")
+    _git(src, "config", "uploadpack.allowFilter", "true")
+    (src / "f.txt").write_text("one\n")
+    _git(src, "add", "-A")
+    _git(src, "commit", "-qm", "one")
+    first = subprocess.run(
+        ["git", "-C", str(src), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    (src / "f.txt").write_text("two\n")
+    _git(src, "commit", "-qam", "two")
+    return src, first
+
+
+def test_a_real_blobless_clone_is_refused_and_never_fetches(tmp_path: Path) -> None:
+    src, first = _small_repo(tmp_path)
+    clone = tmp_path / "clone"
+    subprocess.run(
+        ["git", "clone", "-q", "--filter=blob:none", f"file://{src}", str(clone)],
+        check=True, capture_output=True,
+    )  # fmt: skip
+    with pytest.raises(HarnessError, match="partial clone"):
+        isolation.require_full_clone(clone)
+    with pytest.raises(HarnessError, match="git archive failed"):
+        isolation.export_pin(clone, first, tmp_path / "export")
+    full = tmp_path / "full"
+    subprocess.run(["git", "clone", "-q", str(src), str(full)], check=True, capture_output=True)
+    isolation.require_full_clone(full)
+    isolation.export_pin(full, first, tmp_path / "export-full")
+    assert (tmp_path / "export-full" / "f.txt").read_text() == "one\n"
+
+
+def test_export_refuses_a_link_out_of_the_tree(tmp_path: Path) -> None:
+    repo = tmp_path / "r"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    (repo / "evil").symlink_to("/etc/passwd")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "c")
+    with pytest.raises(HarnessError, match="data filter"):
+        isolation.export_pin(repo, "HEAD", tmp_path / "export")
+
+
+def test_cells_under_fifty_units_are_exploratory() -> None:
+    assert EXPLORATORY_BELOW == 50
+    assert _block([(True, True)] * 49)["exploratory"] is True
+    assert _block([(True, True)] * 50)["exploratory"] is False
+
+
+def _small_agentdojo(tmp_path: Path) -> tuple[Path, Path]:
+    data = tmp_path / "agentdojo"
+    files = {"LICENSE": MIT.encode(), AGENTDOJO_REL: json.dumps(agentdojo_log()).encode()}
+    return data, fixture_dir(data, files, licence="LICENSE")
+
+
+@pytest.mark.parametrize(
+    ("extra", "reason"),
+    [
+        (("--expect-split", "2"), "split holds 1 units"),
+        (("--expect-harness", "0000000"), "harness commit differs"),
+        (("--expect-harness", "abc"), "harness commit differs"),
+    ],
+)
+def test_an_unexpected_split_or_harness_is_not_evaluated(
+    tmp_path: Path, extra: tuple[str, str], reason: str
+) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, *extra)
+    assert proc.returncode == 3
+    summary = json.loads((tmp_path / "out" / "agentdojo.summary.json").read_text())
+    assert reason in summary["reason"]
+
+
+def test_the_expected_harness_commit_runs(tmp_path: Path) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[:12])
+    assert proc.returncode == 0, proc.stdout

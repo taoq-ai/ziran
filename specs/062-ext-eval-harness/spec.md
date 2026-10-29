@@ -171,6 +171,24 @@ current commit.
   the worker, and network calls in the harness process, which itself starts only git and its
   workers. A hook does not reach another process, so `--ziran-repo` must be a full clone: a
   partial clone is refused, because `git archive` there would fetch blobs over the network.
+- **Residual isolation paths.** Four paths reach the network without an audit event:
+  `multiprocessing` with the spawn start method (the child re-imports `__main__` without the
+  hook), a direct `_posixsubprocess.fork_exec` call, `cffi` loading libc, and `uvloop`
+  connections. None is reached today: the pipeline's import closure at `b813e4f` and `8943b83`
+  loads no `multiprocessing`, `cffi`, `uvloop` or `ctypes`. Blocking them would mean patching
+  modules the pinned code may import, so they are recorded instead. Overturn: a pin's detector
+  code starts using one of them.
+- **Partial clones.** git runs with `GIT_NO_LAZY_FETCH=1`, so a missing object fails the export
+  instead of being fetched, and a clone with `extensions.partialClone` or a true
+  `remote.*.promisor` is refused before any export.
+- **Compression methods.** Only stored and deflate members are read; bzip2, LZMA and Zstandard
+  members fail intake, because their decoders raise errors outside the handled set.
+- **Addendum values checked by the harness.** `--expect-split` and `--expect-harness` take the
+  split count and harness commit from the intake addendum. A mismatch is an intake failure, so
+  the run is reported not evaluated.
+- **Percentile method.** The bootstrap interval takes the 2.5% and 97.5% cuts of
+  `statistics.quantiles(..., n=40, method="inclusive")`. The protocol says only "percentile 95%
+  interval"; this is the choice, fixed before any run.
 - **Empty split.** A benchmark whose split or analysed units come out at 0 fails intake (protocol
   sections 9 check 4 and 10), so an unexpected layout is reported as not evaluated.
 - **Every loaded module is hashed.** Besides the seven pinned files, the worker hashes every

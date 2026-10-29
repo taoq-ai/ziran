@@ -9,9 +9,9 @@ import re
 import subprocess
 import sys
 import tarfile
-from importlib import metadata
 from typing import TYPE_CHECKING, Any
 
+from benchmarks.external_eval import worker
 from benchmarks.external_eval.intake import HarnessError
 
 if TYPE_CHECKING:
@@ -55,7 +55,11 @@ def worker_env() -> dict[str, str]:
 
 
 def _git(repo: Path, *args: str) -> bytes:
-    proc = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, check=False)
+    """git with lazy fetching off, so a missing object fails instead of reaching the network."""
+    env = {**os.environ, "GIT_NO_LAZY_FETCH": "1"}
+    proc = subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, check=False, env=env
+    )
     if proc.returncode != 0:
         raise HarnessError(f"git {args[0]} failed in {repo.name}")
     return proc.stdout
@@ -68,18 +72,31 @@ def resolve_sha(repo: Path, rev: str) -> str:
 def require_full_clone(repo: Path) -> None:
     """Refuse a partial clone: git would fetch missing blobs from the network during export."""
     proc = subprocess.run(
-        ["git", "-C", str(repo), "config", "--get", "extensions.partialClone"],
+        [
+            "git",
+            "-C",
+            str(repo),
+            "config",
+            "--get-regexp",
+            r"^(extensions\.partialclone|remote\..*\.promisor)$",
+        ],
         capture_output=True,
         check=False,
     )
-    if proc.stdout.strip():
+    values = [line.split(maxsplit=1)[-1].lower() for line in proc.stdout.decode().splitlines()]
+    if any(v not in ("false", "") for v in values):
         raise HarnessError(f"{repo.name} is a partial clone; use a full clone")
 
 
 def export_pin(repo: Path, sha: str, dest: Path) -> None:
     """Write the pinned tree into dest with git archive; the repository is only read."""
     with tarfile.open(fileobj=io.BytesIO(_git(repo, "archive", "--format=tar", sha))) as tar:
-        tar.extractall(dest, filter="data")
+        try:
+            tar.extractall(dest, filter="data")
+        except tarfile.FilterError as exc:
+            raise HarnessError(
+                f"the pinned tree has a member the data filter refuses: {exc}"
+            ) from exc
 
 
 def file_hashes(root: Path, rels: tuple[str, ...]) -> dict[str, str | None]:
@@ -89,14 +106,6 @@ def file_hashes(root: Path, rels: tuple[str, ...]) -> dict[str, str | None]:
         path = root / rel
         out[rel] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
     return out
-
-
-def installed_sha256() -> str:
-    """sha256 of the sorted ``name==version`` lines of the running environment."""
-    lines = sorted(
-        f"{(d.metadata['Name'] or '').lower()}=={d.version}" for d in metadata.distributions()
-    )
-    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
 
 
 def harness_record(repo: Path, practice: bool) -> dict[str, Any]:
@@ -114,6 +123,6 @@ def harness_record(repo: Path, practice: bool) -> dict[str, Any]:
         "frozen": not dirty,
         "practice": practice,
         "files_sha256": file_hashes(repo, (*files, "uv.lock")),
-        "installed_sha256": installed_sha256(),
+        "installed_sha256": worker.installed_sha256(),
         "python": sys.version.split()[0],
     }

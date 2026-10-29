@@ -249,3 +249,15 @@ def test_load_caps_the_bytes_before_reading(tmp_path: Path) -> None:
 def test_an_encrypted_member_fails_when_the_archive_opens() -> None:
     with pytest.raises(IntakeError, match="archive member 0: encrypted"):
         intake.open_zip(_damaged("encrypted"))
+
+
+@pytest.mark.parametrize("method", ["ZIP_BZIP2", "ZIP_LZMA", "ZIP_ZSTANDARD"])
+def test_only_stored_and_deflate_members_are_read(method: str) -> None:
+    if not hasattr(zipfile, method):
+        pytest.skip(f"zipfile has no {method} on this Python")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", getattr(zipfile, method)) as zf:
+        zf.writestr(_NAME, b"hello world " * 10)
+    with pytest.raises(IntakeError, match="archive member 0: compression method") as err:
+        intake.open_zip(buf.getvalue())
+    assert "IGNORE" not in str(err.value)

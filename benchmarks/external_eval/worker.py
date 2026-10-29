@@ -80,13 +80,19 @@ def check_loaded_modules(root: Path) -> dict[str, str]:
     return hashes
 
 
-def _environment() -> dict[str, str]:
+def installed_sha256() -> str:
+    """sha256 of the sorted ``name==version`` lines of the running environment."""
     lines = sorted(
         f"{(d.metadata['Name'] or '').lower()}=={d.version}" for d in metadata.distributions()
     )
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def _environment() -> dict[str, Any]:
     return {
         "python": sys.version.split()[0],
-        "installed_sha256": hashlib.sha256("\n".join(lines).encode()).hexdigest(),
+        "installed_sha256": installed_sha256(),
+        "variables": sorted(os.environ),  # names only, to show the allow-list held
     }
 
 

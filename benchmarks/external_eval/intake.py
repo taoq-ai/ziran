@@ -39,6 +39,8 @@ SECTION_1: dict[str, str] = {
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _DRIVE = re.compile(r"^[A-Za-z]:")
+#: The only compression methods read: stored and deflate (their errors are caught below).
+_METHODS = (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)
 _MIT = "permission is hereby granted, free of charge, to any person obtaining a copy"
 
 
@@ -143,6 +145,8 @@ def open_zip(data: bytes, limits: ZipLimits | None = None) -> zipfile.ZipFile:
             raise IntakeError(f"archive member {i}: symlink")
         if info.flag_bits & 0x1:
             raise IntakeError(f"archive member {i}: encrypted")
+        if info.compress_type not in _METHODS:
+            raise IntakeError(f"archive member {i}: compression method {info.compress_type}")
         if info.file_size > lim.member_bytes:
             raise IntakeError(f"archive member {i}: member over {lim.member_bytes} bytes")
         if info.file_size > lim.ratio * info.compress_size:
@@ -158,7 +162,9 @@ def read_member(zf: zipfile.ZipFile, index: int, info: zipfile.ZipInfo) -> bytes
     try:
         with zf.open(info) as f:
             data = f.read(info.file_size + 1)
-    except (zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError) as exc:
+    except (
+        zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError, OSError
+    ) as exc:  # fmt: skip
         raise IntakeError(f"archive member {index}: unreadable ({type(exc).__name__})") from None
     if len(data) != info.file_size:
         raise IntakeError(f"archive member {index}: differs from its declared size")

@@ -61,3 +61,15 @@ package, or the new assertion failed) before its implementation task.
       per-pin environment recorded, partial clones refused.
 - [x] T014 [evaluator-diff.md](evaluator-diff.md): syntax-tree diff of the copy against the
       pinned source.
+
+## Phase 7 - Gate fix round 2 (security, quality at 1398fc1)
+
+- [x] T015 Tests first (10 failed on the previous code): bzip2, LZMA and Zstandard members
+      refused; a real `git clone --filter=blob:none` refused and unable to fetch; hash values in
+      the summary equal `git show <pin>:<path>` hashes and `git rev-parse`; manifest and rows
+      hashes; worker environment allow-list and the scrub count end to end; fd 1 writes kept off
+      the verdict stream; `ctypes.dlopen`, `os.exec` and `os.system` blocked; the harness
+      process's network block; data and output path refusals in both repositories; the tar data
+      filter; the exploratory boundary; `--expect-split` and `--expect-harness`.
+- [x] T016 Code: compression-method allow-list, `GIT_NO_LAZY_FETCH=1` and the promisor check,
+      the data-filter error mapped to a refusal, the two expect flags, one `installed_sha256`.

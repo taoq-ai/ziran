@@ -61,6 +61,8 @@ def _args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--pin", required=True, action="append", help="NAME=REV, once per pin")
     p.add_argument("--out", required=True, type=Path, help="output folder, git-ignored or outside")
     p.add_argument("--practice", action="store_true", help="allow uncommitted harness files")
+    p.add_argument("--expect-split", type=int, help="split count from the intake addendum")
+    p.add_argument("--expect-harness", help="harness commit from the intake addendum")
     return p.parse_args(argv)
 
 
@@ -194,7 +196,15 @@ def run(args: argparse.Namespace, removed: int) -> int:
     try:
         if args.manifest.is_file():
             summary["manifest_sha256"] = sha256(args.manifest.read_bytes())
+        if args.expect_harness is not None and not (
+            len(args.expect_harness) >= 7 and harness["commit"].startswith(args.expect_harness)
+        ):
+            raise IntakeError("the harness commit differs from --expect-harness")
         units = collect(bench, args.data, read_manifest(args.manifest))
+        if args.expect_split is not None and units.counts["split"] != args.expect_split:
+            raise IntakeError(
+                f"split holds {units.counts['split']} units, not --expect-split {args.expect_split}"
+            )
     except IntakeError as exc:
         summary |= {"status": "not_evaluated", "reason": str(exc)}
         digest = _write(summary_path, json.dumps(summary, indent=2, sort_keys=True) + "\n")
