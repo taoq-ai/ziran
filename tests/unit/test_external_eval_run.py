@@ -680,6 +680,26 @@ def test_an_unexpected_split_or_harness_is_not_evaluated(
     assert reason in summary["reason"]
 
 
+def test_a_short_expected_harness_prefix_is_not_enough(tmp_path: Path) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[:6])
+    assert proc.returncode == 3
+
+
+def test_output_inside_the_harness_repo_is_refused_with_another_ziran_clone(tmp_path: Path) -> None:
+    other = tmp_path / "ziran"
+    other.mkdir()
+    _git(other, "init", "-q")
+    proc = python(
+        "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(tmp_path),
+        "--manifest", str(tmp_path / "m.json"), "--ziran-repo", str(other),
+        "--pin", "head=HEAD", "--out", str(REPO_ROOT / "benchmarks" / "results"), "--practice",
+        cwd=tmp_path,
+    )  # fmt: skip
+    assert proc.returncode == 2
+    assert "not git-ignored" in proc.stderr
+
+
 def test_the_expected_harness_commit_runs(tmp_path: Path) -> None:
     data, manifest = _small_agentdojo(tmp_path)
     proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[:12])

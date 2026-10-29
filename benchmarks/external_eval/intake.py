@@ -162,9 +162,7 @@ def read_member(zf: zipfile.ZipFile, index: int, info: zipfile.ZipInfo) -> bytes
     try:
         with zf.open(info) as f:
             data = f.read(info.file_size + 1)
-    except (
-        zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError, OSError
-    ) as exc:  # fmt: skip
+    except (zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError) as exc:
         raise IntakeError(f"archive member {index}: unreadable ({type(exc).__name__})") from None
     if len(data) != info.file_size:
         raise IntakeError(f"archive member {index}: differs from its declared size")
