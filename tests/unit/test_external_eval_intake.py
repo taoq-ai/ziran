@@ -244,3 +244,8 @@ def test_load_caps_the_bytes_before_reading(tmp_path: Path) -> None:
     assert intake.load(tmp_path, "f.zip", listed, {}, max_bytes=11) == b"x" * 11
     with pytest.raises(IntakeError, match="compressed limit"):
         intake.load(tmp_path, "f.zip", listed, {}, max_bytes=10)
+
+
+def test_an_encrypted_member_fails_when_the_archive_opens() -> None:
+    with pytest.raises(IntakeError, match="archive member 0: encrypted"):
+        intake.open_zip(_damaged("encrypted"))
