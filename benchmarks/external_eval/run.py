@@ -153,6 +153,8 @@ def _write(path: Path, text: str) -> str:
 
 def run(args: argparse.Namespace, removed: int) -> int:
     for path in (args.data, args.out):
+        if path.resolve().is_relative_to(WORKER.parent):
+            raise HarnessError("data and output must sit apart from the harness folder")
         require_outside_or_ignored(HARNESS_ROOT, path)
         require_outside_or_ignored(args.ziran_repo, path)
     harness = isolation.harness_record(HARNESS_ROOT, args.practice)
@@ -185,6 +187,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
         "extra_sha256": units.extra_hashes,
     }
     rows: list[str] = []
+    by_pin: dict[str, list[dict[str, Any]]] = {}
     summary["metrics"], summary["bootstrap"] = {}, {}
     for name, sha in pins.items():
         with tempfile.TemporaryDirectory(prefix="ext-eval-") as tmp:
@@ -197,6 +200,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
             )
             header, verdicts = _worker(export.resolve(), cwd, units)
         summary["pins"][name] |= header
+        by_pin[name] = verdicts
         summary["metrics"][name] = _metrics(units, verdicts)
         summary["bootstrap"][name] = _bootstrap(units, verdicts, PRIMARY[bench])
         for u, v in zip(units.units, verdicts, strict=True):
@@ -206,6 +210,14 @@ def run(args: argparse.Namespace, removed: int) -> int:
                 **{p: bool(v[p]) for p in PREDICTORS},
             }  # fmt: skip
             rows.append(json.dumps(row, sort_keys=True) + "\n")
+    first = next(iter(by_pin))
+    summary["pin_differences"] = {
+        f"{first} vs {name}": {
+            p: sum(a[p] != b[p] for a, b in zip(by_pin[first], v, strict=True)) for p in PREDICTORS
+        }
+        for name, v in by_pin.items()
+        if name != first
+    }
     summary["status"] = "evaluated"
     summary["rows_sha256"] = _write(args.out / f"{bench}.rows.jsonl", "".join(rows))
     digest = _write(summary_path, json.dumps(summary, indent=2, sort_keys=True) + "\n")

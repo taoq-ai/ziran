@@ -22,8 +22,9 @@ from pydantic import BaseModel, ValidationError, field_validator
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
-#: The default download folder, git-ignored (a test checks it with ``git check-ignore``).
-DOWNLOADS = "benchmarks/external_eval/downloads"
+#: The default download folder: git-ignored (a test checks it with ``git check-ignore``) and
+#: apart from the harness scripts.
+DOWNLOADS = "downloads/external-eval"
 
 #: Files with a sha256 in protocol section 1, by their path in the benchmark's tree.
 SECTION_1: dict[str, str] = {
@@ -102,6 +103,8 @@ def load(
     if not _safe_rel(rel) or rel not in manifest:
         raise IntakeError(f"{rel or '(empty path)'}: not a listed relative path")
     path = root / rel
+    if not path.resolve().is_relative_to(root.resolve()):
+        raise IntakeError(f"{rel}: resolves outside the intake folder")
     if not path.is_file():
         raise IntakeError(f"{rel}: missing")
     if max_bytes is not None and path.stat().st_size > max_bytes:

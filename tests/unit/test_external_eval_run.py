@@ -121,6 +121,7 @@ def run_cli(
         "--manifest", str(manifest),
         "--ziran-repo", str(REPO_ROOT),
         "--pin", "head=HEAD",
+        "--pin", "again=HEAD",
         "--out", str(tmp_path / "out"),
         "--practice",
         cwd=tmp_path,
@@ -144,7 +145,7 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stdout
     out = tmp_path / "out"
     rows = rows_of(out / "agentdojo.rows.jsonl")
-    assert len(rows) == 6
+    assert len(rows) == 12
     for row in rows:
         assert set(row) == {
             "benchmark", "pin", "unit_id", "variant", "label", "excluded", "cells",
@@ -171,6 +172,9 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
     assert whole["X2"]["undefined"] is True
     assert summary["primary"] == "pipeline"
     assert "X4" in summary["bootstrap"]["head"]
+    assert summary["pin_differences"] == {
+        "head vs again": {"pipeline": 0, "refusal": 0, "side_effect": 0}
+    }
     assert summary["harness"]["practice"] is True
     assert len(summary["harness"]["files_sha256"]) >= 6
 
@@ -193,6 +197,17 @@ def test_injecagent_zip_with_dotdot_is_not_evaluated(tmp_path: Path) -> None:
     assert summary["status"] == "not_evaluated"
     assert "member name" in summary["reason"]
     assert not (tmp_path / "out" / "injecagent.rows.jsonl").exists()
+
+
+def test_data_inside_the_harness_folder_is_refused(tmp_path: Path) -> None:
+    proc = python(
+        "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(PACKAGE / "downloads"),
+        "--manifest", str(tmp_path / "m.json"), "--ziran-repo", str(REPO_ROOT),
+        "--pin", "head=HEAD", "--out", str(tmp_path / "out"), "--practice",
+        cwd=tmp_path,
+    )  # fmt: skip
+    assert proc.returncode == 2
+    assert "harness folder" in proc.stderr
 
 
 def test_output_inside_the_repo_and_not_ignored_is_refused(tmp_path: Path) -> None:

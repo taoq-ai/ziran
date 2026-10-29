@@ -126,6 +126,15 @@ def test_load_refuses_unlisted_or_unsafe_paths(tmp_path: Path, rel: str) -> None
         intake.load(tmp_path, rel, {}, {})
 
 
+def test_load_refuses_a_link_out_of_the_intake_folder(tmp_path: Path) -> None:
+    (tmp_path / "secret").write_bytes(b"x")
+    root = tmp_path / "data"
+    root.mkdir()
+    (root / "f.csv").symlink_to(tmp_path / "secret")
+    with pytest.raises(IntakeError, match="outside the intake folder"):
+        intake.load(root, "f.csv", {"f.csv": hashlib.sha256(b"x").hexdigest()}, {})
+
+
 def test_manifest_refuses_a_malformed_hash(tmp_path: Path) -> None:
     path = tmp_path / "m.json"
     path.write_text('{"files": {"a": "nothex"}, "licence": "a"}')
@@ -167,7 +176,8 @@ def test_jailbreakbench_targets_in_place_of_responses_fail_intake() -> None:
 # ── downloads stay out of git ─────────────────────────────────────────
 
 
-def test_the_default_download_folder_is_git_ignored() -> None:
+def test_the_default_download_folder_is_git_ignored_and_apart_from_the_scripts() -> None:
+    assert not intake.DOWNLOADS.startswith("benchmarks/")
     target = REPO_ROOT / intake.DOWNLOADS / "agentdojo" / "runs" / "x.json"
     proc = subprocess.run(
         ["git", "-C", str(REPO_ROOT), "check-ignore", "-q", str(target)], check=False
