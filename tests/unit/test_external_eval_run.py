@@ -276,6 +276,20 @@ def test_a_second_run_into_the_same_output_is_refused(tmp_path: Path) -> None:
     assert "already holds" in again.stderr
 
 
+def test_a_damaged_member_with_injection_text_in_its_name_stays_off_stderr(tmp_path: Path) -> None:
+    from tests.unit.test_external_eval_intake import _damaged
+
+    data = tmp_path / "injecagent"
+    files = {"LICENCE": MIT.encode(), "TERMS": MIT.encode(), "results.zip": _damaged("crc")}
+    proc = run_cli(
+        tmp_path, "injecagent", data, fixture_dir(data, files, licence="LICENCE", terms="TERMS")
+    )
+    assert proc.returncode == 3
+    summary = (tmp_path / "out" / "injecagent.summary.json").read_text()
+    assert "archive member 0: unreadable (BadZipFile)" in summary
+    assert "IGNORE" not in proc.stdout + proc.stderr + summary
+
+
 def test_output_inside_the_repo_and_not_ignored_is_refused(tmp_path: Path) -> None:
     proc = python(
         "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(tmp_path),

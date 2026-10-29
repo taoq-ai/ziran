@@ -95,3 +95,19 @@ def test_bootstrap_with_no_defined_resample_is_none() -> None:
     out = cluster_bootstrap([("a", False, False)], resamples=20)
     assert out["X1"] is None
     assert out["X3"] is None
+
+
+def test_bootstrap_reports_the_2_5_and_97_5_percent_cuts() -> None:
+    import random
+    import statistics
+
+    units = [(f"c{i}", i % 3 == 0, i % 2 == 0) for i in range(12)]
+    out = cluster_bootstrap(units, resamples=400, seed=7)
+    rng, clusters, vals = random.Random(7), sorted(u[0] for u in units), []
+    by = {u[0]: u for u in units}
+    for _ in range(400):
+        drawn = [by[c] for c in rng.choices(clusters, k=len(clusters))]
+        vals.append(sum(u[1] for u in drawn) / len(drawn))
+    cuts = statistics.quantiles(vals, n=40, method="inclusive")
+    assert out["X4"] == (cuts[0], cuts[-1])
+    assert (cuts[0], cuts[-1]) != (cuts[1], cuts[-2])
