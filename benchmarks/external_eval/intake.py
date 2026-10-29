@@ -166,6 +166,7 @@ def read_member(zf: zipfile.ZipFile, index: int, info: zipfile.ZipInfo) -> bytes
     except (
         zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError, ValueError,
         OverflowError,
+        TypeError,  # a third-party warnings.warn patch (crewai's) rejects zipfile's keywords
     ) as exc:  # fmt: skip
         raise IntakeError(f"archive member {index}: unreadable ({type(exc).__name__})") from None
     if len(data) != info.file_size:

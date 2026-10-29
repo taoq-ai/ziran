@@ -95,3 +95,8 @@ package, or the new assertion failed) before its implementation task.
 - [x] T020 Code: the boundary catch in `run.py`, `OverflowError` in `read_member`,
       `(ValueError, RecursionError)` at both JSON sites, the CSV bound and `csv.Error`, and
       `--worker-timeout`.
+- [x] T021 The full CI suite on 3.12 exposed one more escape: crewai replaces `warnings.warn`
+      with a function that rejects the `skip_file_prefixes` keyword zipfile passes on an
+      overlapped entry, so `zf.open` raised `TypeError`. A test patches `warnings.warn` the same
+      way (red first); `read_member` now maps `TypeError` to an intake failure. The harness
+      process never imports crewai, but the test suite does.

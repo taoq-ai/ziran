@@ -454,3 +454,15 @@ def test_fuzz_zip64_fields_and_member_payloads_let_only_intake_errors_out() -> N
                 mapping.injecagent_units(info.filename, i, item, f"archive member 0 line {i}")
         except IntakeError:
             pass
+
+
+def test_a_patched_warnings_warn_cannot_crash_a_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """crewai replaces warnings.warn with one lacking skip_file_prefixes, which zipfile uses."""
+    import warnings
+
+    def narrow_warn(message: object, category: object = None, stacklevel: int = 1) -> None:
+        return None
+
+    monkeypatch.setattr(warnings, "warn", narrow_warn)
+    with pytest.raises(IntakeError, match=r"archive member \d: unreadable \(TypeError\)"):
+        _read_all(_cd_zip64(offset=0))  # overlapping entries make zipfile warn
