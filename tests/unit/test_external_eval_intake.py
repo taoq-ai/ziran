@@ -331,7 +331,7 @@ def test_byte_mutation_fuzz_lets_only_intake_errors_out() -> None:
                     collector._decode(intake.read_member(zf, i, info), where), where
                 )
         except IntakeError:
-            pass
+            pass  # the assertion: only IntakeError may leave intake
 
 
 # ── round 4: zip64 fields, hostile JSON and CSV payloads ──────────────
@@ -453,16 +453,34 @@ def test_fuzz_zip64_fields_and_member_payloads_let_only_intake_errors_out() -> N
             for i, item in collector._injecagent_items(text, "archive member 0"):
                 mapping.injecagent_units(info.filename, i, item, f"archive member 0 line {i}")
         except IntakeError:
-            pass
+            pass  # the assertion: only IntakeError may leave intake
 
 
 def test_a_patched_warnings_warn_cannot_crash_a_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    """crewai replaces warnings.warn with one lacking skip_file_prefixes, which zipfile uses."""
+    """crewai replaces warnings.warn with one lacking skip_file_prefixes.
+
+    zipfile on 3.12 and later passes that keyword when it warns on overlapped entries; 3.11
+    raises BadZipFile there instead. The open is patched to warn the 3.12 way, so the
+    TypeError path runs on every version.
+    """
     import warnings
 
     def narrow_warn(message: object, category: object = None, stacklevel: int = 1) -> None:
         return None
 
+    def open_that_warns(self: zipfile.ZipFile, *args: object, **kwargs: object) -> None:
+        warnings.warn("Overlapped entries", UserWarning, skip_file_prefixes=("zipfile",))
+
     monkeypatch.setattr(warnings, "warn", narrow_warn)
-    with pytest.raises(IntakeError, match=r"archive member \d: unreadable \(TypeError\)"):
-        _read_all(_cd_zip64(offset=0))  # overlapping entries make zipfile warn
+    zf = intake.open_zip(_zip({_MEMBER: b"{}\n"}))
+    monkeypatch.setattr(zipfile.ZipFile, "open", open_that_warns)
+    with pytest.raises(IntakeError, match=r"archive member 0: unreadable \(TypeError\)"):
+        intake.read_member(zf, 0, zf.infolist()[0])
+
+
+def test_overlapped_entries_fail_intake_on_every_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    import warnings
+
+    monkeypatch.setattr(warnings, "warn", lambda *a, **k: None)
+    with pytest.raises(IntakeError, match=r"archive member \d: unreadable"):
+        _read_all(_cd_zip64(offset=0))
