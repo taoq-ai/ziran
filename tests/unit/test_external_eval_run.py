@@ -918,3 +918,23 @@ def test_an_unexpected_manifest_error_names_the_manifest_phase(tmp_path: Path) -
     text = (tmp_path / "out" / "agentdojo.summary.json").read_text()
     assert json.loads(text)["reason"] == "manifest: KeyError"
     assert "SECRET" not in text + proc.stdout + proc.stderr
+
+
+def test_worker_output_over_its_limit_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from benchmarks.external_eval import run as run_module
+
+    assert run_module._output_limit(10) == 4_002_000
+    root = tmp_path / "export"
+    for rel, text in _FAKE.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+    units = Collected(
+        units=[_unit("whole", "a", True)], counts={}, spdx="MIT", terms_spdx=None,
+        manifest_files=1, extra_hashes={},
+    )  # fmt: skip
+    assert len(_worker(root, tmp_path, units, timeout=60)[1]) == 1
+    monkeypatch.setattr(run_module, "_output_limit", lambda n: 10)
+    with pytest.raises(HarnessError, match="over its size limit"):
+        _worker(root, tmp_path, units, timeout=60)
