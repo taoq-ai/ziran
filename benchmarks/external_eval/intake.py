@@ -164,7 +164,8 @@ def read_member(zf: zipfile.ZipFile, index: int, info: zipfile.ZipInfo) -> bytes
         with zf.open(info) as f:
             data = f.read(info.file_size + 1)
     except (
-        zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError, ValueError
+        zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError, EOFError, ValueError,
+        OverflowError,
     ) as exc:  # fmt: skip
         raise IntakeError(f"archive member {index}: unreadable ({type(exc).__name__})") from None
     if len(data) != info.file_size:
@@ -217,5 +218,5 @@ def require_outside_or_ignored(repo: Path, path: Path) -> None:
 def parse_json(data: bytes, where: str) -> Any:
     try:
         return json.loads(data)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise IntakeError(f"{where}: not valid JSON") from exc
+    except (ValueError, RecursionError):  # bad bytes, huge integers, deep nesting
+        raise IntakeError(f"{where}: not valid JSON") from None

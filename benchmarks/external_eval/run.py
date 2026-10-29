@@ -45,6 +45,8 @@ from benchmarks.external_eval.worker import block_network  # noqa: E402
 WORKER = Path(__file__).resolve().parent / "worker.py"
 PREDICTORS = ("refusal", "side_effect", "pipeline")
 EXPLORATORY_BELOW = 50
+#: Seconds one pin's worker may take; a scored unit takes milliseconds.
+WORKER_TIMEOUT = 3600.0
 PROTOCOL = {
     "repository": "taoq-ai/ziran-paper",
     "file": "prereg/ext-eval-protocol.md",
@@ -63,6 +65,9 @@ def _args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--practice", action="store_true", help="allow uncommitted harness files")
     p.add_argument("--expect-split", type=int, help="split count from the intake addendum")
     p.add_argument("--expect-harness", help="harness commit from the intake addendum")
+    p.add_argument(
+        "--worker-timeout", type=float, default=WORKER_TIMEOUT, help="seconds per pin worker"
+    )
     return p.parse_args(argv)
 
 
@@ -76,20 +81,31 @@ def _pins(repo: Path, specs: list[str]) -> dict[str, str]:
     return pins
 
 
+class WorkerTimeoutError(HarnessError):
+    """A worker that runs past ``--worker-timeout``; the benchmark is not evaluated."""
+
+
 def _worker(
-    export: Path, cwd: Path, units: Collected
+    export: Path, cwd: Path, units: Collected, timeout: float
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Run one fresh worker on every unit; its stderr is kept and never printed."""
+    """Run one fresh worker on every unit; its stderr is kept and never printed.
+
+    ``subprocess.run`` writes stdin and drains stdout and stderr together (``communicate``),
+    so neither side blocks on a full pipe; on timeout it kills the worker.
+    """
     payload = "".join(
         json.dumps({"key": i, "prompt": u.prompt, "content": u.content, "tool_calls": u.tool_calls})
         + "\n"
         for i, u in enumerate(units.units)
     )
-    proc = subprocess.run(
-        [sys.executable, "-I", str(WORKER), str(export)],
-        input=payload, capture_output=True, text=True, env=isolation.worker_env(), cwd=cwd,
-        check=False,
-    )  # fmt: skip
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-I", str(WORKER), str(export)],
+            input=payload, capture_output=True, text=True, env=isolation.worker_env(), cwd=cwd,
+            check=False, timeout=timeout,
+        )  # fmt: skip
+    except subprocess.TimeoutExpired:
+        raise WorkerTimeoutError("worker_timeout") from None
     if proc.returncode != 0:
         raise HarnessError(f"worker exited {proc.returncode}")
     lines = [json.loads(line) for line in proc.stdout.splitlines()]
@@ -171,6 +187,15 @@ def _write(path: Path, text: str) -> str:
     return sha256(text.encode())
 
 
+def _not_evaluated(summary: dict[str, Any], path: Path, reason: str) -> int:
+    """Write the protocol section 10 summary and return exit code 3."""
+    summary |= {"status": "not_evaluated", "reason": reason}
+    digest = _write(path, json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    bench = summary["benchmark"]
+    print(json.dumps({"benchmark": bench, "status": "not_evaluated", "summary_sha256": digest}))
+    return 3
+
+
 def run(args: argparse.Namespace, removed: int) -> int:
     for path in (args.data, args.out):
         if path.resolve().is_relative_to(WORKER.parent):
@@ -193,6 +218,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
         "pins": {name: {"sha": sha} for name, sha in pins.items()},
         "primary": PRIMARY[bench],
     }
+    phase = "manifest"
     try:
         if args.manifest.is_file():
             summary["manifest_sha256"] = sha256(args.manifest.read_bytes())
@@ -200,16 +226,17 @@ def run(args: argparse.Namespace, removed: int) -> int:
             len(args.expect_harness) >= 7 and harness["commit"].startswith(args.expect_harness)
         ):
             raise IntakeError("the harness commit differs from --expect-harness")
-        units = collect(bench, args.data, read_manifest(args.manifest))
+        manifest = read_manifest(args.manifest)
+        phase = "collect"
+        units = collect(bench, args.data, manifest)
         if args.expect_split is not None and units.counts["split"] != args.expect_split:
             raise IntakeError(
                 f"split holds {units.counts['split']} units, not --expect-split {args.expect_split}"
             )
     except IntakeError as exc:
-        summary |= {"status": "not_evaluated", "reason": str(exc)}
-        digest = _write(summary_path, json.dumps(summary, indent=2, sort_keys=True) + "\n")
-        print(json.dumps({"benchmark": bench, "status": "not_evaluated", "summary_sha256": digest}))
-        return 3
+        return _not_evaluated(summary, summary_path, str(exc))
+    except Exception as exc:  # fail closed: the type only, never the message or any input
+        return _not_evaluated(summary, summary_path, f"{phase}: {type(exc).__name__}")
     summary["intake"] = {
         "counts": units.counts,
         "spdx": units.spdx,
@@ -229,7 +256,10 @@ def run(args: argparse.Namespace, removed: int) -> int:
             summary["pins"][name]["files_sha256"] = isolation.file_hashes(
                 export, isolation.PINNED_FILES
             )
-            header, verdicts = _worker(export.resolve(), cwd, units)
+            try:
+                header, verdicts = _worker(export.resolve(), cwd, units, args.worker_timeout)
+            except WorkerTimeoutError:
+                return _not_evaluated(summary, summary_path, f"worker_timeout at pin {name}")
         summary["pins"][name] |= header
         by_pin[name] = verdicts
         summary["metrics"][name] = _metrics(units, verdicts)

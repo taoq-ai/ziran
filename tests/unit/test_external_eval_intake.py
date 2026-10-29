@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import struct
@@ -329,5 +330,127 @@ def test_byte_mutation_fuzz_lets_only_intake_errors_out() -> None:
                 collector._injecagent_items(
                     collector._decode(intake.read_member(zf, i, info), where), where
                 )
+        except IntakeError:
+            pass
+
+
+# ── round 4: zip64 fields, hostile JSON and CSV payloads ──────────────
+
+
+def _cd_zip64(offset: int | None = None, sizes: tuple[int, int] | None = None) -> bytes:
+    """One stored member whose central entry moves the offset or sizes into a zip64 extra."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("pad.txt", b"x" * 50)
+        zf.writestr(_MEMBER, b'{"a": 1}\n')
+    raw = bytearray(buf.getvalue())
+    central = raw.rfind(b"PK\x01\x02")
+    nlen, xlen = struct.unpack_from("<HH", raw, central + 28)
+    entry = bytearray(raw[central : central + 46 + nlen])
+    values: list[int] = []
+    if sizes is not None:
+        struct.pack_into("<II", entry, 20, 0xFFFFFFFF, 0xFFFFFFFF)
+        values += [sizes[1], sizes[0]]  # zipfile reads file size, then compressed size
+    if offset is not None:
+        struct.pack_into("<I", entry, 42, 0xFFFFFFFF)
+        values.append(offset)
+    extra = struct.pack("<HH", 1, 8 * len(values)) + b"".join(struct.pack("<Q", v) for v in values)
+    struct.pack_into("<H", entry, 30, len(extra))
+    old = 46 + nlen + xlen
+    out = raw[:central] + entry + extra + raw[central + old :]
+    end = out.rfind(b"PK\x05\x06")
+    size = struct.unpack_from("<I", out, end + 12)[0]
+    struct.pack_into("<I", out, end + 12, size - old + len(entry) + len(extra))
+    return bytes(out)
+
+
+def _read_all(data: bytes) -> None:
+    zf = intake.open_zip(data)
+    for i, info in enumerate(zf.infolist()):
+        intake.read_member(zf, i, info)
+
+
+BOUNDARIES = (0, 2**31, 2**32 - 1, 2**33, 2**63 - 1, 2**63, 2**64 - 1)
+
+
+@pytest.mark.parametrize("value", BOUNDARIES)
+def test_a_zip64_offset_at_a_boundary_fails_intake_or_reads(value: int) -> None:
+    with contextlib.suppress(IntakeError):
+        _read_all(_cd_zip64(offset=value))
+
+
+def test_a_zip64_offset_past_ssize_t_fails_intake() -> None:
+    with pytest.raises(IntakeError, match="archive member 1"):
+        _read_all(_cd_zip64(offset=2**63))
+
+
+@pytest.mark.parametrize("sizes", [(v, w) for v in BOUNDARIES for w in (0, 9, 2**63, 2**64 - 1)])
+def test_zip64_sizes_at_boundaries_fail_intake_or_read(sizes: tuple[int, int]) -> None:
+    with contextlib.suppress(IntakeError):
+        _read_all(_cd_zip64(sizes=sizes))
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [b"1" * 5000, b"[" * 200_000 + b"]" * 200_000, b'{"a":' * 200_000 + b"1" + b"}" * 200_000],
+    ids=["huge_int", "deep_list", "deep_object"],
+)
+def test_hostile_json_fails_intake(payload: bytes) -> None:
+    from benchmarks.external_eval import collect as collector
+
+    with pytest.raises(IntakeError, match="not valid JSON"):
+        intake.parse_json(payload, "unit 0")
+    with pytest.raises(IntakeError, match="not valid JSON"):
+        collector._injecagent_items(payload.decode(), "archive member 0")
+
+
+def test_csv_fields_are_read_up_to_the_stated_bound() -> None:
+    from benchmarks.external_eval import collect as collector
+
+    assert collector.CSV_FIELD_CHARS == 10_000_000
+    long_ok = b"a\n" + b"x" * 200_000 + b"\n"
+    assert len(collector._csv_rows(long_ok, "f.csv")[0]["a"]) == 200_000
+    too_long = b"a\n" + b"x" * (collector.CSV_FIELD_CHARS + 1) + b"\n"
+    with pytest.raises(IntakeError, match=r"f\.csv: not readable CSV"):
+        collector._csv_rows(too_long, "f.csv")
+
+
+def test_fuzz_zip64_fields_and_member_payloads_let_only_intake_errors_out() -> None:
+    import json as jsonlib
+    import random
+
+    from benchmarks.external_eval import collect as collector
+    from benchmarks.external_eval import mapping
+    from tests.unit.test_external_eval_mapping import SUCC_OUTPUT, injec_item
+
+    rng = random.Random(20261030)
+    edges = [*BOUNDARIES, 1, 9, 2**16, rng.randrange(2**64)]
+    for _ in range(300):  # zip64 header fields at boundary values
+        offset = rng.choice([None, *edges])
+        sizes = rng.choice([None, (rng.choice(edges), rng.choice(edges))])
+        if offset is None and sizes is None:
+            continue
+        with contextlib.suppress(IntakeError):
+            _read_all(_cd_zip64(offset=offset, sizes=sizes))
+    good = (jsonlib.dumps(injec_item(SUCC_OUTPUT)) + "\n").encode() * 2
+    for _ in range(1500):  # mutated payloads inside a valid archive
+        body = bytearray(good)
+        for _ in range(rng.randint(1, 6)):
+            at = rng.randrange(len(body))
+            body[at : at + rng.choice((0, 1, 3))] = b"".join(
+                rng.choice((b"[", b"{", b"}", b'"', b"\\", b"9", b"\xff", b"\n", b"\x00"))
+                for _ in range(rng.choice((1, 2, 50)))
+            )
+        buf = io.BytesIO()
+        with zipfile.ZipFile(
+            buf, "w", rng.choice((zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED))
+        ) as zf:
+            zf.writestr(_MEMBER, bytes(body))
+        try:
+            zf2 = intake.open_zip(buf.getvalue())
+            (info,) = zf2.infolist()
+            text = collector._decode(intake.read_member(zf2, 0, info), "archive member 0")
+            for i, item in collector._injecagent_items(text, "archive member 0"):
+                mapping.injecagent_units(info.filename, i, item, f"archive member 0 line {i}")
         except IntakeError:
             pass

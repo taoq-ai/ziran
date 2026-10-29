@@ -83,3 +83,15 @@ package, or the new assertion failed) before its implementation task.
       `importlib.metadata`; a non-prefix `--expect-harness` value; an unreadable git config.
 - [x] T018 Code: `open_zip` and `read_member` map `ValueError` (and in `open_zip`,
       `NotImplementedError`) to intake failures; `require_full_clone` checks git's exit code.
+
+## Phase 9 - Gate fix round 4 (security at d9d7108)
+
+- [x] T019 Tests first (8 intake tests failed, and the run tests failed at import, on the
+      previous code): a zip64 offset of 2^63; zip64 offsets and sizes at boundary values; a
+      4,300-plus-digit integer, deep lists and deep objects in JSON; a CSV field past the bound;
+      a seeded fuzz of zip64 fields (300 cases) and of mutated member payloads in a valid
+      archive (1,500 cases); an injected exception in the collect phase reported with its type
+      only; a worker killed past its timeout, directly and through the CLI.
+- [x] T020 Code: the boundary catch in `run.py`, `OverflowError` in `read_member`,
+      `(ValueError, RecursionError)` at both JSON sites, the CSV bound and `csv.Error`, and
+      `--worker-timeout`.

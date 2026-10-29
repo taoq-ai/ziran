@@ -23,10 +23,13 @@ from benchmarks.external_eval.intake import HarnessError
 from benchmarks.external_eval.mapping import Unit
 from benchmarks.external_eval.run import (
     EXPLORATORY_BELOW,
+    WORKER_TIMEOUT,
+    WorkerTimeoutError,
     _block,
     _bootstrap,
     _pin_differences,
     _pins,
+    _worker,
 )
 from tests.unit.test_external_eval_mapping import (
     AGENTDOJO_REL,
@@ -385,6 +388,9 @@ class DetectorPipeline:
             m = types.ModuleType("ziran.planted")
             m.__file__ = "/elsewhere/planted.py"
             sys.modules["ziran.planted"] = m
+        if s.get("sleep"):
+            import time
+            time.sleep(s["sleep"])
         if s.get("fdwrite"):
             import os
             os.write(1, b"junk on fd 1\\n")
@@ -745,3 +751,55 @@ def test_the_expected_harness_commit_runs(tmp_path: Path) -> None:
     data, manifest = _small_agentdojo(tmp_path)
     proc = run_cli(tmp_path, "agentdojo", data, manifest, "--expect-harness", git_rev("HEAD")[:12])
     assert proc.returncode == 0, proc.stdout
+
+
+# ── round 4: fail closed at the boundary, worker timeout ──────────────
+
+
+def test_an_unexpected_collect_error_is_not_evaluated_with_its_type_only(tmp_path: Path) -> None:
+    data, manifest = _small_agentdojo(tmp_path)
+    code = (
+        f"import sys; sys.path.insert(0, {str(REPO_ROOT)!r})\n"
+        "from benchmarks.external_eval import run\n"
+        "def broken(*a, **k):\n    raise KeyError('SECRET-INPUT-TEXT')\n"
+        "run.collect = broken\n"
+        f"sys.exit(run.main(['--benchmark', 'agentdojo', '--data', {str(data)!r},"
+        f" '--manifest', {str(manifest)!r}, '--ziran-repo', {str(REPO_ROOT)!r},"
+        f" '--pin', 'head=HEAD', '--out', {str(tmp_path / 'out')!r}, '--practice']))\n"
+    )
+    proc = python("-I", "-c", code, cwd=tmp_path)
+    assert proc.returncode == 3, proc.stderr[-300:]
+    text = (tmp_path / "out" / "agentdojo.summary.json").read_text()
+    assert json.loads(text)["reason"] == "collect: KeyError"
+    assert "SECRET" not in text + proc.stdout + proc.stderr
+
+
+def test_a_worker_past_its_timeout_is_killed(tmp_path: Path) -> None:
+    root = tmp_path / "export"
+    for rel, text in _FAKE.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+    unit = _unit("whole", "a", True).model_copy(
+        update={
+            "content": json.dumps({"sleep": 30, "refusal": 1, "side_effect": 0, "pipeline": False})
+        }
+    )
+    units = Collected(
+        units=[unit], counts={}, spdx="MIT", terms_spdx=None, manifest_files=1, extra_hashes={}
+    )
+    import time
+
+    start = time.monotonic()
+    with pytest.raises(WorkerTimeoutError):
+        _worker(root, tmp_path, units, timeout=2)
+    assert time.monotonic() - start < 20
+
+
+def test_a_run_whose_worker_times_out_is_not_evaluated(tmp_path: Path) -> None:
+    assert WORKER_TIMEOUT == 3600.0
+    data, manifest = _small_agentdojo(tmp_path)
+    proc = run_cli(tmp_path, "agentdojo", data, manifest, "--worker-timeout", "0.01")
+    assert proc.returncode == 3
+    summary = json.loads((tmp_path / "out" / "agentdojo.summary.json").read_text())
+    assert summary["reason"] == "worker_timeout at pin head"
+    assert not (tmp_path / "out" / "agentdojo.rows.jsonl").exists()

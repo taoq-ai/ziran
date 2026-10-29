@@ -29,6 +29,9 @@ JBB_RESPONSES = "data/judge-comparison.csv"
 JBB_BEHAVIOURS = "data/harmful-behaviors.csv"
 HARMBENCH_SET = "data/classifier_val_sets/text_behaviors_val_set.json"
 INJECAGENT_ZIP = "results.zip"
+#: Largest CSV field read, in characters: far above any model completion in the two sets
+#: (csv's default of 131,072 could cut a long one), and still a bound.
+CSV_FIELD_CHARS = 10_000_000
 
 
 class Collected(BaseModel):
@@ -61,7 +64,7 @@ def _agentdojo(load: Callable[[str], bytes], files: list[str]) -> tuple[list[map
 def _injecagent_items(text: str, where: str) -> list[tuple[int, Any]]:
     try:
         whole = json.loads(text)
-    except json.JSONDecodeError:
+    except (ValueError, RecursionError):  # not one JSON document: read it as JSON lines
         whole = None
     if isinstance(whole, list):
         return list(enumerate(whole))
@@ -91,7 +94,11 @@ def _injecagent(load: Callable[[str], bytes], _files: list[str]) -> tuple[list[m
 
 
 def _csv_rows(data: bytes, where: str) -> list[dict[str, Any]]:
-    return list(csv.DictReader(io.StringIO(_decode(data, where), newline="")))
+    csv.field_size_limit(CSV_FIELD_CHARS)
+    try:
+        return list(csv.DictReader(io.StringIO(_decode(data, where), newline="")))
+    except csv.Error:
+        raise IntakeError(f"{where}: not readable CSV") from None
 
 
 def _jailbreakbench(

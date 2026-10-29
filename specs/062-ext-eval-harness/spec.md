@@ -189,6 +189,23 @@ current commit.
 - **Percentile method.** The bootstrap interval takes the 2.5% and 97.5% cuts of
   `statistics.quantiles(..., n=40, method="inclusive")`. The protocol says only "percentile 95%
   interval"; this is the choice, fixed before any run.
+- **Fail closed at the intake boundary.** Everything that reads manifest, archive, JSON or CSV
+  bytes runs inside one catch in `run.py`. An `IntakeError` keeps its reason. Any other
+  exception becomes an intake failure with the reason `<phase>: <type name>` (`manifest` or
+  `collect`); the message and any input are never echoed. Scoring and writing stay outside the
+  catch, so a harness bug there still exits non-zero. Named classes are also caught where they
+  arise: `OverflowError` for a zip64 offset past `ssize_t`, `ValueError` and `RecursionError`
+  for JSON (integers over 4,300 digits, deep nesting), and `csv.Error` for a CSV field over
+  `CSV_FIELD_CHARS` (10,000,000 characters, far above a model completion).
+- **Worker timeout.** Each pin's worker has `--worker-timeout` seconds (default 3,600; a unit
+  takes milliseconds). On a timeout the worker is killed and the benchmark is reported not
+  evaluated, reason `worker_timeout at pin <name>`. `subprocess.run` writes stdin and drains
+  stdout and stderr together, so neither side waits on a full pipe. The security gate saw two
+  hangs on Python 3.11 with a worker that failed at import; the cause is unexplained, and the
+  timeout bounds it.
+- **Python versions.** ziran's `test.yml` runs the unit tests on 3.11, 3.12 and 3.13; `ci.yml`
+  runs lint, type check and the dependency audit on 3.12 only. 3.11 is the floor. Local runs
+  of this harness used 3.12 and 3.14 on macOS. CI is not changed here.
 - **Empty split.** A benchmark whose split or analysed units come out at 0 fails intake (protocol
   sections 9 check 4 and 10), so an unexpected layout is reported as not evaluated.
 - **Every loaded module is hashed.** Besides the seven pinned files, the worker hashes every
