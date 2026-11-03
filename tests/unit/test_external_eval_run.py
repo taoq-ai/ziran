@@ -16,9 +16,12 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 from benchmarks.external_eval import isolation
 from benchmarks.external_eval.collect import Collected
@@ -838,7 +841,8 @@ def test_a_run_whose_worker_times_out_stops_with_no_summary(tmp_path: Path) -> N
 
 
 #: Prepended to the stand-in pipeline at the stalling pin: start a grandchild in the worker's
-#: group, record its pid, then stall far longer than any test waits.
+#: group, record the worker's pid and then the grandchild's, then stall far longer than any test
+#: waits.
 STALL = """
 def _stall_linger():
     import os, time
@@ -850,6 +854,9 @@ if _mp.current_process().name == "MainProcess":
     _child = _mp.get_context("spawn").Process(target=_stall_linger)
     _child.start()
     _mpp._children.discard(_child)
+    import os as _os
+    with open({workerfile!r}, "w") as _f:
+        _f.write(str(_os.getpid()))
     with open({pidfile!r}, "w") as _f:
         _f.write(str(_child.pid))
     _time.sleep(600)
@@ -869,8 +876,10 @@ def _fake_pin_repo(tmp_path: Path) -> tuple[Path, str, str]:
         ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
     ).stdout.strip()
     pipeline = repo / "ziran/application/detectors/pipeline.py"
-    pidfile = tmp_path / "grandchild.pid"
-    pipeline.write_text(STALL.format(pidfile=str(pidfile)) + pipeline.read_text())
+    pidfile, workerfile = tmp_path / "grandchild.pid", tmp_path / "worker.pid"
+    pipeline.write_text(
+        STALL.format(pidfile=str(pidfile), workerfile=str(workerfile)) + pipeline.read_text()
+    )
     _git(repo, "commit", "-qam", "stalls")
     stall = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
@@ -1042,10 +1051,22 @@ def test_a_finished_worker_leaves_no_grandchild(tmp_path: Path) -> None:
         _kill_if_alive(pid)
 
 
+#: A parent that forwards SIGINT, SIGTERM and SIGHUP to its child, as ``uv run`` does: a signal
+#: to the group then reaches the harness twice.
+FORWARDER = """
+import signal, subprocess, sys
+child = subprocess.Popen(sys.argv[1:])
+for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(s, lambda n, _f: child.send_signal(n))
+sys.exit(child.wait())
+"""
+
+
+@pytest.mark.parametrize("delivery", ["once", "twice", "forwarded"])
 @pytest.mark.parametrize("target", ["pid", "group"])
 @pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
 def test_a_signal_to_the_harness_kills_its_worker_and_grandchild(
-    tmp_path: Path, signum: int, target: str
+    tmp_path: Path, signum: int, target: str, delivery: str
 ) -> None:
     import time
 
@@ -1053,30 +1074,28 @@ def test_a_signal_to_the_harness_kills_its_worker_and_grandchild(
     data, manifest = _small_agentdojo(tmp_path)
     temp = tmp_path / "tmp"
     temp.mkdir()
+    parent = [sys.executable, "-I", "-c", FORWARDER] if delivery == "forwarded" else []
     harness = subprocess.Popen(
-        [sys.executable, "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(data),
+        [*parent, sys.executable, "-I", str(RUN), "--benchmark", "agentdojo", "--data", str(data),
          "--manifest", str(manifest), "--ziran-repo", str(repo), "--pin", f"a={stall}",
          "--out", str(tmp_path / "out"), "--practice", "--worker-timeout", "600"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=tmp_path, start_new_session=True,
         env={**isolation.worker_env(), "TMPDIR": str(temp)},
     )  # fmt: skip
-    pidfile = tmp_path / "grandchild.pid"
+    pidfile, workerfile = tmp_path / "grandchild.pid", tmp_path / "worker.pid"
     worker = grandchild = None
     deadline = time.monotonic() + 30 + LOAD_MARGIN
     while grandchild is None and time.monotonic() < deadline:
-        found = subprocess.run(["pgrep", "-f", str(WORKER)], capture_output=True, text=True)
-        pids = [int(p) for p in found.stdout.split()]
-        worker = worker or (pids[0] if pids else None)
-        if pidfile.exists() and pidfile.read_text():
-            grandchild = int(pidfile.read_text())
+        if pidfile.exists() and pidfile.read_text():  # written after the worker's own pid
+            worker, grandchild = int(workerfile.read_text()), int(pidfile.read_text())
         time.sleep(0.25)
     try:
-        assert worker is not None, "the worker never started"
-        assert grandchild is not None, "the grandchild never started"
-        if target == "pid":
-            harness.send_signal(signum)
-        else:
-            os.killpg(harness.pid, signum)
+        assert worker is not None and grandchild is not None, "the grandchild never started"
+        for _ in range(2 if delivery == "twice" else 1):
+            if target == "pid":
+                harness.send_signal(signum)
+            else:
+                os.killpg(harness.pid, signum)
         harness.communicate(timeout=30 + LOAD_MARGIN)
         assert harness.returncode != 0
         assert _gone(worker)
@@ -1084,10 +1103,76 @@ def test_a_signal_to_the_harness_kills_its_worker_and_grandchild(
         assert not (tmp_path / "out" / "agentdojo.summary.json").exists()
         assert not list(temp.glob("ext-eval-*"))  # the pin export is removed
     finally:
-        harness.kill()
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(harness.pid, signal.SIGKILL)
+        harness.wait()
         for pid in (worker, grandchild):
             if pid is not None:
                 _kill_if_alive(pid)
+
+
+@pytest.fixture
+def _saved_signals() -> Iterator[None]:
+    saved = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
+    yield
+    for s, handler in saved.items():
+        signal.signal(s, handler)
+
+
+@pytest.mark.usefixtures("_saved_signals")
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
+def test_a_repeat_signal_during_the_group_kill_still_kills_the_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, signum: int
+) -> None:
+    """The repeat lands where uv's forward lands: after the first one, before ``killpg``."""
+    import threading
+    import time
+
+    from benchmarks.external_eval import run
+
+    pidfile = tmp_path / "grandchild.pid"
+    units = _units_with({"grandchild": str(pidfile), "sleep": 600})
+    workers: list[int] = []
+    kill_group = run._kill_group
+
+    def repeat_then_kill(proc: subprocess.Popen[bytes]) -> None:
+        workers.append(proc.pid)
+        os.kill(os.getpid(), signum)
+        time.sleep(0.2)  # time for a handler to run, as it would at the next bytecode
+        kill_group(proc)
+
+    def first() -> None:
+        deadline = time.monotonic() + 30 + LOAD_MARGIN
+        while not (pidfile.exists() and pidfile.read_text()) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        os.kill(os.getpid(), signum)
+
+    monkeypatch.setattr(run, "_kill_group", repeat_then_kill)
+    run._handle_signals()
+    sender = threading.Thread(target=first)
+    sender.start()
+    try:
+        with pytest.raises((SystemExit, KeyboardInterrupt)):
+            run._worker(_fake_export(tmp_path), tmp_path, units, timeout=600)
+        sender.join()
+        assert len(workers) == 1
+        assert _gone(workers[0])
+        assert _gone(int(pidfile.read_text()))
+    finally:
+        sender.join()
+        for pid in [*workers, *([int(pidfile.read_text())] if pidfile.exists() else [])]:
+            _kill_if_alive(pid)
+
+
+@pytest.mark.usefixtures("_saved_signals")
+def test_a_hangup_ignored_at_start_stays_ignored() -> None:
+    from benchmarks.external_eval import run
+
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)  # as under nohup
+    run._handle_signals()
+    assert signal.getsignal(signal.SIGHUP) == signal.SIG_IGN
+    assert signal.getsignal(signal.SIGTERM) == run._exit_on_signal
+    assert signal.getsignal(signal.SIGINT) == run._exit_on_signal
 
 
 def test_a_worker_flooding_stderr_past_the_cap_is_refused(

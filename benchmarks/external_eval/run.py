@@ -374,14 +374,33 @@ def run(args: argparse.Namespace, removed: int) -> int:
     return 0
 
 
+#: The signals that end a run. Each unwinds through ``_worker``, which kills the worker's group,
+#: and through the export folder's cleanup.
+_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
+
 def _exit_on_signal(signum: int, _frame: object) -> None:
-    """Turn SIGTERM and SIGHUP into SystemExit, so the worker's group is killed on the way out."""
+    """Ignore any repeat, then unwind: SIGINT as ``KeyboardInterrupt``, others as ``SystemExit``.
+
+    ``uv run`` forwards a signal sent to the run's process group, so the harness gets it twice;
+    a repeat raised inside the cleanup would skip the group kill or the export removal.
+    """
+    for s in _SIGNALS:
+        signal.signal(s, signal.SIG_IGN)
+    if signum == signal.SIGINT:
+        raise KeyboardInterrupt
     sys.exit(128 + signum)
 
 
+def _handle_signals() -> None:
+    """Route ``_SIGNALS`` to ``_exit_on_signal``; one ignored at start (``nohup``) stays ignored."""
+    for signum in _SIGNALS:
+        if signal.getsignal(signum) != signal.SIG_IGN:
+            signal.signal(signum, _exit_on_signal)
+
+
 def main(argv: list[str] | None = None) -> int:
-    for signum in (signal.SIGTERM, signal.SIGHUP):
-        signal.signal(signum, _exit_on_signal)
+    _handle_signals()
     try:
         isolation.require_interpreter_flags()
         if any(name.split(".")[0] == "ziran" for name in sys.modules):
