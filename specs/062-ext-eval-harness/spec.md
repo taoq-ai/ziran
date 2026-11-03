@@ -207,9 +207,13 @@ current commit.
   unit are read, and more is a refusal (the bytes read count, not the file offset, which a pin
   could move). The worker's process group is killed on every way out of the wait: a timeout;
   SIGINT, SIGTERM or SIGHUP to the harness, whether sent to its pid or its process group
-  (`main` turns SIGTERM and SIGHUP into `SystemExit`, and SIGINT is `KeyboardInterrupt`); a
-  verdict file past its cap or a stderr file past `STDERR_LIMIT` (100,000,000 bytes), both
-  checked every 0.5 s and at exit; and normal exit, so no grandchild outlives the worker. The
+  (`main` turns SIGTERM and SIGHUP into `SystemExit` and SIGINT into `KeyboardInterrupt`). Its
+  handler first ignores all three, because `uv run` forwards a signal sent to the run's group
+  and the harness then gets it twice: a repeat raised inside the cleanup would skip the group
+  kill or the export removal. A signal already ignored at start, such as SIGHUP under `nohup`,
+  stays ignored, and the run carries on. The other ways out are a verdict file past its cap
+  or a stderr file past `STDERR_LIMIT` (100,000,000 bytes), both checked every 0.5 s and at
+  exit, and normal exit, so no grandchild outlives the worker. The
   pin's temporary export folder is removed on the same paths. SIGKILL to the harness cannot be
   handled: the worker and its export folder then remain, bounded only by the work the worker
   has left. On macOS `killpg` on an exited but unreaped leader raises `PermissionError`; the

@@ -133,3 +133,14 @@ package, or the new assertion failed) before its implementation task.
       `ProcessLookupError` and `PermissionError` branches, with a stand-in `killpg`.
 - [x] T027 Code: SIGTERM and SIGHUP handlers in `main`, the verdict-file cap at each poll, the
       `_worker` docstring.
+
+## Phase 13 - Gate fix round 8 (arch at 89b6f7a)
+
+- [x] T028 Tests first (4 failed on the previous code): a repeat of SIGINT, SIGTERM or SIGHUP
+      that lands in the group kill, after the first and before `killpg`, still leaves no
+      worker and no grandchild; SIGHUP ignored at start stays ignored. The signal test also
+      sends the signal twice and runs the harness under a parent that forwards signals, as
+      `uv run` does, for each signal to the pid and to the group, and reads the worker pid
+      from a per-test file in place of `pgrep`.
+- [x] T029 Code: the handler ignores SIGINT, SIGTERM and SIGHUP before it unwinds and also
+      takes SIGINT; a signal ignored at start keeps its handler.
