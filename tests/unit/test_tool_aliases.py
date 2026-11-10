@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 
+from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 from ziran.application.knowledge_graph.tool_aliases import (
     UNRESTRICTED_EXEC_TOOLS,
     canonical_tool_name,
@@ -91,6 +95,22 @@ from ziran.application.knowledge_graph.tool_aliases import (
         # Claude Code rules keep precedence over the LangChain-style names
         ("Read(notes/tavily_search.md)", "read_file"),
         ("mcp__tavily__send_tavily_search_digest", "send_email"),
+        # DevOps agent tool names (spec 061)
+        ("read_secrets", "secrets_manager"),
+        ("tool_read_secrets", "secrets_manager"),
+        ("ReadSecrets", "secrets_manager"),
+        ("execute_command", "execute_code"),
+        ("tool_execute_command", "execute_code"),
+        ("ExecuteCommand", "execute_code"),
+        # Ids with other words around them, and the other DevOps tools, stay unchanged
+        ("read_secret", "read_secret"),
+        ("read_secrets_from_vault", "read_secrets_from_vault"),
+        ("safe_execute_command", "safe_execute_command"),
+        ("execute_command_and_send_email", "execute_command_and_send_email"),
+        ("mcp__vault__read_secrets", "mcp__vault__read_secrets"),
+        ("mcp__shell__execute_command", "mcp__shell__execute_command"),
+        ("update_config", "update_config"),
+        ("deploy_service", "deploy_service"),
     ],
 )
 def test_canonical_tool_name(tool_id: str, expected: str) -> None:
@@ -100,3 +120,29 @@ def test_canonical_tool_name(tool_id: str, expected: str) -> None:
 @pytest.mark.unit
 def test_unrestricted_exec_tools() -> None:
     assert frozenset({"Bash", "Bash(*)"}) == UNRESTRICTED_EXEC_TOOLS
+
+
+def _linked_graph(tools: list[str]) -> AttackKnowledgeGraph:
+    """Every tool pair linked both ways, as the ground-truth runner builds it."""
+    graph = AttackKnowledgeGraph()
+    for tool in tools:
+        graph.add_tool(tool)
+    for a, b in itertools.combinations(tools, 2):
+        graph.add_tool_chain([a, b], risk_score=0.5)
+        graph.add_tool_chain([b, a], risk_score=0.5)
+    return graph
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "tools",
+    [
+        ["read_secrets", "execute_command"],
+        ["deploy_service", "read_secrets", "execute_command", "update_config"],
+    ],
+)
+def test_devops_tools_give_secret_to_execution_chain(tools: list[str]) -> None:
+    chains = ToolChainAnalyzer(_linked_graph(tools)).analyze(include_cycles=False)
+    assert [(c.tools, c.vulnerability_type, c.risk_level) for c in chains] == [
+        (["read_secrets", "execute_command"], "cloud_secret_to_rce", "critical")
+    ]

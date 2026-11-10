@@ -56,7 +56,7 @@ anthropic = [
     "anthropic>=0.39,<2",
 ]
 llm = [
-    "litellm>=1.84,<2",
+    "litellm>=1.95.0,<2",
 ]
 pentest = [
     "ziran[llm]",
@@ -72,8 +72,8 @@ langfuse = [
 ]
 promptfoo = []
 otel = [
-    "opentelemetry-api>=1.23,<2",
-    "opentelemetry-sdk>=1.23,<2",
+    "opentelemetry-api>=1.45.1,<2",
+    "opentelemetry-sdk>=1.45.1,<2",
     "opentelemetry-exporter-prometheus>=0.44b0,<1",
     "opentelemetry-exporter-otlp-proto-http>=1.23,<2",
 ]

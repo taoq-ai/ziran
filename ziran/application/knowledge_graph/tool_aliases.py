@@ -9,8 +9,8 @@ from application-layer code.
 ``mcp__slack__slack_send_message``, ``Read(./.env)`` ...) to the capability
 keyword the chain patterns already use. Ids that are not Claude Code tools
 are checked against a short table of LangChain-style names
-(``recursive_url_loader``, ``tavily_search``, ``vector_store_query`` and their
-variants); any other id is returned unchanged. The result is for matching
+(``recursive_url_loader``, ``tavily_search``, ``vector_store_query``,
+``read_secrets``, ``execute_command`` and their variants); any other id is returned unchanged. The result is for matching
 only; node ids and reported findings keep the original names.
 """
 
@@ -42,6 +42,9 @@ _FRAMEWORK_ALIASES: dict[str, str] = {
     "tavilysearch": "browse_url",
     "vectorstorequery": "vector_store_read",
     "vectorstoresearch": "vector_store_read",
+    # DevOps agent tools (spec 061)
+    "readsecrets": "secrets_manager",
+    "executecommand": "execute_code",
 }
 
 #: Tool ids that grant unscoped shell execution (bare ``Bash`` or ``Bash(*)``).
