@@ -19,7 +19,6 @@ import random
 import re
 from collections.abc import Callable
 from itertools import permutations
-from types import SimpleNamespace
 
 import pytest
 
