@@ -24,8 +24,9 @@ known (rule T3) and payload known (rule P1).
   undefended (not `Meta-SecAlign-70B`, no defence suffix) and the attack is `direct`,
   `ignore_previous`, `injecagent` or `tool_knowledge`. Other paths are counted as outside.
 - (b) Every AgentDojo unit carries `trusted_task` (the first user message's text, the same as
-  `prompt`), `tool_results` (`{message_index, text}` per tool message, in log order, whole),
-  `message_index` on each call, and `payload`. The task-known variants (`whole`,
+  `prompt`), `tool_results` (`{message_index, text}` per tool message, in log order, whole:
+  the content, then `error: <error>` for a failed call, as ziran-paper's
+  `g11_judge_spike.render_trace` renders it), `message_index` on each call, and `payload`. The task-known variants (`whole`,
   `post_injection`, `text_only`) pass `payload: []`. The payload-known variants (`payload_whole`,
   `payload_post_injection`) pass the log's `injections` values in key order.
 - (c) Both pins receive identical units. The worker passes exactly those three metadata keys
@@ -46,7 +47,7 @@ against the committed G-9 rows (see "Acceptance as run").
 | --- | --- |
 | Pass `trusted_task`, `tool_results`, `message_index` and `payload` (empty on the task-known row) | `mapping.agentdojo_units`, `run._worker_unit`, `worker._score` |
 | Check the keys at intake (exit 3) before scoring | `mapping.agentdojo_units`: a tool message with no open call of its id, a blank first user message, and `injections` that is not an object of strings each fail intake |
-| Strip target-supplied copies | the worker builds `metadata` from the three harness keys only, and each call from `name`, `arguments` and `message_index` only; `HttpAgentAdapter.invoke` drops the three keys from a remote agent's metadata |
+| Strip target-supplied copies | the worker builds `metadata` from the three harness keys only, and each call from `name`, `arguments` and `message_index` only; `HttpAgentAdapter.invoke` drops the three keys from a remote agent's metadata. The key names are one constant, `ziran.domain.interfaces.adapter.PROVENANCE_METADATA_KEYS`; the worker cannot import ziran outside the pin, so it holds a copy that a test keeps equal. The streaming path (`stream()`, `AttackExecutor._invoke_streaming`) is G10-HARDEN's: it strips the keys on every path |
 | The deterministic row reads `provenance().hit`, never `pipeline.evaluate().successful` | `worker._score`, predictor `deterministic`; the primary of `agentdojo_fresh` |
 | A label-blind rule for a detector raise | below, "A detector raise" |
 | The row allowlist and its types | `run.check_row` |
@@ -75,7 +76,8 @@ the payload. The intake checks above prevent the first. The second depends on th
 
 Rule: a unit on which any pin raises `ProvenanceInputError` is excluded as `detector_raised` at
 every pin. Its row keeps its label and the verdicts of pins that did not raise, and the summary
-counts raises per pin under `detector_raised`. The rule reads only the detector's input, never
+counts, per pin, the units its raises relabel under `detector_raised`. A unit already excluded
+(an `error` log) keeps its reason and is not counted. The rule reads only the detector's input, never
 the label, so it is label-blind, and it keeps the pins paired for McNemar. Any other exception
 still stops the worker (exit 2, no summary). On the iterate side the count is 0 at both pins.
 
@@ -93,7 +95,8 @@ other key, any missing key, and any value outside these rules, before the rows f
 | --- | --- |
 | `benchmark` | a benchmark of `collect.PRIMARY` |
 | `variant` | one of the five variants above |
-| `cluster` | an id (`[A-Za-z0-9_.-]` segments joined by `/`) or a lowercase sha256; the harness writes the sha256 of a cluster that holds record text (InjecAgent's instruction pair, a JailbreakBench goal) |
+| `unit_id` | an id whose segments may also hold `:` (`member:line`, `row:3`) |
+| `cluster` | an id (`[A-Za-z0-9_.-]` segments joined by `/`; a sha256 is one); the harness writes the sha256 of a cluster that holds record text (InjecAgent's instruction pair, a JailbreakBench goal) |
 | `cells` | an object of id to id |
 | `label` | a boolean or null |
 | `excluded` | null, `error`, `parse_error`, `invalid`, `label_not_binary` or `detector_raised` |
@@ -120,9 +123,15 @@ replaced for every benchmark: the G-9 rows are committed and this harness does n
    benchmark is not evaluated with the reason, before any worker starts
    (`test_a_tool_message_with_no_matching_call_is_not_evaluated_before_any_detector_call`).
 4. Dev replay (run note from #490): on the same 9,847 analysed iterate logs, the patched pin's
-   `deterministic` verdict equals the frozen probe's (`g10_dev_probe.py`) `t3` on `whole` and
-   `p1` on `payload_whole`: 0 differences each (T3 2,718 hits, P1 2,424 hits), 0 raises.
-   `dev_replay.py` in this folder computes it from the harness rows.
+   `deterministic` verdict against the frozen probe's (`g10_dev_probe.py`) `t3` on `whole` and
+   `p1` on `payload_whole`, with 0 raises. `dev_replay.py` in this folder computes it from the
+   harness rows.
+   - At `887745b` (tool results without the error text): 0 differences on T3 and on P1.
+   - At `e053a39` (with the error text, fix round 1): P1 0 differences; T3 2 differences. Both
+     are negatives the harness flags and the probe does not; their logs hold 13 and 4 failed
+     calls. The probe reads tool content only. 1,510 analysed logs hold a failed call. So the
+     T3 counts D29 and D30 do not reproduce under the error text, and the P1 counts D27 and D28
+     do. Which reading governs is the owner's to register.
 
 ## Out of scope
 

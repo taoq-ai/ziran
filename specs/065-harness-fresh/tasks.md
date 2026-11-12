@@ -22,3 +22,12 @@
 - [x] T010 Dev replay on the iterate split: study-v1 against the committed rows, deterministic against the probe
 - [x] T011 ruff check, ruff format, mypy strict, the full test suite with coverage
 - [x] T012 Record the change in `CLAUDE.md`
+
+## Phase 4: fix round 1 (gates at 88e1642)
+
+- [x] T013 Merge origin/develop (94d725e); keep both "Recent Changes" lines
+- [x] T014 Tool results carry a failed call's error text; re-run the dev replay
+- [x] T015 `unit_id` id rule; drop the dead sha256 branch; count only relabelled raises
+- [x] T016 Import the provenance module only when the pin ships it
+- [x] T017 One reserved-key constant in `ziran/domain/interfaces/adapter.py`
+- [x] T018 Tests: a real pin pair in both orders, exit 2 on a bad row, the pin name, the latest-assistant rule, another ValueError, a broken module, more type rules
