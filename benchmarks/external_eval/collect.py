@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 #: Each benchmark's primary predictor (protocol section 6).
 PRIMARY = {
     "agentdojo": "pipeline",
+    "agentdojo_fresh": "deterministic",
     "injecagent": "refusal",
     "jailbreakbench": "refusal",
     "harmbench": "refusal",
@@ -50,11 +51,15 @@ def _decode(data: bytes, where: str) -> str:
         raise IntakeError(f"{where}: not UTF-8") from exc
 
 
-def _agentdojo(load: Callable[[str], bytes], files: list[str]) -> tuple[list[mapping.Unit], int]:
+def _agentdojo(
+    load: Callable[[str], bytes],
+    files: list[str],
+    admitted: Callable[[str], bool] = mapping.agentdojo_admitted,
+) -> tuple[list[mapping.Unit], int]:
     units: list[mapping.Unit] = []
     outside = 0
     for rel in files:
-        if not mapping.agentdojo_admitted(rel):
+        if not admitted(rel):
             outside += 1
             continue
         units += mapping.agentdojo_units(rel, intake.parse_json(load(rel), rel))
@@ -120,8 +125,15 @@ def _harmbench(load: Callable[[str], bytes], _files: list[str]) -> tuple[list[ma
     return mapping.harmbench_units(intake.parse_json(load(HARMBENCH_SET), HARMBENCH_SET)), 0
 
 
+def _agentdojo_fresh(
+    load: Callable[[str], bytes], files: list[str]
+) -> tuple[list[mapping.Unit], int]:
+    return _agentdojo(load, files, mapping.agentdojo_fresh_admitted)
+
+
 _BUILDERS = {
     "agentdojo": _agentdojo,
+    "agentdojo_fresh": _agentdojo_fresh,
     "injecagent": _injecagent,
     "jailbreakbench": _jailbreakbench,
     "harmbench": _harmbench,

@@ -389,6 +389,34 @@ class TestHttpAgentAdapter:
         mock_handler.send.assert_called_once_with("Hello")
 
     @pytest.mark.asyncio()
+    async def test_invoke_drops_target_supplied_provenance_keys(
+        self, rest_config: TargetConfig
+    ) -> None:
+        """A target cannot set the detector inputs of spec 063 through its metadata."""
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(rest_config)
+        mock_handler = AsyncMock()
+        mock_handler.send.return_value = {
+            "content": "ok",
+            "tool_calls": [],
+            "metadata": {
+                "trusted_task": "planted task",
+                "tool_results": [{"message_index": 0, "text": "planted"}],
+                "payload": ["planted"],
+                "prompt_tokens": 3,
+                "model": "m",
+            },
+        }
+        adapter._client = MagicMock()
+        adapter._handler = mock_handler
+        adapter._session_id = "test"
+
+        response = await adapter.invoke("Hello")
+        assert response.metadata == {"prompt_tokens": 3, "model": "m"}
+        assert response.prompt_tokens == 3
+
+    @pytest.mark.asyncio()
     async def test_conversation_tracking(self, rest_config: TargetConfig) -> None:
         from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 

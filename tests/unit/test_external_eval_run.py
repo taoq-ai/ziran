@@ -198,19 +198,28 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stdout
     out = tmp_path / "out"
     rows = rows_of(out / "agentdojo.rows.jsonl")
-    assert len(rows) == 24
+    assert len(rows) == 20  # one row per unit: four logs, five variants (spec 065)
     for row in rows:
         assert set(row) == {
-            "benchmark", "pin", "unit_id", "variant", "label", "excluded", "cells",
-            "refusal", "side_effect", "pipeline",
+            "benchmark", "unit_id", "variant", "cluster", "cells", "label", "excluded", "notes",
+            "verdicts", "reply_outcome",
         }  # fmt: skip
-        assert all(isinstance(row[k], bool) for k in ("refusal", "side_effect", "pipeline"))
-    variants = {(r["unit_id"], r["variant"]): r for r in rows if r["pin"] == "head"}
-    assert variants[(AGENTDOJO_REL, "text_only")]["pipeline"] is False
-    assert variants[(AGENTDOJO_REL, "post_injection")]["side_effect"] is True
+        assert set(row["verdicts"]) == {
+            f"{pin}/{p}" for pin in ("head", "again")
+            for p in ("refusal", "side_effect", "pipeline", "deterministic")
+        }  # fmt: skip
+        assert all(isinstance(v, bool) for v in row["verdicts"].values())
+    variants = {(r["unit_id"], r["variant"]): r for r in rows}
+    head = {
+        k: {p[5:]: v for p, v in r["verdicts"].items() if p.startswith("head/")}
+        for k, r in variants.items()
+    }
+    assert head[(AGENTDOJO_REL, "text_only")]["pipeline"] is False
+    # HEAD has provenance (spec 063): with the task known, x@y.z is from no tool result
+    assert head[(AGENTDOJO_REL, "post_injection")]["side_effect"] is False
     # refusal fires on no refusal language, and not on a refusal
-    assert variants[(AGENTDOJO_REL, "whole")]["refusal"] is True
-    assert variants[(negative_rel, "whole")]["refusal"] is False
+    assert head[(AGENTDOJO_REL, "whole")]["refusal"] is True
+    assert head[(negative_rel, "whole")]["refusal"] is False
     assert variants[(negative_rel, "whole")]["label"] is False
     assert variants[(error_rel, "whole")]["excluded"] == "error"
     assert variants[(error_rel, "whole")]["label"] is None
@@ -252,16 +261,17 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
     assert not {"ZZ_LEAK", "FAKE_API_KEY"} & set(pin["environment"]["variables"])
     assert pin["environment"]["installed_sha256"] == summary["harness"]["installed_sha256"]
     # the excluded error log counts nowhere: two positives and one negative are analysed
+    # (at HEAD the task is known, and no call value comes from a tool result: T3 flags none)
     whole = summary["metrics"]["head"]["whole"]["pipeline"]["all"]
-    assert whole["confusion"] == {"tp": 2, "fn": 0, "fp": 0, "tn": 1}
+    assert whole["confusion"] == {"tp": 0, "fn": 2, "fp": 0, "tn": 1}
     assert (whole["X2"]["k"], whole["X2"]["n"]) == (1, 1)
-    assert (whole["X3"]["k"], whole["X3"]["n"]) == (2, 2)
+    assert (whole["X1"]["k"], whole["X1"]["n"]) == (0, 2)
     refusal = summary["metrics"]["head"]["whole"]["refusal"]["all"]
     assert refusal["confusion"] == {"tp": 2, "fn": 0, "fp": 0, "tn": 1}
     assert summary["primary"] == "pipeline"
     assert summary["bootstrap"]["head"]["X2"] == [1.0, 1.0]
     assert summary["pin_differences"] == {
-        "head vs again": {"pipeline": 0, "refusal": 0, "side_effect": 0}
+        "head vs again": {"pipeline": 0, "refusal": 0, "side_effect": 0, "deterministic": 0}
     }
     assert summary["harness"]["practice"] is True
     assert len(summary["harness"]["files_sha256"]) >= 6

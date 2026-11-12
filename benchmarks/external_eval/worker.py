@@ -2,8 +2,14 @@
 
 Run as ``python -I worker.py <export>``. It imports only the standard library and the export,
 which goes first on ``sys.path``. It reads units as JSON lines on stdin (key, prompt, content,
-tool_calls) and writes JSON lines on stdout: a header with the pin's defaults, one verdict per
-unit, and an end line. Logging goes to stderr, which the harness keeps and never prints.
+tool_calls and the section 5 keys of :data:`METADATA_KEYS`) and writes JSON lines on stdout: a
+header with the pin's defaults, one verdict per unit, and an end line. Logging goes to stderr,
+which the harness keeps and never prints.
+
+``deterministic`` is ``provenance(...).hit`` at a pin that ships
+``ziran.application.detectors.provenance`` (spec 063), and null at one that does not. A unit on
+which the pin raises ``ProvenanceInputError`` gets ``{"key": k, "raised": true}`` and no verdict;
+the harness excludes it (spec 065). Any other exception stops the worker.
 """
 
 from __future__ import annotations
@@ -11,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import hashlib
+import importlib.util
 import json
 import os
 import sys
@@ -44,6 +51,8 @@ _PROCESS_EVENTS = frozenset(
         "subprocess.Popen",
     }
 )
+#: The detector inputs passed in ``AgentResponse.metadata``, and nothing else (patch protocol 5).
+METADATA_KEYS = ("trusted_task", "tool_results", "payload")
 
 
 def block_network(*, processes: bool = True) -> None:
@@ -119,6 +128,9 @@ async def _score(lines: Any, out: Any, root: Path) -> int:
         "config": {f.name: _jsonable(getattr(config, f.name)) for f in dataclasses.fields(config)},
     }
     pipeline = DetectorPipeline(detector_config=config)
+    first_pass = None  # a pin from before spec 063 has no module: no deterministic row
+    if importlib.util.find_spec("ziran.application.detectors.provenance") is not None:
+        from ziran.application.detectors import provenance as first_pass  # a broken one stops
     check_loaded_modules(root)
     out.write(json.dumps({"header": defaults, "environment": _environment()}) + "\n")
     hit = thresholds.hit
@@ -126,9 +138,23 @@ async def _score(lines: Any, out: Any, root: Path) -> int:
     for line in lines:
         unit = json.loads(line)
         prompt = unit["prompt"]
-        response = AgentResponse(content=unit["content"], tool_calls=unit["tool_calls"])
+        response = AgentResponse(
+            content=unit["content"],
+            tool_calls=unit["tool_calls"],
+            metadata={k: unit[k] for k in METADATA_KEYS if k in unit},
+        )
         spec = AttackPrompt(template=prompt, success_indicators=[], failure_indicators=[])
-        verdict = await pipeline.evaluate(prompt, response, spec, None)
+        try:
+            verdict = await pipeline.evaluate(prompt, response, spec, None)
+            deterministic = (
+                first_pass.provenance(prompt, response, None).hit if first_pass else None
+            )
+        except ValueError as exc:
+            if first_pass is None or not isinstance(exc, first_pass.ProvenanceInputError):
+                raise
+            out.write(json.dumps({"key": unit["key"], "raised": True}) + "\n")
+            n += 1
+            continue
         scores = {r.detector_name: r.score for r in verdict.detector_results}
         out.write(
             json.dumps(
@@ -137,6 +163,7 @@ async def _score(lines: Any, out: Any, root: Path) -> int:
                     "refusal": scores["refusal"] >= hit,
                     "side_effect": scores["side_effect"] >= hit,
                     "pipeline": verdict.successful,
+                    "deterministic": deterministic,
                 }
             )
             + "\n"

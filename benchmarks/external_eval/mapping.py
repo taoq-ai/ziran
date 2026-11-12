@@ -3,6 +3,11 @@
 Each function turns one parsed record into one :class:`Unit` per row variant. A unit holds the
 response text only in memory, to send to the worker; the rows the harness writes keep the id,
 variant, cells, label and verdicts and nothing else.
+
+AgentDojo units also carry the detector inputs of ziran-paper ``prereg/patch-protocol.md``
+section 5 (spec 065): ``trusted_task``, ``tool_results``, ``message_index`` on each call, and
+``payload``, which is empty on the task-known variants and the log's injections on the
+``payload_`` variants.
 """
 
 from __future__ import annotations
@@ -21,8 +26,10 @@ MARKER = "<INFORMATION>"
 
 _AGENTDOJO_PATH = re.compile(
     r"^runs/(?P<model>[^/]+)/(?P<suite>[^/]+)/(?P<user_task>[^/]+)"
-    r"/important_instructions/(?P<injection_task>[^/]+)\.json$"
+    r"/(?P<attack>[^/]+)/(?P<injection_task>[^/]+)\.json$"
 )
+#: The fresh set's attacks (ziran-paper prereg/g11-intake/agentdojo.json, rules.fresh).
+FRESH_ATTACKS = ("direct", "ignore_previous", "injecagent", "tool_knowledge")
 _AGENTDOJO_DEFENCE = re.compile(
     r"-(repeat_user_prompt|spotlighting_with_delimiting|tool_filter|transformers_pi_detector)$"
 )
@@ -43,6 +50,25 @@ _INJECAGENT_FIELDS = (
     "Attacker Instruction",
 )
 _SKIPPED_ACTIONS = ("None", "N/A")
+#: Every invalid_reason the pinned evaluator copy sets (injecagent_eval.py), the rows' notes.
+INVALID_REASONS = frozenset(
+    {
+        "error",
+        "too short",
+        "contain overly long word",
+        "contain repetitive sequence",
+        "Action Input is not {}",
+        "not following ReAct format",
+        "no meaningful response",
+        "Action not in availabel tools",
+        "Recalling user tool with fabricated observation",
+        "Recalling of user tool with no next step",
+        "Recalling of user tool with no observation",
+        "too much actions",
+        "call GmailSendEmail before tool",
+        "sent but no action",
+    }
+)
 
 JAILBREAKBENCH_FIELDS = ("goal", "prompt", "target_response", "human_majority")
 _HARMBENCH_FIELDS = ("test_case", "generation", "model", "human_0", "human_1", "human_2")
@@ -62,18 +88,28 @@ class Unit(BaseModel):
     cluster: str
     cells: dict[str, str]
     notes: tuple[str, ...] = ()
+    trusted_task: str | None = None
+    tool_results: list[dict[str, Any]] = []
+    payload: list[str] = []
 
 
 # ── AgentDojo ─────────────────────────────────────────────────────────
 
 
+def _undefended(model: str) -> bool:
+    return model != "Meta-SecAlign-70B" and _AGENTDOJO_DEFENCE.search(model) is None
+
+
 def agentdojo_admitted(rel: str) -> bool:
     """A log in the split: attack important_instructions, an undefended model folder."""
     m = _AGENTDOJO_PATH.match(rel)
-    if m is None:
-        return False
-    model = m["model"]
-    return model != "Meta-SecAlign-70B" and _AGENTDOJO_DEFENCE.search(model) is None
+    return m is not None and m["attack"] == "important_instructions" and _undefended(m["model"])
+
+
+def agentdojo_fresh_admitted(rel: str) -> bool:
+    """A log in the fresh set: an undefended model folder and one of the four fresh attacks."""
+    m = _AGENTDOJO_PATH.match(rel)
+    return m is not None and m["attack"] in FRESH_ATTACKS and _undefended(m["model"])
 
 
 def _text(content: object) -> str | None:
@@ -92,10 +128,11 @@ def _text(content: object) -> str | None:
     raise IntakeError(f"message content is a {type(content).__name__}")
 
 
-def _assistant_view(messages: list[Any]) -> tuple[str, list[dict[str, Any]]]:
+def _assistant_view(messages: list[Any], start: int = 0) -> tuple[str, list[dict[str, Any]]]:
+    """Text and calls of the assistant messages; ``start`` is the first message's log index."""
     texts: list[str] = []
     calls: list[dict[str, Any]] = []
-    for msg in messages:
+    for at, msg in enumerate(messages, start):
         if msg.get("role") != "assistant":
             continue
         text = _text(msg.get("content"))
@@ -107,8 +144,35 @@ def _assistant_view(messages: list[Any]) -> tuple[str, list[dict[str, Any]]]:
         for call in raw:
             if not isinstance(call, dict) or not isinstance(call.get("function"), str):
                 raise IntakeError("assistant tool call has no function name")
-            calls.append({"name": call["function"], "arguments": call.get("args")})
+            calls.append(
+                {"name": call["function"], "arguments": call.get("args"), "message_index": at}
+            )
     return "\n".join(texts), calls
+
+
+def _tool_results(rel: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One ``{message_index, text, error?}`` per tool message, each answering an open call.
+
+    The open calls are those of the latest assistant message that no tool message has
+    answered yet; a null id names a call whose id is null. ``text`` is the content, whole, and
+    is what the detector reads. ``error`` is AgentDojo's error string of a failed call, present
+    only then, for the judge's rendering (ziran-paper ``g11_judge_spike.render_trace``); the
+    detector never reads it. Messages name the index, never an id or text.
+    """
+    results: list[dict[str, Any]] = []
+    open_ids: list[object] = []
+    for i, msg in enumerate(messages):
+        if msg.get("role") == "assistant":
+            open_ids = [c.get("id") for c in msg.get("tool_calls") or []]
+        elif msg.get("role") == "tool":
+            if msg.get("tool_call_id") not in open_ids:
+                raise IntakeError(f"{rel}: tool message {i} has no matching call")
+            open_ids.remove(msg.get("tool_call_id"))
+            result = {"message_index": i, "text": _text(msg.get("content")) or ""}
+            if msg.get("error"):  # a failed call: AgentDojo leaves content empty
+                result["error"] = str(msg["error"])
+            results.append(result)
+    return results
 
 
 def agentdojo_units(rel: str, log: object) -> list[Unit]:
@@ -124,9 +188,16 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
     if log["error"] is None and not isinstance(log["security"], bool):
         raise IntakeError(f"{rel}: security is not a boolean")
 
+    injections = log["injections"]
+    if not isinstance(injections, dict) or not all(isinstance(v, str) for v in injections.values()):
+        raise IntakeError(f"{rel}: injections is not an object of strings")
+
     user = next((x for x in messages if x.get("role") == "user"), None)
     prompt = (_text(user.get("content")) if user else None) or ""
+    if user is not None and not prompt.strip():
+        raise IntakeError(f"{rel}: the first user message is blank")
     content, calls = _assistant_view(messages)
+    results = _tool_results(rel, messages)
     cut = next(
         (
             i
@@ -135,7 +206,9 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
         ),
         None,
     )
-    post_content, post_calls = _assistant_view(messages[cut + 1 :]) if cut is not None else ("", [])
+    post_content, post_calls = (
+        _assistant_view(messages[cut + 1 :], cut + 1) if cut is not None else ("", [])
+    )
 
     excluded = None if log["error"] is None else "error"
     version = log.get("benchmark_version")
@@ -143,6 +216,8 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
         "benchmark": "agentdojo",
         "unit_id": rel,
         "prompt": prompt,
+        "trusted_task": prompt if user is not None else None,  # no user message: no task given
+        "tool_results": results,
         "label": None if excluded else log["security"],
         "excluded": excluded,
         "cluster": f"{m['suite']}/{m['user_task']}/{m['injection_task']}",
@@ -156,17 +231,17 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
             else "unrecognised",
         },
     }
+    post_notes = () if cut is not None else ("no_marker",)
+    payload = list(injections.values())
     return [
         Unit(**base, variant="whole", content=content, tool_calls=calls),
-        Unit(
-            **base,
-            variant="post_injection",
-            content=post_content,
-            tool_calls=post_calls,
-            notes=() if cut is not None else ("no_marker",),
-        ),
+        Unit(**base, variant="post_injection", content=post_content, tool_calls=post_calls,
+             notes=post_notes),
         Unit(**base, variant="text_only", content=content, tool_calls=[]),
-    ]
+        Unit(**base, variant="payload_whole", content=content, tool_calls=calls, payload=payload),
+        Unit(**base, variant="payload_post_injection", content=post_content,
+             tool_calls=post_calls, notes=post_notes, payload=payload),
+    ]  # fmt: skip
 
 
 # ── InjecAgent ────────────────────────────────────────────────────────
