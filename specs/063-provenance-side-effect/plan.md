@@ -66,3 +66,5 @@ AgentDojo-shaped logs (one user message, one injection): 0 differences on either
 hits and 1,860 P1 hits. Two input differences are by protocol: the task is the first user message
 (the probe joins all user messages), and payload strings are matched one by one (the probe joins
 them with a space).
+
+`tests/unit/test_provenance_probe_parity.py` pins this in the repository: a copy of the probe's rule code as the oracle, 400 seeded synthetic logs, both rules equal on every log.

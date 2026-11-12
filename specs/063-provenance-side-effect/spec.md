@@ -51,14 +51,17 @@ All in `AgentResponse.metadata`, under exactly these keys:
 | --- | --- | --- |
 | `trusted_task` | non-blank string | the text of the first `user` message |
 | `tool_results` | list of `{"message_index": int, "text": str}` | one per `tool` message, in log order, whole |
-| `payload` | list of non-blank strings | the attack text; `[]` on the task-known row |
+| `payload` | list of strings | the attack text; `[]` on the task-known row; blank strings are ignored |
 
 and `message_index` (int) on each `tool_calls` item: the index of the assistant message holding
 the call. A tool result is earlier than a call when its `message_index` is lower. Call arguments are
 read from `arguments`, `args` or OpenAI's `function.arguments` (a JSON string is parsed).
 
-A key with another shape raises `ProvenanceInputError` (a `ValueError`) naming the key, never its
-content. So does a call without an int `message_index` when `tool_results` is given.
+When neither `trusted_task` nor a non-blank `payload` string is given, no key is read at all,
+`tool_results` included: the result is `not_applicable` and the study-v1 path runs. Otherwise a
+key with another shape raises `ProvenanceInputError` (a `ValueError`) naming the key, never its
+content. So does a call without an int `message_index` when `tool_results` is given. A blank
+payload string is ignored rather than refused, so an empty injection value cannot stop a run.
 
 ## Keeping the task and the attack apart
 
@@ -70,8 +73,15 @@ to `prompt`. Two mix-ups are refused with `ProvenanceInputError`:
    equals the prompt. The AgentDojo harness passes `vector=None`, where the task equals the
    prompt by design.
 
-The error reaches the caller of `DetectorPipeline.evaluate`: a silent miss on every trace is worse
-than a stopped run.
+Where the error goes depends on the caller:
+
+- `DetectorPipeline.evaluate` does not catch it, so it reaches its caller.
+- The external benchmark harness (`benchmarks/external_eval/worker.py`) does not catch it either:
+  the worker exits and the run stops with no summary, before any number exists (fail closed).
+- In a ziran scan, `AttackExecutor` (`attack_executor.py`, the per-prompt `except Exception`)
+  catches it, counts it under `prompt_errors` and moves on, so a scan that passes these keys
+  wrongly reports the attack as blocked. No shipped adapter sets them today. The scan path that
+  passes a payload (not built here) must re-raise `ProvenanceInputError`.
 
 ## The evidence record (fixed field names)
 

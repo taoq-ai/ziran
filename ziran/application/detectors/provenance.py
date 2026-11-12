@@ -196,24 +196,25 @@ def _index(value: object) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _inputs(meta: dict[str, Any]) -> tuple[str | None, list[tuple[int, str]], list[str]]:
+def _task_and_payload(meta: dict[str, Any]) -> tuple[str | None, list[str]]:
     task = meta.get("trusted_task")
     if task is not None and (not isinstance(task, str) or not task.strip()):
         raise ProvenanceInputError("trusted_task must be a non-blank string")
+    payload = meta.get("payload", [])
+    if not isinstance(payload, list) or not all(isinstance(p, str) for p in payload):
+        raise ProvenanceInputError("payload must be a list of strings")
+    # a blank payload string (an empty injection) carries no value: ignored, not refused
+    return (norm(task) if task is not None else None), [norm(p) for p in payload if p.strip()]
+
+
+def _results(meta: dict[str, Any]) -> list[tuple[int, str]]:
     results = meta.get("tool_results", [])
     if not isinstance(results, list) or not all(
         isinstance(r, dict) and _index(r.get("message_index")) and isinstance(r.get("text"), str)
         for r in results
     ):
         raise ProvenanceInputError("tool_results must be a list of {message_index: int, text: str}")
-    payload = meta.get("payload", [])
-    if not isinstance(payload, list) or not all(isinstance(p, str) and p.strip() for p in payload):
-        raise ProvenanceInputError("payload must be a list of non-blank strings")
-    return (
-        norm(task) if task is not None else None,
-        [(r["message_index"], norm(r["text"])) for r in results],
-        [norm(p) for p in payload],
-    )
+    return [(r["message_index"], norm(r["text"])) for r in results]
 
 
 # ── The first pass ───────────────────────────────────────────────────
@@ -267,9 +268,11 @@ def provenance(
     """
     meta = response.metadata
     # a duck-typed response (a test double) without a real metadata dict keeps study-v1
-    task, results, payload = _inputs(meta if isinstance(meta, dict) else {})
-    if task is None and not payload:
+    meta = meta if isinstance(meta, dict) else {}
+    task, payload = _task_and_payload(meta)
+    if task is None and not payload:  # study-v1: tool_results alone is never read
         return Provenance(state="not_applicable", rule=None, hit_calls=[])
+    results = _results(meta)
     if task is not None and (task in payload or (payload and task == norm(" ".join(payload)))):
         raise ProvenanceInputError(
             "trusted_task holds the payload text; pass the attack only as payload"

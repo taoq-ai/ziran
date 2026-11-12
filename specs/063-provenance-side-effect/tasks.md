@@ -24,3 +24,10 @@
 - [x] T012 Confirm the four frozen files are byte-identical to `study-v1`
 - [x] T013 ruff check, ruff format, mypy strict, the full test suite with coverage
 - [x] T014 Record the change in `CLAUDE.md`
+
+## Phase 4: fix round 1 (gates at 57381bc)
+
+- [x] T015 Return not_applicable before any shape check when neither task nor payload is given; ignore blank payload strings
+- [x] T016 Tests for the long-value branch, empty and bool atoms, P1 on read calls, both payload-guard clauses, the boundaries and the hit score
+- [x] T017 Commit a seeded parity test against a copy of the frozen probe (`tests/unit/test_provenance_probe_parity.py`)
+- [x] T018 Spec: the error path per caller; docs: the reserved metadata keys
