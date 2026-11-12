@@ -111,10 +111,6 @@ class DetectorThresholds(BaseModel):
         description="Share of band units the hybrid sends to its model jobs (spec 067). "
         "0.0 is deterministic mode: no model call.",
     )
-    typed_chains: bool = Field(
-        default=False,
-        description="Add typed chains (V2 role typing, spec 066) to the audit. Off by default.",
-    )
 
     @model_validator(mode="after")
     def _hit_above_safe(self) -> DetectorThresholds:

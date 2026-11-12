@@ -13,30 +13,29 @@ registers, and merges a reply with the first pass, so no reply removes a first-p
    with no usable reply stays listed for review.
 
 A reply is an untrusted model output (OWASP LLM01): each parse accepts only its closed form.
-Untrusted text is rendered as ``| `` data lines between markers it cannot spell.
+Untrusted text is masked (``mask.py``) and rendered as ``| `` data lines between markers it
+cannot spell.
 """
 
 from __future__ import annotations
 
-import functools
 import hashlib
 import json
 import re
 import unicodedata
-from collections import deque
+from collections import defaultdict, deque
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from ziran.application.detectors.provenance import (
-    _args,
-    _index,
-    _name,
+    call_args,
+    call_name,
     evidence_values,
     is_state_changing,
 )
 from ziran.application.hybrid import UnusableReplyError, decide
+from ziran.application.hybrid.mask import mask
 from ziran.application.hybrid.prompts import Prompt, load
 from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
-from ziran.application.static_analysis.config import StaticAnalysisConfig
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -73,19 +72,20 @@ def _lookalike(word: str) -> re.Pattern[str]:
 
 
 _TRACE, _AGENT = _lookalike("TRACEDATA"), _lookalike("AGENTDATA")
-_TOOLS = re.compile(r"(?i)<\s*/?\s*tools\s*>")  # g11_cap_spike.MARKER, after NFKC
+# g11_cap_spike.MARKER's language, after NFKC; one optional group, so no quadratic backtracking
+_TOOLS = re.compile(r"(?i)<\s*(?:/\s*)?tools\s*>")
 _MARK = "[marker-like text]"
 
 
 def _data(text: object, marker: re.Pattern[str]) -> str:
-    """Untrusted text as record lines, each starting with '| '."""
-    clean = marker.sub(_MARK, str(text))
+    """Untrusted text, masked, as record lines, each starting with '| '."""
+    clean = marker.sub(_MARK, mask(str(text)))
     return "\n".join("| " + line for line in clean.splitlines() or [""])
 
 
 def _line(text: object, marker: re.Pattern[str]) -> str:
-    """A heading line holding untrusted text: its line breaks become spaces."""
-    return " ".join(marker.sub(_MARK, str(text)).splitlines())
+    """A heading line holding untrusted text, masked: its line breaks become spaces."""
+    return " ".join(marker.sub(_MARK, mask(str(text))).splitlines())
 
 
 def _json(value: object) -> str:
@@ -98,10 +98,6 @@ def _reply(content: str) -> Any:
         return json.loads(content)
     except RecursionError:
         raise ValueError("reply nests too deep") from None
-
-
-def _unit(job: str, parts: Iterable[str]) -> str:
-    return f"{job}/" + hashlib.sha256("\0".join(parts).encode("utf-8")).hexdigest()[:16]
 
 
 # ── Job 1: trace judge ───────────────────────────────────────────────
@@ -117,24 +113,44 @@ class Trace(NamedTuple):
 
 
 def render_trace(prompt: Prompt, response: AgentResponse) -> str:
-    """The judge's request text: the prompt, then task, calls with arguments and evidence values,
-    results (a failed call's ``error: ...`` after its content) cut to CUT, final answer and
-    payload, as the spike rendered them. A result answers the earliest open call before it,
-    as AgentDojo orders them.
+    """The judge's request text, as the spike's ``render_trace`` built it from the log: the
+    prompt, then the task, the calls with arguments and evidence values, each result (a failed
+    call's ``error: ...`` after its content) cut to CUT, the final answer and the payload.
+
+    The spike read the whole log. Where the detector's keys hold less, the renderer reads:
+
+    - ``metadata["user_messages"]``: every user message, joined as the task; else
+      ``trusted_task``, the first one, which the detector reads;
+    - ``metadata["final_answer"]``: the last message when it is an assistant's with no call;
+      else ``content``;
+    - ``id`` on a call and ``tool_call_id`` on a result: a result answers the first open call
+      with its id, as the spike matched them (absent ids match too, so results then answer in
+      call order); with none open it is headed by its ``name``.
 
     Raises:
         ProvenanceInputError: a provenance key is malformed.
+        ValueError: ``user_messages`` is not a list of strings or ``final_answer`` not a string.
     """
-    values = evidence_values(response)  # checks the keys read below
+    values = evidence_values(response)  # checks the provenance keys read below
     meta = response.metadata if isinstance(response.metadata, dict) else {}
+    users, final = meta.get("user_messages"), meta.get("final_answer", response.content)
+    if users is not None and not (
+        isinstance(users, list) and all(isinstance(u, str) for u in users)
+    ):
+        raise ValueError("user_messages must be a list of strings")
+    if not isinstance(final, str):
+        raise ValueError("final_answer must be a string")
+    task = "\n".join(users) if users is not None else meta.get("trusted_task") or ""
     calls = response.tool_calls
     steps: list[str] = []
-    open_calls: deque[int] = deque()
+    unmatched: defaultdict[object, deque[int]] = defaultdict(deque)
 
     def call_lines(i: int) -> None:
         grounded, tainted, payload = values[i]
-        sc = "yes" if is_state_changing(_name(calls[i])) else "no"
-        steps.append(_line(f"[call {i}] {_name(calls[i])} {_json(_args(calls[i]))}", _TRACE))
+        sc = "yes" if is_state_changing(call_name(calls[i])) else "no"
+        steps.append(
+            _line(f"[call {i}] {call_name(calls[i])} {_json(call_args(calls[i]))}", _TRACE)
+        )
         steps.append(
             _line(
                 f"  evidence: state-changing {sc}; task values {_json(grounded)}; values from "
@@ -142,14 +158,15 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
                 _TRACE,
             )
         )
-        open_calls.append(i)
+        unmatched[calls[i].get("id")].append(i)
 
     i = 0
     for result in meta.get("tool_results") or []:
         while i < len(calls) and _before(calls[i], result["message_index"]):
             call_lines(i)
             i += 1
-        name = f"call {open_calls.popleft()}" if open_calls else "call ?"
+        ids = unmatched[result.get("tool_call_id")]
+        name = f"call {ids.popleft()}" if ids else _line(result.get("name"), _TRACE)
         error = result.get("error")  # a failed call (ziran#493); the detector never reads it
         text = "\n".join(x for x in (result["text"], f"error: {error}" if error else "") if x)
         steps += [f"[result of {name}]", _data(text[:CUT], _TRACE)]
@@ -158,11 +175,11 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
     record = [
         BEGIN,
         "TASK:",
-        _data(meta.get("trusted_task") or "", _TRACE),
+        _data(task, _TRACE),
         "STEPS:",
         *steps,
         "FINAL ANSWER:",
-        _data(response.content, _TRACE),
+        _data(final, _TRACE),
         "PAYLOAD:",
         _data("\n".join(meta.get("payload") or []), _TRACE),
         END,
@@ -172,7 +189,7 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
 
 def _before(call: dict[str, Any], at: int) -> bool:
     idx = call.get("message_index")
-    return _index(idx) and idx < at
+    return type(idx) is int and idx < at
 
 
 def parse_trace(unit: str, content: str) -> Trace | None:
@@ -227,7 +244,7 @@ def render_tools(prompt: Prompt, tools: Sequence[str]) -> str:
     """The v1 request: tools numbered from 1, names only, one a line."""
     block = "\n".join(
         f"Tool {i}. "
-        + _TOOLS.sub(_MARK, " ".join(unicodedata.normalize("NFKC", name).splitlines()))
+        + _TOOLS.sub(_MARK, " ".join(mask(unicodedata.normalize("NFKC", name)).splitlines()))
         for i, name in enumerate(tools, 1)
     )
     # the count first, so a tool name never meets a slot
@@ -262,16 +279,24 @@ async def classify_tools(
 ) -> tuple[dict[str, frozenset[str]], HybridResult[dict[str, frozenset[str]]]]:
     """Role overrides for the tools a usable reply typed, and the seam's result.
 
-    A tool ziran's alias table maps keeps its roles and is never sent. A tool typed ``unknown``
+    A tool ziran's alias table maps keeps its roles and is never sent, nor is a name holding a
+    control character (NUL included), which keeps its name rules. A tool typed ``unknown``
     on every role gets no role (ziran-paper#128); a tool with no usable reply gets no override,
     so the name rules stand.
     """
     prompt = load("capability", CAPABILITY_VERSION)
-    band = sorted({t for t in tools if canonical_tool_name(t) == t})
+    band = sorted(
+        {
+            t
+            for t in tools
+            if canonical_tool_name(t) == t and not any(unicodedata.category(c) == "Cc" for c in t)
+        }
+    )
     chunks: dict[str, list[str]] = {}
     for start in range(0, len(band), PER_REQUEST):
         chunk = band[start : start + PER_REQUEST]
-        chunks[_unit("capability", chunk)] = chunk
+        digest = hashlib.sha256("\0".join(chunk).encode("utf-8")).hexdigest()  # no NUL in a name
+        chunks[f"capability/{digest[:16]}"] = chunk
 
     def parse(unit: str, content: str) -> dict[str, frozenset[str]] | None:
         roles = _tool_roles(content, len(chunks[unit]))
@@ -299,17 +324,6 @@ A_BEGIN, A_END = "<<<AGENT_DATA_BEGIN>>>", "<<<AGENT_DATA_END>>>"
 REASONS = ("plausible", "no_untrusted_input", "no_flow", "approval_step", "sink_restricted")
 
 
-@functools.cache
-def _secrets() -> list[re.Pattern[str]]:
-    return [p for c in StaticAnalysisConfig.default().secret_checks for p in c.compiled_patterns]
-
-
-def _mask(text: str) -> str:
-    for pattern in _secrets():
-        text = pattern.sub("[masked]", text)
-    return text
-
-
 def pairs_of(chains: Iterable[DangerousChain]) -> list[tuple[str, str]]:
     """An agent's typed pairs, each once, exfiltration pairs first, at most PER_REQUEST."""
     typed = sorted(
@@ -332,32 +346,26 @@ def render_pairs(prompt: Prompt, agent: ClaudeCodeAgent, chains: Sequence[Danger
     record = [
         A_BEGIN,
         "AGENT:",
-        _data(_mask(definition), _AGENT),
+        _data(definition, _AGENT),
         "ROLES:",
-        _data(_mask("\n".join(f"{t}: {', '.join(r) or 'none'}" for t, r in roles.items())), _AGENT),
+        _data("\n".join(f"{t}: {', '.join(r) or 'none'}" for t, r in roles.items()), _AGENT),
         "PAIRS:",
-        *(
-            _line(_mask(f"[pair {n}] {a} -> {b}"), _AGENT)
-            for n, (a, b) in enumerate(pairs_of(chains), 1)
-        ),
+        *(_line(f"[pair {n}] {a} -> {b}", _AGENT) for n, (a, b) in enumerate(pairs_of(chains), 1)),
         A_END,
     ]
     return prompt.text.rstrip("\n") + "\n\n" + "\n".join(record)
 
 
-def _answers(content: str, n: int) -> list[str] | None:
+def _answers(content: str) -> list[str] | None:
+    """Each pair's answer; a wrong count fails ``zip(strict=True)`` in the job's parse."""
     r = _reply(content)
     pairs = r.get("pairs") if isinstance(r, dict) and set(r) == {"pairs"} else None
-    ok = (
-        isinstance(pairs, list)
-        and len(pairs) == n
-        and all(
-            isinstance(p, dict)
-            and set(p) == {"answer", "reason"}
-            and p["answer"] in ("yes", "no", "unsure")
-            and p["reason"] in REASONS
-            for p in pairs
-        )
+    ok = isinstance(pairs, list) and all(
+        isinstance(p, dict)
+        and set(p) == {"answer", "reason"}
+        and p["answer"] in ("yes", "no", "unsure")
+        and p["reason"] in REASONS
+        for p in pairs
     )
     return [p["answer"] for p in pairs] if ok else None  # type: ignore[union-attr]
 
@@ -375,7 +383,7 @@ async def judge_pairs(
     pairs = {u: pairs_of(chains) for u, (_, chains) in agents.items()}
 
     def parse(unit: str, content: str) -> dict[tuple[str, str], str] | None:
-        answers = _answers(content, len(pairs[unit]))
+        answers = _answers(content)
         return None if answers is None else dict(zip(pairs[unit], answers, strict=True))
 
     return await decide(

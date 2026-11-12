@@ -32,7 +32,8 @@ yet. This item ships the three jobs of protocol section 2 on that seam:
 7. **Repeat index** as an optional fifth key part. A key without it equals today's four-part key
    (ziran-paper#128's worked example).
 8. **Settings.** `hybrid_route_share` (config and `ziran scan --hybrid-route-share`), default
-   0.0. Beside it `typed_chains` (config and `ziran audit --typed-chains`), default off.
+   0.0. Beside it, typed chains: `ziran audit --typed-chains`, default off. Audit reads no
+   config file, as on develop.
    `claude_code_audit.agent_chains` gains `typed` and `role_overrides`.
 
 No live model call anywhere. Deterministic mode is unchanged.
@@ -68,8 +69,15 @@ then their bytes and sha256 equal the spike files'.
   `UnusableReplyError(cause)` to name the pending cause.
 - **FR-006**: `request_key(..., repeat=0)` is the four-part key; `repeat >= 1` adds
   `str(repeat)` as a fifth length-framed part. `RecordReplayClient.complete(repeat=...)`.
-- **FR-007**: `DetectorThresholds.hybrid_route_share` in [0, 1], default 0.0, and
-  `typed_chains`, default False.
+- **FR-002b**: The renderer reads what the spike read from the log: every user message as the
+  task (`metadata["user_messages"]`, else `trusted_task`), the final answer
+  (`metadata["final_answer"]`, else `content`), and results matched to calls by id (`id` on a
+  call, `tool_call_id` on a result, `name` when none is open). The detector still reads the
+  first user message only. `HttpAgentAdapter` drops a target's copy of the two judge keys.
+- **FR-002c**: Every job masks untrusted text with the token rules of ziran-paper
+  `annotation/mask.py` (SA001 values, token prefixes, JWTs) and PEM private key blocks, as `***`.
+- **FR-007**: `DetectorThresholds.hybrid_route_share` in [0, 1], default 0.0. The scan flag
+  overrides it, 0.0 included. `CAUSES` lists every pending cause a replay can give.
 - **FR-008**: No module under `ziran/` outside `application/hybrid` imports the seam, so no
   shipped path can send (spec 064's guard still holds).
 
@@ -90,12 +98,12 @@ lines of code. They split to their own item (see the PR). Wiring a record-and-re
   planner reads the rule as "a reply cannot remove a name-rule role either"; the merge then takes
   the union, at unmeasured dev counts.
 - **Known to ziran's tables** means `canonical_tool_name(t) != t`, #492's `table` origin.
-- **A tool result answers the earliest open call before it.** #493's `tool_results` hold no call
-  id, and AgentDojo answers calls in order. The spike matched by id. Overturn: a log whose tool
-  messages answer out of order; the result then needs its call index.
+- **The judge's extra keys are optional.** Without them the task is the first user message, the
+  final answer is `content` and results answer calls in order. G11-HYBRID-HARNESS passes them,
+  so the fresh and reserve renders equal the spike's.
 - **Plausibility v0 is new wording.** No spike exists, and the design's appendix C leaves the
   wording to the builders. It renders the agent's name, description, tools and instructions with
-  SA001 secrets masked, each tool's roles and the pairs, exfiltration pairs first. Permission and
+  secrets masked, each tool's roles and the pairs, exfiltration pairs first. Permission and
   hook files are not on a `ClaudeCodeAgent`, so they are not rendered. Overturn: the freeze
   addendum registers other inputs; that is a v1.
 - **`ziran scan --hybrid-route-share` above 0.0 is refused**, by the seam's own rule: ziran scan

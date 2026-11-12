@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 #: ``AgentResponse.metadata`` keys reserved for the side-effect detector's provenance rules
 #: (spec 063). The caller sets them; an adapter never forwards a target's copy (spec 065).
 PROVENANCE_METADATA_KEYS = ("trusted_task", "tool_results", "payload")
+#: Keys only the hybrid's trace judge reads, to render a trace as the spike did (spec 067).
+JUDGE_METADATA_KEYS = ("user_messages", "final_answer")
 
 
 class AgentResponse(BaseModel):

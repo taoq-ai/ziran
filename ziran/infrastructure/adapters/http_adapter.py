@@ -21,6 +21,7 @@ from ziran.domain.entities.target import (
     TargetConfig,
 )
 from ziran.domain.interfaces.adapter import (
+    JUDGE_METADATA_KEYS,
     PROVENANCE_METADATA_KEYS,
     AgentResponse,
     AgentState,
@@ -180,10 +181,9 @@ class HttpAgentAdapter(BaseAgentAdapter):
         self._conversation.append({"role": "assistant", "content": content})
 
         tool_calls = result.get("tool_calls", [])
-        # the provenance inputs (spec 063) are the caller's to set, never the target's
-        metadata = {
-            k: v for k, v in result.get("metadata", {}).items() if k not in PROVENANCE_METADATA_KEYS
-        }
+        # the provenance and judge inputs (specs 063, 067) are the caller's, never the target's
+        reserved = PROVENANCE_METADATA_KEYS + JUDGE_METADATA_KEYS
+        metadata = {k: v for k, v in result.get("metadata", {}).items() if k not in reserved}
 
         return AgentResponse(
             content=content,

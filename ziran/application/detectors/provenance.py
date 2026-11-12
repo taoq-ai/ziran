@@ -167,7 +167,8 @@ def found(atom: str, text: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(atom)}(?!\w)", text) is not None
 
 
-def _name(call: dict[str, Any]) -> str:
+def call_name(call: dict[str, Any]) -> str:
+    """A call's tool name. Shared with the trace judge's rendering (spec 067): keep it stable."""
     if "tool" in call:
         return str(call["tool"])
     if "name" in call:
@@ -176,7 +177,8 @@ def _name(call: dict[str, Any]) -> str:
     return str(fn.get("name", "")) if isinstance(fn, dict) else ""
 
 
-def _args(call: dict[str, Any]) -> object:
+def call_args(call: dict[str, Any]) -> object:
+    """A call's arguments, a JSON string parsed. Shared with the trace judge's rendering."""
     fn = call.get("function")
     args = call.get(
         "arguments", call.get("args", fn.get("arguments") if isinstance(fn, dict) else None)
@@ -245,7 +247,7 @@ def _kinds(
     grounded: Matched = []
     tainted: Matched = []
     carried: Matched = []
-    for path, atom in atoms(_args(call)):
+    for path, atom in atoms(call_args(call)):
         if task is not None and found(atom, task):
             grounded.append((path, atom))
             continue
@@ -266,7 +268,7 @@ def _evidence(
     grounded, tainted, carried = _kinds(i, call, task, results, payload)
     return CallEvidence(
         index=i,
-        state_changing=is_state_changing(_name(call)),
+        state_changing=is_state_changing(call_name(call)),
         grounded_count=len(grounded),
         grounded_paths=sorted({p for p, _ in grounded}),
         tainted_count=len(tainted),

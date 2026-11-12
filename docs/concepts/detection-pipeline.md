@@ -342,6 +342,24 @@ Caveats:
 - The counts cover only evaluations run in the current process. Results restored from
   a checkpoint are not counted.
 
+## Hybrid route share
+
+`hybrid_route_share` in `.ziran/detectors.yaml` (or `ziran scan --hybrid-route-share`, which
+overrides it) is the share of uncertain traces, those the provenance rules leave open, that the
+hybrid sends to its model judge. It runs from `0.0` to `1.0`, and the default `0.0` is
+deterministic mode: no model call.
+
+```yaml
+# .ziran/detectors.yaml
+hybrid_route_share: 0.0
+```
+
+ziran sends no hybrid call itself. The hybrid's jobs read stored replies through a
+record-and-replay client, so `ziran scan` refuses a share above `0.0`. A provenance hit always
+stays reported as an attempt, and a trace with no usable reply keeps its deterministic verdict.
+
+Typed chains are an audit setting, not a detector one: `ziran audit --typed-chains`.
+
 ## Extending the Pipeline
 
 All detectors implement the `BaseDetector` interface:

@@ -10,7 +10,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 import click
 from rich.console import Console
@@ -29,9 +29,6 @@ from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli.reports import ReportGenerator
-
-if TYPE_CHECKING:
-    from ziran.application.detectors.thresholds import DetectorThresholds
 
 console = Console()
 
@@ -348,7 +345,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     type=click.FloatRange(0.0, 1.0),
     default=None,
     help="Share of uncertain traces sent to the hybrid's model judge, 0.0 to 1.0. Default 0.0 "
-    "(deterministic mode, no model call); hybrid_route_share in .ziran/detectors.yaml sets it.",
+    "(deterministic mode, no model call); it overrides hybrid_route_share in .ziran/detectors.yaml.",
 )
 def scan(
     framework: str | None,
@@ -401,7 +398,7 @@ def scan(
         ziran scan --target ./target.yaml --protocol a2a
         ziran scan --target ./target.yaml --phases reconnaissance --phases trust_building
     """
-    if hybrid_route_share:
+    if hybrid_route_share:  # the flag wins over the config file, 0.0 included
         _no_hybrid_client()
 
     # Enable OpenTelemetry if requested
@@ -611,6 +608,7 @@ def scan(
             llm_rpm=llm_rpm,
             llm_tpm=llm_tpm,
             llm_max_retries=llm_max_retries,
+            hybrid_route_share=hybrid_route_share,
         )
         if detector_config is not None:
             detector_config = dataclasses.replace(
@@ -629,6 +627,11 @@ def scan(
                 console.print(f"[dim]LLM judge ensemble: {n_judges} judges[/dim]")
             if thresholds.prefilter.enabled:
                 console.print(f"[dim]LLM judge prefilter: {thresholds.prefilter.model}[/dim]")
+    elif hybrid_route_share is None and _config_share() > 0:
+        console.print(
+            "[yellow]Warning:[/yellow] hybrid_route_share in .ziran/detectors.yaml is ignored: "
+            "ziran sends no hybrid call, so the scan runs at 0.0 (deterministic mode)"
+        )
 
     if max_cost is not None:
         if llm_client is None:
@@ -1273,10 +1276,10 @@ def _display_policy_verdict(verdict: Any) -> None:
     help="Also write the reported findings as SARIF v2.1.0 (GitHub code scanning).",
 )
 @click.option(
-    "--typed-chains/--no-typed-chains",
-    default=None,
-    help="Add typed chains (tool roles from names) to Claude Code findings. Off by default; "
-    "typed_chains in .ziran/detectors.yaml sets the default.",
+    "--typed-chains",
+    is_flag=True,
+    default=False,
+    help="Add typed chains (tool roles from names) to Claude Code findings. Off by default.",
 )
 def audit(
     path: str,
@@ -1285,7 +1288,7 @@ def audit(
     baseline_path: str | None,
     write_baseline_path: str | None,
     sarif_path: str | None,
-    typed_chains: bool | None,
+    typed_chains: bool,
 ) -> None:
     """Static security analysis of agent source code.
 
@@ -1327,8 +1330,6 @@ def audit(
 
     if baseline_path and write_baseline_path:
         raise click.UsageError("--baseline and --write-baseline are mutually exclusive")
-    if typed_chains is None:
-        typed_chains = _detector_thresholds().typed_chains
     if typed_chains and (baseline_path or write_baseline_path):
         raise click.UsageError("a baseline holds no typed chains; drop --typed-chains")
 
@@ -1843,17 +1844,18 @@ def _no_hybrid_client() -> None:
     )
 
 
-def _detector_thresholds() -> DetectorThresholds:
-    """``.ziran/detectors.yaml``, or the defaults when it is absent."""
+def _config_share() -> float:
+    """``hybrid_route_share`` of ``.ziran/detectors.yaml`` for a warning only: 0.0 when the file
+    is absent or invalid, since a scan with no LLM backbone does not use the file (spec 041)."""
     from ziran.infrastructure.config.detectors import (
         DetectorConfigError,
         load_detector_thresholds,
     )
 
     try:
-        return load_detector_thresholds()
-    except DetectorConfigError as exc:
-        raise click.ClickException(str(exc)) from None
+        return load_detector_thresholds().hybrid_route_share
+    except DetectorConfigError:
+        return 0.0
 
 
 def _scan_detector_config(
@@ -1862,6 +1864,7 @@ def _scan_detector_config(
     llm_rpm: int | None,
     llm_tpm: int | None,
     llm_max_retries: int | None,
+    hybrid_route_share: float | None = None,
 ) -> DetectorConfig | None:
     """Ensemble and prefilter detector config for ``ziran scan`` from ``.ziran/detectors.yaml``.
 
@@ -1879,7 +1882,7 @@ def _scan_detector_config(
         thresholds = load_detector_thresholds()
     except DetectorConfigError as exc:
         raise click.ClickException(str(exc)) from None
-    if thresholds.hybrid_route_share:
+    if hybrid_route_share is None and thresholds.hybrid_route_share:  # the flag wins
         _no_hybrid_client()
     ensemble, prefilter = thresholds.ensemble, thresholds.prefilter
     if not (ensemble.enabled or prefilter.enabled):

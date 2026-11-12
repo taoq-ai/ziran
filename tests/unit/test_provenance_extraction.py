@@ -22,7 +22,8 @@ def _develop_evidence(
     results: list[tuple[int, str]],
     payload: str,
 ) -> pv.CallEvidence:
-    """``provenance._evidence`` at develop 94d725e, verbatim but for the module prefix."""
+    """``provenance._evidence`` at develop 94d725e, verbatim but for the module prefix and the
+    public names call_args and call_name (spec 067)."""
     earlier: list[str] = []
     if results:
         at = call.get("message_index")
@@ -32,7 +33,7 @@ def _develop_evidence(
             )
         earlier = [text for idx, text in results if idx < at]
     grounded, tainted, carried = [], [], []
-    for path, atom in pv.atoms(pv._args(call)):
+    for path, atom in pv.atoms(pv.call_args(call)):
         if task is not None and pv.found(atom, task):
             grounded.append(path)
             continue
@@ -42,7 +43,7 @@ def _develop_evidence(
             carried.append(path)
     return pv.CallEvidence(
         index=i,
-        state_changing=pv.is_state_changing(pv._name(call)),
+        state_changing=pv.is_state_changing(pv.call_name(call)),
         grounded_count=len(grounded),
         grounded_paths=sorted(set(grounded)),
         tainted_count=len(tainted),
