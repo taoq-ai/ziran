@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 from pathlib import Path
 
@@ -12,7 +13,8 @@ from ziran.application.hybrid.prompts import PROMPTS, Prompt, load
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "hybrid_prompts"
 REPO = Path(__file__).parents[2]
-BASE = "origin/develop"
+# CI sets ZIRAN_PROMPT_BASE: the PR's base branch, or the commit the new one replaced
+BASE = os.environ.get("ZIRAN_PROMPT_BASE", "origin/develop")
 
 
 @pytest.mark.unit
@@ -78,6 +80,8 @@ def _edited(repo: Path, base: str) -> list[str]:
 def test_a_merged_prompt_version_is_never_edited_or_removed() -> None:
     """Every prompt file on the base branch is byte-equal at the head (CI fetches develop)."""
     if _git(REPO, "rev-parse", "--verify", "--quiet", f"{BASE}^{{commit}}").returncode != 0:
+        if os.environ.get("CI"):  # in CI an unfetched base fails, so the guard is never silent
+            pytest.fail(f"the prompt base {BASE} is not fetched")
         pytest.skip(f"{BASE} is not fetched; the CI test job fetches it")
     assert _edited(REPO, BASE) == [], "merged prompt versions edited or removed; add v<N+1>"
 

@@ -28,7 +28,10 @@ This item builds the seam only:
    model, `0.0` by default (deterministic mode, no call). Band units are taken in ascending
    sha256-of-unit-id order.
 5. A pending or unparsable result never changes a verdict. The unit keeps its deterministic
-   verdict and is counted as `llm_pending`.
+   verdict and is counted in `llm_pending` with its cause. Only band units are ever sent, and a
+   usable reply is combined with the first-pass verdict by the job's merge rule, so a reply
+   cannot remove a first-pass decision the protocol keeps (section 2: a provenance hit stays an
+   attempt).
 6. The request file holds benchmark or user text. It is written only to the named path and never
    logged.
 
@@ -70,7 +73,12 @@ then every result equals develop's.
   sends the text as the one user message.
 - A blank text or a unit id the sender would refuse: refused at record time.
 - The same key recorded twice: written once.
-- A replies file with a malformed line or a repeated key: refused, naming the line, never its text.
+- A replies file with a malformed line, an outcome outside the sender's seven classes, or a
+  repeated key: refused, naming the line, never its text.
+- A symlink at the request path or at any parent folder, dangling or not: refused before any
+  read or write; the file is opened with `O_NOFOLLOW` and created owner-only.
+- A unit outside the band: never sent, its first-pass verdict passed through.
+- A band unit with no first-pass verdict: refused.
 - A stored outcome other than `reply` (`unparsed`, `no_text`, `not_sent_oversize`,
   `step_stopped`, `no_reply_at_bound`, `scan_hit`): pending, with the outcome as the reason.
 
@@ -86,9 +94,11 @@ then every result equals develop's.
 - **FR-005**: Replay mode reads ziran-paper's `outcomes.jsonl` rows `{"key", "unit", "job",
   "outcome", "fields"}`. A `reply` row returns its fields as JSON content; any other row or a
   missing key returns `PendingResponse`.
-- **FR-006**: `decide()` routes the first `hybrid_route_share` of band units, asks the client, and
-  keeps the deterministic verdict for every unit with a pending or unparsable reply, listing it in
-  `llm_pending`.
+- **FR-006**: `decide()` routes the first `hybrid_route_share` of the band units only, asks the
+  client, and sets a usable reply's unit to `merge(first_pass, reply)`, the job's rule. Every unit
+  with a pending or unparsable reply keeps its first-pass verdict and is listed in `llm_pending`,
+  a mapping from unit to cause: the pending reason (`recorded`, `missing` or the sender's outcome
+  class) or `unusable_reply`.
 - **FR-007**: Neither the client nor `decide()` logs a request or reply text.
 - **FR-008**: No existing module imports the new ones, so no shipped path changes.
 
@@ -119,5 +129,20 @@ rendering; thresholds; `benchmarks/replay_llm_client.py`, left as it is.
 - **The repeat index is not in the key yet.** Protocol section 4 sends 200 units a second time
   under a repeat index. Adding it later as an optional part that is absent at repeat 0 leaves
   every key built here unchanged.
-- **The base-branch check needs develop in CI.** The test workflow fetches `develop` at depth 1
-  before the unit tests. Without the ref the test skips with its reason.
+- **The base-branch check compares against the run's own base.** On a pull request the test
+  workflow fetches `github.base_ref` at depth 1; on a push it fetches the commit the push moved
+  past (`github.event.before`), or compares the commit with itself for a new branch. The test
+  reads the base from `ZIRAN_PROMPT_BASE`. In CI an unfetched base fails the test; locally it
+  skips.
+- **The key encoding is a third form.** `request_key` is length-framed over the prompt text,
+  model id, client version and rendered text. ziran-paper's `chainset.py` and
+  `g11_judge_spike.py` key JSON over the prompt sha256, model, CLI version and more (effort,
+  repeat). Same inputs give different keys, so a request keyed two ways could be sent twice and a
+  ziran replay cannot read chainset-keyed outcomes. The planner adds G11-PROTOCOL-DEV2 to register
+  one formula before the freeze addendum; this item makes no key change until then. What would
+  overturn it: that item registering another formula, which this function then adopts.
+- **The merge rule belongs to the job.** `decide()` takes `merge` as a required argument: each job
+  item supplies its rule (for the trace judge, a provenance hit stays an attempt). The seam keeps
+  no default, so no job can drop a first-pass decision by leaving it out.
+- **`PendingResponse` sits in `ziran/infrastructure/llm/base.py`, beside `LLMResponse`.** The
+  application layer imports it at runtime from the port module, not from the adapter.

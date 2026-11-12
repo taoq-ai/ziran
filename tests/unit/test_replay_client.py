@@ -12,11 +12,8 @@ from typing import Any
 
 import pytest
 
-from ziran.infrastructure.llm.replay_client import (
-    PendingResponse,
-    RecordReplayClient,
-    request_key,
-)
+from ziran.infrastructure.llm.base import PendingResponse
+from ziran.infrastructure.llm.replay_client import RecordReplayClient, request_key
 
 PROMPT = "Judge this trace.\n\n{input}\n"
 MODEL = "gpt-5.6-luna"
@@ -126,6 +123,57 @@ async def test_a_text_with_a_line_separator_stays_one_line(tmp_path: Path) -> No
 
 
 @pytest.mark.unit
+def test_a_planted_link_at_the_request_path_is_refused(tmp_path: Path) -> None:
+    target = tmp_path / "elsewhere.txt"
+    target.write_text("keep\n")
+    link = tmp_path / "judge.requests.jsonl"
+    link.symlink_to(target)
+    with pytest.raises(ValueError, match="symlink"):
+        RecordReplayClient(MODEL, VERSION, record_to=link)
+    assert target.read_text() == "keep\n"
+
+
+@pytest.mark.unit
+def test_a_dangling_link_at_the_request_path_is_refused(tmp_path: Path) -> None:
+    target = tmp_path / "not-yet.txt"
+    link = tmp_path / "judge.requests.jsonl"
+    link.symlink_to(target)
+    with pytest.raises(ValueError, match="symlink"):
+        RecordReplayClient(MODEL, VERSION, record_to=link)
+    assert not target.exists()
+
+
+@pytest.mark.unit
+def test_a_linked_parent_folder_is_refused(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "linked").symlink_to(real, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink"):
+        RecordReplayClient(MODEL, VERSION, record_to=tmp_path / "linked" / "j.requests.jsonl")
+    assert list(real.iterdir()) == []
+
+
+@pytest.mark.unit
+async def test_a_link_planted_after_construction_is_not_followed(tmp_path: Path) -> None:
+    out = tmp_path / "judge.requests.jsonl"
+    client = RecordReplayClient(MODEL, VERSION, record_to=out)
+    target = tmp_path / "elsewhere.txt"
+    target.write_text("keep\n")
+    out.symlink_to(target)
+    with pytest.raises(OSError):
+        await client.complete(_user(TEXT), job="trace_judge", unit="u-1", prompt=PROMPT)
+    assert target.read_text() == "keep\n"
+
+
+@pytest.mark.unit
+async def test_a_new_request_file_is_owner_only(tmp_path: Path) -> None:
+    out = tmp_path / "judge.requests.jsonl"
+    client = RecordReplayClient(MODEL, VERSION, record_to=out)
+    await client.complete(_user(TEXT), job="trace_judge", unit="u-1", prompt=PROMPT)
+    assert out.stat().st_mode & 0o077 == 0
+
+
+@pytest.mark.unit
 def test_record_path_must_be_a_requests_file(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"\.requests\.jsonl"):
         RecordReplayClient(MODEL, VERSION, record_to=tmp_path / "judge.jsonl")
@@ -218,6 +266,8 @@ async def test_replay_under_another_model_misses(tmp_path: Path) -> None:
         "[1]\n",
         json.dumps({"key": "k" * 64, "outcome": "reply", "fields": {}}) + "\n",
         json.dumps({"key": "a" * 64, "outcome": "reply", "fields": None}) + "\n",
+        json.dumps({"key": "a" * 64, "outcome": "replied", "fields": {}}) + "\n",
+        json.dumps({"key": "a" * 64, "outcome": ["reply"], "fields": {}}) + "\n",
         json.dumps({"key": "a" * 64, "outcome": "reply", "fields": {}}) * 1
         + "\n"
         + json.dumps({"key": "a" * 64, "outcome": "no_text"})

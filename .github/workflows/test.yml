@@ -29,8 +29,21 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --group test --extra all
 
-      - name: Fetch develop for the prompt immutability test (spec 064)
-        run: git fetch --no-tags --depth=1 origin +refs/heads/develop:refs/remotes/origin/develop
+      - name: Fetch the base for the prompt immutability test (spec 064)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+            echo "ZIRAN_PROMPT_BASE=origin/$BASE_REF" >> "$GITHUB_ENV"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --no-tags --depth=1 origin "$BEFORE"
+            echo "ZIRAN_PROMPT_BASE=$BEFORE" >> "$GITHUB_ENV"
+          else
+            # a new branch has no earlier commit to compare: compare the commit with itself
+            echo "ZIRAN_PROMPT_BASE=HEAD" >> "$GITHUB_ENV"
+          fi
 
       - name: Run unit tests
         run: >-
