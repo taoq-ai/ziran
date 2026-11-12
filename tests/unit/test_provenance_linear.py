@@ -78,19 +78,24 @@ def test_atoms_of_a_long_value_equal_the_frozen_findall() -> None:
 
 
 def _assert_linear(run: Callable[[int], object]) -> None:
-    """Quadrupling the input stays under 8 times the time (a quadratic pattern takes about 16)."""
+    """Quadrupling the input stays under 8 times the time (a quadratic pattern takes about 16).
+
+    CPU time (``process_time``), so other load on the runner does not count, and best of three:
+    one slow run never fails the test. Two large runs both at 12 times or more (quadratic is
+    about 16) fail without the third, so a quadratic pattern fails in seconds.
+    """
 
     def timed(size: int) -> float:
-        start = time.perf_counter()
+        start = time.process_time()
         run(size)
-        return time.perf_counter() - start
+        return time.process_time() - start
 
-    # 32 KB to 128 KB, so a quadratic pattern fails in seconds rather than stalling the job; one
-    # large run at 12 times or more (quadratic is about 16) fails at once, without the retries
     small = min(timed(32_000) for _ in range(3))
-    first = timed(128_000)
-    assert first / small < 12, (small, first)
-    large = min(first, *(timed(128_000) for _ in range(2)))
+    large = timed(128_000)
+    for tries in (2, 3):
+        if large / small < 8 or (tries == 3 and large / small >= 12):
+            break
+        large = min(large, timed(128_000))
     assert large < 10.0  # backstop; the runner's speed sets the rest
     assert large / small < 8, (small, large)
 

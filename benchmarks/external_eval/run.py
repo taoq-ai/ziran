@@ -52,7 +52,12 @@ from benchmarks.external_eval.intake import (  # noqa: E402
 from benchmarks.external_eval.worker import block_network  # noqa: E402
 
 WORKER = Path(__file__).resolve().parent / "worker.py"
-PREDICTORS = ("refusal", "side_effect", "pipeline", "deterministic")
+#: ``hybrid`` is the trace judge at ``hybrid_route_share`` 1.0; ``hybrid_r025`` to ``_r075`` read
+#: the same replies at 0.25, 0.5 and 0.75 (patch protocol section 6, routing share; spec 070).
+PREDICTORS = ("refusal", "side_effect", "pipeline", "deterministic", "hybrid", "hybrid_r025",
+              "hybrid_r050", "hybrid_r075")  # fmt: skip
+#: The trace judge's variants: the payload-known row (patch protocol, deviation of 2026-11-12).
+JUDGED = frozenset({"payload_whole", "payload_post_injection"})
 #: Patch protocol section 8: the only keys a row holds, and their value rules.
 ROW_KEYS = frozenset(
     {"benchmark", "unit_id", "variant", "cluster", "cells", "label", "excluded", "notes",
@@ -97,7 +102,32 @@ def _args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument(
         "--worker-timeout", type=_timeout, default=WORKER_TIMEOUT, help="seconds per pin worker"
     )
-    return p.parse_args(argv)
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--hybrid-replies", type=Path, help="hybrid_send's outcomes.jsonl")
+    mode.add_argument("--hybrid-record", type=Path, help="request file to write; scores nothing")
+    p.add_argument("--hybrid-model", help="the trace judge's model id, part of each request key")
+    p.add_argument("--hybrid-client-version", help="the model client's version, part of each key")
+    args = p.parse_args(argv)
+    path = args.hybrid_replies or args.hybrid_record
+    if (path is None) != (args.hybrid_model is None) or (path is None) != (
+        args.hybrid_client_version is None
+    ):
+        p.error("--hybrid-replies or --hybrid-record goes with --hybrid-model and "
+                "--hybrid-client-version")  # fmt: skip
+    if args.hybrid_record is not None and not args.hybrid_record.name.endswith(".requests.jsonl"):
+        p.error("a --hybrid-record file's name ends in .requests.jsonl")
+    return args
+
+
+def _hybrid_argv(args: argparse.Namespace) -> list[str]:
+    """The worker's hybrid arguments: the client's keyword, its path, the model, the version."""
+    if args.hybrid_replies is not None:
+        return ["replies", str(args.hybrid_replies.resolve()), args.hybrid_model,
+                args.hybrid_client_version]  # fmt: skip
+    if args.hybrid_record is not None:
+        return ["record_to", str(args.hybrid_record.resolve()), args.hybrid_model,
+                args.hybrid_client_version]  # fmt: skip
+    return []
 
 
 def _pins(repo: Path, specs: list[str]) -> dict[str, str]:
@@ -115,7 +145,7 @@ class WorkerTimeoutError(HarnessError):
 
 
 def _worker(
-    export: Path, cwd: Path, units: Collected, timeout: float
+    export: Path, cwd: Path, units: Collected, timeout: float, hybrid: list[str] | None = None
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Run one fresh worker on every unit; its stderr is kept and never printed.
 
@@ -137,7 +167,7 @@ def _worker(
         stdin.seek(0)
         started = time.monotonic()
         proc = subprocess.Popen(
-            [sys.executable, "-I", str(WORKER), str(export)],
+            [sys.executable, "-I", str(WORKER), str(export), *(hybrid or [])],
             stdin=stdin, stdout=stdout, stderr=stderr, env=isolation.worker_env(), cwd=cwd,
             start_new_session=True,
         )  # fmt: skip
@@ -172,6 +202,7 @@ def _worker(
         "modules_checked": len(modules),
         "modules_sha256": modules,
         "worker_wall_seconds": round(wall, 3),
+        "hybrid": lines[-1].get("hybrid"),  # counts only, per judged variant; None: not judged
     }
     return header, verdicts
 
@@ -182,8 +213,11 @@ def _worker_unit(key: int, u: mapping.Unit) -> dict[str, Any]:
         "key": key, "prompt": u.prompt, "content": u.content, "tool_calls": u.tool_calls,
         "tool_results": u.tool_results, "payload": u.payload,
     }  # fmt: skip
-    if u.trusted_task is not None:
-        unit["trusted_task"] = u.trusted_task
+    for name in ("trusted_task", "user_messages", "final_answer"):
+        if getattr(u, name) is not None:
+            unit[name] = getattr(u, name)
+    if u.variant in JUDGED and u.excluded is None:  # an error log is never sent to the judge
+        unit["judge"] = [u.variant, u.unit_id]
     return unit
 
 
@@ -252,7 +286,9 @@ def _metrics(units: Collected, verdicts: list[dict[str, Any]]) -> dict[str, Any]
     variants = sorted({u.variant for u in units.units})
     for variant in variants:
         out[variant] = {}
-        for pred in _scored(verdicts):
+        # the hybrid rows exist on the judged variants only
+        in_variant = [v for u, v in zip(units.units, verdicts, strict=True) if u.variant == variant]
+        for pred in _scored(in_variant):
             pooled: list[tuple[bool, bool]] = []
             cells: dict[str, dict[str, list[tuple[bool, bool]]]] = defaultdict(
                 lambda: defaultdict(list)
@@ -307,6 +343,17 @@ def _pin_differences(by_pin: dict[str, list[dict[str, Any]]]) -> dict[str, dict[
         for name, v in by_pin.items()
         if name != first
     }
+
+
+def _reply_outcome(causes: list[str | None]) -> str | None:
+    """The sender's outcome class of a unit's judge request, from the first pin that sent it.
+
+    A reply ziran's parse refused was still the sender's ``reply``; ``missing`` (no stored
+    outcome) is no class, so null, and counted in the pin's ``hybrid`` outcomes.
+    """
+    cause = next((c for c in causes if c is not None), None)
+    cause = "reply" if cause == "unusable_reply" else cause
+    return cause if cause in REPLY_OUTCOMES else None
 
 
 def _cluster_id(cluster: str) -> str:
@@ -364,7 +411,8 @@ def _not_evaluated(summary: dict[str, Any], path: Path, reason: str) -> int:
 
 
 def run(args: argparse.Namespace, removed: int) -> int:
-    for path in (args.data, args.out):
+    hybrid_path = args.hybrid_replies or args.hybrid_record
+    for path in (args.data, args.out, *([hybrid_path] if hybrid_path else [])):
         if path.resolve().is_relative_to(WORKER.parent):
             raise HarnessError("data and output must sit apart from the harness folder")
         require_outside_or_ignored(HARNESS_ROOT, path)
@@ -394,6 +442,12 @@ def run(args: argparse.Namespace, removed: int) -> int:
             "expect_harness": args.expect_harness,
         },
     }
+    if args.hybrid_replies is not None:
+        summary["hybrid"] = {
+            "model": args.hybrid_model,
+            "client_version": args.hybrid_client_version,
+            "replies_sha256": sha256(args.hybrid_replies.read_bytes()),
+        }
     phase = "manifest"
     try:
         if args.manifest.is_file():
@@ -427,9 +481,18 @@ def run(args: argparse.Namespace, removed: int) -> int:
             summary["pins"][name]["files_sha256"] = isolation.file_hashes(
                 export, isolation.PINNED_FILES
             )
-            header, verdicts = _worker(export.resolve(), cwd, units, args.worker_timeout)
+            header, verdicts = _worker(
+                export.resolve(), cwd, units, args.worker_timeout, _hybrid_argv(args)
+            )
         summary["pins"][name] |= header
         by_pin[name] = verdicts
+    if hybrid_path is not None and all(summary["pins"][n]["hybrid"] is None for n in pins):
+        raise HarnessError("no pin ships the hybrid trace judge")
+    if args.hybrid_record is not None:  # nothing is scored from a record run
+        hybrid = {name: summary["pins"][name]["hybrid"] for name in pins}
+        print(json.dumps({"benchmark": bench, "status": "recorded", "hybrid": hybrid},
+                         sort_keys=True))  # fmt: skip
+        return 0
     # label-blind: a raise at any pin excludes the unit at every pin, so the pins stay paired
     raised = {i for v in by_pin.values() for i, x in enumerate(v) if x.get("raised")}
     # counted where the raise relabels the unit: a unit already excluded (error) keeps that
@@ -460,7 +523,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
                 for p in PREDICTORS
                 if v[i].get(p) is not None
             },
-            "reply_outcome": None,  # no model call in the harness
+            "reply_outcome": _reply_outcome([v[i].get("llm") for v in by_pin.values()]),
         }  # fmt: skip
         check_row(row)
         rows.append(json.dumps(row, sort_keys=True) + "\n")

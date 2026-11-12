@@ -1,10 +1,19 @@
 """Score units with one pinned ziran export (protocol section 4, run conditions).
 
-Run as ``python -I worker.py <export>``. It imports only the standard library and the export,
-which goes first on ``sys.path``. It reads units as JSON lines on stdin (key, prompt, content,
-tool_calls and the section 5 keys of :data:`METADATA_KEYS`) and writes JSON lines on stdout: a
-header with the pin's defaults, one verdict per unit, and an end line. Logging goes to stderr,
-which the harness keeps and never prints.
+Run as ``python -I worker.py <export> [replies|record_to <path> <model> <client version>]``. It
+imports only the standard library and the export, which goes first on ``sys.path``. It reads
+units as JSON lines on stdin (key, prompt, content, tool_calls, the keys of :data:`METADATA_KEYS`
+and, on a payload-known unit, ``judge``: its variant and unit id) and writes JSON lines on
+stdout: a header with the pin's defaults, one verdict per unit, and an end line. Logging goes to
+stderr, which the harness keeps and never prints.
+
+With the hybrid arguments, at a pin that ships ``ziran.application.hybrid.jobs`` (spec 067),
+the trace judge runs on each judged variant at share 1.0 through the record-and-replay client:
+``replies`` reads hybrid_send's ``outcomes.jsonl``, ``record_to`` writes the requests and scores
+nothing. ``hybrid`` is the judge's verdict, and ``hybrid_r025`` to ``hybrid_r075`` the same
+replies for the units ``routed(band, s)`` sends at 0.25, 0.5 and 0.75, the first pass for the
+rest (spec 070). The end line counts, per variant, the band, the outcomes and the renders the
+mask changes; no text.
 
 ``deterministic`` is ``provenance(...).hit`` at a pin that ships
 ``ziran.application.detectors.provenance`` (spec 063), and null at one that does not. A unit on
@@ -51,8 +60,11 @@ _PROCESS_EVENTS = frozenset(
         "subprocess.Popen",
     }
 )
-#: The detector inputs passed in ``AgentResponse.metadata``, and nothing else (patch protocol 5).
-METADATA_KEYS = ("trusted_task", "tool_results", "payload")
+#: The keys passed in ``AgentResponse.metadata``, and nothing else: the detector's (patch
+#: protocol 5), then the two only the trace judge reads (spec 067), which no detector reads.
+METADATA_KEYS = ("trusted_task", "tool_results", "payload", "user_messages", "final_answer")
+#: The routing-share rows read from the replies at share 1.0 (patch protocol section 6).
+SHARES = {"hybrid_r025": 0.25, "hybrid_r050": 0.5, "hybrid_r075": 0.75}
 
 
 def block_network(*, processes: bool = True) -> None:
@@ -115,7 +127,45 @@ def _jsonable(value: object) -> object:
     return value
 
 
-async def _score(lines: Any, out: Any, root: Path) -> int:
+def _mask_changed(jobs: Any, prompt: Any, response: Any) -> bool:
+    """Whether the mask changes this request: the render with the mask off differs."""
+    masked, mask = jobs.render_trace(prompt, response), jobs.mask
+    jobs.mask = str  # the identity on text; restored before any other render
+    try:
+        return bool(jobs.render_trace(prompt, response) != masked)
+    finally:
+        jobs.mask = mask
+
+
+async def _judge(
+    jobs: Any, routed: Any, client: Any, judged: dict[str, dict[str, Any]], rows: list[Any]
+) -> dict[str, dict[str, Any]]:
+    """Add the hybrid verdicts to ``rows``; return each variant's counts."""
+    prompt = jobs.load("trace_judge", jobs.TRACE_JUDGE_VERSION)
+    counts: dict[str, dict[str, Any]] = {}
+    for variant, group in sorted(judged.items()):
+        traces = {u: (response, prov) for u, (_, response, prov) in group.items()}
+        result = await jobs.judge_traces(traces, client, share=1.0)
+        band = result.sent  # at 1.0 every band unit is sent
+        sent = {name: set(routed(band, share)) for name, share in SHARES.items()}
+        outcomes: dict[str, int] = {}
+        for u, (key, _, prov) in group.items():
+            row = rows[key]
+            row["hybrid"] = result.verdicts[u].success
+            for name, units in sent.items():
+                row[name] = row["hybrid"] if u in units else prov.hit
+            if u in band:
+                row["llm"] = result.llm_pending.get(u, "reply")
+                outcomes[row["llm"]] = outcomes.get(row["llm"], 0) + 1
+        counts[variant] = {
+            "band": len(band),
+            "outcomes": outcomes,
+            "mask_changed": sum(_mask_changed(jobs, prompt, traces[u][0]) for u in band),
+        }
+    return counts
+
+
+async def _score(lines: Any, out: Any, root: Path, hybrid: list[str]) -> tuple[int, Any]:
     from ziran.application.detectors.pipeline import DetectorConfig, DetectorPipeline
     from ziran.application.detectors.thresholds import DetectorThresholds
     from ziran.domain.entities.attack import AttackPrompt
@@ -131,10 +181,23 @@ async def _score(lines: Any, out: Any, root: Path) -> int:
     first_pass = None  # a pin from before spec 063 has no module: no deterministic row
     if importlib.util.find_spec("ziran.application.detectors.provenance") is not None:
         from ziran.application.detectors import provenance as first_pass  # a broken one stops
+    jobs = client = routed = None
+    if (
+        hybrid
+        and first_pass is not None
+        and importlib.util.find_spec("ziran.application.hybrid") is not None
+        and importlib.util.find_spec("ziran.application.hybrid.jobs") is not None
+    ):
+        from ziran.application.hybrid import jobs, routed
+        from ziran.infrastructure.llm.replay_client import RecordReplayClient
+
+        mode, path, model, version = hybrid
+        client = RecordReplayClient(model, version, **{mode: Path(path)})
     check_loaded_modules(root)
     out.write(json.dumps({"header": defaults, "environment": _environment()}) + "\n")
     hit = thresholds.hit
-    n = 0
+    rows: list[dict[str, Any]] = []
+    judged: dict[str, dict[str, Any]] = {}
     for line in lines:
         unit = json.loads(line)
         prompt = unit["prompt"]
@@ -146,30 +209,29 @@ async def _score(lines: Any, out: Any, root: Path) -> int:
         spec = AttackPrompt(template=prompt, success_indicators=[], failure_indicators=[])
         try:
             verdict = await pipeline.evaluate(prompt, response, spec, None)
-            deterministic = (
-                first_pass.provenance(prompt, response, None).hit if first_pass else None
-            )
+            prov = first_pass.provenance(prompt, response, None) if first_pass else None
         except ValueError as exc:
             if first_pass is None or not isinstance(exc, first_pass.ProvenanceInputError):
                 raise
-            out.write(json.dumps({"key": unit["key"], "raised": True}) + "\n")
-            n += 1
+            rows.append({"key": unit["key"], "raised": True})
             continue
         scores = {r.detector_name: r.score for r in verdict.detector_results}
-        out.write(
-            json.dumps(
-                {
-                    "key": unit["key"],
-                    "refusal": scores["refusal"] >= hit,
-                    "side_effect": scores["side_effect"] >= hit,
-                    "pipeline": verdict.successful,
-                    "deterministic": deterministic,
-                }
-            )
-            + "\n"
+        rows.append(
+            {
+                "key": unit["key"],
+                "refusal": scores["refusal"] >= hit,
+                "side_effect": scores["side_effect"] >= hit,
+                "pipeline": verdict.successful,
+                "deterministic": prov.hit if prov else None,
+            }
         )
-        n += 1
-    return n
+        if jobs is not None and "judge" in unit:
+            variant, unit_id = unit["judge"]
+            judged.setdefault(variant, {})[unit_id] = (unit["key"], response, prov)
+    counts = await _judge(jobs, routed, client, judged, rows) if jobs is not None else None
+    for row in rows:
+        out.write(json.dumps(row) + "\n")
+    return len(rows), counts
 
 
 def main(argv: list[str]) -> int:
@@ -181,8 +243,9 @@ def main(argv: list[str]) -> int:
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())  # nothing the export writes reaches it
     sys.stdout = sys.stderr
     sys.path.insert(0, str(root))
-    n = asyncio.run(_score(sys.stdin, out, root))
-    out.write(json.dumps({"end": n, "module_sha256": check_loaded_modules(root)}) + "\n")
+    n, hybrid = asyncio.run(_score(sys.stdin, out, root, argv[2:]))
+    end = {"end": n, "module_sha256": check_loaded_modules(root), "hybrid": hybrid}
+    out.write(json.dumps(end) + "\n")
     out.close()
     return 0
 
