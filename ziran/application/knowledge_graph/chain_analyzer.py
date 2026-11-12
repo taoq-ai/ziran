@@ -21,6 +21,11 @@ from ziran.application.knowledge_graph.chain_patterns import (
     ChainPatternRegistry,
 )
 from ziran.application.knowledge_graph.graph import NodeType
+from ziran.application.knowledge_graph.role_typing import (
+    SINKS,
+    TYPED_VULNERABILITY_TYPES,
+    tool_roles,
+)
 from ziran.application.knowledge_graph.tool_aliases import (
     UNRESTRICTED_EXEC_TOOLS,
     canonical_tool_name,
@@ -30,6 +35,7 @@ from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
     from pathlib import Path
 
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
@@ -78,6 +84,11 @@ class ToolChainAnalyzer:
        intermediate nodes (A → … → B) within a configurable hop limit.
     3. **Cycles** — circular chains (A → B → … → A) that enable
        repeated exploitation.
+    4. **Typed chains**, only with ``typed=True`` — a source tool and a tool
+       with a sink role, by :mod:`role_typing`, for each ordered pair the
+       pattern table misses. *role_overrides* maps a tool id to the roles a
+       caller already knows (a catalogue entry, a stored classifier reply);
+       other tools keep the name rules.
 
     Example::
 
@@ -92,8 +103,15 @@ class ToolChainAnalyzer:
         graph: AttackKnowledgeGraph,
         *,
         custom_patterns_path: Path | None = None,
+        typed: bool = False,
+        role_overrides: Mapping[str, Iterable[str]] | None = None,
     ) -> None:
+        if role_overrides is not None and not typed:
+            raise ValueError("role_overrides needs typed=True")
         self.graph = graph
+        self._typed = typed
+        # validated and materialised once, so a bad or one-shot override fails or survives here
+        self._role_overrides = {t: tool_roles(t, r) for t, r in (role_overrides or {}).items()}
         if custom_patterns_path is not None:
             custom = ChainPatternRegistry.from_yaml(custom_patterns_path)
             merged = ChainPatternRegistry.default().merge(custom)
@@ -135,6 +153,8 @@ class ToolChainAnalyzer:
         if include_cycles:
             chains.extend(self._find_chain_cycles(tool_nodes, pattern_cache))
         chains.extend(self._find_unrestricted_execution(tool_nodes))
+        if self._typed:
+            chains.extend(self._find_typed_chains(tool_nodes, chains))
 
         # Deduplicate by (tools tuple, vulnerability_type)
         seen: set[tuple[tuple[str, ...], str]] = set()
@@ -156,6 +176,7 @@ class ToolChainAnalyzer:
             critical=sum(1 for c in unique if c.risk_level == "critical"),
             high=sum(1 for c in unique if c.risk_level == "high"),
             medium=sum(1 for c in unique if c.risk_level == "medium"),
+            typed=sum(1 for c in unique if c.typed),
         )
 
         _chain_span.set_attribute("ziran.chain_count", len(unique))
@@ -380,6 +401,56 @@ class ToolChainAnalyzer:
             for tid, _ in tool_nodes
             if tid in UNRESTRICTED_EXEC_TOOLS
         ]
+
+    # ── Typed chains (spec 066) ────────────────────────────────────
+
+    def _find_typed_chains(
+        self,
+        tool_nodes: list[tuple[str, dict[str, Any]]],
+        found: list[DangerousChain],
+    ) -> list[DangerousChain]:
+        """One chain per sink role for each (source, sink) pair the table does not report."""
+        table = {tuple(c.tools) for c in found if c.chain_type != "cycle"}
+        roles: dict[str, frozenset[str]] = {}
+        origin: dict[str, str] = {}
+        for tid, _ in tool_nodes:
+            override = self._role_overrides.get(tid)
+            roles[tid] = tool_roles(tid) if override is None else override
+            if override is not None:
+                origin[tid] = "override"
+            else:
+                origin[tid] = "table" if canonical_tool_name(tid) != tid else "name_rule"
+        chains: list[DangerousChain] = []
+        for a, a_roles in roles.items():
+            if "source" not in a_roles:
+                continue
+            for b, b_roles in roles.items():
+                if b == a or (a, b) in table:
+                    continue
+                for role in sorted(b_roles & SINKS):
+                    chains.append(
+                        DangerousChain(
+                            tools=[a, b],
+                            risk_level="high",
+                            vulnerability_type=TYPED_VULNERABILITY_TYPES[role],
+                            exploit_description=(
+                                f"{a} can read untrusted or private data and {b} is "
+                                f"a {role} sink, by their roles"
+                            ),
+                            remediation=(
+                                f"Confirm {b} cannot act on data that {a} returns, "
+                                "or require approval before it runs"
+                            ),
+                            graph_path=[a, b],
+                            chain_type="direct",
+                            typed=True,
+                            evidence={
+                                "roles": {a: sorted(a_roles), b: sorted(b_roles)},
+                                "role_source": {a: origin[a], b: origin[b]},
+                            },
+                        )
+                    )
+        return chains
 
     # ── Scoring ────────────────────────────────────────────────────
 
