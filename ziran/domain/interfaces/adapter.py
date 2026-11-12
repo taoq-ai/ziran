@@ -43,6 +43,11 @@ class AgentResponse(BaseModel):
     total_tokens: int = Field(default=0, ge=0, description="Total tokens consumed")
 
 
+def drop_reserved(metadata: dict[str, Any]) -> dict[str, Any]:
+    """The metadata without :data:`PROVENANCE_METADATA_KEYS`, as a target returned it (spec 068)."""
+    return {k: v for k, v in metadata.items() if k not in PROVENANCE_METADATA_KEYS}
+
+
 class AgentState(BaseModel):
     """Standardized snapshot of agent state.
 

@@ -21,10 +21,10 @@ from ziran.domain.entities.target import (
     TargetConfig,
 )
 from ziran.domain.interfaces.adapter import (
-    PROVENANCE_METADATA_KEYS,
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
+    drop_reserved,
 )
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 from ziran.infrastructure.adapters.protocols import (
@@ -181,9 +181,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
         tool_calls = result.get("tool_calls", [])
         # the provenance inputs (spec 063) are the caller's to set, never the target's
-        metadata = {
-            k: v for k, v in result.get("metadata", {}).items() if k not in PROVENANCE_METADATA_KEYS
-        }
+        metadata = drop_reserved(result.get("metadata", {}))
 
         return AgentResponse(
             content=content,
@@ -222,6 +220,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         async for chunk in self._handler.stream_send(message, **kwargs):
             if chunk.content_delta:
                 accumulated_content.append(chunk.content_delta)
+            chunk = chunk.model_copy(update={"metadata": drop_reserved(chunk.metadata)})
             if chunk.is_final:
                 # Track conversation for multi-turn
                 full_content = "".join(accumulated_content)

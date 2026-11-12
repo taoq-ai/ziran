@@ -23,13 +23,14 @@ from ziran.domain.entities.attack import (
     TokenUsage,
     get_business_impacts,
 )
+from ziran.domain.interfaces.adapter import AgentResponse, drop_reserved
 from ziran.infrastructure.logging.context import bind_vector
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
     from ziran.application.detectors.pipeline import DetectorPipeline
-    from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
+    from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
@@ -184,6 +185,7 @@ class AttackExecutor:
                     response = await self._invoke_streaming(rendered_prompt, attack.name)
                 else:
                     response = await self._adapter.invoke(rendered_prompt)
+                response.metadata = drop_reserved(response.metadata)
 
                 # Accumulate token usage
                 attack_tokens = attack_tokens + TokenUsage(
@@ -347,8 +349,6 @@ class AttackExecutor:
         attack_name: str,
     ) -> AgentResponse:
         """Invoke the agent with streaming and accumulate into AgentResponse."""
-        from ziran.domain.interfaces.adapter import AgentResponse
-
         content_parts: list[str] = []
         tool_calls: list[dict[str, Any]] = []
         metadata: dict[str, Any] = {}
