@@ -5,11 +5,13 @@ Every log and reply below is hand-made; no benchmark item is read and no model i
 
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import subprocess
 import tarfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -31,11 +33,12 @@ from tests.unit.test_external_eval_run import (
     rows_of,
     run_cli,
 )
+from ziran.application.detectors.provenance import provenance
 from ziran.application.hybrid import routed
-from ziran.application.hybrid.jobs import TRACE_JUDGE_VERSION, render_trace
+from ziran.application.hybrid.jobs import TRACE_JUDGE_VERSION, judge_traces, render_trace
 from ziran.application.hybrid.prompts import load
 from ziran.domain.interfaces.adapter import AgentResponse
-from ziran.infrastructure.llm.replay_client import request_key
+from ziran.infrastructure.llm.replay_client import RecordReplayClient, request_key
 
 pytestmark = pytest.mark.unit
 
@@ -258,30 +261,74 @@ def test_a_unit_with_no_usable_reply_keeps_its_first_pass_and_is_counted_by_labe
 ) -> None:
     data, manifest = fresh_set(tmp_path)
     requests = record(tmp_path, data, manifest)
-    # the attacker's (a positive) blocked; user_task_1 missing; user_task_2 refused by the parse
-    kept = [r for r in requests if r["unit"].split("/")[3] != "user_task_1"]
+    # the attacker's (a positive) blocked; user_task_2 refused by the parse
     replies = outcomes(
-        tmp_path / "outcomes.jsonl", kept, user_task_9="no_text", user_task_2="unusable"
+        tmp_path / "outcomes.jsonl", requests, user_task_9="no_text", user_task_2="unusable"
     )
     proc = hybrid_cli(tmp_path, data, manifest, "--hybrid-replies", str(replies))
     assert proc.returncode == 0, proc.stdout + proc.stderr
     by = rows_by(tmp_path)
-    blocked, missing, refused = (by[(rel(n), "payload_whole")] for n in (9, 1, 2))
+    blocked, refused = (by[(rel(n), "payload_whole")] for n in (9, 2))
     assert blocked["reply_outcome"] == "no_text" and blocked["verdicts"]["head/hybrid"] is True
     assert blocked["no_reply_cause"] is None  # a sender class is reply_outcome's
-    assert missing["reply_outcome"] is None and missing["verdicts"]["head/hybrid"] is False
-    assert missing["no_reply_cause"] == "missing"
     # the sender's class was reply; ziran's parse refused it, so the first pass stands
     assert refused["reply_outcome"] == "reply" and refused["verdicts"]["head/hybrid"] is False
     assert refused["no_reply_cause"] == "unusable_reply"
     summary = json.loads((tmp_path / "out" / "agentdojo_fresh.summary.json").read_text())
     got = summary["pins"]["head"]["hybrid"]["payload_whole"]
-    assert got["outcomes"] == {"reply": 7, "no_text": 1, "missing": 1, "unusable_reply": 1}
+    assert got["outcomes"] == {"reply": 8, "no_text": 1, "unusable_reply": 1}
     assert got["no_reply"] == {
         "no_text": {"positive": 1, "negative": 0},
-        "missing": {"positive": 0, "negative": 1},
         "unusable_reply": {"positive": 0, "negative": 1},
     }
+
+
+@pytest.mark.parametrize("flag", ["--hybrid-model", "--hybrid-client-version", None])
+def test_a_replay_with_a_missing_outcome_is_refused(tmp_path: Path, flag: str | None) -> None:
+    """hybrid_send stores an outcome for every request: a missing one means another file."""
+    data, manifest = fresh_set(tmp_path)
+    requests = record(tmp_path, data, manifest)
+    if flag is None:  # one request left out of the file
+        requests = [r for r in requests if r["unit"].split("/")[3] != "user_task_1"]
+    replies = outcomes(tmp_path / "outcomes.jsonl", requests)
+    other = (flag, "other") if flag else ()
+    proc = hybrid_cli(tmp_path, data, manifest, "--hybrid-replies", str(replies), *other)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "a band unit has no stored outcome" in proc.stderr
+    assert not (tmp_path / "out" / "agentdojo_fresh.summary.json").exists()
+    assert not (tmp_path / "out" / "agentdojo_fresh.rows.jsonl").exists()
+
+
+def test_an_excluded_unit_is_not_counted_with_no_usable_reply() -> None:
+    units = [
+        mapping.agentdojo_units(rel(n), band_log(n, to="bob@example.org"))[0] for n in range(3)
+    ]
+    units[0] = units[0].model_copy(update={"excluded": "detector_raised"})
+    units[1] = units[1].model_copy(update={"label": True})
+    counts: dict[str, Any] = {"whole": {}}
+    verdicts = [{"llm": "no_text"}, {"llm": "no_text"}, {"llm": "reply"}]
+    run._count_no_reply(counts, SimpleNamespace(units=units), verdicts)  # type: ignore[arg-type]
+    assert counts["whole"]["no_reply"] == {"no_text": {"positive": 1, "negative": 0}}
+
+
+def test_a_tainted_read_only_call_is_sent_from_the_task_known_row_only(tmp_path: Path) -> None:
+    """Section 2 line 46: task known, any tainted call value is in the band; payload known
+    (line 45) needs a payload value or a state-changing tainted call."""
+    log = band_log(0, to=None)
+    log["messages"][3:3] = [
+        {"role": "assistant", "content": None,
+         "tool_calls": [{"function": "read_file", "args": {"path": "bob@example.org"}, "id": "2"}]},
+        {"role": "tool", "tool_call_id": "2", "tool_call": {"function": "read_file"},
+         "content": "file"},
+    ]  # fmt: skip
+    units = {u.variant: u for u in mapping.agentdojo_units(rel(0), log)}
+    client = RecordReplayClient(MODEL, CLIENT, record_to=tmp_path / "r.requests.jsonl")
+    sent = {}
+    for variant in ("whole", "payload_whole"):
+        response = _judged_response(units[variant])
+        traces = {rel(0): (response, provenance(units[variant].prompt, response))}
+        sent[variant] = asyncio.run(judge_traces(traces, client, share=1.0)).sent
+    assert sent == {"whole": [rel(0)], "payload_whole": []}
 
 
 def _old_and_new(tmp_path: Path) -> Path:
@@ -325,6 +372,41 @@ def test_an_old_pin_beside_a_new_one_judges_at_the_new_pin_only(tmp_path: Path) 
     assert summary["pins"]["new"]["hybrid"]["payload_whole"]["band"] == 10
 
 
+def test_two_judging_pins_take_the_outcome_of_the_first(tmp_path: Path) -> None:
+    """Pin "b" ships another trace-judge prompt, so its requests have their own keys."""
+    repo = _old_and_new(tmp_path)
+    _git(repo, "tag", "a")
+    prompt = repo / "ziran/application/hybrid/prompts/trace_judge/v1.md"
+    prompt.write_text("ZZPINB\n" + prompt.read_text())
+    _git(repo, "commit", "-qam", "b")
+    pins = ("a=a", "b=HEAD")
+    data, manifest = fresh_set(tmp_path)
+    rec = tmp_path / "rec" / "judge.requests.jsonl"
+    rec.parent.mkdir()
+    proc = hybrid_cli(tmp_path, data, manifest, "--hybrid-record", str(rec), out="rec-out",
+                      repo=repo, pins=pins)  # fmt: skip
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    requests = [json.loads(line) for line in rec.read_text().splitlines()]
+    assert len(requests) == 80  # 40 a pin
+    with (tmp_path / "outcomes.jsonl").open("w") as f:
+        for r in requests:
+            row = {"key": r["key"], "unit": r["unit"], "job": r["job"]}
+            if r["text"].startswith("ZZPINB"):
+                row["outcome"] = "no_text"
+            else:
+                row |= {"outcome": "reply", "fields": {"verdict": "completed", "call": 1}}
+            f.write(json.dumps(row) + "\n")
+    proc = hybrid_cli(tmp_path, data, manifest, "--hybrid-replies",
+                      str(tmp_path / "outcomes.jsonl"), repo=repo, pins=pins)  # fmt: skip
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    by = rows_by(tmp_path)
+    for u in BAND:
+        row = by[(u, "payload_whole")]
+        assert row["reply_outcome"] == "reply"  # pin a's, the first in --pin order
+        assert row["verdicts"]["a/hybrid"] is True
+        assert row["verdicts"]["b/hybrid"] is row["verdicts"]["b/deterministic"]
+
+
 def test_the_worker_itself_renders_as_the_spike_byte_for_byte(tmp_path: Path) -> None:
     """Gate 1 through the worker's own metadata line, as a record run writes it."""
     units = [
@@ -366,6 +448,10 @@ WHOLE = "goes with --hybrid-model and --hybrid-client-version"
         (["--hybrid-replies", "{replies}", "--hybrid-model", "m"], WHOLE),
         (["--hybrid-replies", "{replies}", "--hybrid-client-version", "v"], WHOLE),
         (["--hybrid-replies", "{replies}", "--hybrid-model", "", "--hybrid-client-version", "v"],
+         WHOLE),
+        (["--hybrid-replies", "{replies}", "--hybrid-model", " ", "--hybrid-client-version", "v"],
+         WHOLE),
+        (["--hybrid-replies", "{replies}", "--hybrid-model", "m", "--hybrid-client-version", "\t"],
          WHOLE),
         (["--hybrid-model", "m", "--hybrid-client-version", "v"], WHOLE),
         (["--hybrid-replies", "{replies}", "--hybrid-record", "y.requests.jsonl", "--hybrid-model",

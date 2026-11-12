@@ -57,7 +57,9 @@ hybrid and routing rows are written and pass `check_row`, with no model call.
 - **FR-005**: An excluded (`error`) unit is not sent; a unit the pin's detector raises on is not
   sent at that pin; a judged unit outside the band keeps its first pass and has no outcome.
 - **FR-005a**: The record path reaches the client unresolved, so a planted link at the file or
-  its folder is refused (CWE-59). A missing replies file and an empty model or version exit 2.
+  its folder is refused (CWE-59). A missing replies file and an empty or blank model or version
+  exit 2, and so does a replay where a band unit has no stored outcome (`missing`): hybrid_send
+  stores one for every request, so it means a file for another model, version or render.
 - **FR-005b**: An old pin without the hybrid package runs beside a new one; `reply_outcome` and
   `no_reply_cause` come from the first pin that sent the unit.
 - **FR-006**: A hybrid flag set that is not whole (a path with no model or version, both paths,
@@ -86,7 +88,11 @@ harness. Reading any fresh, reserve or lockbox log.
   deviation: protocol section 5 line 136 ("A key with another name or shape is a deviation":
   the worker passes `user_messages` and `final_answer`, calls carry `id`); #128 line 870 (a
   tool result is `{message_index, text, error?}`: it gains `tool_call_id` and `name`); line 880
-  (the ten row keys: `no_reply_cause` is an eleventh); line 890 (the predictor names: three
-  routing names). The summary's `pins.<pin>.hybrid` shape is new too.
+  and section 8 line 447 (the ten row keys: `no_reply_cause` is an eleventh); line 890 (the
+  predictor names: three routing names). The summary's `pins.<pin>.hybrid` shape, its
+  `no_reply` counts included, is new too.
+- **The band is as registered in both rows**: provenance `state == "evidence"`. Payload known,
+  `provenance.py:332`, is section 2 line 45; task known, `provenance.py:338` (any tainted call
+  value), is section 2 line 46. No deviation.
 - **The mask count is the record run's output.** The operator's one command on real logs is the
   record run (`--hybrid-record`), which prints the per-variant counts.

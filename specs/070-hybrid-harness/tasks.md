@@ -16,3 +16,6 @@
 - [x] T012 Judge the task-known variants too; add `sent` per share and `no_reply` by cause and
   label to the counts; add the row key `no_reply_cause`.
 - [x] T013 Tests for the eight gaps the quality gate named; run each mutant red.
+- [x] T014 Fix round at 9fd2c89: refuse a replay with a `missing` outcome and a blank model or
+  version; tests for a tainted read-only call at `whole`, two judging pins, and an excluded unit
+  kept out of `no_reply`.

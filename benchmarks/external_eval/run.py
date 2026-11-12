@@ -124,8 +124,8 @@ def _args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--hybrid-client-version", help="the model client's version, part of each key")
     args = p.parse_args(argv)
     path = args.hybrid_replies or args.hybrid_record
-    if (path is None) == bool(args.hybrid_model) or (path is None) == bool(
-        args.hybrid_client_version
+    if (path is None) == bool((args.hybrid_model or "").strip()) or (path is None) == bool(
+        (args.hybrid_client_version or "").strip()
     ):
         p.error("--hybrid-replies or --hybrid-record goes with --hybrid-model and "
                 "--hybrid-client-version")  # fmt: skip
@@ -594,6 +594,14 @@ def run(args: argparse.Namespace, removed: int) -> int:
         by_pin[name] = verdicts
     if hybrid_path is not None and all(summary["pins"][n]["hybrid"] is None for n in pins):
         raise HarnessError("no pin ships the hybrid trace judge")
+    # hybrid_send writes a final outcome for every request, so a missing one is a wrong file
+    if args.hybrid_replies is not None and any(
+        "missing" in c["outcomes"]
+        for n in pins
+        for c in (summary["pins"][n]["hybrid"] or {}).values()
+    ):
+        raise HarnessError("a band unit has no stored outcome: replies for another model, "
+                           "client version or render")  # fmt: skip
     if args.hybrid_record is not None:  # nothing is scored from a record run
         hybrid = {name: summary["pins"][name]["hybrid"] for name in pins}
         print(json.dumps({"benchmark": bench, "status": "recorded", "hybrid": hybrid},
