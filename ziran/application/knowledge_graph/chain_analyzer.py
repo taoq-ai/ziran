@@ -110,7 +110,8 @@ class ToolChainAnalyzer:
             raise ValueError("role_overrides needs typed=True")
         self.graph = graph
         self._typed = typed
-        self._role_overrides = dict(role_overrides or {})
+        # validated and materialised once, so a bad or one-shot override fails or survives here
+        self._role_overrides = {t: tool_roles(t, r) for t, r in (role_overrides or {}).items()}
         if custom_patterns_path is not None:
             custom = ChainPatternRegistry.from_yaml(custom_patterns_path)
             merged = ChainPatternRegistry.default().merge(custom)
@@ -414,7 +415,7 @@ class ToolChainAnalyzer:
         origin: dict[str, str] = {}
         for tid, _ in tool_nodes:
             override = self._role_overrides.get(tid)
-            roles[tid] = tool_roles(tid, override)
+            roles[tid] = tool_roles(tid) if override is None else override
             if override is not None:
                 origin[tid] = "override"
             else:

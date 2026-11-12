@@ -19,6 +19,7 @@ Reuses `READ_VERBS` and `tokens` from `ziran/application/detectors/provenance.py
 | `tests/unit/test_role_typing_probe_parity.py` | the probe's code as oracle; literal and seeded parity |
 | `tests/integration/test_chain_study_v1_equality.py` | study-v1 equality on the chain fixtures |
 | `tests/fixtures/chains/study_v1_chains.json` | study-v1's chains, written from the tag |
+| `tests/fixtures/chains/v1_chains.py` | the script that wrote the fixture |
 
 The 126-pattern table, its first-match order and the direct, indirect, cycle and unrestricted
 execution searches are unchanged. Typed chains are found after them and enter the same
@@ -34,10 +35,12 @@ Written from the tag, never from this branch:
 
 ```bash
 git -C <ziran> archive 32281c77b057a360d29f3343f91b248430f84475 | tar -x -C <scratch>/v1
-cd <scratch>/v1 && PYTHONPATH=<scratch>/v1 <worktree>/.venv/bin/python -P v1_chains.py out.json
+cd <scratch>/v1 && PYTHONPATH=<scratch>/v1 <worktree>/.venv/bin/python -P \
+  <worktree>/tests/fixtures/chains/v1_chains.py out.json
 ```
 
-`v1_chains.py` asserts that `ziran` loads from the export, then writes, cycles off, the chains
+`tests/fixtures/chains/v1_chains.py` asserts that `ziran` loads from the export (never from the
+worktree), then writes, cycles off, the chains
 (`tools`, `risk_level`, `vulnerability_type`, `chain_type`, `graph_path`, `risk_score`) of:
 
 - each of the 22 agents of `benchmarks/ground_truth/agents`, on the benchmark's complete graph

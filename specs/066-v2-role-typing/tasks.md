@@ -25,3 +25,11 @@
 - [x] T013 Confirm the four frozen files are byte-identical to `study-v1`
 - [x] T014 ruff check, ruff format, mypy strict, the full test suite with coverage
 - [x] T015 Record the change in `CLAUDE.md`
+
+## Phase 4: fix round 1 (quality at ef70610)
+
+- [x] T016 Pin each sink role's vulnerability type and the risk level by literal value
+- [x] T017 Test the typed set with cycles on and off on `['Read(./.env)', 'get_agent_card', 'send_task']`
+- [x] T018 Refuse a bare-string override, the blank string included
+- [x] T019 Check and copy overrides once at construction; a one-shot iterator is not used up
+- [x] T020 Commit the fixture generator beside the fixture; spec (e) on unknown replies

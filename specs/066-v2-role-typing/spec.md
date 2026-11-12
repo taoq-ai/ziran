@@ -34,8 +34,11 @@ tool that sends, executes or does something high-impact.
   still reported, with the same type, beside the typed ones. A test shows both on ziran's chain
   fixtures.
 - (e) The hybrid's capability classifier, a shipped catalogue, or any caller that knows a tool's
-  roles passes them in `role_overrides`. Those win over the name rules. A tool the classifier
-  leaves unknown is absent from the overrides, and the name rules type it.
+  roles passes them in `role_overrides`. Those win over the name rules. Only `yes` gives a role:
+  a tool the classifier marks unknown on every role gets the empty role set ("unknown is
+  neither", design appendix C). Only a tool with no usable reply is left out of the overrides
+  and keeps the name rules (ziran-paper#128 registers this reading). Overrides are checked and
+  copied once, when the analyzer is built.
 - (f) The source-to-egress type is `typed_data_exfiltration`, which meets the preregistration's
   exfiltration-class rule (`exfil|leak`, section 4 of `prereg/preregistration.md`). The other two,
   `typed_untrusted_execution` and `typed_high_impact_action`, do not.
@@ -97,7 +100,8 @@ Each typed chain's `evidence["role_source"]` maps each of its two tools to one o
 - **FR-002** `tool_roles` with no override equals the probe's `roles(name, canonical_tool_name)`
   restricted to the V2 roles, on every name a seeded test generates.
 - **FR-003** An override that is a string, or holds a role outside the four, raises `ValueError`.
-- **FR-004** `ToolChainAnalyzer` adds typed chains only with `typed=True`; `role_overrides` without
+- **FR-004** `ToolChainAnalyzer` adds typed chains only with `typed=True`, with the same typed set
+  for cycles on and off; a bad override raises at construction; `role_overrides` without
   it raises `ValueError`.
 - **FR-005** With `typed=True` the typed pairs equal the probe's V2 typed pairs minus the pairs the
   table reports, on seeded synthetic agents.

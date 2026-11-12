@@ -58,7 +58,7 @@ class TestToolRoles:
         assert tool_roles("reserve_hotel", ["source", "high_impact"]) == {"source", "high_impact"}
         assert tool_roles(READ, None) == {"source"}  # unknown: the name rules stand
 
-    @pytest.mark.parametrize("bad", [{"write"}, {"high"}, "egress", {""}, {None}])
+    @pytest.mark.parametrize("bad", [{"write"}, {"high"}, "egress", "", {""}, {None}])
     def test_an_override_outside_the_four_roles_is_refused(self, bad: object) -> None:
         with pytest.raises(ValueError, match="role"):
             tool_roles(READ, bad)  # type: ignore[arg-type]
@@ -78,6 +78,7 @@ class TestTypedChains:
         assert chain.tools == [READ, OUT]
         assert chain.typed
         assert chain.vulnerability_type == "typed_data_exfiltration"
+        assert chain.risk_level == "high"
         assert chain.evidence["roles"] == {READ: ["source"], OUT: ["egress"]}
         assert chain.evidence["role_source"] == {READ: "name_rule", OUT: "name_rule"}
 
@@ -90,11 +91,35 @@ class TestTypedChains:
     def test_an_override_can_remove_a_role(self) -> None:
         assert _typed([READ, OUT], role_overrides={OUT: frozenset()}) == []
 
-    def test_one_chain_per_sink_role(self) -> None:
-        types = {
-            c.vulnerability_type for c in _typed([READ, "transfer_funds", "run_shell_command"])
+    def test_each_sink_role_has_its_own_type(self) -> None:
+        assert TYPED_VULNERABILITY_TYPES == {
+            "egress": "typed_data_exfiltration",
+            "exec": "typed_untrusted_execution",
+            "high_impact": "typed_high_impact_action",
         }
-        assert types == set(TYPED_VULNERABILITY_TYPES.values())
+
+    def test_one_chain_per_sink_role(self) -> None:
+        got = {
+            (c.tools[1], c.vulnerability_type, c.risk_level)
+            for c in _typed([READ, "transfer_funds", "run_shell_command"])
+        }
+        assert got == {
+            ("transfer_funds", "typed_data_exfiltration", "high"),
+            ("transfer_funds", "typed_high_impact_action", "high"),
+            ("run_shell_command", "typed_untrusted_execution", "high"),
+        }
+
+    def test_the_typed_set_does_not_depend_on_cycles(self) -> None:
+        tools = ["Read(./.env)", "get_agent_card", "send_task"]
+
+        def typed_pairs(include_cycles: bool) -> set[tuple[str, ...]]:
+            found = ToolChainAnalyzer(_graph(tools), typed=True).analyze(
+                include_cycles=include_cycles
+            )
+            return {tuple(c.tools) for c in found if c.typed}
+
+        assert typed_pairs(True) == typed_pairs(False)
+        assert ("Read(./.env)", "send_task") in typed_pairs(True)
 
     def test_only_the_egress_type_is_exfiltration_class(self) -> None:
         assert {t for t in TYPED_VULNERABILITY_TYPES.values() if EXFIL.search(t)} == {
@@ -111,9 +136,18 @@ class TestTypedChains:
         (chain,) = _typed(["Read", OUT])
         assert chain.evidence["role_source"] == {"Read": "table", OUT: "name_rule"}
 
-    def test_a_bad_override_stops_the_analysis(self) -> None:
-        with pytest.raises(ValueError, match="role"):
-            _typed([READ, OUT], role_overrides={OUT: frozenset({"write"})})
+    def test_a_bad_override_is_refused_at_construction(self) -> None:
+        for bad in ({"write"}, ""):
+            with pytest.raises(ValueError, match="role"):
+                ToolChainAnalyzer(_graph([READ]), typed=True, role_overrides={"absent": bad})
+
+    def test_a_one_shot_override_is_not_used_up(self) -> None:
+        analyzer = ToolChainAnalyzer(
+            _graph([READ, NOVERB]), typed=True, role_overrides={NOVERB: iter(["egress"])}
+        )
+        for _ in range(2):
+            (chain,) = [c for c in analyzer.analyze(include_cycles=False) if c.typed]
+            assert chain.evidence["roles"][NOVERB] == ["egress"]
 
     def test_chains_default_to_untyped(self) -> None:
         c = DangerousChain(
