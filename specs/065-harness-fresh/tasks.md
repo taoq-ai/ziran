@@ -31,3 +31,9 @@
 - [x] T016 Import the provenance module only when the pin ships it
 - [x] T017 One reserved-key constant in `ziran/domain/interfaces/adapter.py`
 - [x] T018 Tests: a real pin pair in both orders, exit 2 on a bad row, the pin name, the latest-assistant rule, another ValueError, a broken module, more type rules
+
+## Phase 5: fix round 2 (the planner's option c)
+
+- [x] T019 `tool_results` items are `{message_index, text, error?}`; `text` is the content only
+- [x] T020 Tests: `error` present only on a failed call; the detector ignores it; an error-only address is not tainted and reaches no output
+- [x] T021 Merge origin/develop (220186e); re-run the dev replay at `cab556e`

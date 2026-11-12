@@ -24,9 +24,11 @@ known (rule T3) and payload known (rule P1).
   undefended (not `Meta-SecAlign-70B`, no defence suffix) and the attack is `direct`,
   `ignore_previous`, `injecagent` or `tool_knowledge`. Other paths are counted as outside.
 - (b) Every AgentDojo unit carries `trusted_task` (the first user message's text, the same as
-  `prompt`), `tool_results` (`{message_index, text}` per tool message, in log order, whole:
-  the content, then `error: <error>` for a failed call, as ziran-paper's
-  `g11_judge_spike.render_trace` renders it), `message_index` on each call, and `payload`. The task-known variants (`whole`,
+  `prompt`), `tool_results` (`{message_index, text, error?}` per tool message, in log
+  order: `text` is the content, whole, and is what the detector reads; `error` is AgentDojo's
+  error string, present only on a failed call, for the judge's rendering as ziran-paper's
+  `g11_judge_spike.render_trace` shows it, and never read by the detector), `message_index` on
+  each call, and `payload`. The task-known variants (`whole`,
   `post_injection`, `text_only`) pass `payload: []`. The payload-known variants (`payload_whole`,
   `payload_post_injection`) pass the log's `injections` values in key order.
 - (c) Both pins receive identical units. The worker passes exactly those three metadata keys
@@ -127,11 +129,12 @@ replaced for every benchmark: the G-9 rows are committed and this harness does n
    `p1` on `payload_whole`, with 0 raises. `dev_replay.py` in this folder computes it from the
    harness rows.
    - At `887745b` (tool results without the error text): 0 differences on T3 and on P1.
-   - At `e053a39` (with the error text, fix round 1): P1 0 differences; T3 2 differences. Both
-     are negatives the harness flags and the probe does not; their logs hold 13 and 4 failed
-     calls. The probe reads tool content only. 1,510 analysed logs hold a failed call. So the
-     T3 counts D29 and D30 do not reproduce under the error text, and the P1 counts D27 and D28
-     do. Which reading governs is the owner's to register.
+   - At `e053a39` (error text folded into `text`, fix round 1): P1 0 differences; T3 2
+     differences, two negatives the probe does not flag, because the probe reads tool content
+     only (1,510 analysed logs hold a failed call).
+   - At `cab556e` (fix round 2: `error` its own field, `text` the content only): P1 0
+     differences, T3 0 differences (T3 2,718 hits, P1 2,424 hits), study-v1 equal on 29,736
+     units, 0 raises. D27 to D30 reproduce.
 
 ## Out of scope
 
