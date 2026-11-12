@@ -81,6 +81,7 @@ class TestNames:
         assert is_state_changing("send_email")
         assert is_state_changing("sendMoney")
         assert not is_state_changing("get_sent_emails")  # read verb first
+        assert not is_state_changing("getSendQueue")  # read verb first, despite "send"
         assert not is_state_changing("calendar")  # no write verb, not critical
         assert is_state_changing("http_request")  # tool_classifier rates it critical
         assert not is_state_changing("")
