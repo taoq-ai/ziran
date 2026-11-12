@@ -112,7 +112,8 @@ class RecordReplayClient(BaseLLMClient):
 
 
 def _lines(path: Path) -> list[str]:
-    return [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    # "\n" only, as hybrid_send reads: a text may hold U+2028, which splitlines() would split on
+    return [line for line in path.read_text(encoding="utf-8").split("\n") if line.strip()]
 
 
 def _read_outcomes(path: Path) -> dict[str, dict[str, Any]]:

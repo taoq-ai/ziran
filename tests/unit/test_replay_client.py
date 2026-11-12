@@ -112,6 +112,20 @@ async def test_record_appends_and_writes_a_key_once(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
+async def test_a_text_with_a_line_separator_stays_one_line(tmp_path: Path) -> None:
+    out = tmp_path / "judge.requests.jsonl"
+    text = "tool result:\u2028second\u2029third\x85end"
+    await RecordReplayClient(MODEL, VERSION, record_to=out).complete(
+        _user(text), job="trace_judge", unit="u-1", prompt=PROMPT
+    )
+    await RecordReplayClient(MODEL, VERSION, record_to=out).complete(
+        _user(text), job="trace_judge", unit="u-2", prompt=PROMPT
+    )
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").split("\n") if line]
+    assert [(r["unit"], r["text"]) for r in rows] == [("u-1", text)]
+
+
+@pytest.mark.unit
 def test_record_path_must_be_a_requests_file(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"\.requests\.jsonl"):
         RecordReplayClient(MODEL, VERSION, record_to=tmp_path / "judge.jsonl")
