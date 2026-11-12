@@ -88,6 +88,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 065-harness-fresh: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `re`/`json`, Pydantic v2; no new dependencies. `benchmarks/external_eval/` gains the `agentdojo_fresh` set, passes `trusted_task`, `tool_results`, `message_index` and `payload` to the detector (payload-known variants `payload_whole`, `payload_post_injection`), reports `deterministic` (`provenance().hit`), excludes a `ProvenanceInputError` unit as `detector_raised`, and writes one allowlisted row per unit (`run.check_row`). The HTTP adapter drops those three keys from remote metadata.
 - 063-provenance-side-effect: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `re`/`json`; no new dependencies. `ziran/application/detectors/provenance.py` (rules T3 and P1, per-call evidence record) read from `AgentResponse.metadata` keys `trusted_task`, `tool_results`, `payload`; the detection dataset gains six benign-task items (228 total, baseline rebuilt).
 - 053-enables-edge-fanout: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only
 - 054-benchmark-pr-delta: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies.
