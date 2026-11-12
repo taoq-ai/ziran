@@ -123,7 +123,7 @@ Each typed chain's `evidence["role_source"]` maps each of its two tools to one o
    item requires that benchmark to keep its true-negative result. With the flag off, no user output
    changes and the benchmark baseline stays as it is. Deterministic mode, the chain set and the
    corpus run pass `typed=True` (paper side). Overturned if the planner wants them on by default:
-   flip the default, update three tests and the sample SARIF baseline.
+   flip the default, update two scanner tests, and regenerate the sample SARIF baseline that three CLI tests read.
 2. "Write tools count as sources" is met through the override: a write tool the classifier marks
    `reads_untrusted` or `reads_private` gets the source role from its reply. The name rules stay
    the probe's, which give a write verb no source role, because V2 must equal the probe.
