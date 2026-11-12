@@ -190,7 +190,7 @@ def paper_checkout(tmp_path: Path, benchmark: str, lines: list[dict[str, Any]]) 
     log = paper / USE_LOGS[benchmark]
     log.parent.mkdir(parents=True, exist_ok=True)
     log.write_text("".join(json.dumps(x, sort_keys=True) + "\n" for x in lines))
-    _git(paper, "init", "-q")
+    _git(paper, "init", "-q", "-b", "main")
     _git(paper, "add", "-A")
     _git(paper, "commit", "-qm", "log")
     return paper

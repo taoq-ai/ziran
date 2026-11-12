@@ -367,21 +367,32 @@ def require_admitted(
 ) -> None:
     """Refuse a fresh or reserve run that the paper's guard has not admitted (section 16).
 
-    ``g11_run_guard.guard`` commits an ``aborted`` line to the set's use log before the fetch.
-    The run goes on only when that log is committed as it stands, holds no ``scored`` line, and
-    its last line is ``aborted`` for one of the run's pins, at that pin's commit, and for the
-    sorted run-log paths of the manifest. Nothing under ``--data`` is opened before this.
+    ``g11_run_guard.guard`` commits an ``aborted`` line to the set's use log before the fetch,
+    in the paper's main checkout on ``main``. The run goes on only when ``--paper`` is such a
+    checkout's top level, the log is committed as it stands, holds no ``scored`` line, and its
+    last line is ``aborted`` for one of the run's pins, at that pin's commit, and for the sorted
+    run-log paths of the manifest. Nothing under ``--data`` is opened before this.
     """
     rel = USE_LOGS.get(bench)
     if rel is None:
         return
     if paper is None:
         raise HarnessError(f"{bench} needs --paper, the checkout whose run guard admitted it")
+    if Path(isolation.git_text(paper, "rev-parse", "--show-toplevel")).resolve() != (
+        paper.resolve()
+    ):
+        raise HarnessError("--paper is not the top level of a git checkout")
+    try:
+        branch = isolation.git_text(paper, "symbolic-ref", "--quiet", "HEAD")
+    except HarnessError:  # a detached HEAD
+        branch = None
+    if branch != "refs/heads/main":
+        raise HarnessError("--paper is not on main, where the guard runs")
     log = paper / rel
     if log.is_symlink() or not log.is_file():
         raise HarnessError(f"{log.name} is not a regular file in --paper")
     text = log.read_bytes()
-    if text != isolation.git_show(paper, f"HEAD:{rel}"):
+    if text != isolation._git(paper, "show", f"HEAD:{rel}"):
         raise HarnessError(f"{log.name} is not committed as it stands")
     refused = HarnessError(f"a line of {log.name} is not a JSON object")
     try:
@@ -397,14 +408,16 @@ def require_admitted(
     last = lines[-1]
     pin = last.get("pin")
     sha = pins.get(pin) if isinstance(pin, str) else None
-    run_logs = sorted(r for r in read_manifest(manifest_path).files if mapping.is_run_log(r))
     checks = {
         "status": last.get("status") == "aborted",
         "pin": sha is not None,
         "ziran_sha": sha is not None and last.get("ziran_sha") == sha,
-        "sha256": last.get("sha256") == sha256("\n".join(run_logs).encode()),
     }
     bad = sorted(k for k, ok in checks.items() if not ok)
+    if not bad:  # the manifest is opened only for a line that names this run
+        run_logs = sorted(r for r in read_manifest(manifest_path).files if mapping.is_run_log(r))
+        if last.get("sha256") != sha256("\n".join(run_logs).encode()):
+            bad = ["sha256"]
     if bad:
         raise HarnessError(f"the last line of {log.name} does not admit this run: {bad}")
 

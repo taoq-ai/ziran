@@ -27,13 +27,15 @@ line before it opens `--data`, for the fresh set and the reserve set.
   Rows pass `check_row` unchanged. Its primary predictor is `deterministic`, as for the fresh set.
 - (c) `agentdojo_fresh` and `agentdojo_reserve` need `--paper <ziran-paper checkout>`. After the
   pins resolve and before the output folder or any data file is touched, `run.py` refuses with
-  exit 2 and writes nothing unless the set's use log (`study/results/g11_fresh_uses.jsonl` or
+  exit 2 and writes nothing unless `--paper` is a checkout's top level with HEAD on `main` (where
+  #130's guard runs), and the set's use log (`study/results/g11_fresh_uses.jsonl` or
   `study/results/g11_reserve_uses.jsonl`):
   - is a regular file, not a link, and equals its blob at the checkout's HEAD;
   - holds JSON objects only, at least one, and no line with `status` `scored`;
   - ends in a line with `status` `aborted`, a `pin` that names one of the run's `--pin` names, a
     `ziran_sha` equal to that pin's resolved commit, and a `sha256` equal to that of the
-    manifest's run-log paths, sorted and joined by newlines.
+    manifest's run-log paths, sorted and joined by newlines. The manifest is read only once
+    the status, pin and `ziran_sha` checks pass.
 
 Acceptance (the plan's): given synthetic reserve-shaped logs, the loader's rows carry the model
 folder and attack cells and pass `check_row`; given no authorisation, the run refuses before it
@@ -63,6 +65,9 @@ reads any data file.
 - "The manifest's run-log paths" are the manifest entries that match the AgentDojo run-log path
   rule, so the licence file is left out. Overturned if G11-SCORE's fetch writes another file
   into the manifest that the guard also hashes.
+- A missing or malformed manifest on a guarded set exits 2 with no summary, where section 10
+  would give exit 3 with a summary. The check fails closed: nothing is written before the run is
+  admitted. Overturned if G11-SCORE's runbook needs the section 10 summary for that case.
 - `--paper` given with another benchmark is ignored, since no guard covers those sets.
 - The reserve set's primary is `deterministic`, as for the fresh set; section 6 names no other.
 

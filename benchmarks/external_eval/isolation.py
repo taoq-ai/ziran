@@ -65,9 +65,9 @@ def _git(repo: Path, *args: str) -> bytes:
     return proc.stdout
 
 
-def git_show(repo: Path, obj: str) -> bytes:
-    """The bytes of one object, such as ``HEAD:<path>``; a missing one refuses."""
-    return _git(repo, "show", obj)
+def git_text(repo: Path, *args: str) -> str:
+    """One git command's output, stripped; a failure refuses."""
+    return _git(repo, *args).decode().strip()
 
 
 def resolve_sha(repo: Path, rev: str) -> str:

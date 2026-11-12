@@ -20,3 +20,4 @@
 - [x] T008 Run the suite with an empty HOME and stubbed model CLIs; ruff, ruff format, mypy
 - [x] T009 Run mutants on the new code against the reserve tests
 - [x] T010 Add the spec line to `CLAUDE.md` Recent Changes
+- [x] T011 Fix round (quality and security at 76c787f): HEAD-not-index test, top-level and on-`main` checks, field checks before the manifest, the exit-2 manifest test

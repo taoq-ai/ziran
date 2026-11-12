@@ -189,8 +189,51 @@ def test_a_scored_line_cut_from_the_work_tree_still_refuses(tmp_path: Path) -> N
     data, manifest, paper = _with_log(tmp_path, [lambda m: aborted(m, status="scored")])
     log = paper / USE_LOGS["agentdojo_reserve"]
     log.write_text(json.dumps(aborted(manifest), sort_keys=True) + "\n")
+    _git(paper, "add", "-A")  # staged is not committed: HEAD, not the index, is read
     proc = run_cli(tmp_path, "agentdojo_reserve", data, manifest, "--paper", str(paper))
     _refused(proc, tmp_path, "is not committed as it stands")
+
+
+@pytest.mark.parametrize("move", [("checkout", "-qb", "side"), ("checkout", "-q", "--detach")])
+def test_a_paper_checkout_off_main_is_refused(tmp_path: Path, move: tuple[str, ...]) -> None:
+    data, manifest, paper = _with_log(tmp_path, [aborted])
+    _git(paper, *move)
+    proc = run_cli(tmp_path, "agentdojo_reserve", data, manifest, "--paper", str(paper))
+    _refused(proc, tmp_path, "--paper is not on main")
+
+
+def test_a_folder_inside_a_checkout_is_refused(tmp_path: Path) -> None:
+    data, manifest, paper = _with_log(tmp_path, [aborted])
+    inner = paper / "inner"
+    (inner / USE_LOGS["agentdojo_reserve"]).parent.mkdir(parents=True)
+    (inner / USE_LOGS["agentdojo_reserve"]).write_bytes(
+        (paper / USE_LOGS["agentdojo_reserve"]).read_bytes()
+    )
+    _git(paper, "add", "-A")
+    _git(paper, "commit", "-qm", "inner")
+    proc = run_cli(tmp_path, "agentdojo_reserve", data, manifest, "--paper", str(inner))
+    _refused(proc, tmp_path, "--paper is not the top level of a git checkout")
+
+
+def test_a_line_for_another_run_refuses_before_the_manifest_is_read(tmp_path: Path) -> None:
+    data, manifest, paper = _with_log(tmp_path, [lambda m: aborted(m, pin="study-v2")])
+    manifest.unlink()
+    proc = run_cli(tmp_path, "agentdojo_reserve", data, manifest, "--paper", str(paper))
+    _refused(proc, tmp_path, "['pin', 'ziran_sha']")
+
+
+@pytest.mark.parametrize("text", [None, "{not json"])
+def test_a_bad_manifest_on_a_guarded_set_exits_2_with_no_summary(
+    tmp_path: Path, text: str | None
+) -> None:
+    # fail closed: section 10's exit 3 needs a summary, and nothing is written before admission
+    data, manifest, paper = _with_log(tmp_path, [aborted])
+    if text is None:
+        manifest.unlink()
+    else:
+        manifest.write_text(text)
+    proc = run_cli(tmp_path, "agentdojo_reserve", data, manifest, "--paper", str(paper))
+    _refused(proc, tmp_path, "is unreadable")
 
 
 def test_a_symlinked_or_missing_log_is_refused(tmp_path: Path) -> None:

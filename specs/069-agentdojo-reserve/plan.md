@@ -10,8 +10,8 @@ log in the paper checkout before the run writes or reads anything.
 
 ## Technical context
 
-Python 3.11+ (CI matrix 3.11, 3.12, 3.13). Stdlib `json`; one `git show` through `isolation.git_show`, which wraps the harness's
-existing `isolation._git` (lazy fetch off). No new dependency, no model call, no ziran-paper code
+Python 3.11+ (CI matrix 3.11, 3.12, 3.13). Stdlib `json`; `git show`, `rev-parse --show-toplevel` and `symbolic-ref HEAD` through the
+harness's existing `isolation._git` (lazy fetch off) and `isolation.git_text`. No new dependency, no model call, no ziran-paper code
 imported.
 
 ## Constitution check
@@ -28,7 +28,7 @@ imported.
 | --- | --- |
 | `benchmarks/external_eval/mapping.py` | `is_run_log`, `agentdojo_reserve_admitted`, `agentdojo_reserve_units` |
 | `benchmarks/external_eval/collect.py` | `_agentdojo` takes the unit function; `agentdojo_reserve` builder and primary |
-| `benchmarks/external_eval/isolation.py` | `git_show` |
+| `benchmarks/external_eval/isolation.py` | `git_text` |
 | `benchmarks/external_eval/run.py` | `USE_LOGS`, `--paper`, `require_admitted` before the output folder |
 | `tests/unit/test_external_eval_reserve.py` | include rule, attack cell, end to end, every refusal |
 | `tests/unit/test_external_eval_run.py` | `paper_checkout` and `aborted` helpers; `run_cli` passes `--paper` for a guarded set |
