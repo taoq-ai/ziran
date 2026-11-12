@@ -21,6 +21,9 @@ class AgentToolConfig(BaseModel):
     package: str = Field(default="", description="Full package path if applicable")
     description: str = Field(default="", description="What the tool does")
     risk_level: Literal["critical", "high", "medium", "low"] = Field(default="medium")
+    message_index: int | None = Field(
+        default=None, description="Index of the assistant message that holds the call (spec 063)"
+    )
     parameters: dict[str, Any] | list[dict[str, Any]] = Field(default_factory=dict)
 
 
@@ -151,6 +154,9 @@ class ToolCallRecord(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict, description="Call arguments")
     result: str = Field(default="", description="Recorded tool output")
     risk_level: Literal["critical", "high", "medium", "low"] = Field(default="medium")
+    message_index: int | None = Field(
+        default=None, description="Index of the assistant message that holds the call (spec 063)"
+    )
 
 
 class RecordedJudgeVerdict(BaseModel):
@@ -185,6 +191,10 @@ class DetectionExample(BaseModel):
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
     recorded_judge: RecordedJudgeVerdict | None = Field(default=None)
     expected_detectors: list[ExpectedDetector] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="AgentResponse.metadata: trusted_task, tool_results, payload (spec 063)",
+    )
     source: SourceProvenance
     notes: str = Field(default="")
 

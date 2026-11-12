@@ -172,7 +172,8 @@ async def _score(
         )
         response = AgentResponse(
             content=ex.response_text,
-            tool_calls=[tc.model_dump() for tc in ex.tool_calls],
+            tool_calls=[tc.model_dump(exclude_none=True) for tc in ex.tool_calls],
+            metadata=ex.metadata,
         )
         verdict = await pipeline.evaluate(ex.attack.vector_id, response, prompt_spec)
 
