@@ -27,7 +27,7 @@ Two hardening fixes before the fresh run.
 - Given metadata holding the three keys, when it reaches the detectors through
   `HttpAgentAdapter.invoke`, `HttpAgentAdapter.stream`, or `AttackExecutor` (single, streaming
   and multi-turn), then the three keys are gone and the rest is kept.
-- One constant, `RESERVED_METADATA_KEYS` in `ziran/domain/interfaces/adapter.py`, names the
+- One constant, `PROVENANCE_METADATA_KEYS` in `ziran/domain/interfaces/adapter.py`, names the
   keys; a test holds it equal to the keys `provenance()` reads.
 
 ## Out of scope

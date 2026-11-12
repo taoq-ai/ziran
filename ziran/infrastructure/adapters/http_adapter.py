@@ -21,7 +21,7 @@ from ziran.domain.entities.target import (
     TargetConfig,
 )
 from ziran.domain.interfaces.adapter import (
-    RESERVED_METADATA_KEYS,
+    PROVENANCE_METADATA_KEYS,
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
@@ -181,7 +181,10 @@ class HttpAgentAdapter(BaseAgentAdapter):
         self._conversation.append({"role": "assistant", "content": content})
 
         tool_calls = result.get("tool_calls", [])
-        metadata = drop_reserved(result.get("metadata", {}))
+        # the provenance inputs (spec 063) are the caller's to set, never the target's
+        metadata = {
+            k: v for k, v in result.get("metadata", {}).items() if k not in PROVENANCE_METADATA_KEYS
+        }
 
         return AgentResponse(
             content=content,
@@ -220,8 +223,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         async for chunk in self._handler.stream_send(message, **kwargs):
             if chunk.content_delta:
                 accumulated_content.append(chunk.content_delta)
-            if RESERVED_METADATA_KEYS & chunk.metadata.keys():
-                chunk = chunk.model_copy(update={"metadata": drop_reserved(chunk.metadata)})
+            chunk = chunk.model_copy(update={"metadata": drop_reserved(chunk.metadata)})
             if chunk.is_final:
                 # Track conversation for multi-turn
                 full_content = "".join(accumulated_content)

@@ -14,8 +14,10 @@ Regex lines only in `provenance.py`, plus the strip on each path.
 - Domain: `(DOMAIN)|\b(?:[a-z0-9-]+\.?)+`. A later start in the same dotted chain can only
   match where the chain's first word-boundary start would, so the second branch consumes the
   chain. It keeps the `\b`, since a start that fails on `\b` alone says nothing of later ones.
-- `RESERVED_METADATA_KEYS` and `drop_reserved()` in `ziran/domain/interfaces/adapter.py`, so the
-  infrastructure and application layers both import it from the domain.
+- `PROVENANCE_METADATA_KEYS` and `drop_reserved()` in `ziran/domain/interfaces/adapter.py`, so
+  the infrastructure and application layers both import it from the domain. The constant, its
+  comment, the import line and the `HttpAgentAdapter.invoke` strip are the exact lines of
+  ziran#493 (spec 065), so either PR merges after the other without a conflict.
 
 ## Constitution Check
 

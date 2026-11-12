@@ -12,8 +12,8 @@
 ## Phase 2: implementation
 
 - [x] T004 Rewrite the CamelCase, mail and domain patterns; drop empty findall items in `atoms()`
-- [x] T005 `RESERVED_METADATA_KEYS` and `drop_reserved()`; strip in `HttpAgentAdapter`,
-  `AttackExecutor` and `TacticExecutor`
+- [x] T005 `PROVENANCE_METADATA_KEYS` (as ziran#493 names it) and `drop_reserved()`; strip in
+  `HttpAgentAdapter`, `AttackExecutor` and `TacticExecutor`
 
 ## Phase 3: checks
 

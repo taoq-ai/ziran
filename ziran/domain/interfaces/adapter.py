@@ -19,14 +19,9 @@ if TYPE_CHECKING:
     from ziran.domain.entities.multi_agent import MultiAgentTopology
     from ziran.domain.entities.streaming import AgentResponseChunk
 
-#: ``AgentResponse.metadata`` keys only the caller sets: the provenance inputs of the
-#: side-effect detector (spec 063). A target's own values for them are dropped (spec 068).
-RESERVED_METADATA_KEYS = frozenset({"trusted_task", "tool_results", "payload"})
-
-
-def drop_reserved(metadata: dict[str, Any]) -> dict[str, Any]:
-    """The metadata without :data:`RESERVED_METADATA_KEYS`."""
-    return {k: v for k, v in metadata.items() if k not in RESERVED_METADATA_KEYS}
+#: ``AgentResponse.metadata`` keys reserved for the side-effect detector's provenance rules
+#: (spec 063). The caller sets them; an adapter never forwards a target's copy (spec 065).
+PROVENANCE_METADATA_KEYS = ("trusted_task", "tool_results", "payload")
 
 
 class AgentResponse(BaseModel):
@@ -46,6 +41,11 @@ class AgentResponse(BaseModel):
     prompt_tokens: int = Field(default=0, ge=0, description="Prompt tokens consumed")
     completion_tokens: int = Field(default=0, ge=0, description="Completion tokens consumed")
     total_tokens: int = Field(default=0, ge=0, description="Total tokens consumed")
+
+
+def drop_reserved(metadata: dict[str, Any]) -> dict[str, Any]:
+    """The metadata without :data:`PROVENANCE_METADATA_KEYS`, as a target returned it (spec 068)."""
+    return {k: v for k, v in metadata.items() if k not in PROVENANCE_METADATA_KEYS}
 
 
 class AgentState(BaseModel):

@@ -18,7 +18,7 @@ from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVec
 from ziran.domain.entities.phase import ScanPhase
 from ziran.domain.entities.streaming import AgentResponseChunk
 from ziran.domain.entities.target import ProtocolType, RestConfig, TargetConfig
-from ziran.domain.interfaces.adapter import RESERVED_METADATA_KEYS, AgentResponse
+from ziran.domain.interfaces.adapter import PROVENANCE_METADATA_KEYS, AgentResponse
 from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 
 pytestmark = pytest.mark.unit
@@ -34,9 +34,9 @@ _KEPT = {"prompt_tokens": 3, "model": "m"}
 
 
 def test_the_constant_names_exactly_the_keys_provenance_reads() -> None:
-    assert frozenset({"trusted_task", "tool_results", "payload"}) == RESERVED_METADATA_KEYS
+    assert set(PROVENANCE_METADATA_KEYS) == {"trusted_task", "tool_results", "payload"}
     malformed = {"trusted_task": " ", "payload": "not a list", "tool_results": "not a list"}
-    for key in RESERVED_METADATA_KEYS:
+    for key in PROVENANCE_METADATA_KEYS:
         meta: dict[str, Any] = {"trusted_task": "the task", key: malformed[key]}
         with pytest.raises(ProvenanceInputError, match=key):
             provenance("p", AgentResponse(content="", metadata=meta))
