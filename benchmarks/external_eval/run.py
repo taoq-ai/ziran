@@ -2,7 +2,12 @@
 
 Scores ziran's response detectors on one benchmark against the benchmark's own labels, at each
 ziran pin, in a fresh worker process per pin. Writes only counts, hashes, unit ids, labels and
-verdicts: ``<out>/<benchmark>.rows.jsonl`` and ``<out>/<benchmark>.summary.json``.
+verdicts: ``<out>/<benchmark>.rows.jsonl`` and ``<out>/<benchmark>.summary.json``. Each row is
+one unit, its keys and value types held to ziran-paper ``prereg/patch-protocol.md`` section 8
+(:func:`check_row`); a row outside them stops the run with nothing written.
+
+A unit on which a pin's detector raises ``ProvenanceInputError`` is excluded as
+``detector_raised`` at every pin, whatever its label (spec 065), and counted per pin.
 
 Usage (from any folder; ``-I`` is required)::
 
@@ -27,6 +32,7 @@ import argparse  # noqa: E402
 import json  # noqa: E402
 import math  # noqa: E402
 import os  # noqa: E402
+import re  # noqa: E402
 import signal  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
@@ -34,7 +40,7 @@ import time  # noqa: E402
 from collections import defaultdict  # noqa: E402
 from typing import Any  # noqa: E402
 
-from benchmarks.external_eval import isolation, metrics  # noqa: E402
+from benchmarks.external_eval import isolation, mapping, metrics  # noqa: E402
 from benchmarks.external_eval.collect import PRIMARY, Collected, collect  # noqa: E402
 from benchmarks.external_eval.intake import (  # noqa: E402
     HarnessError,
@@ -46,7 +52,24 @@ from benchmarks.external_eval.intake import (  # noqa: E402
 from benchmarks.external_eval.worker import block_network  # noqa: E402
 
 WORKER = Path(__file__).resolve().parent / "worker.py"
-PREDICTORS = ("refusal", "side_effect", "pipeline")
+PREDICTORS = ("refusal", "side_effect", "pipeline", "deterministic")
+#: Patch protocol section 8: the only keys a row holds, and their value rules.
+ROW_KEYS = frozenset(
+    {"benchmark", "unit_id", "variant", "cluster", "cells", "label", "excluded", "notes",
+     "verdicts", "reply_outcome"}
+)  # fmt: skip
+REPLY_OUTCOMES = frozenset(
+    {"reply", "unparsed", "no_text", "not_sent_oversize", "step_stopped", "no_reply_at_bound",
+     "scan_hit"}
+)  # fmt: skip
+NOTES = frozenset({"no_marker", "shipped_eval_differs"}) | mapping.INVALID_REASONS
+EXCLUDED = frozenset({"error", "parse_error", "invalid", "label_not_binary", "detector_raised"})
+VARIANTS = frozenset(
+    {"whole", "post_injection", "text_only", "payload_whole", "payload_post_injection"}
+)
+_ID = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")  # a sha256 is an id too
+_UNIT_ID = re.compile(r"[A-Za-z0-9_.:-]+(?:/[A-Za-z0-9_.:-]+)*")  # "member:line", "row:3"
+_PIN_NAME = re.compile(r"[A-Za-z0-9_.-]+")
 EXPLORATORY_BELOW = 50
 #: Seconds one pin's worker may take; a scored unit takes milliseconds.
 WORKER_TIMEOUT = 3600.0
@@ -81,7 +104,7 @@ def _pins(repo: Path, specs: list[str]) -> dict[str, str]:
     pins: dict[str, str] = {}
     for spec in specs:
         name, sep, rev = spec.partition("=")
-        if not sep or not name or not rev or name in pins:
+        if not sep or not _PIN_NAME.fullmatch(name) or not rev or name in pins:
             raise HarnessError(f"--pin {spec!r} is not a new NAME=REV")
         pins[name] = isolation.resolve_sha(repo, rev)
     return pins
@@ -103,9 +126,7 @@ def _worker(
     file past its cap, and normal exit. SIGKILL to the harness cannot be handled.
     """
     payload = "".join(
-        json.dumps({"key": i, "prompt": u.prompt, "content": u.content, "tool_calls": u.tool_calls})
-        + "\n"
-        for i, u in enumerate(units.units)
+        json.dumps(_worker_unit(i, u)) + "\n" for i, u in enumerate(units.units)
     ).encode()
     with (
         tempfile.TemporaryFile() as stdin,
@@ -153,6 +174,17 @@ def _worker(
         "worker_wall_seconds": round(wall, 3),
     }
     return header, verdicts
+
+
+def _worker_unit(key: int, u: mapping.Unit) -> dict[str, Any]:
+    """What the worker reads: the response, and the section 5 keys (no task when none is known)."""
+    unit: dict[str, Any] = {
+        "key": key, "prompt": u.prompt, "content": u.content, "tool_calls": u.tool_calls,
+        "tool_results": u.tool_results, "payload": u.payload,
+    }  # fmt: skip
+    if u.trusted_task is not None:
+        unit["trusted_task"] = u.trusted_task
+    return unit
 
 
 def _wait(
@@ -220,7 +252,7 @@ def _metrics(units: Collected, verdicts: list[dict[str, Any]]) -> dict[str, Any]
     variants = sorted({u.variant for u in units.units})
     for variant in variants:
         out[variant] = {}
-        for pred in PREDICTORS:
+        for pred in _scored(verdicts):
             pooled: list[tuple[bool, bool]] = []
             cells: dict[str, dict[str, list[tuple[bool, bool]]]] = defaultdict(
                 lambda: defaultdict(list)
@@ -242,7 +274,16 @@ def _metrics(units: Collected, verdicts: list[dict[str, Any]]) -> dict[str, Any]
     return out
 
 
-def _bootstrap(units: Collected, verdicts: list[dict[str, Any]], pred: str) -> dict[str, Any]:
+def _scored(verdicts: list[dict[str, Any]]) -> list[str]:
+    """The predictors this pin gives: a pin before spec 063 has no deterministic verdict."""
+    return [p for p in PREDICTORS if any(v.get(p) is not None for v in verdicts)]
+
+
+def _bootstrap(
+    units: Collected, verdicts: list[dict[str, Any]], pred: str
+) -> dict[str, Any] | None:
+    if pred not in _scored(verdicts):
+        return None
     analysed = [
         (u.cluster, u.label, bool(v[pred]))
         for u, v in zip(units.units, verdicts, strict=True)
@@ -256,11 +297,56 @@ def _pin_differences(by_pin: dict[str, list[dict[str, Any]]]) -> dict[str, dict[
     first = next(iter(by_pin))
     return {
         f"{first} vs {name}": {
-            p: sum(a[p] != b[p] for a, b in zip(by_pin[first], v, strict=True)) for p in PREDICTORS
+            p: sum(
+                a.get(p) is not None and b.get(p) is not None and a[p] != b[p]
+                for a, b in zip(by_pin[first], v, strict=True)
+            )
+            for p in _scored(by_pin[first])
+            if p in _scored(v)
         }
         for name, v in by_pin.items()
         if name != first
     }
+
+
+def _cluster_id(cluster: str) -> str:
+    """The cluster as an id, or the sha256 of a cluster that holds record text."""
+    return cluster if _ID.fullmatch(cluster) else sha256(cluster.encode())
+
+
+def check_row(row: dict[str, Any]) -> None:
+    """Refuse a row with any key or value outside patch protocol section 8.
+
+    The message names the key that fails, never a value.
+    """
+    if set(row) != ROW_KEYS:
+        raise HarnessError(f"row keys {sorted(set(row) ^ ROW_KEYS)} are outside the allowlist")
+    verdicts, cells, notes = row["verdicts"], row["cells"], row["notes"]
+    checks = {
+        "benchmark": row["benchmark"] in PRIMARY,
+        "unit_id": isinstance(row["unit_id"], str) and bool(_UNIT_ID.fullmatch(row["unit_id"])),
+        "variant": row["variant"] in VARIANTS,
+        "cluster": isinstance(row["cluster"], str) and bool(_ID.fullmatch(row["cluster"])),
+        "cells": isinstance(cells, dict)
+        and all(
+            isinstance(v, str) and _ID.fullmatch(k) and _ID.fullmatch(v) for k, v in cells.items()
+        ),
+        "label": row["label"] is None or type(row["label"]) is bool,
+        "excluded": row["excluded"] is None or row["excluded"] in EXCLUDED,
+        "notes": isinstance(notes, list) and all(n in NOTES for n in notes),
+        "verdicts": isinstance(verdicts, dict)
+        and all(
+            type(v) is bool
+            and isinstance(k, str)
+            and _PIN_NAME.fullmatch(k.partition("/")[0])
+            and k.partition("/")[2] in PREDICTORS
+            for k, v in verdicts.items()
+        ),
+        "reply_outcome": row["reply_outcome"] is None or row["reply_outcome"] in REPLY_OUTCOMES,
+    }
+    bad = sorted(k for k, ok in checks.items() if not ok)
+    if bad:
+        raise HarnessError(f"row values of {bad} are outside the allowlist")
 
 
 def _write(path: Path, text: str) -> str:
@@ -330,7 +416,6 @@ def run(args: argparse.Namespace, removed: int) -> int:
         "manifest_files": units.manifest_files,
         "extra_sha256": units.extra_hashes,
     }
-    rows: list[str] = []
     by_pin: dict[str, list[dict[str, Any]]] = {}
     summary["metrics"], summary["bootstrap"] = {}, {}
     for name, sha in pins.items():
@@ -345,15 +430,40 @@ def run(args: argparse.Namespace, removed: int) -> int:
             header, verdicts = _worker(export.resolve(), cwd, units, args.worker_timeout)
         summary["pins"][name] |= header
         by_pin[name] = verdicts
+    # label-blind: a raise at any pin excludes the unit at every pin, so the pins stay paired
+    raised = {i for v in by_pin.values() for i, x in enumerate(v) if x.get("raised")}
+    # counted where the raise relabels the unit: a unit already excluded (error) keeps that
+    summary["detector_raised"] = {
+        name: sum(
+            bool(x.get("raised")) and units.units[i].excluded is None for i, x in enumerate(v)
+        )
+        for name, v in by_pin.items()
+    }
+    units.units = [
+        u.model_copy(update={"excluded": "detector_raised"})
+        if i in raised and u.excluded is None
+        else u
+        for i, u in enumerate(units.units)
+    ]
+    for name, verdicts in by_pin.items():
         summary["metrics"][name] = _metrics(units, verdicts)
         summary["bootstrap"][name] = _bootstrap(units, verdicts, PRIMARY[bench])
-        for u, v in zip(units.units, verdicts, strict=True):
-            row = {
-                "benchmark": bench, "pin": name, "unit_id": u.unit_id, "variant": u.variant,
-                "label": u.label, "excluded": u.excluded, "cells": u.cells,
-                **{p: bool(v[p]) for p in PREDICTORS},
-            }  # fmt: skip
-            rows.append(json.dumps(row, sort_keys=True) + "\n")
+    rows: list[str] = []
+    for i, u in enumerate(units.units):
+        row = {
+            "benchmark": bench, "unit_id": u.unit_id, "variant": u.variant,
+            "cluster": _cluster_id(u.cluster), "cells": u.cells, "label": u.label,
+            "excluded": u.excluded, "notes": list(u.notes),
+            "verdicts": {
+                f"{name}/{p}": bool(v[i][p])
+                for name, v in by_pin.items()
+                for p in PREDICTORS
+                if v[i].get(p) is not None
+            },
+            "reply_outcome": None,  # no model call in the harness
+        }  # fmt: skip
+        check_row(row)
+        rows.append(json.dumps(row, sort_keys=True) + "\n")
     summary["pin_differences"] = _pin_differences(by_pin)
     summary["status"] = "evaluated"
     summary["rows_sha256"] = _write(args.out / f"{bench}.rows.jsonl", "".join(rows))
