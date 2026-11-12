@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 PRIMARY = {
     "agentdojo": "pipeline",
     "agentdojo_fresh": "deterministic",
+    "agentdojo_reserve": "deterministic",
     "injecagent": "refusal",
     "jailbreakbench": "refusal",
     "harmbench": "refusal",
@@ -55,6 +56,7 @@ def _agentdojo(
     load: Callable[[str], bytes],
     files: list[str],
     admitted: Callable[[str], bool] = mapping.agentdojo_admitted,
+    to_units: Callable[[str, object], list[mapping.Unit]] = mapping.agentdojo_units,
 ) -> tuple[list[mapping.Unit], int]:
     units: list[mapping.Unit] = []
     outside = 0
@@ -62,7 +64,7 @@ def _agentdojo(
         if not admitted(rel):
             outside += 1
             continue
-        units += mapping.agentdojo_units(rel, intake.parse_json(load(rel), rel))
+        units += to_units(rel, intake.parse_json(load(rel), rel))
     return units, outside
 
 
@@ -131,9 +133,18 @@ def _agentdojo_fresh(
     return _agentdojo(load, files, mapping.agentdojo_fresh_admitted)
 
 
+def _agentdojo_reserve(
+    load: Callable[[str], bytes], files: list[str]
+) -> tuple[list[mapping.Unit], int]:
+    return _agentdojo(
+        load, files, mapping.agentdojo_reserve_admitted, mapping.agentdojo_reserve_units
+    )
+
+
 _BUILDERS = {
     "agentdojo": _agentdojo,
     "agentdojo_fresh": _agentdojo_fresh,
+    "agentdojo_reserve": _agentdojo_reserve,
     "injecagent": _injecagent,
     "jailbreakbench": _jailbreakbench,
     "harmbench": _harmbench,
