@@ -19,6 +19,15 @@ if TYPE_CHECKING:
     from ziran.domain.entities.multi_agent import MultiAgentTopology
     from ziran.domain.entities.streaming import AgentResponseChunk
 
+#: ``AgentResponse.metadata`` keys only the caller sets: the provenance inputs of the
+#: side-effect detector (spec 063). A target's own values for them are dropped (spec 068).
+RESERVED_METADATA_KEYS = frozenset({"trusted_task", "tool_results", "payload"})
+
+
+def drop_reserved(metadata: dict[str, Any]) -> dict[str, Any]:
+    """The metadata without :data:`RESERVED_METADATA_KEYS`."""
+    return {k: v for k, v in metadata.items() if k not in RESERVED_METADATA_KEYS}
+
 
 class AgentResponse(BaseModel):
     """Standardized response from any agent framework.
