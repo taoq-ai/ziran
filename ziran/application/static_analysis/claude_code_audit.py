@@ -36,6 +36,8 @@ from ziran.domain.entities.claude_code import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+
     from ziran.domain.entities.capability import DangerousChain
 
 _REC_CC000 = "Fix the agent file so Claude Code and ZIRAN can parse it."
@@ -45,15 +47,25 @@ _REC_SA007 = "Add a 'tools' list with only the tools the agent needs."
 _REC_CC001 = "Remove one tool of the chain from the agent's 'tools' list, or split the agent."
 
 
-def agent_chains(agent: ClaudeCodeAgent) -> list[DangerousChain]:
-    """Dangerous chains over the agent's declared (or inherited) tool set. No execution."""
+def agent_chains(
+    agent: ClaudeCodeAgent,
+    *,
+    typed: bool = False,
+    role_overrides: Mapping[str, Iterable[str]] | None = None,
+) -> list[DangerousChain]:
+    """Dangerous chains over the agent's declared (or inherited) tool set. No execution.
+
+    ``typed`` adds the typed chains of spec 066; ``role_overrides`` (typed only) are roles a
+    caller knows, such as the capability job's (spec 067).
+    """
     graph = AttackKnowledgeGraph()
     for cap in agent.capabilities:
         graph.add_capability(cap.id, cap)
     for a, b in itertools.permutations(agent.effective_tools, 2):
         graph.add_tool_chain([a, b], risk_score=0.5)
     # Cycle enumeration is exponential on a complete graph (12 tools never finish).
-    return ToolChainAnalyzer(graph).analyze(include_cycles=False)
+    analyzer = ToolChainAnalyzer(graph, typed=typed, role_overrides=role_overrides)
+    return analyzer.analyze(include_cycles=False)
 
 
 def _is_wildcard(tool: str) -> bool:
@@ -62,7 +74,9 @@ def _is_wildcard(tool: str) -> bool:
     return tool.startswith("mcp__") and (tool.count("__") < 2 or "*" in tool)
 
 
-def _audit_agent(agent: ClaudeCodeAgent, config: StaticAnalysisConfig) -> list[StaticFinding]:
+def _audit_agent(
+    agent: ClaudeCodeAgent, config: StaticAnalysisConfig, typed: bool = False
+) -> list[StaticFinding]:
     t_line = agent.line_of("tools")
 
     def finding(
@@ -132,15 +146,18 @@ def _audit_agent(agent: ClaudeCodeAgent, config: StaticAnalysisConfig) -> list[S
             _REC_CC001,
             tuple(c.tools),
         )
-        for c in agent_chains(agent)
+        for c in agent_chains(agent, typed=typed)
     ]
     return findings
 
 
 def audit_claude_code(
-    scan: ClaudeCodeScan, config: StaticAnalysisConfig | None = None
+    scan: ClaudeCodeScan, config: StaticAnalysisConfig | None = None, *, typed: bool = False
 ) -> AnalysisReport:
-    """Static findings for every agent in *scan*; files_analyzed = scan.files_analyzed."""
+    """Static findings for every agent in *scan*; files_analyzed = scan.files_analyzed.
+
+    ``typed`` adds typed chains (spec 066) to CC001; off by default.
+    """
     config = config or StaticAnalysisConfig.default()
     findings = [
         StaticFinding(
@@ -154,5 +171,5 @@ def audit_claude_code(
         for issue in scan.issues
     ]
     for agent in scan.agents:
-        findings += _audit_agent(agent, config)
+        findings += _audit_agent(agent, config, typed)
     return AnalysisReport(files_analyzed=scan.files_analyzed, findings=findings)

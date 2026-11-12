@@ -10,7 +10,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import click
 from rich.console import Console
@@ -29,6 +29,9 @@ from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli.reports import ReportGenerator
+
+if TYPE_CHECKING:
+    from ziran.application.detectors.thresholds import DetectorThresholds
 
 console = Console()
 
@@ -340,6 +343,13 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "'Declared Defences' section plus an evasion-rate metric (or "
     "'not computable' when no declared defence is evaluable).",
 )
+@click.option(
+    "--hybrid-route-share",
+    type=click.FloatRange(0.0, 1.0),
+    default=None,
+    help="Share of uncertain traces sent to the hybrid's model judge, 0.0 to 1.0. Default 0.0 "
+    "(deterministic mode, no model call); hybrid_route_share in .ziran/detectors.yaml sets it.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -374,6 +384,7 @@ def scan(
     no_cache: bool,
     dry_run: bool,
     defence_profile: str | None,
+    hybrid_route_share: float | None,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -390,6 +401,9 @@ def scan(
         ziran scan --target ./target.yaml --protocol a2a
         ziran scan --target ./target.yaml --phases reconnaissance --phases trust_building
     """
+    if hybrid_route_share:
+        _no_hybrid_client()
+
     # Enable OpenTelemetry if requested
     if otel:
         from ziran.infrastructure.telemetry.tracing import configure_console_exporter
@@ -1258,6 +1272,12 @@ def _display_policy_verdict(verdict: Any) -> None:
     default=None,
     help="Also write the reported findings as SARIF v2.1.0 (GitHub code scanning).",
 )
+@click.option(
+    "--typed-chains/--no-typed-chains",
+    default=None,
+    help="Add typed chains (tool roles from names) to Claude Code findings. Off by default; "
+    "typed_chains in .ziran/detectors.yaml sets the default.",
+)
 def audit(
     path: str,
     severity: str | None,
@@ -1265,6 +1285,7 @@ def audit(
     baseline_path: str | None,
     write_baseline_path: str | None,
     sarif_path: str | None,
+    typed_chains: bool | None,
 ) -> None:
     """Static security analysis of agent source code.
 
@@ -1306,6 +1327,10 @@ def audit(
 
     if baseline_path and write_baseline_path:
         raise click.UsageError("--baseline and --write-baseline are mutually exclusive")
+    if typed_chains is None:
+        typed_chains = _detector_thresholds().typed_chains
+    if typed_chains and (baseline_path or write_baseline_path):
+        raise click.UsageError("a baseline holds no typed chains; drop --typed-chains")
 
     target = Path(path)
     analyzer = StaticAnalyzer()
@@ -1319,7 +1344,7 @@ def audit(
         report = analyzer.analyze_directory(target)
 
     if scan.detected:
-        cc = audit_claude_code(scan, analyzer.config)
+        cc = audit_claude_code(scan, analyzer.config, typed=typed_chains)
         report.files_analyzed += cc.files_analyzed
         report.findings.extend(cc.findings)
 
@@ -1809,6 +1834,28 @@ def _display_gate_result(gate: Any) -> None:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _no_hybrid_client() -> None:
+    """The seam's rule (spec 064): a share above 0.0 needs a model client, and ziran scan has
+    no record-and-replay client yet."""
+    raise click.UsageError(
+        "hybrid_route_share above 0.0 needs a model client; ziran sends no hybrid call, "
+        "so a scan runs at 0.0 (deterministic mode)"
+    )
+
+
+def _detector_thresholds() -> DetectorThresholds:
+    """``.ziran/detectors.yaml``, or the defaults when it is absent."""
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+
+    try:
+        return load_detector_thresholds()
+    except DetectorConfigError as exc:
+        raise click.ClickException(str(exc)) from None
+
+
 def _scan_detector_config(
     *,
     llm_provider: str,
@@ -1832,6 +1879,8 @@ def _scan_detector_config(
         thresholds = load_detector_thresholds()
     except DetectorConfigError as exc:
         raise click.ClickException(str(exc)) from None
+    if thresholds.hybrid_route_share:
+        _no_hybrid_client()
     ensemble, prefilter = thresholds.ensemble, thresholds.prefilter
     if not (ensemble.enabled or prefilter.enabled):
         return None

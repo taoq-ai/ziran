@@ -40,11 +40,19 @@ _OUTCOMES = frozenset(
 )
 
 
-def request_key(prompt: str, model: str, client_version: str, text: str) -> str:
+def request_key(prompt: str, model: str, client_version: str, text: str, repeat: int = 0) -> str:
     """sha256 over the prompt file's text, the model id, the client version and the rendered
-    text, each as an 8-byte big-endian length and its UTF-8 bytes, so no two tuples collide."""
+    text, each as an 8-byte big-endian length and its UTF-8 bytes, so no two tuples collide.
+    A repeat send (protocol section 4) adds its index as a fifth part; repeat 0 adds none, so
+    a first send's key is the four-part key ziran-paper#128 registers.
+
+    Raises:
+        ValueError: the repeat is not an int of 0 or more.
+    """
+    if type(repeat) is not int or repeat < 0:
+        raise ValueError(f"a repeat index is an int of 0 or more, got {repeat!r}")
     h = hashlib.sha256()
-    for part in (prompt, model, client_version, text):
+    for part in (prompt, model, client_version, text, *([str(repeat)] if repeat else [])):
         data = part.encode("utf-8")
         h.update(len(data).to_bytes(8, "big"))
         h.update(data)
@@ -54,8 +62,8 @@ def request_key(prompt: str, model: str, client_version: str, text: str) -> str:
 class RecordReplayClient(BaseLLMClient):
     """Writes requests (``record_to``) or reads stored replies (``replies``), one of the two.
 
-    ``complete(messages, job=..., unit=..., prompt=...)`` takes one user message, the rendered
-    text, and the prompt file's text for the key.
+    ``complete(messages, job=..., unit=..., prompt=..., repeat=0)`` takes one user message, the
+    rendered text, the prompt file's text for the key, and the repeat index.
     """
 
     def __init__(
@@ -105,6 +113,7 @@ class RecordReplayClient(BaseLLMClient):
         **kwargs: Any,
     ) -> LLMResponse:
         job, unit, prompt = (kwargs.get(k) for k in ("job", "unit", "prompt"))
+        repeat = kwargs.get("repeat", 0)
         if not (isinstance(job, str) and isinstance(unit, str) and isinstance(prompt, str)):
             raise TypeError("complete() needs job=, unit= and prompt= strings")
         if len(messages) != 1 or set(messages[0]) != {"role", "content"}:
@@ -114,7 +123,7 @@ class RecordReplayClient(BaseLLMClient):
         if not _UNIT.fullmatch(unit):
             raise ValueError("the unit id is not one the sender accepts")
         text = messages[0]["content"]
-        key = request_key(prompt, self.config.model, self.client_version, text)
+        key = request_key(prompt, self.config.model, self.client_version, text, repeat)
         if self.record_to is not None:
             if key not in self._seen:
                 row = {"key": key, "job": job, "unit": unit, "text": text}

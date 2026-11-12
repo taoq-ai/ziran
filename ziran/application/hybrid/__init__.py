@@ -33,10 +33,18 @@ V = TypeVar("V")
 UNUSABLE = "unusable_reply"  # a reply came back but the job's parse refused it
 
 
+class UnusableReplyError(ValueError):
+    """A job's parse refuses a reply with its own pending cause (``reply_tool_count_differs``)."""
+
+    def __init__(self, cause: str) -> None:
+        super().__init__(cause)
+        self.cause = cause
+
+
 class HybridResult(BaseModel, Generic[V]):
     """Every unit's verdict, the band units sent, and each sent unit with no usable reply,
     mapped to its cause: the pending reason (``recorded``, ``missing`` or the sender's outcome
-    class) or ``unusable_reply``."""
+    class), ``unusable_reply``, or the cause a job's parse names."""
 
     verdicts: dict[str, V]
     sent: list[str]
@@ -60,10 +68,11 @@ async def decide(
     client: BaseLLMClient | None,
     prompt: Prompt,
     render: Callable[[str], str],
-    parse: Callable[[str], V | None],
+    parse: Callable[[str, str], V | None],
     *,
     merge: Callable[[V, V], V],
     share: float = 0.0,
+    repeat: int = 0,
 ) -> HybridResult[V]:
     """Ask ``client`` about the routed band units; keep the first pass for every other unit.
 
@@ -71,8 +80,10 @@ async def decide(
         first_pass: every unit's first-pass verdict, by unit id.
         band: the units the first pass leaves open; only these are ever sent.
         render: unit id to the rendered request text.
-        parse: reply content to a verdict, or None when the reply is not usable.
+        parse: (unit id, reply content) to a verdict, or None when the reply is not usable;
+            it may raise :class:`UnusableReplyError` to name its own cause.
         merge: the job's rule, (first-pass verdict, reply verdict) to the unit's verdict.
+        repeat: the repeat index (protocol section 4); 0 is the first send.
 
     Raises:
         ValueError: a band unit has no first-pass verdict, the share is out of range, or the
@@ -92,12 +103,16 @@ async def decide(
             job=prompt.job,
             unit=unit,
             prompt=prompt.text,
+            repeat=repeat,
         )
         if isinstance(reply, PendingResponse):
             pending[unit] = reply.reason
             continue
         try:
-            verdict = parse(reply.content)
+            verdict = parse(unit, reply.content)
+        except UnusableReplyError as exc:
+            pending[unit] = exc.cause
+            continue
         except ValueError:  # malformed JSON from a live client: not usable
             verdict = None
         if verdict is None:
