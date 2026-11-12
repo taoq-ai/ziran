@@ -65,6 +65,11 @@ def _git(repo: Path, *args: str) -> bytes:
     return proc.stdout
 
 
+def git_text(repo: Path, *args: str) -> str:
+    """One git command's output, stripped; a failure refuses."""
+    return _git(repo, *args).decode().strip()
+
+
 def resolve_sha(repo: Path, rev: str) -> str:
     return _git(repo, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}").decode().strip()
 

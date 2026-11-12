@@ -114,6 +114,21 @@ def agentdojo_fresh_admitted(rel: str) -> bool:
     return m is not None and m["attack"] in FRESH_ATTACKS and _undefended(m["model"])
 
 
+def is_run_log(rel: str) -> bool:
+    """An AgentDojo run-log path (rules.run_log), whatever its model folder and attack."""
+    return _AGENTDOJO_PATH.match(rel) is not None
+
+
+def agentdojo_reserve_admitted(rel: str) -> bool:
+    """A log in the reserve set: a defended model folder, any attack but ``none``.
+
+    ziran-paper prereg/g11-intake/agentdojo.json, rules.reserve. Its second clause, logs added
+    at head after the pin, is empty: head is the pin (``reserve_added_after_pin`` is 0).
+    """
+    m = _AGENTDOJO_PATH.match(rel)
+    return m is not None and m["attack"] != "none" and not _undefended(m["model"])
+
+
 def _text(content: object) -> str | None:
     """A message's text: a string as is, the ``content`` of its text blocks, or None."""
     if content is None:
@@ -264,6 +279,14 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
         Unit(**base, variant="payload_post_injection", content=post_content,
              tool_calls=post_calls, notes=post_notes, payload=payload),
     ]  # fmt: skip
+
+
+def agentdojo_reserve_units(rel: str, log: object) -> list[Unit]:
+    """The AgentDojo units, with the attack cell beside the model folder (protocol section 7)."""
+    units = agentdojo_units(rel, log)
+    m = _AGENTDOJO_PATH.match(rel)
+    assert m is not None  # agentdojo_units refuses any other path
+    return [u.model_copy(update={"cells": u.cells | {"attack": m["attack"]}}) for u in units]
 
 
 # ── InjecAgent ────────────────────────────────────────────────────────
