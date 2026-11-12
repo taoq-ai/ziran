@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-10-04
+Auto-generated from all feature plans. Last updated: 2026-11-12
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -69,6 +69,8 @@ Auto-generated from all feature plans. Last updated: 2026-10-04
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies. (054-benchmark-pr-delta)
 - committed `benchmarks/results/baseline.json` (gate); CI-only `_bench_base/benchmarks/results/baseline.json` (delta, never committed). (054-benchmark-pr-delta)
 - Markdown (MkDocs Material); Python 3.11+ test (CI matrix 3.11, 3.12, 3.13) + none new. Reads output of the existing `benchmarks/atlas_coverage.py`. (055-atlas-coverage-docs)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `hashlib`/`json`/`re`/`decimal`; reuses `BaseLLMClient`. No new dependencies. (064-llm-seam)
+- one caller-named `*.requests.jsonl` per record run; ziran-paper's `outcomes.jsonl` read in replay; neither committed. (064-llm-seam)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -88,12 +90,10 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 064-llm-seam: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `hashlib`/`json`/`re`/`decimal`; reuses `BaseLLMClient`. No new dependencies.
 - 063-provenance-side-effect: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `re`/`json`; no new dependencies. `ziran/application/detectors/provenance.py` (rules T3 and P1, per-call evidence record) read from `AgentResponse.metadata` keys `trusted_task`, `tool_results`, `payload`; the detection dataset gains six benign-task items (228 total, baseline rebuilt).
 - 053-enables-edge-fanout: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only
 - 054-benchmark-pr-delta: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies.
-- 055-atlas-coverage-docs: Added Markdown (MkDocs Material); Python 3.11+ test (CI matrix 3.11, 3.12, 3.13) + none new. Reads output of the existing `benchmarks/atlas_coverage.py`.
-- 050-langgraph-native-scanning: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (domain models), existing `AttackKnowledgeGraph` (NetworkX) and `ToolChainAnalyzer`, `langgraph` 1.2.x + `langchain-core` via the existing `langchain` extra (transitive). No new dependencies.
-- 049-incremental-scan-cache: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cache models), stdlib `hashlib`/`json`/`os`/`re`/`shutil`/`asyncio.to_thread`, Click (scan flags, `cache clear`); reuses `PhaseExecutor`, `ResultBuilder`, the `CheckpointManager.save` atomic-write pattern. No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->
