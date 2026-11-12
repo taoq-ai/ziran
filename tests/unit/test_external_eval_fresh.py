@@ -23,7 +23,10 @@ from tests.unit.test_external_eval_run import (
     RUN,
     WORKER,
     _git,
+    aborted,
     fixture_dir,
+    head_sha,
+    paper_checkout,
     python,
     rows_of,
     run_cli,
@@ -571,10 +574,12 @@ def test_a_raise_at_one_pin_of_a_real_pair_excludes_the_unit_at_both(
     })  # fmt: skip
     revs = {"old": "old", "head": "HEAD"}
     pins = [a for name in order for a in ("--pin", f"{name}={revs[name]}")]
+    line = aborted(manifest, set="fresh", ziran_sha=head_sha(repo))
+    paper = paper_checkout(tmp_path, "agentdojo_fresh", [line])
     proc = python(
         "-I", str(RUN), "--benchmark", "agentdojo_fresh", "--data", str(data),
         "--manifest", str(manifest), "--ziran-repo", str(repo), *pins,
-        "--out", str(tmp_path / "out"), "--practice", cwd=tmp_path,
+        "--out", str(tmp_path / "out"), "--practice", "--paper", str(paper), cwd=tmp_path,
     )  # fmt: skip
     assert proc.returncode == 0, proc.stdout + proc.stderr
     out = tmp_path / "out"

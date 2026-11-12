@@ -15,6 +15,11 @@ Usage (from any folder; ``-I`` is required)::
         --data <intake folder> --manifest <manifest.json> --ziran-repo <ziran clone> \\
         --pin study-v1=<sha> --pin study-v0=b813e4f --out <git-ignored folder>
 
+The fresh and reserve AgentDojo sets (``agentdojo_fresh``, ``agentdojo_reserve``) also need
+``--paper <ziran-paper checkout>``: the run refuses before it opens ``--data`` unless that
+checkout's run guard admitted it (:func:`require_admitted`, spec 069). Reserve rows carry an
+``attack`` cell beside the model folder.
+
 Exit codes: 0 evaluated; 2 refused, with no summary (flags, paths, pins, --expect-harness, a
 worker failure or timeout); 3 not evaluated (intake failed, protocol section 10).
 """
@@ -81,6 +86,12 @@ PROTOCOL = {
     "file": "prereg/ext-eval-protocol.md",
     "built_against": "cbf25bd72e5e7bf73ac373341585b15d3bf90c08",
 }
+#: Patch protocol section 16, the run guards: each guarded set's use log in ziran-paper, which
+#: ``study/scripts/g11_run_guard.py`` (G11-RUN-GUARDS) writes before the set is fetched.
+USE_LOGS = {
+    "agentdojo_fresh": "study/results/g11_fresh_uses.jsonl",
+    "agentdojo_reserve": "study/results/g11_reserve_uses.jsonl",
+}
 
 
 def _args(argv: list[str] | None) -> argparse.Namespace:
@@ -92,6 +103,8 @@ def _args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--pin", required=True, action="append", help="NAME=REV, once per pin")
     p.add_argument("--out", required=True, type=Path, help="output folder, git-ignored or outside")
     p.add_argument("--practice", action="store_true", help="allow uncommitted harness files")
+    p.add_argument("--paper", type=Path, help="ziran-paper checkout whose run guard admitted a "
+                   "fresh or reserve run (required for those sets)")  # fmt: skip
     p.add_argument("--expect-split", type=int, help="split count from the intake addendum")
     p.add_argument("--expect-harness", help="harness commit from the intake addendum")
     p.add_argument(
@@ -349,6 +362,53 @@ def check_row(row: dict[str, Any]) -> None:
         raise HarnessError(f"row values of {bad} are outside the allowlist")
 
 
+def require_admitted(
+    paper: Path | None, bench: str, manifest_path: Path, pins: dict[str, str]
+) -> None:
+    """Refuse a fresh or reserve run that the paper's guard has not admitted (section 16).
+
+    ``g11_run_guard.guard`` commits an ``aborted`` line to the set's use log before the fetch.
+    The run goes on only when that log is committed as it stands, holds no ``scored`` line, and
+    its last line is ``aborted`` for one of the run's pins, at that pin's commit, and for the
+    sorted run-log paths of the manifest. Nothing under ``--data`` is opened before this.
+    """
+    rel = USE_LOGS.get(bench)
+    if rel is None:
+        return
+    if paper is None:
+        raise HarnessError(f"{bench} needs --paper, the checkout whose run guard admitted it")
+    log = paper / rel
+    if log.is_symlink() or not log.is_file():
+        raise HarnessError(f"{log.name} is not a regular file in --paper")
+    text = log.read_bytes()
+    if text != isolation.git_show(paper, f"HEAD:{rel}"):
+        raise HarnessError(f"{log.name} is not committed as it stands")
+    refused = HarnessError(f"a line of {log.name} is not a JSON object")
+    try:
+        lines = [json.loads(line) for line in text.splitlines() if line.strip()]
+    except ValueError:
+        raise refused from None
+    if not all(isinstance(line, dict) for line in lines):
+        raise refused
+    if not lines:
+        raise HarnessError(f"{log.name} holds no attempt")
+    if any(line.get("status") == "scored" for line in lines):
+        raise HarnessError(f"{log.name} holds a scored opening; the cap is 1")
+    last = lines[-1]
+    pin = last.get("pin")
+    sha = pins.get(pin) if isinstance(pin, str) else None
+    run_logs = sorted(r for r in read_manifest(manifest_path).files if mapping.is_run_log(r))
+    checks = {
+        "status": last.get("status") == "aborted",
+        "pin": sha is not None,
+        "ziran_sha": sha is not None and last.get("ziran_sha") == sha,
+        "sha256": last.get("sha256") == sha256("\n".join(run_logs).encode()),
+    }
+    bad = sorted(k for k, ok in checks.items() if not ok)
+    if bad:
+        raise HarnessError(f"the last line of {log.name} does not admit this run: {bad}")
+
+
 def _write(path: Path, text: str) -> str:
     path.write_text(text, encoding="utf-8")
     return sha256(text.encode())
@@ -377,6 +437,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
     isolation.require_full_clone(args.ziran_repo)
     pins = _pins(args.ziran_repo, args.pin)
     bench = args.benchmark
+    require_admitted(args.paper, bench, args.manifest, pins)
     summary_path = args.out / f"{bench}.summary.json"
     if summary_path.exists():  # one run per pin; a second run is a recorded deviation
         raise HarnessError(f"{args.out.name} already holds a {bench} summary")

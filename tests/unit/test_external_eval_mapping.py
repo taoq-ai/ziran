@@ -604,6 +604,7 @@ def test_primary_rows_are_the_protocol_section_6_rows() -> None:
     assert collector.PRIMARY == {
         "agentdojo": "pipeline",
         "agentdojo_fresh": "deterministic",
+        "agentdojo_reserve": "deterministic",
         "injecagent": "refusal",
         "jailbreakbench": "refusal",
         "harmbench": "refusal",

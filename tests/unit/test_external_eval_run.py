@@ -141,6 +141,8 @@ def run_cli(
     *extra: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    if benchmark in USE_LOGS and "--paper" not in extra:  # a guarded set: the guard admitted it
+        extra = (*extra, "--paper", str(paper_checkout(tmp_path, benchmark, [aborted(manifest)])))
     return python(
         "-I",
         str(RUN),
@@ -156,6 +158,42 @@ def run_cli(
         cwd=tmp_path,
         env=env,
     )  # fmt: skip
+
+
+#: Each guarded set's use log in ziran-paper (study/scripts/g11_run_guard.py, SETS).
+USE_LOGS = {
+    "agentdojo_fresh": "study/results/g11_fresh_uses.jsonl",
+    "agentdojo_reserve": "study/results/g11_reserve_uses.jsonl",
+}
+
+
+def head_sha(repo: Path = REPO_ROOT) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def aborted(manifest: Path, **over: Any) -> dict[str, Any]:
+    """The line the paper's guard commits before the fetch, for the run-log paths listed."""
+    paths = sorted(r for r in json.loads(manifest.read_text())["files"] if r.startswith("runs/"))
+    line = {
+        "utc": "2026-11-12T00:00:00+00:00", "who": "builder", "set": "reserve", "pin": "head",
+        "ziran_sha": head_sha(), "paths": len(paths),
+        "sha256": hashlib.sha256("\n".join(paths).encode()).hexdigest(), "status": "aborted",
+    }  # fmt: skip
+    return line | over
+
+
+def paper_checkout(tmp_path: Path, benchmark: str, lines: list[dict[str, Any]]) -> Path:
+    """A ziran-paper stand-in whose committed use log for the set holds these lines."""
+    paper = tmp_path / "paper"
+    log = paper / USE_LOGS[benchmark]
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("".join(json.dumps(x, sort_keys=True) + "\n" for x in lines))
+    _git(paper, "init", "-q")
+    _git(paper, "add", "-A")
+    _git(paper, "commit", "-qm", "log")
+    return paper
 
 
 def git_sha256(rev: str, rel: str) -> str:
