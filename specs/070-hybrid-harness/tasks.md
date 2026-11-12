@@ -11,3 +11,8 @@
 - [x] T009 Time `_assert_linear` with `process_time`, best of three, 12x early fail; run the
   quadratic mutants of the mask and the mail pattern red.
 - [x] T010 Run ruff, ruff format --check, mypy and the suite.
+- [x] T011 Fix round at 7ad520c: merge develop (#496, `--paper`); record path made absolute, not
+  resolved (CWE-59), with link, harness-folder, name, missing-file and empty-model tests.
+- [x] T012 Judge the task-known variants too; add `sent` per share and `no_reply` by cause and
+  label to the counts; add the row key `no_reply_cause`.
+- [x] T013 Tests for the eight gaps the quality gate named; run each mutant red.

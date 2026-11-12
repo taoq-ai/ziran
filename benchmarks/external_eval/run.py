@@ -20,7 +20,7 @@ The fresh and reserve AgentDojo sets (``agentdojo_fresh``, ``agentdojo_reserve``
 checkout's run guard admitted it (:func:`require_admitted`, spec 069). Reserve rows carry an
 ``attack`` cell beside the model folder.
 
-Exit codes: 0 evaluated; 2 refused, with no summary (flags, paths, pins, --expect-harness, a
+Exit codes: 0 evaluated, or recorded (``--hybrid-record``: requests and counts only); 2 refused, with no summary (flags, paths, pins, --expect-harness, a
 worker failure or timeout); 3 not evaluated (intake failed, protocol section 10).
 """
 
@@ -61,13 +61,15 @@ WORKER = Path(__file__).resolve().parent / "worker.py"
 #: the same replies at 0.25, 0.5 and 0.75 (patch protocol section 6, routing share; spec 070).
 PREDICTORS = ("refusal", "side_effect", "pipeline", "deterministic", "hybrid", "hybrid_r025",
               "hybrid_r050", "hybrid_r075")  # fmt: skip
-#: The trace judge's variants: the payload-known row (patch protocol, deviation of 2026-11-12).
-JUDGED = frozenset({"payload_whole", "payload_post_injection"})
+
 #: Patch protocol section 8: the only keys a row holds, and their value rules.
+#: ``no_reply_cause`` is spec 070's: the two causes outside the seven classes.
 ROW_KEYS = frozenset(
     {"benchmark", "unit_id", "variant", "cluster", "cells", "label", "excluded", "notes",
-     "verdicts", "reply_outcome"}
+     "verdicts", "reply_outcome", "no_reply_cause"}
 )  # fmt: skip
+#: The ziran-side causes of no usable reply (spec 064): no stored outcome, a refused parse.
+NO_REPLY_CAUSES = frozenset({"missing", "unusable_reply"})
 REPLY_OUTCOMES = frozenset(
     {"reply", "unparsed", "no_text", "not_sent_oversize", "step_stopped", "no_reply_at_bound",
      "scan_hit"}
@@ -122,23 +124,29 @@ def _args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--hybrid-client-version", help="the model client's version, part of each key")
     args = p.parse_args(argv)
     path = args.hybrid_replies or args.hybrid_record
-    if (path is None) != (args.hybrid_model is None) or (path is None) != (
-        args.hybrid_client_version is None
+    if (path is None) == bool(args.hybrid_model) or (path is None) == bool(
+        args.hybrid_client_version
     ):
         p.error("--hybrid-replies or --hybrid-record goes with --hybrid-model and "
                 "--hybrid-client-version")  # fmt: skip
     if args.hybrid_record is not None and not args.hybrid_record.name.endswith(".requests.jsonl"):
         p.error("a --hybrid-record file's name ends in .requests.jsonl")
+    if args.hybrid_replies is not None and not args.hybrid_replies.is_file():
+        p.error("--hybrid-replies is not a file")
     return args
 
 
 def _hybrid_argv(args: argparse.Namespace) -> list[str]:
-    """The worker's hybrid arguments: the client's keyword, its path, the model, the version."""
+    """The worker's hybrid arguments: the client's keyword, its path, the model, the version.
+
+    The path is made absolute, never resolved, so the client's link refusal (CWE-59) still
+    sees a planted link at the file or its folder.
+    """
     if args.hybrid_replies is not None:
-        return ["replies", str(args.hybrid_replies.resolve()), args.hybrid_model,
+        return ["replies", str(args.hybrid_replies.absolute()), args.hybrid_model,
                 args.hybrid_client_version]  # fmt: skip
     if args.hybrid_record is not None:
-        return ["record_to", str(args.hybrid_record.resolve()), args.hybrid_model,
+        return ["record_to", str(args.hybrid_record.absolute()), args.hybrid_model,
                 args.hybrid_client_version]  # fmt: skip
     return []
 
@@ -229,7 +237,9 @@ def _worker_unit(key: int, u: mapping.Unit) -> dict[str, Any]:
     for name in ("trusted_task", "user_messages", "final_answer"):
         if getattr(u, name) is not None:
             unit[name] = getattr(u, name)
-    if u.variant in JUDGED and u.excluded is None:  # an error log is never sent to the judge
+    # every AgentDojo variant, task-known and payload-known (patch protocol sections 2 and 6);
+    # an error log is never sent to the judge
+    if u.benchmark == "agentdojo" and u.excluded is None:
         unit["judge"] = [u.variant, u.unit_id]
     return unit
 
@@ -358,15 +368,36 @@ def _pin_differences(by_pin: dict[str, list[dict[str, Any]]]) -> dict[str, dict[
     }
 
 
-def _reply_outcome(causes: list[str | None]) -> str | None:
-    """The sender's outcome class of a unit's judge request, from the first pin that sent it.
+def _count_no_reply(
+    counts: dict[str, Any] | None, units: Collected, verdicts: list[dict[str, Any]]
+) -> None:
+    """Add ``no_reply`` to each judged variant's counts: the analysed units with no usable
+    reply, by cause and by true label (patch protocol section 4)."""
+    if counts is None:
+        return
+    for c in counts.values():
+        c["no_reply"] = {}
+    for u, v in zip(units.units, verdicts, strict=True):
+        cause = v.get("llm")
+        if cause in (None, "reply") or u.excluded is not None or u.label is None:
+            continue
+        by_label = counts[u.variant]["no_reply"].setdefault(cause, {"positive": 0, "negative": 0})
+        by_label["positive" if u.label else "negative"] += 1
 
-    A reply ziran's parse refused was still the sender's ``reply``; ``missing`` (no stored
-    outcome) is no class, so null, and counted in the pin's ``hybrid`` outcomes.
+
+def _reply_fields(causes: list[str | None]) -> dict[str, str | None]:
+    """A row's ``reply_outcome`` and ``no_reply_cause``, from the first pin that sent the unit.
+
+    ``reply_outcome`` is the sender's class: a reply ziran's parse refused was still its
+    ``reply``, and ``missing`` (no stored outcome) is no class, so null. ``no_reply_cause``
+    names those two causes, so a scorer can split them by label from the rows.
     """
     cause = next((c for c in causes if c is not None), None)
-    cause = "reply" if cause == "unusable_reply" else cause
-    return cause if cause in REPLY_OUTCOMES else None
+    outcome = "reply" if cause == "unusable_reply" else cause
+    return {
+        "reply_outcome": outcome if outcome in REPLY_OUTCOMES else None,
+        "no_reply_cause": cause if cause in NO_REPLY_CAUSES else None,
+    }
 
 
 def _cluster_id(cluster: str) -> str:
@@ -403,6 +434,7 @@ def check_row(row: dict[str, Any]) -> None:
             for k, v in verdicts.items()
         ),
         "reply_outcome": row["reply_outcome"] is None or row["reply_outcome"] in REPLY_OUTCOMES,
+        "no_reply_cause": row["no_reply_cause"] is None or row["no_reply_cause"] in NO_REPLY_CAUSES,
     }
     bad = sorted(k for k, ok in checks.items() if not ok)
     if bad:
@@ -583,6 +615,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
         for i, u in enumerate(units.units)
     ]
     for name, verdicts in by_pin.items():
+        _count_no_reply(summary["pins"][name]["hybrid"], units, verdicts)
         summary["metrics"][name] = _metrics(units, verdicts)
         summary["bootstrap"][name] = _bootstrap(units, verdicts, PRIMARY[bench])
     rows: list[str] = []
@@ -597,7 +630,7 @@ def run(args: argparse.Namespace, removed: int) -> int:
                 for p in PREDICTORS
                 if v[i].get(p) is not None
             },
-            "reply_outcome": _reply_outcome([v[i].get("llm") for v in by_pin.values()]),
+            **_reply_fields([v[i].get("llm") for v in by_pin.values()]),
         }  # fmt: skip
         check_row(row)
         rows.append(json.dumps(row, sort_keys=True) + "\n")

@@ -240,7 +240,7 @@ def test_agentdojo_fixture_end_to_end(tmp_path: Path) -> None:
     for row in rows:
         assert set(row) == {
             "benchmark", "unit_id", "variant", "cluster", "cells", "label", "excluded", "notes",
-            "verdicts", "reply_outcome",
+            "verdicts", "reply_outcome", "no_reply_cause",
         }  # fmt: skip
         assert set(row["verdicts"]) == {
             f"{pin}/{p}" for pin in ("head", "again")

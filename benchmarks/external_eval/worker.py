@@ -3,17 +3,17 @@
 Run as ``python -I worker.py <export> [replies|record_to <path> <model> <client version>]``. It
 imports only the standard library and the export, which goes first on ``sys.path``. It reads
 units as JSON lines on stdin (key, prompt, content, tool_calls, the keys of :data:`METADATA_KEYS`
-and, on a payload-known unit, ``judge``: its variant and unit id) and writes JSON lines on
+and, on an AgentDojo unit, ``judge``: its variant and unit id) and writes JSON lines on
 stdout: a header with the pin's defaults, one verdict per unit, and an end line. Logging goes to
 stderr, which the harness keeps and never prints.
 
 With the hybrid arguments, at a pin that ships ``ziran.application.hybrid.jobs`` (spec 067),
-the trace judge runs on each judged variant at share 1.0 through the record-and-replay client:
+the trace judge runs on each AgentDojo variant at share 1.0 through the record-and-replay client:
 ``replies`` reads hybrid_send's ``outcomes.jsonl``, ``record_to`` writes the requests and scores
 nothing. ``hybrid`` is the judge's verdict, and ``hybrid_r025`` to ``hybrid_r075`` the same
 replies for the units ``routed(band, s)`` sends at 0.25, 0.5 and 0.75, the first pass for the
-rest (spec 070). The end line counts, per variant, the band, the outcomes and the renders the
-mask changes; no text.
+rest (spec 070). The end line counts, per variant, the band, the units each share sends, the
+outcomes and the renders the mask changes; no text.
 
 ``deterministic`` is ``provenance(...).hit`` at a pin that ships
 ``ziran.application.detectors.provenance`` (spec 063), and null at one that does not. A unit on
@@ -159,6 +159,7 @@ async def _judge(
                 outcomes[row["llm"]] = outcomes.get(row["llm"], 0) + 1
         counts[variant] = {
             "band": len(band),
+            "sent": {name: len(units) for name, units in sent.items()},
             "outcomes": outcomes,
             "mask_changed": sum(_mask_changed(jobs, prompt, traces[u][0]) for u in band),
         }

@@ -14,18 +14,23 @@ judge on the record-and-replay seam. This item joins the two:
 
 1. `run.py` takes `--hybrid-replies <outcomes.jsonl>` or `--hybrid-record <x.requests.jsonl>`,
    with `--hybrid-model` and `--hybrid-client-version`. The worker builds the
-   `RecordReplayClient` of the pin and runs `judge_traces(..., share=1.0)` on each payload-known
-   variant (`payload_whole`, `payload_post_injection`), one judge call a variant.
+   `RecordReplayClient` of the pin and runs `judge_traces(..., share=1.0)` on each AgentDojo
+   variant, task-known (`whole`, `post_injection`, `text_only`) and payload-known
+   (`payload_whole`, `payload_post_injection`), one judge call a variant. Protocol section 2
+   sends task-known band traces to the judge, and section 6 reports the task-known row beside
+   every row.
 2. Each judged unit gets `hybrid` (the judge's verdict at 1.0) and `hybrid_r025`, `hybrid_r050`
    and `hybrid_r075`: the same stored replies for the units `routed(band, s)` sends at that
    share, the first pass for the rest. No other model call is made for them.
-3. The four names join `PREDICTORS`, so `check_row` admits them, and a row's `reply_outcome`
-   holds the sender's outcome class of its judge request.
+3. The four names join `PREDICTORS`, so `check_row` admits them. A row's `reply_outcome` holds
+   the sender's outcome class of its judge request, and the new row key `no_reply_cause` holds
+   `missing` or `unusable_reply`, the two ziran-side causes outside those classes.
 4. The worker passes the judge's keys (`user_messages`, `final_answer`, a call's `id`, a result's
    `tool_call_id` and `name`), so a harness render equals the spike's on multi-user and
    out-of-order logs.
 5. A record run writes the request file and scores nothing. Each pin's summary counts, per
-   variant, the band, the outcomes and the renders the mask changes: counts only.
+   variant, the band, the units each share sends, the outcomes, the no-usable-reply units by
+   cause and true label, and the renders the mask changes: counts only.
 
 **Acceptance.** Given stored replies for a synthetic fresh set, when the harness runs, then the
 hybrid and routing rows are written and pass `check_row`, with no model call.
@@ -50,7 +55,11 @@ hybrid and routing rows are written and pass `check_row`, with no model call.
 - **FR-003**: Each request is keyed by `request_key` at repeat 0, the four-part key.
 - **FR-004**: `hybrid_rXXX` is `hybrid` for a unit in `routed(band, s)`, else the provenance hit.
 - **FR-005**: An excluded (`error`) unit is not sent; a unit the pin's detector raises on is not
-  sent at that pin.
+  sent at that pin; a judged unit outside the band keeps its first pass and has no outcome.
+- **FR-005a**: The record path reaches the client unresolved, so a planted link at the file or
+  its folder is refused (CWE-59). A missing replies file and an empty model or version exit 2.
+- **FR-005b**: An old pin without the hybrid package runs beside a new one; `reply_outcome` and
+  `no_reply_cause` come from the first pin that sent the unit.
 - **FR-006**: A hybrid flag set that is not whole (a path with no model or version, both paths,
   a record name not ending in `.requests.jsonl`) and a run where no pin ships the jobs exit 2.
 - **FR-007**: `_assert_linear` times with `time.process_time`, best of three, failing early when
@@ -73,5 +82,11 @@ harness. Reading any fresh, reserve or lockbox log.
   refuses is still the sender's `reply`; `missing` is no class, so null, and counted.
 - **The judge's keys are added to the detector's metadata too**, as the gates asked. Overturn: a
   detector at a registered pin reads them.
+- **Registered sentences this departs from**, each for G11-FREEZE-ADDENDUM to register by dated
+  deviation: protocol section 5 line 136 ("A key with another name or shape is a deviation":
+  the worker passes `user_messages` and `final_answer`, calls carry `id`); #128 line 870 (a
+  tool result is `{message_index, text, error?}`: it gains `tool_call_id` and `name`); line 880
+  (the ten row keys: `no_reply_cause` is an eleventh); line 890 (the predictor names: three
+  routing names). The summary's `pins.<pin>.hybrid` shape is new too.
 - **The mask count is the record run's output.** The operator's one command on real logs is the
   record run (`--hybrid-record`), which prints the per-variant counts.

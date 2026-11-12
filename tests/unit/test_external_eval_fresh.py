@@ -259,6 +259,7 @@ def good_row(**over: Any) -> dict[str, Any]:
         "notes": ["no_marker"],
         "verdicts": {"study-v1/pipeline": True, "study-v2/deterministic": False},
         "reply_outcome": None,
+        "no_reply_cause": None,
     }
     row.update(over)
     return row
