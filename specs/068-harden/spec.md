@@ -20,8 +20,8 @@ Two hardening fixes before the fresh run.
 
 - Given a 1 MB argument, when `provenance()` runs, then it finishes in under 1 s.
 - Given a 1 MB tool name, when `tokens(canonical_tool_name(name))` runs (the work of
-  `tool_roles()`), then it finishes in under 1 s. `tool_roles()` itself is timed once spec 066
-  (ziran#492) lands; until then that test skips.
+  `tool_roles()`), then it finishes in under 1 s. `tool_roles()` itself is timed too (spec 066,
+  merged in 220186e).
 - Given 300,000 seeded random inputs with adversarial shapes, when the new and old patterns run,
   then their findall results and token lists differ on 0 inputs.
 - Given metadata holding the three keys, when it reaches the detectors through
@@ -33,7 +33,7 @@ Two hardening fixes before the fresh run.
 ## Out of scope
 
 The item's promise also names the harness `unit_id` pattern check and the `--pin` name test.
-Both are code of ziran#493 (spec 065), not on develop; they belong on that branch.
+Both are code of ziran#493 (spec 065), which already does them; they stay out of this item.
 
 ## Assumptions
 
