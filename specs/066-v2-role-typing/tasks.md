@@ -33,3 +33,8 @@
 - [x] T018 Refuse a bare-string override, the blank string included
 - [x] T019 Check and copy overrides once at construction; a one-shot iterator is not used up
 - [x] T020 Commit the fixture generator beside the fixture; spec (e) on unknown replies
+
+## Phase 5: fix round 2 (quality at 5a0174f)
+
+- [x] T021 Test the cycle filter deterministically: hand `_find_typed_chains` a cycle chain; the mutant dies under PYTHONHASHSEED 0 to 9
+- [x] T022 A `None` override is no override: the name rules stand and read `name_rule`

@@ -101,7 +101,7 @@ Each typed chain's `evidence["role_source"]` maps each of its two tools to one o
   restricted to the V2 roles, on every name a seeded test generates.
 - **FR-003** An override that is a string, or holds a role outside the four, raises `ValueError`.
 - **FR-004** `ToolChainAnalyzer` adds typed chains only with `typed=True`, with the same typed set
-  for cycles on and off; a bad override raises at construction; `role_overrides` without
+  for cycles on and off; a bad override raises at construction; a `None` override is no override; `role_overrides` without
   it raises `ValueError`.
 - **FR-005** With `typed=True` the typed pairs equal the probe's V2 typed pairs minus the pairs the
   table reports, on seeded synthetic agents.

@@ -104,14 +104,16 @@ class ToolChainAnalyzer:
         *,
         custom_patterns_path: Path | None = None,
         typed: bool = False,
-        role_overrides: Mapping[str, Iterable[str]] | None = None,
+        role_overrides: Mapping[str, Iterable[str] | None] | None = None,
     ) -> None:
         if role_overrides is not None and not typed:
             raise ValueError("role_overrides needs typed=True")
         self.graph = graph
         self._typed = typed
         # validated and materialised once, so a bad or one-shot override fails or survives here
-        self._role_overrides = {t: tool_roles(t, r) for t, r in (role_overrides or {}).items()}
+        self._role_overrides = {
+            t: tool_roles(t, r) for t, r in (role_overrides or {}).items() if r is not None
+        }  # None is no override: the name rules stand and are labelled so
         if custom_patterns_path is not None:
             custom = ChainPatternRegistry.from_yaml(custom_patterns_path)
             merged = ChainPatternRegistry.default().merge(custom)
