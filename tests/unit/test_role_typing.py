@@ -121,6 +121,25 @@ class TestTypedChains:
         assert typed_pairs(True) == typed_pairs(False)
         assert ("Read(./.env)", "send_task") in typed_pairs(True)
 
+    def test_a_cycle_chain_does_not_hide_a_typed_pair(self) -> None:
+        # deterministic: a cycle lists its tools in hash order, so hand the analyzer one directly
+        analyzer = ToolChainAnalyzer(_graph([READ, OUT]), typed=True)
+        cycle = DangerousChain(
+            tools=[READ, OUT],
+            risk_level="critical",
+            vulnerability_type="x",
+            exploit_description="",
+            chain_type="cycle",
+        )
+        nodes = analyzer._get_tool_nodes()
+        assert [c.tools for c in analyzer._find_typed_chains(nodes, [cycle])] == [[READ, OUT]]
+        direct = cycle.model_copy(update={"chain_type": "direct"})
+        assert analyzer._find_typed_chains(nodes, [direct]) == []
+
+    def test_a_none_override_is_the_name_rules(self) -> None:
+        (chain,) = _typed([READ, OUT], role_overrides={OUT: None})
+        assert chain.evidence["role_source"] == {READ: "name_rule", OUT: "name_rule"}
+
     def test_only_the_egress_type_is_exfiltration_class(self) -> None:
         assert {t for t in TYPED_VULNERABILITY_TYPES.values() if EXFIL.search(t)} == {
             "typed_data_exfiltration"
