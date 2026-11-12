@@ -180,7 +180,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         self._conversation.append({"role": "assistant", "content": content})
 
         tool_calls = result.get("tool_calls", [])
-        # the provenance inputs (spec 063) are the caller's to set, never the target's
+        # the provenance and judge inputs (specs 063, 067) are the caller's, never the target's
         metadata = drop_reserved(result.get("metadata", {}))
 
         return AgentResponse(

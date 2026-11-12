@@ -23,7 +23,7 @@ def _render(unit: str) -> str:
     return f"trace of {unit}"
 
 
-def _parse(content: str) -> str | None:
+def _parse(unit: str, content: str) -> str | None:
     reply = json.loads(content)
     verdict = reply.get("verdict")
     return verdict if verdict in ("completed", "attempted", "none") else None
@@ -194,7 +194,7 @@ async def test_record_mode_keeps_every_verdict_and_counts_every_sent_unit(tmp_pa
     assert {r["job"] for r in rows} == {"trace_judge"}
 
 
-def _anything(content: str) -> str:
+def _anything(unit: str, content: str) -> str:
     """A job parse that turns any content, the empty string included, into a verdict."""
     return "completed"
 
