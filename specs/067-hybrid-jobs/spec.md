@@ -58,6 +58,9 @@ then their bytes and sha256 equal the spike files'.
 - **FR-001**: `load(job, v)` gives the five shipped files; their sha256 are pinned in a test.
 - **FR-002**: `render_trace` equals the spike rendering of the same log; untrusted text is `| `
   lines, and no spelling of the markers survives.
+- **FR-002a**: A `tool_results` item may carry `error` (ziran#493: `{message_index, text,
+  error?}`, `error` only for a failed call). The renderer puts `error: <error>` after the
+  content, as the spike did; the detector reads `text` only.
 - **FR-003**: `evidence_values(response)` and `_evidence` read one function, `_kinds`.
 - **FR-004**: `parse_trace`, the capability parse and the plausibility parse accept only
   `hybrid_send.py`'s forms; anything else is `unusable_reply`, or the capability causes above.

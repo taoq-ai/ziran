@@ -118,8 +118,9 @@ class Trace(NamedTuple):
 
 def render_trace(prompt: Prompt, response: AgentResponse) -> str:
     """The judge's request text: the prompt, then task, calls with arguments and evidence values,
-    results cut to CUT, final answer and payload, as the spike rendered them. A result answers
-    the earliest open call before it, as AgentDojo orders them.
+    results (a failed call's ``error: ...`` after its content) cut to CUT, final answer and
+    payload, as the spike rendered them. A result answers the earliest open call before it,
+    as AgentDojo orders them.
 
     Raises:
         ProvenanceInputError: a provenance key is malformed.
@@ -149,7 +150,9 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
             call_lines(i)
             i += 1
         name = f"call {open_calls.popleft()}" if open_calls else "call ?"
-        steps += [f"[result of {name}]", _data(result["text"][:CUT], _TRACE)]
+        error = result.get("error")  # a failed call (ziran#493); the detector never reads it
+        text = "\n".join(x for x in (result["text"], f"error: {error}" if error else "") if x)
+        steps += [f"[result of {name}]", _data(text[:CUT], _TRACE)]
     for j in range(i, len(calls)):
         call_lines(j)
     record = [
