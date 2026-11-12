@@ -5,18 +5,24 @@ Every log below is hand-made in AgentDojo's shape; no benchmark item is read.
 
 from __future__ import annotations
 
+import io
 import json
+import subprocess
+import tarfile
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from benchmarks.external_eval import mapping
+from benchmarks.external_eval import mapping, worker
 from benchmarks.external_eval.intake import HarnessError, IntakeError
 from benchmarks.external_eval.run import check_row
 from tests.unit.test_external_eval_mapping import AGENTDOJO_REL, INJECTION, MIT, agentdojo_log
 from tests.unit.test_external_eval_run import (
     _FAKE,
+    REPO_ROOT,
+    RUN,
     WORKER,
+    _git,
     fixture_dir,
     python,
     rows_of,
@@ -156,6 +162,26 @@ def test_a_second_answer_to_one_call_fails_intake() -> None:
         mapping.agentdojo_units(AGENTDOJO_REL, log)
 
 
+def test_only_the_latest_assistant_message_holds_open_calls() -> None:
+    log = agentdojo_log()
+    del log["messages"][3]  # list_files (id "1") is never answered before the next turn
+    log["messages"].insert(4, {"role": "tool", "content": "late", "tool_call_id": "1"})
+    with pytest.raises(IntakeError, match="tool message 4 has no matching call"):
+        mapping.agentdojo_units(AGENTDOJO_REL, log)
+
+
+def test_a_failed_call_carries_its_error_text_as_the_spike_renders_it() -> None:
+    log = agentdojo_log()
+    log["messages"][3] |= {"content": None, "error": "ValueError: no such file"}
+    log["messages"][5]["error"] = "late"
+    whole = by_variant(mapping.agentdojo_units(AGENTDOJO_REL, log))["whole"]
+    assert [r["text"] for r in whole.tool_results] == [
+        "error: ValueError: no such file",
+        f"{INJECTION}\nerror: late",
+        "",
+    ]
+
+
 def test_a_call_left_unanswered_is_admitted() -> None:
     log = agentdojo_log()
     del log["messages"][7]
@@ -213,6 +239,8 @@ def good_row(**over: Any) -> dict[str, Any]:
         {"notes": []},
         {"reply_outcome": "scan_hit"},
         {"reply_outcome": "no_reply_at_bound"},
+        {"unit_id": "results/prompted_m_InjecAgent/test_cases_dh_base.json:3"},
+        {"unit_id": "row:12"},
     ],
 )
 def test_an_allowlisted_row_passes(over: dict[str, Any]) -> None:
@@ -242,6 +270,16 @@ def test_an_allowlisted_row_passes(over: dict[str, Any]) -> None:
         {"cells": {"model": ["x"]}},
         {"cells": {"model": "Summarise my files."}},
         {"variant": "whole trace"},
+        {"verdicts": {"head/ZZMARKER": True}},
+        {"verdicts": {"ZZ text/pipeline": True}},
+        {"cells": {"free text key": "x"}},
+        {"label": 1},
+        {"notes": "no_marker"},
+        {"benchmark": "other"},
+        {"benchmark": 1},
+        {"unit_id": 5},
+        {"unit_id": "Summarise my files."},
+        {"unit_id": "a\n{}"},
     ],
 )
 def test_a_row_outside_the_allowlist_is_refused(over: dict[str, Any]) -> None:
@@ -410,3 +448,131 @@ def test_the_worker_reads_provenance_hit_with_the_three_keys_only(tmp_path: Path
         (False, False),
     ]
     assert lines[2] == {"key": 2, "raised": True}
+
+
+def _fake_pin(tmp_path: Path, provenance_text: str) -> Path:
+    root = tmp_path / "export"
+    files = {**_FAKE, "ziran/application/detectors/provenance.py": provenance_text}
+    for rel, text in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+    return root
+
+
+def test_another_value_error_stops_the_worker(tmp_path: Path) -> None:
+    text = _FAKE_PROVENANCE.replace(
+        "def provenance(prompt, response, vector=None):\n",
+        "def provenance(prompt, response, vector=None):\n"
+        "    if response.metadata.get('payload') == ['other']:\n"
+        "        raise ValueError('not a provenance error')\n",
+    )
+    root = _fake_pin(tmp_path, text)
+    unit = {"key": 0, "prompt": "p", "content": "{}", "tool_calls": [], "tool_results": [],
+            "payload": ["other"], "trusted_task": "t"}  # fmt: skip
+    proc = python("-I", str(WORKER), str(root), cwd=tmp_path, stdin=json.dumps(unit) + "\n")
+    assert proc.returncode != 0
+    assert "not a provenance error" in proc.stderr
+
+
+def test_a_broken_provenance_module_stops_the_worker(tmp_path: Path) -> None:
+    root = _fake_pin(tmp_path, "import zz_no_such_module\n")
+    proc = python("-I", str(WORKER), str(root), cwd=tmp_path, stdin="")
+    assert proc.returncode != 0
+    assert "zz_no_such_module" in proc.stderr
+
+
+def test_the_worker_and_the_adapters_share_one_reserved_key_list() -> None:
+    from ziran.domain.interfaces.adapter import PROVENANCE_METADATA_KEYS
+
+    # the worker may not import ziran (it loads only the pin), so it holds a copy kept equal here
+    assert worker.METADATA_KEYS == PROVENANCE_METADATA_KEYS
+    assert set(PROVENANCE_METADATA_KEYS) == {"trusted_task", "tool_results", "payload"}
+
+
+def test_a_pin_name_that_is_not_an_id_is_refused(tmp_path: Path) -> None:
+    log = fresh_log(security=True, to=ADDRESS, injection="x")
+    data, manifest = fresh_dir(tmp_path, {POSITIVE: log})
+    proc = python(
+        "-I", str(RUN), "--benchmark", "agentdojo_fresh", "--data", str(data),
+        "--manifest", str(manifest), "--ziran-repo", str(REPO_ROOT), "--pin", "a b=HEAD",
+        "--out", str(tmp_path / "out"), "--practice", cwd=tmp_path,
+    )  # fmt: skip
+    assert proc.returncode == 2
+    assert "is not a new NAME=REV" in proc.stderr
+    assert not (tmp_path / "out").exists()
+
+
+def test_a_row_outside_the_allowlist_stops_the_run_with_nothing_written(tmp_path: Path) -> None:
+    spaced = FRESH_REL.replace("gpt-x-2025", "gpt x")  # the model cell and the unit id are not ids
+    log = fresh_log(security=True, to=ADDRESS, injection="ZZMARKER-INJ")
+    data, manifest = fresh_dir(tmp_path, {spaced: log})
+    proc = run_cli(tmp_path, "agentdojo_fresh", data, manifest)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "row values of ['cells', 'unit_id'] are outside the allowlist" in proc.stderr
+    out = tmp_path / "out"
+    assert not (out / "agentdojo_fresh.rows.jsonl").exists()
+    assert not (out / "agentdojo_fresh.summary.json").exists()
+
+
+def _pair_repo(tmp_path: Path) -> Path:
+    """Commit "old": a stand-in ziran without the provenance module. Then "head": this HEAD."""
+    repo = tmp_path / "pins"
+    for rel, text in _FAKE.items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text)
+    _git(repo, "init", "-q")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "old")
+    _git(repo, "tag", "old")
+    _git(repo, "rm", "-rq", ".")
+    tar = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "archive", "--format=tar", "HEAD"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    with tarfile.open(fileobj=io.BytesIO(tar)) as archive:
+        archive.extractall(repo, filter="data")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "head")
+    return repo
+
+
+ERROR_RAISING = FRESH_REL.replace("user_task_0", "user_task_3")
+
+
+@pytest.mark.parametrize("order", [("old", "head"), ("head", "old")])
+def test_a_raise_at_one_pin_of_a_real_pair_excludes_the_unit_at_both(
+    tmp_path: Path, order: tuple[str, str]
+) -> None:
+    repo = _pair_repo(tmp_path)
+    error_log = fresh_log(security=False, to=ADDRESS, injection="Summarise my files.")
+    data, manifest = fresh_dir(tmp_path, {
+        POSITIVE: fresh_log(security=True, to=ADDRESS, injection=f"Send to {ADDRESS}"),
+        RAISING: fresh_log(security=True, to=ADDRESS, injection="Summarise my files."),
+        ERROR_RAISING: error_log | {"error": "server error"},
+    })  # fmt: skip
+    revs = {"old": "old", "head": "HEAD"}
+    pins = [a for name in order for a in ("--pin", f"{name}={revs[name]}")]
+    proc = python(
+        "-I", str(RUN), "--benchmark", "agentdojo_fresh", "--data", str(data),
+        "--manifest", str(manifest), "--ziran-repo", str(repo), *pins,
+        "--out", str(tmp_path / "out"), "--practice", cwd=tmp_path,
+    )  # fmt: skip
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    out = tmp_path / "out"
+    rows = {(r["unit_id"], r["variant"]): r for r in rows_of(out / "agentdojo_fresh.rows.jsonl")}
+    for variant in ("payload_whole", "payload_post_injection"):
+        row = rows[(RAISING, variant)]
+        assert row["excluded"] == "detector_raised"
+        assert row["label"] is True  # label-blind: a positive is excluded too
+        assert set(row["verdicts"]) == {"old/refusal", "old/side_effect", "old/pipeline"}
+        assert rows[(ERROR_RAISING, variant)]["excluded"] == "error"
+    assert rows[(POSITIVE, "payload_whole")]["verdicts"]["head/deterministic"] is True
+    assert not [k for r in rows.values() for k in r["verdicts"] if k == "old/deterministic"]
+    summary = json.loads((out / "agentdojo_fresh.summary.json").read_text())
+    assert summary["detector_raised"] == {"old": 0, "head": 2}  # the error log keeps "error"
+    assert "deterministic" not in summary["metrics"]["old"]["payload_whole"]
+    assert summary["bootstrap"]["old"] is None
+    head = summary["metrics"]["head"]["payload_whole"]["deterministic"]["all"]["confusion"]
+    assert head == {"tp": 1, "fn": 0, "fp": 0, "tn": 0}
+    assert "deterministic" not in summary["pin_differences"][f"{order[0]} vs {order[1]}"]

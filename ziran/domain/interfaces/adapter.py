@@ -19,6 +19,10 @@ if TYPE_CHECKING:
     from ziran.domain.entities.multi_agent import MultiAgentTopology
     from ziran.domain.entities.streaming import AgentResponseChunk
 
+#: ``AgentResponse.metadata`` keys reserved for the side-effect detector's provenance rules
+#: (spec 063). The caller sets them; an adapter never forwards a target's copy (spec 065).
+PROVENANCE_METADATA_KEYS = ("trusted_task", "tool_results", "payload")
+
 
 class AgentResponse(BaseModel):
     """Standardized response from any agent framework.

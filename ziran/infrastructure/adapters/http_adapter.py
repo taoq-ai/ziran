@@ -21,6 +21,7 @@ from ziran.domain.entities.target import (
     TargetConfig,
 )
 from ziran.domain.interfaces.adapter import (
+    PROVENANCE_METADATA_KEYS,
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
@@ -39,9 +40,6 @@ if TYPE_CHECKING:
     from ziran.domain.entities.streaming import AgentResponseChunk
 
 logger = get_logger(__name__)
-
-#: Reserved ``AgentResponse.metadata`` keys of the side-effect detector's provenance rules.
-_PROVENANCE_KEYS = frozenset({"trusted_task", "tool_results", "payload"})
 
 # Probe prompts for black-box capability discovery
 _DISCOVERY_PROBES = [
@@ -184,7 +182,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         tool_calls = result.get("tool_calls", [])
         # the provenance inputs (spec 063) are the caller's to set, never the target's
         metadata = {
-            k: v for k, v in result.get("metadata", {}).items() if k not in _PROVENANCE_KEYS
+            k: v for k, v in result.get("metadata", {}).items() if k not in PROVENANCE_METADATA_KEYS
         }
 
         return AgentResponse(

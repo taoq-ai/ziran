@@ -67,8 +67,8 @@ EXCLUDED = frozenset({"error", "parse_error", "invalid", "label_not_binary", "de
 VARIANTS = frozenset(
     {"whole", "post_injection", "text_only", "payload_whole", "payload_post_injection"}
 )
-_ID = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")
-_SHA256 = re.compile(r"[0-9a-f]{64}")
+_ID = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")  # a sha256 is an id too
+_UNIT_ID = re.compile(r"[A-Za-z0-9_.:-]+(?:/[A-Za-z0-9_.:-]+)*")  # "member:line", "row:3"
 _PIN_NAME = re.compile(r"[A-Za-z0-9_.-]+")
 EXPLORATORY_BELOW = 50
 #: Seconds one pin's worker may take; a scored unit takes milliseconds.
@@ -324,10 +324,9 @@ def check_row(row: dict[str, Any]) -> None:
     verdicts, cells, notes = row["verdicts"], row["cells"], row["notes"]
     checks = {
         "benchmark": row["benchmark"] in PRIMARY,
-        "unit_id": isinstance(row["unit_id"], str),
+        "unit_id": isinstance(row["unit_id"], str) and bool(_UNIT_ID.fullmatch(row["unit_id"])),
         "variant": row["variant"] in VARIANTS,
-        "cluster": isinstance(row["cluster"], str)
-        and bool(_ID.fullmatch(row["cluster"]) or _SHA256.fullmatch(row["cluster"])),
+        "cluster": isinstance(row["cluster"], str) and bool(_ID.fullmatch(row["cluster"])),
         "cells": isinstance(cells, dict)
         and all(
             isinstance(v, str) and _ID.fullmatch(k) and _ID.fullmatch(v) for k, v in cells.items()
@@ -433,8 +432,12 @@ def run(args: argparse.Namespace, removed: int) -> int:
         by_pin[name] = verdicts
     # label-blind: a raise at any pin excludes the unit at every pin, so the pins stay paired
     raised = {i for v in by_pin.values() for i, x in enumerate(v) if x.get("raised")}
+    # counted where the raise relabels the unit: a unit already excluded (error) keeps that
     summary["detector_raised"] = {
-        name: sum(bool(x.get("raised")) for x in v) for name, v in by_pin.items()
+        name: sum(
+            bool(x.get("raised")) and units.units[i].excluded is None for i, x in enumerate(v)
+        )
+        for name, v in by_pin.items()
     }
     units.units = [
         u.model_copy(update={"excluded": "detector_raised"})

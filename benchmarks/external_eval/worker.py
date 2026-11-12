@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import hashlib
+import importlib.util
 import json
 import os
 import sys
@@ -127,10 +128,9 @@ async def _score(lines: Any, out: Any, root: Path) -> int:
         "config": {f.name: _jsonable(getattr(config, f.name)) for f in dataclasses.fields(config)},
     }
     pipeline = DetectorPipeline(detector_config=config)
-    try:
-        from ziran.application.detectors import provenance as first_pass
-    except ImportError:  # a pin from before spec 063: no deterministic row
-        first_pass = None
+    first_pass = None  # a pin from before spec 063 has no module: no deterministic row
+    if importlib.util.find_spec("ziran.application.detectors.provenance") is not None:
+        from ziran.application.detectors import provenance as first_pass  # a broken one stops
     check_loaded_modules(root)
     out.write(json.dumps({"header": defaults, "environment": _environment()}) + "\n")
     hit = thresholds.hit

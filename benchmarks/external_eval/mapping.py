@@ -153,8 +153,10 @@ def _assistant_view(messages: list[Any], start: int = 0) -> tuple[str, list[dict
 def _tool_results(rel: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """One ``{message_index, text}`` per tool message, each answering an open call by its id.
 
-    A call is open from its assistant message until a tool message names its id; a null id
-    names a call whose id is null. Messages name the index, never an id or text.
+    The open calls are those of the latest assistant message that no tool message has
+    answered yet; a null id names a call whose id is null. The text is whole: the content,
+    then ``error: <error>`` for a failed call, as ziran-paper's ``g11_judge_spike.render_trace``
+    renders it. Messages name the index, never an id or text.
     """
     results: list[dict[str, Any]] = []
     open_ids: list[object] = []
@@ -165,7 +167,9 @@ def _tool_results(rel: str, messages: list[dict[str, Any]]) -> list[dict[str, An
             if msg.get("tool_call_id") not in open_ids:
                 raise IntakeError(f"{rel}: tool message {i} has no matching call")
             open_ids.remove(msg.get("tool_call_id"))
-            results.append({"message_index": i, "text": _text(msg.get("content")) or ""})
+            error = msg.get("error")  # a failed call: AgentDojo leaves content empty
+            parts = (_text(msg.get("content")), f"error: {error}" if error else "")
+            results.append({"message_index": i, "text": "\n".join(t for t in parts if t)})
     return results
 
 
