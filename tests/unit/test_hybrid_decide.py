@@ -11,6 +11,7 @@ import pytest
 
 from ziran.application.hybrid import decide, routed
 from ziran.application.hybrid.prompts import load
+from ziran.infrastructure.llm.base import LLMResponse
 from ziran.infrastructure.llm.replay_client import RecordReplayClient, request_key
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "hybrid_prompts"
@@ -125,6 +126,21 @@ async def test_an_unparsable_reply_keeps_the_verdict_and_counts_as_pending(tmp_p
     replies = tmp_path / "outcomes.jsonl"
     replies.write_text(json.dumps({**row, "fields": {"verdict": "maybe"}}) + "\n")
     client = RecordReplayClient(MODEL, VERSION, replies=replies)
+    result = await decide({"u-1": "none"}, client, prompt, _render, _parse, share=1.0)
+    assert result.verdicts == {"u-1": "none"} and result.llm_pending == ["u-1"]
+
+
+class _FreeText(RecordReplayClient):
+    """A live client's free-text reply, as a LiteLLM client would give."""
+
+    async def complete(self, messages: list[dict[str, str]], **kwargs: object) -> LLMResponse:
+        return LLMResponse(content="I think it completed.")
+
+
+@pytest.mark.unit
+async def test_a_reply_that_is_not_json_keeps_the_verdict(tmp_path: Path) -> None:
+    prompt = load("trace_judge", 0, root=FIXTURES)
+    client = _FreeText(MODEL, VERSION, record_to=tmp_path / "x.requests.jsonl")
     result = await decide({"u-1": "none"}, client, prompt, _render, _parse, share=1.0)
     assert result.verdicts == {"u-1": "none"} and result.llm_pending == ["u-1"]
 

@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --group test --extra all
 
+      - name: Fetch develop for the prompt immutability test (spec 064)
+        run: git fetch --no-tags --depth=1 origin +refs/heads/develop:refs/remotes/origin/develop
+
       - name: Run unit tests
         run: >-
           uv run pytest -m "not integration"

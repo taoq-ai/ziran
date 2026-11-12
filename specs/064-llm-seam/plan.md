@@ -12,12 +12,10 @@ for every pending or unparsable reply. Nothing existing imports them.
 
 ## Technical Context
 
-- **Language**: Python 3.11+ (CI matrix 3.11, 3.12, 3.13).
-- **Dependencies**: none new. Standard library `hashlib`, `json`, `re`, `decimal`, `pathlib`;
-  Pydantic v2, already a dependency.
-- **Storage**: one request file per record run, at a path the caller names, ending in
-  `.requests.jsonl`; ziran-paper's `outcomes.jsonl` read in replay. Neither is committed here.
-- **Testing**: pytest, `@pytest.mark.unit`. Placeholder prompts under
+**Language/Version**: Python 3.11+ (CI matrix 3.11, 3.12, 3.13)
+**Primary Dependencies**: Pydantic v2, stdlib `hashlib`/`json`/`re`/`decimal`; reuses `BaseLLMClient`. No new dependencies.
+**Storage**: one caller-named `*.requests.jsonl` per record run; ziran-paper's `outcomes.jsonl` read in replay; neither committed.
+**Testing**: pytest, `@pytest.mark.unit`. Placeholder prompts under
   `tests/fixtures/hybrid_prompts/`. Sockets and processes blocked by monkeypatch in the record
   test.
 
