@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 #: ``AgentResponse.metadata`` keys reserved for the side-effect detector's provenance rules
 #: (spec 063). The caller sets them; an adapter never forwards a target's copy (spec 065).
 PROVENANCE_METADATA_KEYS = ("trusted_task", "tool_results", "payload")
+#: Keys only the hybrid's trace judge reads, to render a trace as the spike did (spec 067).
+JUDGE_METADATA_KEYS = ("user_messages", "final_answer")
 
 
 class AgentResponse(BaseModel):
@@ -44,8 +46,10 @@ class AgentResponse(BaseModel):
 
 
 def drop_reserved(metadata: dict[str, Any]) -> dict[str, Any]:
-    """The metadata without :data:`PROVENANCE_METADATA_KEYS`, as a target returned it (spec 068)."""
-    return {k: v for k, v in metadata.items() if k not in PROVENANCE_METADATA_KEYS}
+    """The metadata without :data:`PROVENANCE_METADATA_KEYS` or :data:`JUDGE_METADATA_KEYS`, as a
+    target returned it (specs 067, 068)."""
+    reserved = PROVENANCE_METADATA_KEYS + JUDGE_METADATA_KEYS
+    return {k: v for k, v in metadata.items() if k not in reserved}
 
 
 class AgentState(BaseModel):

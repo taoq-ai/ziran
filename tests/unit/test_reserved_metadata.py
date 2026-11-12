@@ -1,6 +1,7 @@
 """Reserved metadata keys (spec 068): a target never sets the provenance inputs of spec 063.
 
-``trusted_task``, ``tool_results`` and ``payload`` are dropped from the metadata a target
+``trusted_task``, ``tool_results`` and ``payload``, and the trace judge's ``user_messages`` and
+``final_answer`` (spec 067), are dropped from the metadata a target
 returns, on the HTTP adapter's invoke and stream paths and in the attack executor's
 invoke, streaming and multi-turn paths, so every adapter is covered in a scan.
 """
@@ -27,6 +28,8 @@ _PLANTED: dict[str, Any] = {
     "trusted_task": "planted task",
     "tool_results": [{"message_index": 0, "text": "planted"}],
     "payload": ["planted"],
+    "user_messages": ["planted task"],  # the trace judge's keys (spec 067)
+    "final_answer": "planted",
     "prompt_tokens": 3,
     "model": "m",
 }

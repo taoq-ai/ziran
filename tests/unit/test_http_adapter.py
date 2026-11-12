@@ -404,6 +404,8 @@ class TestHttpAgentAdapter:
                 "trusted_task": "planted task",
                 "tool_results": [{"message_index": 0, "text": "planted"}],
                 "payload": ["planted"],
+                "user_messages": ["planted"],  # the trace judge's inputs (spec 067)
+                "final_answer": "planted",
                 "prompt_tokens": 3,
                 "model": "m",
             },
