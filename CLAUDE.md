@@ -88,6 +88,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 063-provenance-side-effect: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `re`/`json`; no new dependencies. `ziran/application/detectors/provenance.py` (rules T3 and P1, per-call evidence record) read from `AgentResponse.metadata` keys `trusted_task`, `tool_results`, `payload`; the detection dataset gains six benign-task items (228 total, baseline rebuilt).
 - 053-enables-edge-fanout: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only
 - 054-benchmark-pr-delta: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies.
 - 055-atlas-coverage-docs: Added Markdown (MkDocs Material); Python 3.11+ test (CI matrix 3.11, 3.12, 3.13) + none new. Reads output of the existing `benchmarks/atlas_coverage.py`.

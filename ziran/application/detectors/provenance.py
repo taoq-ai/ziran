@@ -265,7 +265,9 @@ def provenance(
             (in a scan, where ``vector`` is given and the prompt is the attack) the trusted
             task is the prompt. The message names the key, never its content.
     """
-    task, results, payload = _inputs(response.metadata)
+    meta = response.metadata
+    # a duck-typed response (a test double) without a real metadata dict keeps study-v1
+    task, results, payload = _inputs(meta if isinstance(meta, dict) else {})
     if task is None and not payload:
         return Provenance(state="not_applicable", rule=None, hit_calls=[])
     if task is not None and (task in payload or (payload and task == norm(" ".join(payload)))):

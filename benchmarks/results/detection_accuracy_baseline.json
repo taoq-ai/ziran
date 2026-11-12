@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-23T08:35:50.988352+00:00",
+  "timestamp": "2026-11-12T13:50:37.118889+00:00",
   "pipeline_f1": 1.0,
   "tolerance": 0.02,
   "per_detector_f1": {
@@ -8,5 +8,5 @@
     "side_effect": 1.0,
     "llm_judge": 1.0
   },
-  "dataset_size": 222
+  "dataset_size": 228
 }
