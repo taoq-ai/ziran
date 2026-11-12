@@ -90,6 +90,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 066-v2-role-typing: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `re`; no new dependencies. `ziran/application/knowledge_graph/role_typing.py` (`tool_roles`: source, egress, exec, high_impact from the dev probe's V2 name rules, or a caller's override); `ToolChainAnalyzer(graph, typed=True, role_overrides=...)` adds typed chains (`DangerousChain.typed`, types `typed_*`) beside the unchanged table chains; off by default.
 - 064-llm-seam: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `hashlib`/`json`/`re`/`decimal`; reuses `BaseLLMClient`. No new dependencies.
 - 063-provenance-side-effect: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `re`/`json`; no new dependencies. `ziran/application/detectors/provenance.py` (rules T3 and P1, per-call evidence record) read from `AgentResponse.metadata` keys `trusted_task`, `tool_results`, `payload`; the detection dataset gains six benign-task items (228 total, baseline rebuilt).
 - 053-enables-edge-fanout: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only
