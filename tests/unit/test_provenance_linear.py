@@ -11,13 +11,18 @@ from __future__ import annotations
 import random
 import re
 import time
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ziran.application.detectors import provenance as module
 from ziran.application.detectors.provenance import atoms, provenance, tokens
+from ziran.application.knowledge_graph.role_typing import tool_roles
 from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
 from ziran.domain.interfaces.adapter import AgentResponse
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 pytestmark = pytest.mark.unit
 
@@ -72,30 +77,38 @@ def test_atoms_of_a_long_value_equal_the_frozen_findall() -> None:
     assert [a for _, a in atoms({"body": value})] == _old_findall(text)
 
 
+def _assert_linear(run: Callable[[int], object]) -> None:
+    """Quadrupling the input stays under 8 times the time (a quadratic pattern takes about 16)."""
+
+    def best(size: int) -> float:
+        times = []
+        for _ in range(3):
+            start = time.perf_counter()
+            run(size)
+            times.append(time.perf_counter() - start)
+        return min(times)
+
+    small, large = best(256_000), best(1_000_000)
+    assert large < 10.0  # backstop; the runner's speed sets the rest
+    assert large / small < 8, (small, large)
+
+
 @pytest.mark.parametrize("unit", ["a", "a.", "A", "a-", "1.", "a@", "aA", "x1"])
-def test_a_1mb_argument_runs_in_under_a_second(unit: str) -> None:
-    arg = unit * (1_000_000 // len(unit))
-    response = AgentResponse(
-        content="",
-        tool_calls=[{"tool": "send_email", "arguments": {"body": arg}, "message_index": 1}],
-        metadata={"payload": ["injected"]},
-    )
-    start = time.perf_counter()
-    provenance("p", response)
-    assert time.perf_counter() - start < 1.0
+def test_a_1mb_argument_scales_linearly(unit: str) -> None:
+    def run(size: int) -> object:
+        call = {"tool": "send_email", "arguments": {"body": unit * (size // len(unit))}}
+        response = AgentResponse(
+            content="", tool_calls=[{**call, "message_index": 1}], metadata={"payload": ["x"]}
+        )
+        return provenance("p", response)
+
+    _assert_linear(run)
 
 
 @pytest.mark.parametrize("unit", ["A", "Ab", "a", "aB", "A_", "1A"])
-def test_a_1mb_tool_name_runs_in_under_a_second(unit: str) -> None:
-    name = unit * (1_000_000 // len(unit))
-    start = time.perf_counter()
-    tokens(canonical_tool_name(name))  # the work of tool_roles (spec 066)
-    assert time.perf_counter() - start < 1.0
+def test_a_1mb_tool_name_scales_linearly(unit: str) -> None:
+    _assert_linear(lambda size: tokens(canonical_tool_name(unit * (size // len(unit)))))
 
 
-def test_tool_roles_of_a_1mb_name_runs_in_under_a_second() -> None:
-    # role_typing lands with spec 066 (ziran#492); until then this test skips
-    role_typing = pytest.importorskip("ziran.application.knowledge_graph.role_typing")
-    start = time.perf_counter()
-    role_typing.tool_roles("A" * 1_000_000)
-    assert time.perf_counter() - start < 1.0
+def test_tool_roles_of_a_1mb_name_scales_linearly() -> None:
+    _assert_linear(lambda size: tool_roles("A" * size))

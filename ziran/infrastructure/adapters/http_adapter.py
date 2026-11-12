@@ -21,7 +21,6 @@ from ziran.domain.entities.target import (
     TargetConfig,
 )
 from ziran.domain.interfaces.adapter import (
-    PROVENANCE_METADATA_KEYS,
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
@@ -182,9 +181,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
         tool_calls = result.get("tool_calls", [])
         # the provenance inputs (spec 063) are the caller's to set, never the target's
-        metadata = {
-            k: v for k, v in result.get("metadata", {}).items() if k not in PROVENANCE_METADATA_KEYS
-        }
+        metadata = drop_reserved(result.get("metadata", {}))
 
         return AgentResponse(
             content=content,
