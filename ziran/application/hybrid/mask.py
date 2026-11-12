@@ -30,33 +30,54 @@ def _prefix(prefixes: tuple[str, ...], tail: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![A-Za-z0-9])(?:{'|'.join(map(re.escape, prefixes))}){tail}")
 
 
+# mask.CHANGE_PREFIXES
+_CHANGE = (
+    "sk_live_",
+    "sk_test_",
+    "rk_live_",
+    "glpat-",
+    "ghs_",
+    "ghu_",
+    "ghr_",
+    "hf_",
+    "tvly-",
+    "npm_",
+    "pypi-",
+)
 _TOKENS = (
-    # mask.REGISTERED_PREFIX
+    # mask.REGISTERED_PREFIX: its tail always matches, so finditer is linear
     _prefix(("ghp_", "gho_", "github_pat_", "sk-", "AIza", "xox"), r"[^\s'\"/?&#]*"),
-    # mask.CHANGE_PREFIX
-    _prefix(
-        (
-            "sk_live_",
-            "sk_test_",
-            "rk_live_",
-            "glpat-",
-            "ghs_",
-            "ghu_",
-            "ghr_",
-            "hf_",
-            "tvly-",
-            "npm_",
-            "pypi-",
-        ),
-        r"(?=[A-Za-z0-9_\-]*[A-Z0-9])[A-Za-z0-9_\-]{16,}",
-    ),
-    # mask.JWT
-    re.compile(r"(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]+)?"),
     # a PEM private key, to its END line or, cut short, to the end of the text
     re.compile(
         r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:.*?-----END [A-Z0-9 ]*PRIVATE KEY-----|.*)", re.S
     ),
 )
+# (rule, its starts): each start begins a run of [A-Za-z0-9_-] the rule reads to its end
+_RUN_RULES = (
+    # mask.CHANGE_PREFIX
+    (_prefix(_CHANGE, r"(?=[A-Za-z0-9_\-]*[A-Z0-9])[A-Za-z0-9_\-]{16,}"), _prefix(_CHANGE, "")),
+    # mask.JWT
+    (
+        re.compile(r"(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]+)?"),
+        re.compile(r"(?<![A-Za-z0-9])eyJ"),
+    ),
+)
+_RUN = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _run_spans(rule: re.Pattern[str], starts: re.Pattern[str], text: str) -> list[tuple[int, int]]:
+    """``rule.finditer``'s spans in linear time. A later start in a run sees a shorter tail of
+    the same run, so where the run's first start fails, every later one fails too: the run is
+    skipped once, not rescanned from each start (finditer is quadratic on ``"hf_" * n``)."""
+    spans, pos = [], 0
+    while (s := starts.search(text, pos)) is not None:
+        if m := rule.match(text, s.start()):
+            spans.append(m.span())
+            pos = m.end()
+        else:
+            run = _RUN.match(text, s.start())  # every start is [A-Za-z0-9_-], so a run
+            pos = run.end() if run else s.start() + 1
+    return spans
 
 
 def _sa001_values(text: str) -> list[tuple[int, int]]:
@@ -76,9 +97,14 @@ def _sa001_values(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+def _spans(text: str) -> list[tuple[int, int]]:
+    spans = _sa001_values(text) + [m.span() for p in _TOKENS for m in p.finditer(text)]
+    return spans + [s for rule, starts in _RUN_RULES for s in _run_spans(rule, starts, text)]
+
+
 def mask(text: str) -> str:
     """``text`` with every secret span, joined with any it overlaps, shown as ``***``."""
-    spans = _sa001_values(text) + [m.span() for p in _TOKENS for m in p.finditer(text)]
+    spans = _spans(text)
     merged: list[list[int]] = []
     for s, e in sorted(sp for sp in spans if sp[1] > sp[0]):
         if merged and s < merged[-1][1]:

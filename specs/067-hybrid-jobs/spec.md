@@ -72,10 +72,12 @@ then their bytes and sha256 equal the spike files'.
 - **FR-002b**: The renderer reads what the spike read from the log: every user message as the
   task (`metadata["user_messages"]`, else `trusted_task`), the final answer
   (`metadata["final_answer"]`, else `content`), and results matched to calls by id (`id` on a
-  call, `tool_call_id` on a result, `name` when none is open). The detector still reads the
-  first user message only. `HttpAgentAdapter` drops a target's copy of the two judge keys.
+  call, `tool_call_id` on a result, `name` when none is open). The evidence line matches values
+  against every user message, as the spike's probe did. The detector still reads the first user
+  message only. `HttpAgentAdapter` drops a target's copy of the two judge keys.
 - **FR-002c**: Every job masks untrusted text with the token rules of ziran-paper
-  `annotation/mask.py` (SA001 values, token prefixes, JWTs) and PEM private key blocks, as `***`.
+  `annotation/mask.py` (SA001 values, token prefixes, JWTs) and PEM private key blocks, as `***`,
+  in linear time, and each tool result before its 4,000-character cut.
 - **FR-007**: `DetectorThresholds.hybrid_route_share` in [0, 1], default 0.0. The scan flag
   overrides it, 0.0 included. `CAUSES` lists every pending cause a replay can give.
 - **FR-008**: No module under `ziran/` outside `application/hybrid` imports the seam, so no

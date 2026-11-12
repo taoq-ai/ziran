@@ -32,8 +32,9 @@ if TYPE_CHECKING:
 V = TypeVar("V")
 UNUSABLE = "unusable_reply"  # a reply came back but the job's parse refused it
 #: Every cause ``llm_pending`` can hold in replay: the sender's six classes other than
-#: ``reply`` (ziran-paper protocol section 4), then the four ziran-paper#128 registers beside
-#: them. Record mode's ``recorded`` is not here: nothing is scored from a record run.
+#: ``reply`` (ziran-paper protocol section 4); ``missing`` and ``unusable_reply``, ziran-side
+#: causes no protocol text registers; and the two capability causes protocol section 4 names.
+#: Record mode's ``recorded`` is not here: nothing is scored from a record run.
 CAUSES = (
     "unparsed",
     "no_text",

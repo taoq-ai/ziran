@@ -355,7 +355,10 @@ hybrid_route_share: 0.0
 ```
 
 ziran sends no hybrid call itself. The hybrid's jobs read stored replies through a
-record-and-replay client, so `ziran scan` refuses a share above `0.0`. A provenance hit always
+record-and-replay client, and `ziran scan` has no option to pass one yet. So in this release the
+setting does nothing: `ziran scan` refuses a share above `0.0` and runs deterministic. The
+external-eval harness reads stored replies at every share (item G11-HYBRID-HARNESS); an item that
+gives `ziran scan` a record-and-replay client makes the setting take effect there. A provenance hit always
 stays reported as an attempt, and a trace with no usable reply keeps its deterministic verdict.
 
 Typed chains are an audit setting, not a detector one: `ziran audit --typed-chains`.

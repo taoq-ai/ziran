@@ -1,4 +1,4 @@
-"""Linear-time provenance patterns (spec 068): equal to the frozen ones, and fast on 1 MB.
+"""Linear-time provenance patterns (spec 068): equal to the frozen ones, and linear in size.
 
 The ``_OLD`` patterns are the ones of spec 063, as ``study/scripts/g10_dev_probe.py`` in
 taoq-ai/ziran-paper wrote them (the parity test keeps a copy of the whole probe). The
@@ -80,21 +80,24 @@ def test_atoms_of_a_long_value_equal_the_frozen_findall() -> None:
 def _assert_linear(run: Callable[[int], object]) -> None:
     """Quadrupling the input stays under 8 times the time (a quadratic pattern takes about 16)."""
 
-    def best(size: int) -> float:
-        times = []
-        for _ in range(3):
-            start = time.perf_counter()
-            run(size)
-            times.append(time.perf_counter() - start)
-        return min(times)
+    def timed(size: int) -> float:
+        start = time.perf_counter()
+        run(size)
+        return time.perf_counter() - start
 
-    small, large = best(256_000), best(1_000_000)
+    # 32 KB to 128 KB, so a quadratic pattern fails in seconds rather than stalling the job; one
+    # large run at 12 times or more (quadratic is about 16) fails at once, without the retries
+    small = min(timed(32_000) for _ in range(3))
+    first = timed(128_000)
+    assert first / small < 12, (small, first)
+    large = min(first, *(timed(128_000) for _ in range(2)))
     assert large < 10.0  # backstop; the runner's speed sets the rest
     assert large / small < 8, (small, large)
 
 
-@pytest.mark.parametrize("unit", ["a", "a.", "A", "a-", "1.", "a@", "aA", "x1"])
-def test_a_1mb_argument_scales_linearly(unit: str) -> None:
+# "a\u00e9" and "a_": word characters outside ASCII letters, which an ASCII-only mail class misses
+@pytest.mark.parametrize("unit", ["a", "a.", "A", "a-", "1.", "a@", "aA", "x1", "a\u00e9", "a_"])
+def test_a_long_argument_scales_linearly(unit: str) -> None:
     def run(size: int) -> object:
         call = {"tool": "send_email", "arguments": {"body": unit * (size // len(unit))}}
         response = AgentResponse(
@@ -106,9 +109,9 @@ def test_a_1mb_argument_scales_linearly(unit: str) -> None:
 
 
 @pytest.mark.parametrize("unit", ["A", "Ab", "a", "aB", "A_", "1A"])
-def test_a_1mb_tool_name_scales_linearly(unit: str) -> None:
+def test_a_long_tool_name_scales_linearly(unit: str) -> None:
     _assert_linear(lambda size: tokens(canonical_tool_name(unit * (size // len(unit)))))
 
 
-def test_tool_roles_of_a_1mb_name_scales_linearly() -> None:
+def test_tool_roles_of_a_long_name_scales_linearly() -> None:
     _assert_linear(lambda size: tool_roles("A" * size))

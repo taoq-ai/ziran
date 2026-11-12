@@ -119,19 +119,22 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
 
     The spike read the whole log. Where the detector's keys hold less, the renderer reads:
 
-    - ``metadata["user_messages"]``: every user message, joined as the task; else
-      ``trusted_task``, the first one, which the detector reads;
+    - ``metadata["user_messages"]``: every user message, joined as the task and as the task the
+      evidence line matches against, as the spike's probe did; else ``trusted_task``, the first
+      one, which the detector reads;
     - ``metadata["final_answer"]``: the last message when it is an assistant's with no call;
       else ``content``;
     - ``id`` on a call and ``tool_call_id`` on a result: a result answers the first open call
       with its id, as the spike matched them (absent ids match too, so results then answer in
       call order); with none open it is headed by its ``name``.
 
+    Each result is masked before the cut, so no secret is cut in two.
+
     Raises:
         ProvenanceInputError: a provenance key is malformed.
-        ValueError: ``user_messages`` is not a list of strings or ``final_answer`` not a string.
+        ValueError: ``user_messages`` is not a list of strings, ``final_answer`` not a string, or
+            a call ``id`` or ``tool_call_id`` cannot be hashed (a list or an object).
     """
-    values = evidence_values(response)  # checks the provenance keys read below
     meta = response.metadata if isinstance(response.metadata, dict) else {}
     users, final = meta.get("user_messages"), meta.get("final_answer", response.content)
     if users is not None and not (
@@ -141,6 +144,13 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
     if not isinstance(final, str):
         raise ValueError("final_answer must be a string")
     task = "\n".join(users) if users is not None else meta.get("trusted_task") or ""
+    judged = response
+    if users is not None:  # the spike's probe matched values against every user message
+        judged_meta = {k: v for k, v in meta.items() if k != "trusted_task"}
+        if task.strip():
+            judged_meta["trusted_task"] = task
+        judged = response.model_copy(update={"metadata": judged_meta})
+    values = evidence_values(judged)  # checks the provenance keys read below
     calls = response.tool_calls
     steps: list[str] = []
     unmatched: defaultdict[object, deque[int]] = defaultdict(deque)
@@ -158,18 +168,18 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
                 _TRACE,
             )
         )
-        unmatched[calls[i].get("id")].append(i)
+        unmatched[_id(calls[i].get("id"))].append(i)
 
     i = 0
     for result in meta.get("tool_results") or []:
         while i < len(calls) and _before(calls[i], result["message_index"]):
             call_lines(i)
             i += 1
-        ids = unmatched[result.get("tool_call_id")]
+        ids = unmatched[_id(result.get("tool_call_id"))]
         name = f"call {ids.popleft()}" if ids else _line(result.get("name"), _TRACE)
         error = result.get("error")  # a failed call (ziran#493); the detector never reads it
         text = "\n".join(x for x in (result["text"], f"error: {error}" if error else "") if x)
-        steps += [f"[result of {name}]", _data(text[:CUT], _TRACE)]
+        steps += [f"[result of {name}]", _data(mask(text)[:CUT], _TRACE)]
     for j in range(i, len(calls)):
         call_lines(j)
     record = [
@@ -185,6 +195,14 @@ def render_trace(prompt: Prompt, response: AgentResponse) -> str:
         END,
     ]
     return prompt.text.rstrip("\n") + "\n\n" + "\n".join(record)
+
+
+def _id(value: object) -> object:
+    try:
+        hash(value)
+    except TypeError:
+        raise ValueError("a call id or tool_call_id must be a string or null") from None
+    return value
 
 
 def _before(call: dict[str, Any], at: int) -> bool:
