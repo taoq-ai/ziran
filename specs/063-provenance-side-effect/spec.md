@@ -51,13 +51,13 @@ All in `AgentResponse.metadata`, under exactly these keys:
 | --- | --- | --- |
 | `trusted_task` | non-blank string | the text of the first `user` message |
 | `tool_results` | list of `{"message_index": int, "text": str}` | one per `tool` message, in log order, whole |
-| `payload` | list of strings | the attack text; `[]` on the task-known row; blank strings are ignored |
+| `payload` | list of strings, or null | the attack text; `[]` or null on the task-known row; blank strings are ignored; matched as one text, the strings joined with a space |
 
 and `message_index` (int) on each `tool_calls` item: the index of the assistant message holding
 the call. A tool result is earlier than a call when its `message_index` is lower. Call arguments are
 read from `arguments`, `args` or OpenAI's `function.arguments` (a JSON string is parsed).
 
-When neither `trusted_task` nor a non-blank `payload` string is given, no key is read at all,
+When neither `trusted_task` nor a non-blank `payload` string is given (a key that is absent or null counts as not given), no key is read at all,
 `tool_results` included: the result is `not_applicable` and the study-v1 path runs. Otherwise a
 key with another shape raises `ProvenanceInputError` (a `ValueError`) naming the key, never its
 content. So does a call without an int `message_index` when `tool_results` is given. A blank

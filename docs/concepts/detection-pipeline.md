@@ -64,7 +64,7 @@ Inspects **tool calls** the agent made during the response — not just the text
 |-----|-------|
 | `trusted_task` | the user's task, a string |
 | `tool_results` | a list of `{"message_index": int, "text": str}` |
-| `payload` | the attack text, a list of strings (`[]` when unknown) |
+| `payload` | the attack text, a list of strings (`[]` or null when unknown), matched as one text |
 
 Each tool call then also needs a `message_index`: the index of the assistant message that holds it.
 

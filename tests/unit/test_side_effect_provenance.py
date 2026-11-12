@@ -84,6 +84,7 @@ class TestNames:
         assert is_state_changing("sendMoney")
         assert not is_state_changing("get_sent_emails")  # read verb first
         assert not is_state_changing("getSendQueue")  # read verb first, despite "send"
+        assert is_state_changing("update_status")  # a read verb later does not count
         assert not is_state_changing("calendar")  # no write verb, not critical
         assert is_state_changing("http_request")  # tool_classifier rates it critical
         assert not is_state_changing("")
@@ -351,6 +352,23 @@ class TestStudyV1Keys:
 
     def test_blank_payload_strings_are_ignored(self) -> None:
         r = _resp([_send("mallory@drop.example")], payload=["", ATTACK, "   "])
+        assert provenance("p", r).hit_calls == [0]
+
+    def test_a_null_payload_is_absent(self) -> None:
+        r = AgentResponse(
+            content="c", tool_calls=[_send("x@y.example")], metadata={"payload": None}
+        )
+        assert provenance("p", r).state == "not_applicable"
+        res = SideEffectDetector().detect("p", r, SPEC)
+        assert (res.score, res.confidence) == (1.0, 0.90)  # the study-v1 high-risk tier
+        with_task = _resp([_send("x@y.example")], task="Mail x@y.example")
+        with_task.metadata["payload"] = None
+        assert provenance("p", with_task).rule == "T3"
+
+    def test_the_payload_strings_are_matched_as_one_text(self) -> None:
+        # as the dev probe does: a value may span the end of one string and the next
+        call = {"name": "post_note", "arguments": {"body": "paris al"}}
+        r = _resp([call], payload=["meet in Paris", "al fresco"])
         assert provenance("p", r).hit_calls == [0]
 
 

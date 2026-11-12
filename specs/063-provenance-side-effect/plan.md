@@ -61,10 +61,22 @@ empty), so the 222 items are the dataset as at study-v1.
 
 ## Parity with the dev probe
 
-A scratch check ran `provenance()` and the frozen probe's `t3`/`p1` on 3,000 random synthetic
-AgentDojo-shaped logs (one user message, one injection): 0 differences on either rule, with 886 T3
-hits and 1,860 P1 hits. Two input differences are by protocol: the task is the first user message
-(the probe joins all user messages), and payload strings are matched one by one (the probe joins
-them with a space).
+`tests/unit/test_provenance_probe_parity.py` compares `provenance()` with the frozen probe's
+`t3` and `p1`. The oracle is the probe's rule code and verb lists, copied from `g10_dev_probe.py`
+at `f80204a6` (lines 69 to 82, 94 to 103 and 111 to 225), not imported from ziran.
 
-`tests/unit/test_provenance_probe_parity.py` pins this in the repository: a copy of the probe's rule code as the oracle, 400 seeded synthetic logs, both rules equal on every log.
+The logs are 600 seeded synthetic AgentDojo-shaped logs. Each has one or two user messages, one
+to four assistant turns of one or two calls, one tool result per call, and one or two injection
+strings. Values come from a fixed pool with blank, bool, float, long (over 60 characters) and
+boundary-spanning entries. On those shapes both rules agree on every log; the test also asserts
+that each shape occurs (over 100 logs with two user messages, over 200 with two injections).
+
+The payload is matched as one text, the strings joined with a space, as the probe matches it.
+A second test pins a value that spans two injection strings.
+
+One input difference is registered by protocol section 5: `trusted_task` is the first user
+message, where the probe joins every user message. Logs with a second user message are
+compared against the probe run with the later user messages removed.
+
+Parity on real dev logs is unmeasured here. G10-HARNESS-FRESH's replay of the dev split measures
+it.

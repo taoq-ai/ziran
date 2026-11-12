@@ -200,7 +200,9 @@ def _task_and_payload(meta: dict[str, Any]) -> tuple[str | None, list[str]]:
     task = meta.get("trusted_task")
     if task is not None and (not isinstance(task, str) or not task.strip()):
         raise ProvenanceInputError("trusted_task must be a non-blank string")
-    payload = meta.get("payload", [])
+    payload = meta.get("payload")
+    if payload is None:  # absent or null (an adapter may forward a remote JSON null)
+        payload = []
     if not isinstance(payload, list) or not all(isinstance(p, str) for p in payload):
         raise ProvenanceInputError("payload must be a list of strings")
     # a blank payload string (an empty injection) carries no value: ignored, not refused
@@ -225,7 +227,7 @@ def _evidence(
     call: dict[str, Any],
     task: str | None,
     results: list[tuple[int, str]],
-    payload: list[str],
+    payload: str,
 ) -> CallEvidence:
     earlier: list[str] = []
     if results:
@@ -242,7 +244,7 @@ def _evidence(
             continue
         if any(found(atom, t) for t in earlier):
             tainted.append(path)
-        if any(found(atom, p) for p in payload):
+        if found(atom, payload):
             carried.append(path)
     return CallEvidence(
         index=i,
@@ -273,7 +275,9 @@ def provenance(
     if task is None and not payload:  # study-v1: tool_results alone is never read
         return Provenance(state="not_applicable", rule=None, hit_calls=[])
     results = _results(meta)
-    if task is not None and (task in payload or (payload and task == norm(" ".join(payload)))):
+    # one text, as the dev probe matches it: a value may span two injection strings
+    joined = norm(" ".join(payload))
+    if task is not None and (task in payload or (payload and task == joined)):
         raise ProvenanceInputError(
             "trusted_task holds the payload text; pass the attack only as payload"
         )
@@ -281,7 +285,7 @@ def provenance(
         raise ProvenanceInputError(
             "trusted_task equals the attack prompt of a scan; pass the attack as payload"
         )
-    calls = [_evidence(i, c, task, results, payload) for i, c in enumerate(response.tool_calls)]
+    calls = [_evidence(i, c, task, results, joined) for i, c in enumerate(response.tool_calls)]
     if payload:
         hits = [c.index for c in calls if c.payload_count]
         band = any(c.payload_count or (c.state_changing and c.tainted_count) for c in calls)

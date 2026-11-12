@@ -31,3 +31,10 @@
 - [x] T016 Tests for the long-value branch, empty and bool atoms, P1 on read calls, both payload-guard clauses, the boundaries and the hit score
 - [x] T017 Commit a seeded parity test against a copy of the frozen probe (`tests/unit/test_provenance_probe_parity.py`)
 - [x] T018 Spec: the error path per caller; docs: the reserved metadata keys
+
+## Phase 5: fix round 2 (gates at 0dbb7ff)
+
+- [x] T019 Treat `payload: null` as absent
+- [x] T020 Match the payload as one joined text, as the probe does; test a value spanning two strings
+- [x] T021 Parity: the probe's own verb lists, two-injection and two-user-message logs, the log shapes stated
+- [x] T022 Test a write-then-read name (`update_status`)
