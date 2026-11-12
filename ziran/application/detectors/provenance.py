@@ -57,13 +57,17 @@ charge trigger invoke launch terminate shutdown restart apply overwrite replace 
 mute kick email message notify tweet comment like follow unfollow upvote downvote call dial text"""
 )
 
-_CAMEL = (re.compile(r"([a-z0-9])([A-Z])"), re.compile(r"([A-Z]+)([A-Z][a-z])"))
+# spec 068: linear-time forms of the probe's patterns, equal on every input. The split
+# starts at the last capital of a run; the mail and domain patterns consume a run that
+# cannot match through a second branch (an empty findall item, dropped) instead of
+# retrying it from every later start.
+_CAMEL = (re.compile(r"([a-z0-9])([A-Z])"), re.compile(r"([A-Z])([A-Z][a-z])"))
 _SPACE = re.compile(r"(?:\\n|\s)+")
 _LONG = 60
 _PARTS = (
-    re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"),  # mail addresses
+    re.compile(r"([\w.+-]+@[\w-]+(?:\.[\w-]+)+)|[\w.+-]+"),  # mail addresses
     re.compile(r"https?://[^\s<>\"']+"),  # URLs
-    re.compile(r"\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b"),  # domains
+    re.compile(r"(\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b)|\b(?:[a-z0-9-]+\.?)+"),  # domains
     re.compile(r"\b(?=[a-z]*\d)[a-z0-9]{8,}\b"),  # ids of 8 or more with a digit
     re.compile(r"(?<!\w)\d{3,}(?:[.,]\d+)?(?!\w)"),  # numbers of 3 or more digits
 )
@@ -155,7 +159,7 @@ def atoms(args: object) -> list[tuple[str, str]]:
         if len(text) <= _LONG:
             out.append((path, text))  # an empty atom matches nothing (found)
         else:
-            out += [(path, m) for p in _PARTS for m in p.findall(text)]
+            out += [(path, m) for p in _PARTS for m in p.findall(text) if m]
     return out
 
 
