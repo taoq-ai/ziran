@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 
+from ziran.application.detectors import provenance as module
 from ziran.application.detectors.provenance import provenance
 from ziran.domain.interfaces.adapter import AgentResponse
 from ziran.domain.tool_classifier import classify_tool
@@ -316,3 +317,8 @@ def test_a_value_spanning_two_injection_strings_matches_as_in_the_probe() -> Non
     calls, _ = _metadata_view(log)
     meta = {"trusted_task": "please", "payload": ["meet in Paris", "al fresco"]}
     assert provenance("please", AgentResponse(content="", tool_calls=calls, metadata=meta)).hit
+
+
+def test_the_verb_lists_equal_the_probe_literals() -> None:
+    assert module.READ_VERBS == READ_VERBS
+    assert module.WRITE_VERBS == WRITE_VERBS
