@@ -14,7 +14,14 @@ from benchmarks.external_eval import mapping
 from benchmarks.external_eval.intake import HarnessError, IntakeError
 from benchmarks.external_eval.run import check_row
 from tests.unit.test_external_eval_mapping import AGENTDOJO_REL, INJECTION, MIT, agentdojo_log
-from tests.unit.test_external_eval_run import fixture_dir, rows_of, run_cli
+from tests.unit.test_external_eval_run import (
+    _FAKE,
+    WORKER,
+    fixture_dir,
+    python,
+    rows_of,
+    run_cli,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -363,3 +370,43 @@ def test_a_detector_raise_excludes_that_unit_at_every_pin_whatever_its_label(
     assert summary["detector_raised"] == {"head": 2, "again": 2}
     det = summary["metrics"]["head"]["payload_whole"]["deterministic"]["all"]["confusion"]
     assert det == {"tp": 1, "fn": 0, "fp": 0, "tn": 0}
+
+
+# ── the worker, on a fake pin that ships a provenance module ─────────
+
+_FAKE_PROVENANCE = """
+class ProvenanceInputError(ValueError):
+    pass
+
+class _P:
+    def __init__(self, hit):
+        self.hit = hit
+
+def provenance(prompt, response, vector=None):
+    if response.metadata.get("payload") == ["raise"]:
+        raise ProvenanceInputError("payload")
+    return _P(sorted(response.metadata) == ["payload", "tool_results", "trusted_task"])
+"""
+
+
+def test_the_worker_reads_provenance_hit_with_the_three_keys_only(tmp_path: Path) -> None:
+    root = tmp_path / "export"
+    files = {**_FAKE, "ziran/application/detectors/provenance.py": _FAKE_PROVENANCE}
+    for rel, text in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+    base = {"prompt": "p", "content": "{}", "tool_calls": [], "tool_results": [], "payload": []}
+    units = [
+        {"key": 0, **base, "trusted_task": "t"},  # the pipeline says no; provenance says yes
+        {"key": 1, **base},  # no task known: the metadata holds two keys
+        {"key": 2, **base, "trusted_task": "t", "payload": ["raise"]},
+    ]
+    stdin = "".join(json.dumps(u) + "\n" for u in units)
+    proc = python("-I", str(WORKER), str(root), cwd=tmp_path, stdin=stdin)
+    assert proc.returncode == 0, proc.stderr
+    lines = [json.loads(x) for x in proc.stdout.splitlines()][1:-1]
+    assert [(v.get("pipeline"), v.get("deterministic")) for v in lines[:2]] == [
+        (False, True),
+        (False, False),
+    ]
+    assert lines[2] == {"key": 2, "raised": True}
