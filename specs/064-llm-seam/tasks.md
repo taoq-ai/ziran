@@ -31,3 +31,10 @@
 - [x] T016 PendingResponse in infrastructure/llm/base.py; outcome classes whitelisted; bool share refused
 - [x] T017 Tests: rounding pins, pending guard, goal probes A and B, import guard forms, symlinks
 - [x] T018 `*.requests.jsonl` in .gitignore; merge develop
+
+## Phase 5: fix round 2 (gates at da86051)
+
+- [x] T019 Immutability base has no default: unset skips, set but unfetched fails; test the branch
+- [x] T020 Test every sender outcome class through replay
+- [x] T021 Resolve folders above the request folder; hold the folder open and use dir_fd
+- [x] T022 fstat check: regular file, one link; O_NONBLOCK so a FIFO cannot block; tests

@@ -75,8 +75,12 @@ then every result equals develop's.
 - The same key recorded twice: written once.
 - A replies file with a malformed line, an outcome outside the sender's seven classes, or a
   repeated key: refused, naming the line, never its text.
-- A symlink at the request path or at any parent folder, dangling or not: refused before any
-  read or write; the file is opened with `O_NOFOLLOW` and created owner-only.
+- A symlink at the request path or at its folder, dangling or not: refused before any read or
+  write. Folders above it (macOS `/tmp` links to `/private/tmp`) are resolved once at
+  construction, and the folder is held open (`O_DIRECTORY|O_NOFOLLOW`); both file opens use
+  that `dir_fd`, so a folder swapped in later cannot redirect the writes. The file is opened
+  with `O_NOFOLLOW|O_NONBLOCK`, created owner-only, and refused unless `fstat` shows a regular
+  file with one link (no hard link, no FIFO).
 - A unit outside the band: never sent, its first-pass verdict passed through.
 - A band unit with no first-pass verdict: refused.
 - A stored outcome other than `reply` (`unparsed`, `no_text`, `not_sent_oversize`,
@@ -132,8 +136,10 @@ rendering; thresholds; `benchmarks/replay_llm_client.py`, left as it is.
 - **The base-branch check compares against the run's own base.** On a pull request the test
   workflow fetches `github.base_ref` at depth 1; on a push it fetches the commit the push moved
   past (`github.event.before`), or compares the commit with itself for a new branch. The test
-  reads the base from `ZIRAN_PROMPT_BASE`. In CI an unfetched base fails the test; locally it
-  skips.
+  reads the base from `ZIRAN_PROMPT_BASE`, with no default. Unset (a release tag run, a local
+  run) skips; set but not fetched fails. A force-push to main or develop can leave
+  `github.event.before` unreachable, so the fetch step fails loudly and the run needs a rerun or
+  an owner look; it never passes silently.
 - **The key encoding is a third form.** `request_key` is length-framed over the prompt text,
   model id, client version and rendered text. ziran-paper's `chainset.py` and
   `g11_judge_spike.py` key JSON over the prompt sha256, model, CLI version and more (effort,

@@ -13,8 +13,9 @@ from ziran.application.hybrid.prompts import PROMPTS, Prompt, load
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "hybrid_prompts"
 REPO = Path(__file__).parents[2]
-# CI sets ZIRAN_PROMPT_BASE: the PR's base branch, or the commit the new one replaced
-BASE = os.environ.get("ZIRAN_PROMPT_BASE", "origin/develop")
+# test.yml sets ZIRAN_PROMPT_BASE: the PR's base branch, or the commit the new one replaced.
+# No default: a run that sets none (a release tag, a local run) has no base to compare with.
+BASE = os.environ.get("ZIRAN_PROMPT_BASE")
 
 
 @pytest.mark.unit
@@ -76,14 +77,32 @@ def _edited(repo: Path, base: str) -> list[str]:
     return out
 
 
+def _base_state(repo: Path, base: str | None) -> str:
+    """skip when no base is set; fail when one is set but not fetched, so the guard is never
+    silent where test.yml asks for it; run otherwise."""
+    if base is None:
+        return "skip"
+    found = _git(repo, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
+    return "run" if found.returncode == 0 else "fail"
+
+
 @pytest.mark.unit
 def test_a_merged_prompt_version_is_never_edited_or_removed() -> None:
-    """Every prompt file on the base branch is byte-equal at the head (CI fetches develop)."""
-    if _git(REPO, "rev-parse", "--verify", "--quiet", f"{BASE}^{{commit}}").returncode != 0:
-        if os.environ.get("CI"):  # in CI an unfetched base fails, so the guard is never silent
-            pytest.fail(f"the prompt base {BASE} is not fetched")
-        pytest.skip(f"{BASE} is not fetched; the CI test job fetches it")
+    """Every prompt file on the run's base is byte-equal at the head."""
+    state = _base_state(REPO, BASE)
+    if state == "skip":
+        pytest.skip("ZIRAN_PROMPT_BASE is not set; the CI test job sets it")
+    if state == "fail":
+        pytest.fail(f"the prompt base {BASE} is not fetched")
+    assert BASE is not None
     assert _edited(REPO, BASE) == [], "merged prompt versions edited or removed; add v<N+1>"
+
+
+@pytest.mark.unit
+def test_an_unset_base_skips_and_a_set_unfetched_base_fails() -> None:
+    assert _base_state(REPO, None) == "skip"
+    assert _base_state(REPO, "refs/remotes/origin/no-such-base-064") == "fail"
+    assert _base_state(REPO, "HEAD") == "run"
 
 
 @pytest.mark.unit

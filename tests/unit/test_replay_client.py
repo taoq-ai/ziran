@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import socket
 import subprocess
 from pathlib import Path
@@ -154,6 +155,78 @@ def test_a_linked_parent_folder_is_refused(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
+async def test_a_link_above_the_folder_is_resolved_and_accepted(tmp_path: Path) -> None:
+    """macOS /tmp is a link to /private/tmp: a link above the caller's folder is allowed."""
+    real = tmp_path / "private"
+    (real / "work").mkdir(parents=True)
+    (tmp_path / "tmp").symlink_to(real, target_is_directory=True)
+    client = RecordReplayClient(
+        MODEL, VERSION, record_to=tmp_path / "tmp" / "work" / "j.requests.jsonl"
+    )
+    await client.complete(_user(TEXT), job="trace_judge", unit="u-1", prompt=PROMPT)
+    assert (real / "work" / "j.requests.jsonl").is_file()
+    assert client.record_to == (real / "work" / "j.requests.jsonl").resolve()
+
+
+@pytest.mark.unit
+def test_the_read_of_an_existing_file_does_not_follow_a_link(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The O_NOFOLLOW read holds even if a link slips past the path check."""
+    target = tmp_path / "elsewhere.txt"
+    target.write_text(json.dumps({"key": "a" * 64}) + "\n")
+    link = tmp_path / "judge.requests.jsonl"
+    link.symlink_to(target)
+    monkeypatch.setattr(Path, "is_symlink", lambda self: False)
+    with pytest.raises(OSError):
+        RecordReplayClient(MODEL, VERSION, record_to=link)
+
+
+@pytest.mark.unit
+async def test_a_folder_swapped_after_construction_does_not_redirect_writes(
+    tmp_path: Path,
+) -> None:
+    folder = tmp_path / "work"
+    folder.mkdir()
+    client = RecordReplayClient(MODEL, VERSION, record_to=folder / "j.requests.jsonl")
+    evil = tmp_path / "evil"
+    evil.mkdir()
+    folder.rename(tmp_path / "moved")
+    folder.symlink_to(evil, target_is_directory=True)
+    await client.complete(_user(TEXT), job="trace_judge", unit="u-1", prompt=PROMPT)
+    assert list(evil.iterdir()) == []
+    assert (tmp_path / "moved" / "j.requests.jsonl").is_file()
+
+
+@pytest.mark.unit
+async def test_a_hard_link_at_the_request_path_is_refused(tmp_path: Path) -> None:
+    target = tmp_path / "elsewhere.txt"
+    target.write_text("")
+    os.link(target, tmp_path / "j.requests.jsonl")
+    with pytest.raises(ValueError, match="one link"):
+        RecordReplayClient(MODEL, VERSION, record_to=tmp_path / "j.requests.jsonl")
+
+
+@pytest.mark.unit
+async def test_a_hard_link_made_after_construction_is_refused(tmp_path: Path) -> None:
+    out = tmp_path / "j.requests.jsonl"
+    client = RecordReplayClient(MODEL, VERSION, record_to=out)
+    target = tmp_path / "elsewhere.txt"
+    target.write_text("keep\n")
+    os.link(target, out)
+    with pytest.raises(ValueError, match="one link"):
+        await client.complete(_user(TEXT), job="trace_judge", unit="u-1", prompt=PROMPT)
+    assert target.read_text() == "keep\n"
+
+
+@pytest.mark.unit
+def test_a_fifo_at_the_request_path_is_refused_without_blocking(tmp_path: Path) -> None:
+    os.mkfifo(tmp_path / "j.requests.jsonl")
+    with pytest.raises(ValueError, match="regular file"):
+        RecordReplayClient(MODEL, VERSION, record_to=tmp_path / "j.requests.jsonl")
+
+
+@pytest.mark.unit
 async def test_a_link_planted_after_construction_is_not_followed(tmp_path: Path) -> None:
     out = tmp_path / "judge.requests.jsonl"
     client = RecordReplayClient(MODEL, VERSION, record_to=out)
@@ -246,6 +319,36 @@ async def test_replay_returns_the_stored_fields_and_pending_otherwise(tmp_path: 
     assert isinstance(no_text, PendingResponse) and no_text.reason == "no_text"
     missing = await client.complete(_user(TEXT + "m"), job="trace_judge", unit="u-3", prompt=PROMPT)
     assert isinstance(missing, PendingResponse) and missing.reason == "missing"
+
+
+# hybrid_send.CLASSES, copied: the sender's seven final outcome classes
+CLASSES = (
+    "reply",
+    "unparsed",
+    "no_text",
+    "not_sent_oversize",
+    "step_stopped",
+    "no_reply_at_bound",
+    "scan_hit",
+)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("outcome", CLASSES)
+async def test_every_sender_outcome_class_loads_and_only_reply_is_a_reply(
+    tmp_path: Path, outcome: str
+) -> None:
+    key = request_key(PROMPT, MODEL, VERSION, TEXT)
+    fields = {"verdict": "none", "call": None} if outcome == "reply" else None
+    row = {"key": key, "unit": "u-1", "job": "trace_judge", "outcome": outcome, "fields": fields}
+    client = RecordReplayClient(
+        MODEL, VERSION, replies=_outcomes(tmp_path / "outcomes.jsonl", [row])
+    )
+    got = await client.complete(_user(TEXT), job="trace_judge", unit="u-1", prompt=PROMPT)
+    if outcome == "reply":
+        assert not isinstance(got, PendingResponse) and json.loads(got.content) == fields
+    else:
+        assert isinstance(got, PendingResponse) and got.reason == outcome
 
 
 @pytest.mark.unit

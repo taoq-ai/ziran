@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 from typing import TYPE_CHECKING, Any
 
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse, PendingResponse
@@ -72,14 +73,21 @@ class RecordReplayClient(BaseLLMClient):
         self.record_to = record_to
         self._seen: set[str] = set()
         self._replies: dict[str, dict[str, Any]] = {}
+        self._dir: int | None = None
         if record_to is not None:
             if not record_to.name.endswith(_SUFFIX):
                 raise ValueError(f"a request file's name ends in {_SUFFIX}")
-            # CWE-59: the text must land at the named path, not where a planted link points
-            if any(p.is_symlink() for p in (record_to, *record_to.absolute().parents)):
+            # CWE-59: the text must land at the named path, not where a planted link points.
+            # The folder and the file may not be links; folders above it (macOS /tmp) are
+            # resolved once here, and the folder is held open, so a folder swapped in later
+            # cannot redirect the writes.
+            if record_to.is_symlink() or record_to.parent.is_symlink():
                 raise ValueError("a request file's path holds a symlink")
+            self.record_to = record_to.parent.resolve() / record_to.name
+            flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            self._dir = os.open(self.record_to.parent, flags)
             try:
-                fd = os.open(record_to, os.O_RDONLY | os.O_NOFOLLOW)
+                fd = self._open(os.O_RDONLY)
             except FileNotFoundError:
                 pass
             else:
@@ -110,8 +118,8 @@ class RecordReplayClient(BaseLLMClient):
         if self.record_to is not None:
             if key not in self._seen:
                 row = {"key": key, "job": job, "unit": unit, "text": text}
-                flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW
-                with os.fdopen(os.open(self.record_to, flags, 0o600), "a", encoding="utf-8") as f:
+                fd = self._open(os.O_APPEND | os.O_CREAT | os.O_WRONLY)
+                with os.fdopen(fd, "a", encoding="utf-8") as f:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
                 self._seen.add(key)
             return PendingResponse(model=self.config.model, reason="recorded")
@@ -124,6 +132,23 @@ class RecordReplayClient(BaseLLMClient):
 
     async def health_check(self) -> bool:
         return True  # nothing to reach
+
+    def _open(self, flags: int) -> int:
+        """Open the request file in the held folder: no link (O_NOFOLLOW), no block on a FIFO
+        (O_NONBLOCK), and only a regular file with one link, so no hard link is written through."""
+        assert self._dir is not None and self.record_to is not None
+        fd = os.open(
+            self.record_to.name, flags | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=self._dir
+        )
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+            os.close(fd)
+            raise ValueError("a request file must be a regular file with one link")
+        return fd
+
+    def __del__(self) -> None:
+        if getattr(self, "_dir", None) is not None:
+            os.close(self._dir)  # type: ignore[arg-type]
 
 
 def _split(text: str) -> list[str]:
