@@ -170,16 +170,34 @@ def test_only_the_latest_assistant_message_holds_open_calls() -> None:
         mapping.agentdojo_units(AGENTDOJO_REL, log)
 
 
-def test_a_failed_call_carries_its_error_text_as_the_spike_renders_it() -> None:
+def test_a_failed_call_carries_its_error_apart_from_its_text() -> None:
     log = agentdojo_log()
     log["messages"][3] |= {"content": None, "error": "ValueError: no such file"}
     log["messages"][5]["error"] = "late"
+    log["messages"][7]["error"] = None
     whole = by_variant(mapping.agentdojo_units(AGENTDOJO_REL, log))["whole"]
-    assert [r["text"] for r in whole.tool_results] == [
-        "error: ValueError: no such file",
-        f"{INJECTION}\nerror: late",
-        "",
+    assert whole.tool_results == [
+        {"message_index": 3, "text": "", "error": "ValueError: no such file"},
+        {"message_index": 5, "text": INJECTION, "error": "late"},
+        {"message_index": 7, "text": ""},  # no error: no key
     ]
+
+
+def test_the_detector_never_reads_a_tool_result_error() -> None:
+    from ziran.application.detectors.provenance import provenance
+    from ziran.domain.interfaces.adapter import AgentResponse
+
+    call = {"name": "send_email", "arguments": {"to": ADDRESS}, "message_index": 3}
+    for payload in ([], ["unrelated text"]):
+        results = [{"message_index": 2, "text": "nothing here"}]
+        meta = {"trusted_task": "Summarise my files.", "payload": payload}
+        plain = AgentResponse(
+            content="", tool_calls=[call], metadata={**meta, "tool_results": results}
+        )
+        failed = AgentResponse(content="", tool_calls=[call], metadata={
+            **meta, "tool_results": [{**results[0], "error": f"write to {ADDRESS}"}]})  # fmt: skip
+        assert provenance("p", plain).model_dump() == provenance("p", failed).model_dump()
+        assert provenance("p", failed).hit is False
 
 
 def test_a_call_left_unanswered_is_admitted() -> None:
@@ -576,3 +594,21 @@ def test_a_raise_at_one_pin_of_a_real_pair_excludes_the_unit_at_both(
     head = summary["metrics"]["head"]["payload_whole"]["deterministic"]["all"]["confusion"]
     assert head == {"tp": 1, "fn": 0, "fp": 0, "tn": 0}
     assert "deterministic" not in summary["pin_differences"][f"{order[0]} vs {order[1]}"]
+
+
+def test_an_error_text_reaches_no_verdict_and_no_output(tmp_path: Path) -> None:
+    # the address is only in the failed read's error: T3 must not see it as tainted
+    log = fresh_log(security=False, to=ADDRESS, injection="ZZMARKER-INJ")
+    log["messages"][2] |= {"content": None, "error": f"ZZMARKER-ERR {ADDRESS}"}
+    data, manifest = fresh_dir(tmp_path, {NEGATIVE: log})
+    proc = run_cli(tmp_path, "agentdojo_fresh", data, manifest)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    out = tmp_path / "out"
+    rows = {(r["unit_id"], r["variant"]): r for r in rows_of(out / "agentdojo_fresh.rows.jsonl")}
+    for row in rows.values():
+        check_row(row)
+    assert rows[(NEGATIVE, "whole")]["verdicts"]["head/deterministic"] is False
+    written = proc.stdout + proc.stderr + (out / "agentdojo_fresh.rows.jsonl").read_text()
+    written += (out / "agentdojo_fresh.summary.json").read_text()
+    assert "ZZMARKER" not in written
+    assert ADDRESS not in written
