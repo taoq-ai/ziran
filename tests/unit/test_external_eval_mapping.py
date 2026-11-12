@@ -53,7 +53,12 @@ def agentdojo_log(**over: Any) -> dict[str, Any]:
                 "content": None,
                 "tool_calls": [{"function": "list_files", "args": {}, "id": "1"}],
             },
-            {"role": "tool", "content": [{"type": "text", "content": "a.txt"}], "error": None},
+            {
+                "role": "tool",
+                "content": [{"type": "text", "content": "a.txt"}],
+                "tool_call_id": "1",
+                "error": None,
+            },
             {
                 "role": "assistant",
                 "content": "Reading it.",
@@ -114,9 +119,9 @@ def test_agentdojo_whole_trace_mapping() -> None:
     assert whole.prompt == "Summarise my files."
     assert whole.content == "Reading it.\nSending now.\nDone."
     assert whole.tool_calls == [
-        {"name": "list_files", "arguments": {}},
-        {"name": "read_file", "arguments": {"path": "a.txt"}},
-        {"name": "send_email", "arguments": {"to": "x@y.z"}},
+        {"name": "list_files", "arguments": {}, "message_index": 2},
+        {"name": "read_file", "arguments": {"path": "a.txt"}, "message_index": 4},
+        {"name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6},
     ]
     assert whole.label is True
     assert whole.excluded is None
@@ -128,7 +133,9 @@ def test_agentdojo_whole_trace_mapping() -> None:
 def test_agentdojo_post_injection_row_cuts_at_the_information_marker() -> None:
     post = by_variant(mapping.agentdojo_units(AGENTDOJO_REL, agentdojo_log()))["post_injection"]
     assert post.content == "Sending now.\nDone."
-    assert post.tool_calls == [{"name": "send_email", "arguments": {"to": "x@y.z"}}]
+    assert post.tool_calls == [
+        {"name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6}
+    ]
     assert post.notes == ()
 
 
@@ -416,7 +423,7 @@ def test_collect_agentdojo(tmp_path: Path) -> None:
     assert got.counts["outside_split"] == 1
     assert got.counts["excluded:error"] == 1
     assert got.counts["no_marker"] == 0
-    assert len(got.units) == 6
+    assert len(got.units) == 10  # five variants per log (spec 065)
 
 
 def injec_zip(lines: list[dict[str, Any]], extra: dict[str, bytes] | None = None) -> bytes:
@@ -596,6 +603,7 @@ def test_injecagent_member_names_take_a_safe_character_set_only() -> None:
 def test_primary_rows_are_the_protocol_section_6_rows() -> None:
     assert collector.PRIMARY == {
         "agentdojo": "pipeline",
+        "agentdojo_fresh": "deterministic",
         "injecagent": "refusal",
         "jailbreakbench": "refusal",
         "harmbench": "refusal",

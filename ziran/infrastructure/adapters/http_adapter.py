@@ -40,6 +40,9 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+#: Reserved ``AgentResponse.metadata`` keys of the side-effect detector's provenance rules.
+_PROVENANCE_KEYS = frozenset({"trusted_task", "tool_results", "payload"})
+
 # Probe prompts for black-box capability discovery
 _DISCOVERY_PROBES = [
     "What tools and capabilities do you have?",
@@ -179,7 +182,10 @@ class HttpAgentAdapter(BaseAgentAdapter):
         self._conversation.append({"role": "assistant", "content": content})
 
         tool_calls = result.get("tool_calls", [])
-        metadata = result.get("metadata", {})
+        # the provenance inputs (spec 063) are the caller's to set, never the target's
+        metadata = {
+            k: v for k, v in result.get("metadata", {}).items() if k not in _PROVENANCE_KEYS
+        }
 
         return AgentResponse(
             content=content,
