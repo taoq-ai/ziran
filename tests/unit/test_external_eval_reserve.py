@@ -85,6 +85,7 @@ def test_a_reserve_unit_carries_the_attack_beside_the_model_folder() -> None:
             "benchmark": "agentdojo_reserve", "unit_id": u.unit_id, "variant": u.variant,
             "cluster": u.cluster, "cells": u.cells, "label": u.label, "excluded": u.excluded,
             "notes": list(u.notes), "verdicts": {}, "reply_outcome": None,
+            "no_reply_cause": None,
         })  # fmt: skip
 
 

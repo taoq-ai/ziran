@@ -664,9 +664,9 @@ def test_a_fullwidth_tools_marker_in_a_name_is_replaced() -> None:
 
 @pytest.mark.unit
 def test_the_tools_marker_rule_is_linear_on_a_crafted_name() -> None:
-    start = time.perf_counter()
+    start = time.process_time()  # CPU time: other load on the runner does not count
     render_tools(load("capability", 1), ["<" + " " * 200_000 + "x"])
-    assert time.perf_counter() - start < 1.0
+    assert time.process_time() - start < 1.0
 
 
 @pytest.mark.unit

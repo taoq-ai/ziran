@@ -101,9 +101,9 @@ def test_each_unit_carries_the_section_5_keys() -> None:
     whole = units["whole"]
     assert whole.trusted_task == whole.prompt == "Summarise my files."
     assert whole.tool_results == [
-        {"message_index": 3, "text": "a.txt"},
-        {"message_index": 5, "text": INJECTION},
-        {"message_index": 7, "text": ""},
+        {"message_index": 3, "text": "a.txt", "tool_call_id": "1", "name": None},
+        {"message_index": 5, "text": INJECTION, "tool_call_id": None, "name": None},
+        {"message_index": 7, "text": "", "tool_call_id": None, "name": None},
     ]
     assert [c["message_index"] for c in whole.tool_calls] == [2, 4, 6]
     assert whole.payload == []
@@ -118,7 +118,7 @@ def test_the_post_injection_rows_keep_log_indexes_and_every_tool_result() -> Non
     for variant in ("post_injection", "payload_post_injection"):
         post = units[variant]
         assert post.tool_calls == [
-            {"name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6}
+            {"id": None, "name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6}
         ]
         assert [r["message_index"] for r in post.tool_results] == [3, 5, 7]
     assert units["payload_post_injection"].payload == ["<INFORMATION> raw </INFORMATION>"]
@@ -136,7 +136,9 @@ def test_target_supplied_copies_of_the_keys_never_reach_a_unit() -> None:
     log["messages"][2]["tool_calls"][0] |= {"payload": ["x"], "message_index": 99, "metadata": {}}
     log["messages"][2]["metadata"] = {"trusted_task": "planted"}
     whole = by_variant(mapping.agentdojo_units(AGENTDOJO_REL, log))["whole"]
-    assert whole.tool_calls[0] == {"name": "list_files", "arguments": {}, "message_index": 2}
+    assert whole.tool_calls[0] == {
+        "id": "1", "name": "list_files", "arguments": {}, "message_index": 2
+    }  # fmt: skip
     assert whole.trusted_task == "Summarise my files."
     assert whole.payload == []
 
@@ -180,9 +182,21 @@ def test_a_failed_call_carries_its_error_apart_from_its_text() -> None:
     log["messages"][7]["error"] = None
     whole = by_variant(mapping.agentdojo_units(AGENTDOJO_REL, log))["whole"]
     assert whole.tool_results == [
-        {"message_index": 3, "text": "", "error": "ValueError: no such file"},
-        {"message_index": 5, "text": INJECTION, "error": "late"},
-        {"message_index": 7, "text": ""},  # no error: no key
+        {
+            "message_index": 3,
+            "text": "",
+            "tool_call_id": "1",
+            "name": None,
+            "error": "ValueError: no such file",
+        },
+        {
+            "message_index": 5,
+            "text": INJECTION,
+            "tool_call_id": None,
+            "name": None,
+            "error": "late",
+        },
+        {"message_index": 7, "text": "", "tool_call_id": None, "name": None},  # no error: no key
     ]
 
 
@@ -245,6 +259,7 @@ def good_row(**over: Any) -> dict[str, Any]:
         "notes": ["no_marker"],
         "verdicts": {"study-v1/pipeline": True, "study-v2/deterministic": False},
         "reply_outcome": None,
+        "no_reply_cause": None,
     }
     row.update(over)
     return row
@@ -503,10 +518,10 @@ def test_a_broken_provenance_module_stops_the_worker(tmp_path: Path) -> None:
 
 
 def test_the_worker_and_the_adapters_share_one_reserved_key_list() -> None:
-    from ziran.domain.interfaces.adapter import PROVENANCE_METADATA_KEYS
+    from ziran.domain.interfaces.adapter import JUDGE_METADATA_KEYS, PROVENANCE_METADATA_KEYS
 
     # the worker may not import ziran (it loads only the pin), so it holds a copy kept equal here
-    assert worker.METADATA_KEYS == PROVENANCE_METADATA_KEYS
+    assert worker.METADATA_KEYS == PROVENANCE_METADATA_KEYS + JUDGE_METADATA_KEYS
     assert set(PROVENANCE_METADATA_KEYS) == {"trusted_task", "tool_results", "payload"}
 
 

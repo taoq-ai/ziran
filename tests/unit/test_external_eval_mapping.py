@@ -119,9 +119,9 @@ def test_agentdojo_whole_trace_mapping() -> None:
     assert whole.prompt == "Summarise my files."
     assert whole.content == "Reading it.\nSending now.\nDone."
     assert whole.tool_calls == [
-        {"name": "list_files", "arguments": {}, "message_index": 2},
-        {"name": "read_file", "arguments": {"path": "a.txt"}, "message_index": 4},
-        {"name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6},
+        {"id": "1", "name": "list_files", "arguments": {}, "message_index": 2},
+        {"id": None, "name": "read_file", "arguments": {"path": "a.txt"}, "message_index": 4},
+        {"id": None, "name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6},
     ]
     assert whole.label is True
     assert whole.excluded is None
@@ -134,7 +134,7 @@ def test_agentdojo_post_injection_row_cuts_at_the_information_marker() -> None:
     post = by_variant(mapping.agentdojo_units(AGENTDOJO_REL, agentdojo_log()))["post_injection"]
     assert post.content == "Sending now.\nDone."
     assert post.tool_calls == [
-        {"name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6}
+        {"id": None, "name": "send_email", "arguments": {"to": "x@y.z"}, "message_index": 6}
     ]
     assert post.notes == ()
 

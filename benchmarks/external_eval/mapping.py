@@ -91,6 +91,8 @@ class Unit(BaseModel):
     trusted_task: str | None = None
     tool_results: list[dict[str, Any]] = []
     payload: list[str] = []
+    user_messages: list[str] | None = None
+    final_answer: str | None = None
 
 
 # ── AgentDojo ─────────────────────────────────────────────────────────
@@ -160,13 +162,19 @@ def _assistant_view(messages: list[Any], start: int = 0) -> tuple[str, list[dict
             if not isinstance(call, dict) or not isinstance(call.get("function"), str):
                 raise IntakeError("assistant tool call has no function name")
             calls.append(
-                {"name": call["function"], "arguments": call.get("args"), "message_index": at}
+                {
+                    "id": call.get("id"),
+                    "name": call["function"],
+                    "arguments": call.get("args"),
+                    "message_index": at,
+                }
             )
     return "\n".join(texts), calls
 
 
 def _tool_results(rel: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One ``{message_index, text, error?}`` per tool message, each answering an open call.
+    """One ``{message_index, text, tool_call_id, name, error?}`` per tool message, each answering
+    an open call.
 
     The open calls are those of the latest assistant message that no tool message has
     answered yet; a null id names a call whose id is null. ``text`` is the content, whole, and
@@ -183,7 +191,13 @@ def _tool_results(rel: str, messages: list[dict[str, Any]]) -> list[dict[str, An
             if msg.get("tool_call_id") not in open_ids:
                 raise IntakeError(f"{rel}: tool message {i} has no matching call")
             open_ids.remove(msg.get("tool_call_id"))
-            result = {"message_index": i, "text": _text(msg.get("content")) or ""}
+            tool_call = msg.get("tool_call")
+            result = {
+                "message_index": i,
+                "text": _text(msg.get("content")) or "",
+                "tool_call_id": msg.get("tool_call_id"),  # with ``name``, for the judge only
+                "name": tool_call.get("function") if isinstance(tool_call, dict) else None,
+            }
             if msg.get("error"):  # a failed call: AgentDojo leaves content empty
                 result["error"] = str(msg["error"])
             results.append(result)
@@ -212,6 +226,7 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
     if user is not None and not prompt.strip():
         raise IntakeError(f"{rel}: the first user message is blank")
     content, calls = _assistant_view(messages)
+    last = messages[-1] if messages else {}
     results = _tool_results(rel, messages)
     cut = next(
         (
@@ -232,6 +247,13 @@ def agentdojo_units(rel: str, log: object) -> list[Unit]:
         "unit_id": rel,
         "prompt": prompt,
         "trusted_task": prompt if user is not None else None,  # no user message: no task given
+        # the trace judge's keys, as ziran-paper's g11_judge_spike read the log (spec 070)
+        "user_messages": [
+            _text(x.get("content")) or "" for x in messages if x.get("role") == "user"
+        ],
+        "final_answer": (_text(last.get("content")) or "")
+        if last.get("role") == "assistant" and not last.get("tool_calls")
+        else "",
         "tool_results": results,
         "label": None if excluded else log["security"],
         "excluded": excluded,
