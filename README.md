@@ -321,7 +321,7 @@ ZIRAN is source-available, not open source. New versions are released under the 
 
 Versions up to and including v0.42.0, and the `study-v1` and `study-v2` tags, were released under Apache-2.0 and stay under it. See [NOTICE](NOTICE) for the details and for third-party attributions.
 
-Commercial licences are available from TaoQ AI: [info@taoq.ai](mailto:info@taoq.ai).
+Commercial licences are available from TaoQ AI at [info@taoq.ai](mailto:info@taoq.ai), on the [standard terms](COMMERCIAL-LICENSE.md) and an [order form](COMMERCIAL-ORDER-FORM.md).
 
 <p align="center">
   Built by <a href="https://www.taoq.ai">TaoQ AI</a>
