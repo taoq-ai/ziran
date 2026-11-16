@@ -12,6 +12,10 @@ uv run ruff check .         # Lint
 uv run mypy ziran/          # Type check
 ```
 
+## Licensing
+
+ZIRAN is source-available under `FSL-1.1-ALv2`. Every pull request must accept the Contributor License Agreement in [CONTRIBUTING.md](https://github.com/taoq-ai/ziran/blob/develop/CONTRIBUTING.md#licensing-and-the-contributor-license-agreement).
+
 ## Ways to Contribute
 
 ### Report Bugs

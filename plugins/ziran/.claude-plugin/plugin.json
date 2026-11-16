@@ -8,6 +8,6 @@
   },
   "homepage": "https://taoq-ai.github.io/ziran/",
   "repository": "https://github.com/taoq-ai/ziran",
-  "license": "Apache-2.0",
+  "license": "SEE LICENSE IN LICENSE",
   "keywords": ["security", "ai-agents", "claude-code", "mitre-atlas", "sarif"]
 }

@@ -34,6 +34,26 @@ uv run ruff format .       # Format
 uv run mypy ziran/          # Type check
 ```
 
+## Licensing and the Contributor License Agreement
+
+ZIRAN is source-available under the [Functional Source License 1.1, Apache-2.0 future licence](LICENSE) (`FSL-1.1-ALv2`). Releases up to and including v0.42.0 stay under Apache-2.0; see [NOTICE](NOTICE).
+
+TaoQ AI offers ZIRAN under FSL and under separate commercial licences, so every contribution needs the agreement below. To accept it, add this line to your pull request description:
+
+> I have read and agree to the ZIRAN Contributor License Agreement in CONTRIBUTING.md.
+
+A pull request without that line is not merged.
+
+### ZIRAN Contributor License Agreement
+
+"You" means the person or legal entity submitting a Contribution. "Contribution" means any code, documentation or other material you submit to TaoQ AI for inclusion in ZIRAN, through a pull request, issue, patch or otherwise. "TaoQ AI" means the maintainer of ZIRAN and its successors and assigns.
+
+1. **Copyright licence.** You grant TaoQ AI and recipients of software it distributes a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable licence to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense and distribute your Contributions and such derivative works, under any licence terms TaoQ AI chooses, including the FSL, Apache-2.0 and proprietary commercial licences.
+2. **Patent licence.** You grant TaoQ AI and recipients of software it distributes a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable patent licence to make, have made, use, offer to sell, sell, import and otherwise transfer your Contributions, for the patent claims you can license that your Contribution alone, or its combination with ZIRAN, necessarily infringes.
+3. **You keep your rights.** You keep the copyright in your Contributions. This agreement is a licence, not an assignment, and you may use your Contributions in any other way you like.
+4. **Your representations.** Each Contribution is your original work, or you have the right to submit it under this agreement, and you name any third-party material and its licence in the pull request. If your employer has rights in what you create, you have its permission to make the Contribution, or it has waived those rights.
+5. **No warranty.** Unless you agree otherwise in writing, you provide your Contributions "as is", without warranties or conditions of any kind.
+
 ## Ways to Contribute
 
 ### 🐛 Bug Reports

@@ -30,7 +30,7 @@ TOOLS: list[dict] = [
         "name": "ZIRAN",
         "url": "https://github.com/taoq-ai/ziran",
         "category": "Agent Security Scanner",
-        "license": "Apache-2.0",
+        "license": "FSL-1.1-ALv2",
     },
     {
         "name": "Promptfoo",

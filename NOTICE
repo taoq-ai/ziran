@@ -1,6 +1,28 @@
 ZIRAN — AI Agent Security Testing Framework
 ============================================
 
+Copyright 2026 TaoQ AI
+
+Licensing
+---------
+
+ZIRAN versions released after v0.42.0 are licensed under the Functional
+Source License, Version 1.1, ALv2 Future License (FSL-1.1-ALv2); see LICENSE.
+Each such version converts to the Apache License, Version 2.0, on the second
+anniversary of the date it is made available.
+
+Earlier releases keep their original licence. Versions up to and including
+v0.42.0, and the git tags study-v1 and study-v2, were released under the
+Apache License, Version 2.0, and remain under it, as does every commit
+published in this repository before the licence change:
+  https://www.apache.org/licenses/LICENSE-2.0
+
+Commercial licences for uses that FSL-1.1-ALv2 does not permit are available
+from TaoQ AI: <COMMERCIAL-LICENSING-CONTACT>.
+
+Third-party code
+----------------
+
 This project includes code adapted from:
 
   NVIDIA/garak — LLM vulnerability scanner

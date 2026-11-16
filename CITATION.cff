@@ -10,7 +10,7 @@ authors:
     email: "leone@taoq.ai"
 repository-code: "https://github.com/taoq-ai/ziran"
 url: "https://taoq-ai.github.io/ziran/"
-license: Apache-2.0
+license-url: "https://github.com/taoq-ai/ziran/blob/develop/LICENSE"
 keywords:
   - ai-security
   - agent-testing
@@ -19,7 +19,7 @@ keywords:
   - prompt-injection
   - tool-chain-analysis
 abstract: >-
-  ZIRAN is an open-source security testing framework for AI agents.
+  ZIRAN is a source-available security testing framework for AI agents.
   It discovers dangerous tool chain compositions via knowledge graph
   analysis, testing not just individual prompts but how tool combinations
   create attack paths in agents with tools, memory, and multi-step reasoning.
