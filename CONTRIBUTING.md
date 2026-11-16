@@ -40,11 +40,13 @@ ZIRAN is source-available under the [Functional Source License 1.1, Apache-2.0 f
 
 TaoQ AI offers ZIRAN under FSL and under separate commercial licences, so every contribution needs the agreement below. To accept it, add this line to your pull request description:
 
-> I have read and agree to the ZIRAN Contributor License Agreement in CONTRIBUTING.md.
+> I have read and agree to the ZIRAN Contributor License Agreement, version 1.0, in CONTRIBUTING.md.
 
 A pull request without that line is not merged.
 
 ### ZIRAN Contributor License Agreement
+
+Version 1.0, 2026-11-16. A pull request is covered by the version it accepts; a later version applies only to pull requests that accept it.
 
 "You" means the person or legal entity submitting a Contribution. "Contribution" means any code, documentation or other material you submit to TaoQ AI for inclusion in ZIRAN, through a pull request, issue, patch or otherwise. "TaoQ AI" means the maintainer of ZIRAN and its successors and assigns.
 
