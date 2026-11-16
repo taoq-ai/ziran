@@ -28,6 +28,7 @@ Fixes #
 - [ ] Type checks pass (`uv run mypy ziran/`)
 - [ ] Documentation updated (if applicable)
 - [ ] Added tests for new functionality
+- [ ] I have read and agree to the ZIRAN Contributor License Agreement, version 1.0, in CONTRIBUTING.md.
 
 ## Testing
 

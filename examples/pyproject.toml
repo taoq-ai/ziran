@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Ready-to-run examples for the ZIRAN AI Agent Security Testing Framework"
 requires-python = ">=3.11"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = { text = "LicenseRef-FSL-1.1-ALv2" }
 
 dependencies = [
     "ziran",

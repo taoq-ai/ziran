@@ -2,9 +2,9 @@
 
 ## What is this project?
 
-ZIRAN is an open-source security testing framework for AI agents. It discovers dangerous tool chain compositions via knowledge graph analysis, detects execution-level side effects (not just text output), and runs multi-phase trust exploitation campaigns that model real attacker behavior.
+ZIRAN is a source-available security testing framework for AI agents. It discovers dangerous tool chain compositions via knowledge graph analysis, detects execution-level side effects (not just text output), and runs multi-phase trust exploitation campaigns that model real attacker behavior.
 
-Built by [TaoQ AI](https://www.taoq.ai). Licensed under Apache-2.0.
+Built by [TaoQ AI](https://www.taoq.ai). Licensed under FSL-1.1-ALv2 (each version becomes Apache-2.0 two years after release).
 
 ## Positioning — what ZIRAN is and is not
 
