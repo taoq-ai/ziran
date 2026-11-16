@@ -128,7 +128,10 @@ class PoCGenerator:
 
         imports_block = "\n".join(f"import {m}" for m in tpl.imports)
 
-        script = textwrap.dedent(f'''\
+        # Dedent the template before filling it: a multi-line value (the imports
+        # block, a multi-turn prompt) would otherwise defeat dedent and leave the
+        # whole module indented.
+        script = textwrap.dedent('''\
             {tpl.shebang}
             """Proof-of-Concept: {result.vector_name}
 
@@ -138,8 +141,8 @@ class PoCGenerator:
             Severity:  {result.severity}
             OWASP:     {owasp_str}
 
-            Generated: {datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}
-            Generator: {self.config.generator_label}
+            Generated: {generated}
+            Generator: {generator_label}
 
             This script reproduces a confirmed vulnerability finding.
             Run it against the same agent configuration to validate the issue.
@@ -200,7 +203,17 @@ class PoCGenerator:
                 print("ZIRAN Proof-of-Concept: {result.vector_name}")
                 print("=" * 60)
                 print()
-        ''')
+        ''').format(
+            tpl=tpl,
+            result=result,
+            campaign_id=campaign_id,
+            owasp_str=owasp_str,
+            generated=datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            generator_label=self.config.generator_label,
+            imports_block=imports_block,
+            prompt_escaped=prompt_escaped,
+            indicators_repr=indicators_repr,
+        )
 
         # Append run instructions from config
         for instruction in tpl.run_instructions:
