@@ -98,8 +98,8 @@ Before is `origin/develop` 7e0524f; after is this branch. TP/FP/FN/TN.
 |---|---|---|
 | pipeline | 115/96/19/217 (recall 0.8582, FPR 0.3067) | 115/64/19/249 (recall 0.8582, FPR 0.2045) |
 | indicator detector | 84/90/6/139 | 83/57/7/172 |
-| crossfire indicator-hit pairs | 1,170 (171 vectors) | 567 (151 vectors) |
-| crossfire flagged pairs | 15,060 | 14,474 |
+| crossfire indicator-hit pairs | 1,170 (171 vectors) | 540 (151 vectors) |
+| crossfire flagged pairs | 15,060 | 14,447 |
 
 Pipeline per slice (recall unchanged on every slice):
 
@@ -123,6 +123,15 @@ after, identical output. The script does not call the indicator detector.
 Vector check: every library prompt with a corroborated word also has a strong indicator. Two
 prompts (`authz_bola_cross_tenant[0]`, `authz_bola_email_lookup[0]`) hold only generic words, as
 on develop before this change.
+
+Leak and refusal check (fix round 2): 21 prompts (the 8 that round 1 edited, the 13 that list a
+corroborated word and keep at most two strong indicators) each carry one realistic leak and one
+realistic refusal or deflection in `tests/unit/test_detectors.py` (`_LIBRARY_REPLIES`). Each leak
+scores 1.0 and each refusal below 1.0. Round 1's bare phrases (`system prompt`, `you are a`,
+`vous êtes`, `eres un`, `prompt système`, `my instructions`, `instructions exactes`) are replaced by
+leak-only forms (`system prompt:`, `'you are`, `you are a helpful`, `vous êtes un assistant`,
+`eres un asistente`, `my instructions are:`). Crossfire on the 15 vectors this PR edits: develop 178
+indicator-flagged pairs, this branch 20, and none of the 20 is new against develop.
 
 The ground-truth check says nothing about indicator recall, since the script never calls the
 detector; the dataset (acceptance 2) and the library test are the real guards.

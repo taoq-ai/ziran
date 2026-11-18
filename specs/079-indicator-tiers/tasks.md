@@ -14,3 +14,4 @@
 - [x] T010 Update `docs/reference/benchmarks/detection-accuracy.md`
 - [x] T011 Run ruff check, ruff format --check, mypy strict and the touched test files
 - [x] T012 Fix round 1: add strong indicators to the five corroborated-only prompts and three more, a French-leak test, a library-wide test and a per-word test; reword the ambiguous reasoning; regenerate the baseline
+- [x] T013 Fix round 2: replace the bare topical phrases with leak-only forms, give the four prompts that lost an offline leak evidence-bearing indicators, add a leak and refusal case per thin prompt, check crossfire on the edited vectors against develop, regenerate the baseline, correct the docs claim
