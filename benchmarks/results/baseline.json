@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-11-18T08:22:21.673510+00:00",
-  "total_vectors": 678,
+  "total_vectors": 677,
   "categories": 11,
   "owasp_coverage_pct": 100.0,
   "owasp_covered": 10,
