@@ -722,6 +722,24 @@ patterns:
     description: File content read via MCP sent via email
     remediation: Block email sending after MCP file reads without approval
 
+  # An upload tool that opens a path on the server host reads and sends in one call
+  # (mcp-atlassian CVE-2026-77260 family), steered by issue or page text an attacker wrote.
+  - source: get_issue
+    target: upload_attachment
+    type: data_exfiltration
+    risk: critical
+    category: mcp_specific
+    description: Issue text steers an attachment upload that reads and sends a server-local file
+    remediation: Upgrade the server so uploads validate paths; require approval for uploads
+
+  - source: get_page
+    target: upload_attachment
+    type: data_exfiltration
+    risk: critical
+    category: mcp_specific
+    description: Page text steers an attachment upload that reads and sends a server-local file
+    remediation: Upgrade the server so uploads validate paths; require approval for uploads
+
   # ── A2A / Multi-Agent Delegation ──────────────────────────────────
   - source: delegate_task
     target: execute_code

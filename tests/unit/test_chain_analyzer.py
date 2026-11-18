@@ -467,6 +467,24 @@ class TestRagToolNames:
 
 
 @pytest.mark.unit
+class TestAttachmentUploadExfiltration:
+    """An issue or page read feeding an attachment upload is exfiltration (spec 075)."""
+
+    @pytest.mark.parametrize("source", ["jira_get_issue", "confluence_get_page"])
+    def test_read_then_upload_is_critical(self, source: str) -> None:
+        target = "confluence_upload_attachment"
+        chains = ToolChainAnalyzer(_cc_graph([source, target], [(source, target)])).analyze()
+        chain = next(c for c in chains if c.tools == [source, target])
+        assert chain.vulnerability_type == "data_exfiltration"
+        assert chain.risk_level == "critical"
+
+    def test_read_only_atlassian_tools_produce_no_chain(self) -> None:
+        tools = ["jira_search", "jira_get_issue", "confluence_get_page"]
+        edges = [(a, b) for a in tools for b in tools if a != b]
+        assert ToolChainAnalyzer(_cc_graph(tools, edges)).analyze() == []
+
+
+@pytest.mark.unit
 class TestUnrestrictedExecution:
     @pytest.mark.parametrize("tool", ["Bash", "Bash(*)"])
     def test_unscoped_bash_alone_is_flagged(self, tool: str) -> None:
