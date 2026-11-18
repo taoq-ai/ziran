@@ -211,9 +211,11 @@ class AtlasTechnique(StrEnum):
     POISON_TRAINING_DATA = "AML.T0020"
     LLM_PROMPT_SELF_REPLICATION = "AML.T0061"
     RAG_POISONING = "AML.T0070"
+    EVENT_TRIGGERED_EXECUTION = "AML.T0142"  # ATLAS v2026.10
 
     # ── Privilege Escalation (AML.TA0012) ────────────────────────────
     LLM_JAILBREAK = "AML.T0054"
+    ESCAPE_TO_HOST = "AML.T0105"  # ATLAS v5.4.0
 
     # ── Defense Evasion (AML.TA0007) ─────────────────────────────────
     LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION = "AML.T0067"
@@ -319,7 +321,9 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.POISON_TRAINING_DATA: "Poison Training Data",
     AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: "LLM Prompt Self-Replication",
     AtlasTechnique.RAG_POISONING: "RAG Poisoning",
+    AtlasTechnique.EVENT_TRIGGERED_EXECUTION: "Event Triggered Execution",
     AtlasTechnique.LLM_JAILBREAK: "LLM Jailbreak",
+    AtlasTechnique.ESCAPE_TO_HOST: "Escape to Host",
     AtlasTechnique.LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION: (
         "LLM Trusted Output Components Manipulation"
     ),
@@ -436,6 +440,8 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     ],
     AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: [AtlasTactic.PERSISTENCE],
     AtlasTechnique.RAG_POISONING: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.EVENT_TRIGGERED_EXECUTION: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.ESCAPE_TO_HOST: [AtlasTactic.PRIVILEGE_ESCALATION],
     AtlasTechnique.LLM_JAILBREAK: [
         AtlasTactic.PRIVILEGE_ESCALATION,
         AtlasTactic.DEFENSE_EVASION,
