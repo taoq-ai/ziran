@@ -65,6 +65,16 @@ class LLMResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Provider-specific metadata")
 
 
+class PendingResponse(LLMResponse):
+    """No usable reply yet (spec 064): ``recorded``, ``missing`` or the sender's outcome class.
+
+    A caller never reads it as a verdict; the unit keeps its deterministic outcome.
+    """
+
+    content: str = ""
+    reason: str
+
+
 class BaseLLMClient(ABC):
     """Abstract base for internal LLM clients.
 

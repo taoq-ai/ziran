@@ -95,7 +95,16 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        [
+            "langchain",
+            "langgraph",
+            "crewai",
+            "bedrock",
+            "agentcore",
+            "anthropic",
+            "openai-agents",
+            "autogen",
+        ],
         case_sensitive=False,
     ),
     default=None,
@@ -340,6 +349,13 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "'Declared Defences' section plus an evasion-rate metric (or "
     "'not computable' when no declared defence is evaluable).",
 )
+@click.option(
+    "--hybrid-route-share",
+    type=click.FloatRange(0.0, 1.0),
+    default=None,
+    help="Share of uncertain traces sent to the hybrid's model judge, 0.0 to 1.0. Default 0.0 "
+    "(deterministic mode, no model call); it overrides hybrid_route_share in .ziran/detectors.yaml.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -374,6 +390,7 @@ def scan(
     no_cache: bool,
     dry_run: bool,
     defence_profile: str | None,
+    hybrid_route_share: float | None,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -388,8 +405,11 @@ def scan(
         ziran scan --framework langchain --agent-path ./my_agent.py
         ziran scan --target ./target.yaml
         ziran scan --target ./target.yaml --protocol a2a
-        ziran scan --framework crewai --agent-path ./crew.py --phases reconnaissance trust_building
+        ziran scan --target ./target.yaml --phases reconnaissance --phases trust_building
     """
+    if hybrid_route_share:  # the flag wins over the config file, 0.0 included
+        _no_hybrid_client()
+
     # Enable OpenTelemetry if requested
     if otel:
         from ziran.infrastructure.telemetry.tracing import configure_console_exporter
@@ -597,6 +617,7 @@ def scan(
             llm_rpm=llm_rpm,
             llm_tpm=llm_tpm,
             llm_max_retries=llm_max_retries,
+            hybrid_route_share=hybrid_route_share,
         )
         if detector_config is not None:
             detector_config = dataclasses.replace(
@@ -615,6 +636,11 @@ def scan(
                 console.print(f"[dim]LLM judge ensemble: {n_judges} judges[/dim]")
             if thresholds.prefilter.enabled:
                 console.print(f"[dim]LLM judge prefilter: {thresholds.prefilter.model}[/dim]")
+    elif hybrid_route_share is None and _config_share() > 0:
+        console.print(
+            "[yellow]Warning:[/yellow] hybrid_route_share in .ziran/detectors.yaml is ignored: "
+            "ziran sends no hybrid call, so the scan runs at 0.0 (deterministic mode)"
+        )
 
     if max_cost is not None:
         if llm_client is None:
@@ -749,7 +775,16 @@ def cache_clear() -> None:
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        [
+            "langchain",
+            "langgraph",
+            "crewai",
+            "bedrock",
+            "agentcore",
+            "anthropic",
+            "openai-agents",
+            "autogen",
+        ],
         case_sensitive=False,
     ),
     default=None,
@@ -1258,6 +1293,12 @@ def _display_policy_verdict(verdict: Any) -> None:
     default=None,
     help="Also write the reported findings as SARIF v2.1.0 (GitHub code scanning).",
 )
+@click.option(
+    "--typed-chains",
+    is_flag=True,
+    default=False,
+    help="Add typed chains (tool roles from names) to Claude Code findings. Off by default.",
+)
 def audit(
     path: str,
     severity: str | None,
@@ -1265,6 +1306,7 @@ def audit(
     baseline_path: str | None,
     write_baseline_path: str | None,
     sarif_path: str | None,
+    typed_chains: bool,
 ) -> None:
     """Static security analysis of agent source code.
 
@@ -1306,6 +1348,8 @@ def audit(
 
     if baseline_path and write_baseline_path:
         raise click.UsageError("--baseline and --write-baseline are mutually exclusive")
+    if typed_chains and (baseline_path or write_baseline_path):
+        raise click.UsageError("a baseline holds no typed chains; drop --typed-chains")
 
     target = Path(path)
     analyzer = StaticAnalyzer()
@@ -1319,7 +1363,7 @@ def audit(
         report = analyzer.analyze_directory(target)
 
     if scan.detected:
-        cc = audit_claude_code(scan, analyzer.config)
+        cc = audit_claude_code(scan, analyzer.config, typed=typed_chains)
         report.files_analyzed += cc.files_analyzed
         report.findings.extend(cc.findings)
 
@@ -1700,6 +1744,8 @@ def ci(
 
     # 4. Console output (always shown)
     _display_gate_result(gate_result)
+    if unmeasured_note := _unmeasured_note(result):
+        console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
 
     # 5. SARIF output
     if sarif_path:
@@ -1742,6 +1788,14 @@ def ci(
 
     # 10. Exit code
     sys.exit(gate_result.exit_code)
+
+
+def _unmeasured_note(result: CampaignResult) -> str:
+    """One line on vectors no reply measured (spec 071), or empty."""
+    unmeasured = result.unmeasured_vectors
+    if not unmeasured:
+        return ""
+    return f"{len(unmeasured)} vector(s) unmeasured; the gate saw no evidence for them"
 
 
 def _display_gate_result(gate: Any) -> None:
@@ -1809,12 +1863,36 @@ def _display_gate_result(gate: Any) -> None:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _no_hybrid_client() -> None:
+    """The seam's rule (spec 064): a share above 0.0 needs a model client, and ziran scan has
+    no record-and-replay client yet."""
+    raise click.UsageError(
+        "hybrid_route_share above 0.0 needs a model client; ziran sends no hybrid call, "
+        "so a scan runs at 0.0 (deterministic mode)"
+    )
+
+
+def _config_share() -> float:
+    """``hybrid_route_share`` of ``.ziran/detectors.yaml`` for a warning only: 0.0 when the file
+    is absent or invalid, since a scan with no LLM backbone does not use the file (spec 041)."""
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+
+    try:
+        return load_detector_thresholds().hybrid_route_share
+    except DetectorConfigError:
+        return 0.0
+
+
 def _scan_detector_config(
     *,
     llm_provider: str,
     llm_rpm: int | None,
     llm_tpm: int | None,
     llm_max_retries: int | None,
+    hybrid_route_share: float | None = None,
 ) -> DetectorConfig | None:
     """Ensemble and prefilter detector config for ``ziran scan`` from ``.ziran/detectors.yaml``.
 
@@ -1832,6 +1910,8 @@ def _scan_detector_config(
         thresholds = load_detector_thresholds()
     except DetectorConfigError as exc:
         raise click.ClickException(str(exc)) from None
+    if hybrid_route_share is None and thresholds.hybrid_route_share:  # the flag wins
+        _no_hybrid_client()
     ensemble, prefilter = thresholds.ensemble, thresholds.prefilter
     if not (ensemble.enabled or prefilter.enabled):
         return None
@@ -1930,7 +2010,7 @@ def _dry_run_summary(
 
     # Count vectors by coverage
     coverage_level = CoverageLevel(coverage.lower())
-    vectors = attack_library.vectors
+    vectors = [v for v in attack_library.vectors if v.mcp_server_request is None]
     if coverage_level == CoverageLevel.ESSENTIAL:
         vectors = [v for v in vectors if v.severity in ("critical",)]
     elif coverage_level == CoverageLevel.STANDARD:
@@ -2006,10 +2086,15 @@ def _display_results(result: CampaignResult) -> None:
             f"[bold red]{result.critical_chain_count}[/bold red]",
         )
     summary_table.add_row("Final Trust Score", f"{result.final_trust_score:.2f}")
+    unmeasured = result.unmeasured_vectors
+    if unmeasured:
+        summary_table.add_row("Unmeasured Vectors", f"[bold yellow]{len(unmeasured)}[/bold yellow]")
     summary_table.add_row(
         "Result",
         "[bold red]⚠️  VULNERABLE[/bold red]"
         if result.success
+        else f"[bold yellow]⚠️  INCOMPLETE ({len(unmeasured)} unmeasured)[/bold yellow]"
+        if unmeasured
         else "[bold green]✅ PASSED[/bold green]",
     )
 
@@ -2065,7 +2150,11 @@ def _display_results(result: CampaignResult) -> None:
 
         for pr in result.phases_executed:
             status = (
-                "[red]⚠️  FINDINGS[/red]" if pr.vulnerabilities_found else "[green]✅ CLEAR[/green]"
+                "[red]⚠️  FINDINGS[/red]"
+                if pr.vulnerabilities_found
+                else "[yellow]⚠️  INCOMPLETE[/yellow]"
+                if unmeasured
+                else "[green]✅ CLEAR[/green]"
             )
             phase_table.add_row(
                 pr.phase.value.replace("_", " ").title(),
@@ -2782,8 +2871,10 @@ def _register_v08_commands() -> None:
 def _register_extra_commands() -> None:
     """Register additional CLI commands (lazy imports)."""
     from ziran.interfaces.cli.init_command import init
+    from ziran.interfaces.cli.mcp_hostile_server import mcp_hostile_server
 
     cli.add_command(init)
+    cli.add_command(mcp_hostile_server)
 
 
 _register_v08_commands()

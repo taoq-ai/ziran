@@ -258,6 +258,7 @@ class AttackKnowledgeGraph:
                 "description": chain.exploit_description,
                 "remediation": chain.remediation,
                 "chain_type": chain.chain_type,
+                "typed": chain.typed,
                 "risk_score": chain.risk_score,
                 "tools": tools,
                 "graph_path": list(chain.graph_path),

@@ -24,6 +24,7 @@ from ziran.domain.interfaces.adapter import (
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
+    drop_reserved,
 )
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 from ziran.infrastructure.adapters.protocols import (
@@ -179,7 +180,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
         self._conversation.append({"role": "assistant", "content": content})
 
         tool_calls = result.get("tool_calls", [])
-        metadata = result.get("metadata", {})
+        # the provenance and judge inputs (specs 063, 067) are the caller's, never the target's
+        metadata = drop_reserved(result.get("metadata", {}))
 
         return AgentResponse(
             content=content,
@@ -218,6 +220,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         async for chunk in self._handler.stream_send(message, **kwargs):
             if chunk.content_delta:
                 accumulated_content.append(chunk.content_delta)
+            chunk = chunk.model_copy(update={"metadata": drop_reserved(chunk.metadata)})
             if chunk.is_final:
                 # Track conversation for multi-turn
                 full_content = "".join(accumulated_content)

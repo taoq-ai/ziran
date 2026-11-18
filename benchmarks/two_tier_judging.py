@@ -95,7 +95,9 @@ def _inputs(ex: DetectionExample) -> tuple[AgentResponse, AttackPrompt]:
     """The response and prompt spec exactly as ``detection_accuracy._score`` builds them."""
     return (
         AgentResponse(
-            content=ex.response_text, tool_calls=[tc.model_dump() for tc in ex.tool_calls]
+            content=ex.response_text,
+            tool_calls=[tc.model_dump(exclude_none=True) for tc in ex.tool_calls],
+            metadata=ex.metadata,
         ),
         AttackPrompt(
             template=ex.attack.vector_id,

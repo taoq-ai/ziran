@@ -136,6 +136,87 @@ adapter = CrewAIAdapter(crew=your_crew)
 
 Requires: `uv sync --extra crewai`
 
+### OpenAI Agents SDK
+
+```python
+from ziran.infrastructure.adapters.openai_agents_adapter import OpenAIAgentsAdapter
+
+adapter = OpenAIAgentsAdapter(agent=your_agent)  # an agents.Agent
+```
+
+Requires: `uv sync --extra openai-agents` (or `pip install ziran[openai-agents]`).
+
+The agent file must expose the entry `agents.Agent` as `agent`:
+
+```bash
+ziran discover --framework openai-agents agent.py
+ziran scan --framework openai-agents --agent-path agent.py
+```
+
+See [`examples/26-openai-agents-scan/`](https://github.com/taoq-ai/ziran/tree/main/examples/26-openai-agents-scan)
+for a support agent with a billing handoff.
+
+**What is mapped.** Each turn runs `Runner.run` from the entry agent, with the conversation of
+earlier turns until the scanner resets state. Tool calls and their outputs come from the run's
+items, the answer from `final_output`, token counts from the model responses. Discovery walks
+the handoff tree:
+
+| Agents SDK | Knowledge graph |
+|---|---|
+| agent `billing` | agent node `openai_agents:billing` (the wrapped agent is the entry point) |
+| handoff `support -> billing` | `delegates_to` edge, `partial_context` when the handoff has an `input_filter`, else `full_context` |
+| tools of an agent | capabilities `tool_<name>` with description and JSON schema, linked with `uses_tool` |
+
+**Limits.** Tools from `mcp_servers`, guardrails, realtime and voice agents are not read.
+Streaming falls back to one `invoke`. Agents are identified by name. The SDK's own tracing
+stays as you configured it, so with tracing on, attack prompts appear in your traces. To
+turn it off, set `OPENAI_AGENTS_DISABLE_TRACING=1` or call
+`agents.set_tracing_disabled(True)` in the agent file.
+
+### AutoGen AgentChat
+
+```python
+from ziran.infrastructure.adapters.autogen_adapter import AutoGenAdapter
+
+adapter = AutoGenAdapter(your_team)  # an AgentChat team, or an agent such as AssistantAgent
+```
+
+Requires: `uv sync --extra autogen` (or `pip install ziran[autogen]`). The adapter targets
+Microsoft's `autogen-agentchat` 0.7, not AG2's classic `GroupChat` API.
+
+The agent file must expose the team as `team`, or a single agent as `agent`:
+
+```bash
+ziran discover --framework autogen agent.py
+ziran scan --framework autogen --agent-path agent.py
+```
+
+See [`examples/27-autogen-agent/`](https://github.com/taoq-ai/ziran/tree/main/examples/27-autogen-agent)
+for a code-writer team of a coder and a reviewer.
+
+**What is mapped.** Each turn awaits `run(task=...)`; the agent or team keeps earlier turns
+until the scanner resets state. Tool calls and their results come from the tool-call request
+and execution events, the answer from the last chat message, token counts from
+`models_usage`. Discovery walks nested teams:
+
+| AgentChat | Knowledge graph |
+|---|---|
+| agent `coder` | agent node `autogen:coder` (role `human` for a `UserProxyAgent`) |
+| `RoundRobinGroupChat` | a ring of `delegates_to` edges between members, in speaking order |
+| `SelectorGroupChat` named `desk` | router node `autogen:desk` with conditional edges to each member |
+| `Swarm` handoff `transfer_to_billing` | conditional `delegates_to` edge labelled with the handoff name |
+| team nested in a team | team node with edges to its members |
+| tools of an agent | capabilities `tool_<name>` with description and JSON schema, linked with `uses_tool` |
+
+**Limits.** Team members, tools and handoffs are read from private AgentChat attributes, so the
+extra pins `autogen-agentchat<0.8`. A team without a termination condition runs until AutoGen
+stops it, so give the team one (`MaxMessageTermination` for example). Turns run one at a time.
+A `UserProxyAgent` reads `input()` by default, so `ziran scan` waits on stdin each time it
+speaks; give it an `input_func` for unattended scans.
+Streaming falls back to one `invoke`. Tools are listed through each agent's workbenches, so an
+MCP workbench starts its server during discovery. MagenticOne, GraphFlow edges, agents inside a
+`SocietyOfMindAgent` and agents wrapped as tools are not read.
+
 ## Creating a Custom Adapter
 
 Implement the `BaseAgentAdapter` abstract class:

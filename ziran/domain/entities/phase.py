@@ -181,6 +181,10 @@ def compute_resilience(
     )
 
 
+#: ``CampaignResult.metadata`` key listing vectors no reply measured (spec 071).
+UNMEASURED_METADATA_KEY = "unmeasured"
+
+
 class CampaignResult(BaseModel):
     """Complete campaign result.
 
@@ -245,6 +249,14 @@ class CampaignResult(BaseModel):
     )
     metadata: dict[str, Any] = Field(default_factory=dict)
     source: str = Field(default="scan", description="Result source: 'scan' or 'trace-analysis'")
+
+    @property
+    def unmeasured_vectors(self) -> list[str]:
+        """Vectors no reply measured (``ziran mcp-hostile-server``, spec 071); empty for scans.
+
+        A result with any is never a plain pass: the reports label it INCOMPLETE.
+        """
+        return [str(v) for v in self.metadata.get(UNMEASURED_METADATA_KEY, [])]
 
     @property
     def phases_with_findings(self) -> list[PhaseResult]:

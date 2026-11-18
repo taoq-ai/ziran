@@ -1,0 +1,3558 @@
+{
+"agents": {
+"safe_agentcore_devops": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_secrets",
+"execute_command"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_secrets",
+"execute_command"
+],
+"vulnerability_type": "cloud_secret_to_rce"
+}
+],
+"tools": [
+"deploy_service",
+"read_secrets",
+"execute_command",
+"update_config"
+]
+},
+"safe_bedrock_analyst": {
+"chains": [],
+"tools": [
+"query_s3_bucket",
+"scan_dynamodb",
+"send_report"
+]
+},
+"safe_claude_code": {
+"chains": [],
+"tools": [
+"Read",
+"Grep",
+"Glob"
+]
+},
+"safe_code_assistant": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"write_file"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"write_file"
+],
+"vulnerability_type": "repl_persist"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_file",
+"write_file"
+],
+"vulnerability_type": "file_manipulation"
+}
+],
+"tools": [
+"python_repl",
+"read_file",
+"write_file"
+]
+},
+"safe_data_analyst": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"sql_query",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"sql_query",
+"send_email"
+],
+"vulnerability_type": "database_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"send_email"
+],
+"vulnerability_type": "repl_exfiltration"
+}
+],
+"tools": [
+"sql_query",
+"python_repl",
+"send_email"
+]
+},
+"safe_devops": {
+"chains": [],
+"tools": [
+"run_command",
+"view_pipeline"
+]
+},
+"safe_helpdesk": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"query_employees",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"query_employees",
+"send_email"
+],
+"vulnerability_type": "pii_leakage"
+}
+],
+"tools": [
+"query_employees",
+"send_email",
+"search_faq",
+"calculator"
+]
+},
+"safe_mcp_research": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_list_directory",
+"mcp_read_file"
+],
+"risk_level": "medium",
+"risk_score": 0.5,
+"tools": [
+"mcp_list_directory",
+"mcp_read_file"
+],
+"vulnerability_type": "directory_traversal"
+}
+],
+"tools": [
+"mcp_read_file",
+"mcp_list_directory",
+"mcp_git_diff"
+]
+},
+"safe_multi_agent": {
+"chains": [],
+"tools": [
+"delegate_task",
+"query_employees",
+"generate_report"
+]
+},
+"safe_rag_knowledge": {
+"chains": [],
+"tools": [
+"vector_store_query",
+"web_search"
+]
+},
+"safe_saas_multitenant": {
+"chains": [],
+"tools": [
+"get_account_data",
+"update_account",
+"list_invoices",
+"transfer_funds"
+]
+},
+"vulnerable_agentcore_devops": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_secrets",
+"execute_command"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_secrets",
+"execute_command"
+],
+"vulnerability_type": "cloud_secret_to_rce"
+}
+],
+"tools": [
+"deploy_service",
+"read_secrets",
+"execute_command",
+"update_config"
+]
+},
+"vulnerable_bedrock_analyst": {
+"chains": [],
+"tools": [
+"query_s3_bucket",
+"scan_dynamodb",
+"send_report"
+]
+},
+"vulnerable_claude_code": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"Read",
+"WebFetch"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"Read",
+"WebFetch"
+],
+"vulnerability_type": "data_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"Read",
+"mcp__slack__slack_send_message"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"Read",
+"mcp__slack__slack_send_message"
+],
+"vulnerability_type": "data_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"WebFetch",
+"Bash"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"WebFetch",
+"Bash"
+],
+"vulnerability_type": "remote_code_execution"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"Bash",
+"WebFetch"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"Bash",
+"WebFetch"
+],
+"vulnerability_type": "command_injection_exfil"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"Bash"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"Bash"
+],
+"vulnerability_type": "unrestricted_execution"
+}
+],
+"tools": [
+"Read",
+"WebFetch",
+"Bash",
+"mcp__slack__slack_send_message"
+]
+},
+"vulnerable_code_assistant": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"shell_execute",
+"write_file"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"shell_execute",
+"write_file"
+],
+"vulnerability_type": "command_injection_persist"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"shell_execute"
+],
+"vulnerability_type": "code_to_shell"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"write_file"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"write_file"
+],
+"vulnerability_type": "repl_persist"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"requests_get"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"requests_get"
+],
+"vulnerability_type": "code_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"requests_get"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"requests_get"
+],
+"vulnerability_type": "data_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_file",
+"write_file"
+],
+"vulnerability_type": "file_manipulation"
+}
+],
+"tools": [
+"shell_execute",
+"python_repl",
+"read_file",
+"write_file",
+"requests_get"
+]
+},
+"vulnerable_data_analyst": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"sql_query",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"sql_query",
+"send_email"
+],
+"vulnerability_type": "database_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"send_email"
+],
+"vulnerability_type": "repl_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"send_email"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"sql_query",
+"python_repl",
+"send_email",
+"read_file"
+]
+},
+"vulnerable_devops": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_env",
+"deploy"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_env",
+"deploy"
+],
+"vulnerability_type": "env_secret_injection"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"git_commit",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"git_commit",
+"shell_execute"
+],
+"vulnerability_type": "git_to_rce"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"git_commit",
+"deploy"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"git_commit",
+"deploy"
+],
+"vulnerability_type": "supply_chain_injection"
+}
+],
+"tools": [
+"read_env",
+"shell_execute",
+"git_commit",
+"deploy",
+"read_dockerfile"
+]
+},
+"vulnerable_helpdesk": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"query_employees",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"query_employees",
+"send_email"
+],
+"vulnerability_type": "pii_leakage"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"run_database_query",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"run_database_query",
+"send_email"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"query_employees",
+"send_email",
+"run_database_query",
+"read_config"
+]
+},
+"vulnerable_mcp_research": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_read_file",
+"mcp_fetch"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_read_file",
+"mcp_fetch"
+],
+"vulnerability_type": "data_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_git_diff",
+"mcp_fetch"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_git_diff",
+"mcp_fetch"
+],
+"vulnerability_type": "mcp_code_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_read_file",
+"mcp_write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"mcp_read_file",
+"mcp_write_file"
+],
+"vulnerability_type": "file_manipulation"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_list_directory",
+"mcp_write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"mcp_list_directory",
+"mcp_write_file"
+],
+"vulnerability_type": "file_manipulation"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_list_directory",
+"mcp_read_file"
+],
+"risk_level": "medium",
+"risk_score": 0.5,
+"tools": [
+"mcp_list_directory",
+"mcp_read_file"
+],
+"vulnerability_type": "directory_traversal"
+}
+],
+"tools": [
+"mcp_read_file",
+"mcp_write_file",
+"mcp_list_directory",
+"mcp_git_diff",
+"mcp_git_add",
+"mcp_git_init",
+"mcp_fetch"
+]
+},
+"vulnerable_multi_agent": {
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"delegate_task",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"delegate_task",
+"shell_execute"
+],
+"vulnerability_type": "delegation_to_rce"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"shell_execute",
+"write_file"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"shell_execute",
+"write_file"
+],
+"vulnerability_type": "command_injection_persist"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"agent_call",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"agent_call",
+"write_file"
+],
+"vulnerability_type": "cross_agent_persist"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_file",
+"write_file"
+],
+"vulnerability_type": "file_manipulation"
+}
+],
+"tools": [
+"delegate_task",
+"agent_call",
+"query_employees",
+"search_database",
+"process_payment",
+"generate_report",
+"shell_execute",
+"read_file",
+"write_file"
+]
+},
+"vulnerable_rag_knowledge": {
+"chains": [],
+"tools": [
+"recursive_url_loader",
+"tavily_search",
+"vector_store_query",
+"serpapi_search"
+]
+},
+"vulnerable_saas_multitenant": {
+"chains": [],
+"tools": [
+"get_account_data",
+"update_account",
+"list_invoices",
+"transfer_funds"
+]
+}
+},
+"patterns": [
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_secret_file",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_secret_file",
+"send_email"
+],
+"vulnerability_type": "secret_file_exfiltration"
+}
+],
+"tools": [
+"read_secret_file",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"git_push"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"git_push"
+],
+"vulnerability_type": "code_exfiltration"
+}
+],
+"tools": [
+"read_file",
+"git_push"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"spawn_subagent",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"spawn_subagent",
+"shell_execute"
+],
+"vulnerability_type": "delegation_to_rce"
+}
+],
+"tools": [
+"spawn_subagent",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"spawn_subagent",
+"http_request"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"spawn_subagent",
+"http_request"
+],
+"vulnerability_type": "cross_agent_exfiltration"
+}
+],
+"tools": [
+"spawn_subagent",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"spawn_subagent",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"spawn_subagent",
+"write_file"
+],
+"vulnerability_type": "cross_agent_persist"
+}
+],
+"tools": [
+"spawn_subagent",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"http_request"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"read_file",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"requests"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"requests"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"read_file",
+"requests"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"mcp_fetch"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"mcp_fetch"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"read_file",
+"mcp_fetch"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"database_query",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"database_query",
+"http_request"
+],
+"vulnerability_type": "database_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"database_query"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"http_request",
+"database_query"
+],
+"vulnerability_type": "data_poisoning"
+}
+],
+"tools": [
+"database_query",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"database_query",
+"requests"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"database_query",
+"requests"
+],
+"vulnerability_type": "database_exfiltration"
+}
+],
+"tools": [
+"database_query",
+"requests"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"send_email"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"read_file",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"search_database",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"search_database",
+"send_email"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"search_database",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"database_query",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"database_query",
+"send_email"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"database_query",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_user_info",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"get_user_info",
+"http_request"
+],
+"vulnerability_type": "pii_leakage"
+}
+],
+"tools": [
+"get_user_info",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_user_info",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"get_user_info",
+"send_email"
+],
+"vulnerability_type": "pii_leakage"
+}
+],
+"tools": [
+"get_user_info",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"query_employees",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"query_employees",
+"send_email"
+],
+"vulnerability_type": "pii_leakage"
+}
+],
+"tools": [
+"query_employees",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"query_employees",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"query_employees",
+"http_request"
+],
+"vulnerability_type": "pii_leakage"
+}
+],
+"tools": [
+"query_employees",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"external_api"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_file",
+"external_api"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"read_file",
+"external_api"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"sql_query",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"sql_query",
+"execute_code"
+],
+"vulnerability_type": "sql_to_rce"
+}
+],
+"tools": [
+"sql_query",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"database_query",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"database_query",
+"execute_code"
+],
+"vulnerability_type": "sql_to_rce"
+}
+],
+"tools": [
+"database_query",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"execute_code",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"execute_code",
+"shell_execute"
+],
+"vulnerability_type": "code_to_shell"
+}
+],
+"tools": [
+"execute_code",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"execute_code",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"execute_code",
+"http_request"
+],
+"vulnerability_type": "code_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"http_request",
+"execute_code"
+],
+"vulnerability_type": "remote_code_execution"
+}
+],
+"tools": [
+"execute_code",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"execute_code",
+"requests"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"execute_code",
+"requests"
+],
+"vulnerability_type": "code_exfiltration"
+}
+],
+"tools": [
+"execute_code",
+"requests"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"requests"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"requests"
+],
+"vulnerability_type": "code_exfiltration"
+}
+],
+"tools": [
+"python_repl",
+"requests"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"shell"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"shell"
+],
+"vulnerability_type": "code_to_shell"
+}
+],
+"tools": [
+"python_repl",
+"shell"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_user_info",
+"external_api"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"get_user_info",
+"external_api"
+],
+"vulnerability_type": "pii_leakage"
+}
+],
+"tools": [
+"get_user_info",
+"external_api"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"search_users",
+"send_email"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"search_users",
+"send_email"
+],
+"vulnerability_type": "pii_leakage"
+}
+],
+"tools": [
+"search_users",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"search_database",
+"update_permissions"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"search_database",
+"update_permissions"
+],
+"vulnerability_type": "privilege_escalation"
+}
+],
+"tools": [
+"search_database",
+"update_permissions"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_user_info",
+"update_permissions"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"get_user_info",
+"update_permissions"
+],
+"vulnerability_type": "privilege_escalation"
+}
+],
+"tools": [
+"get_user_info",
+"update_permissions"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_config",
+"update_permissions"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_config",
+"update_permissions"
+],
+"vulnerability_type": "privilege_escalation"
+}
+],
+"tools": [
+"read_config",
+"update_permissions"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"list_directory",
+"read_file"
+],
+"risk_level": "medium",
+"risk_score": 0.5,
+"tools": [
+"list_directory",
+"read_file"
+],
+"vulnerability_type": "directory_traversal"
+}
+],
+"tools": [
+"list_directory",
+"read_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_file",
+"write_file"
+],
+"vulnerability_type": "file_manipulation"
+}
+],
+"tools": [
+"read_file",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"list_directory",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"list_directory",
+"write_file"
+],
+"vulnerability_type": "file_manipulation"
+}
+],
+"tools": [
+"list_directory",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_file",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_file",
+"execute_code"
+],
+"vulnerability_type": "file_to_rce"
+}
+],
+"tools": [
+"read_file",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"shell_execute",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"shell_execute",
+"http_request"
+],
+"vulnerability_type": "command_injection_exfil"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"http_request",
+"shell_execute"
+],
+"vulnerability_type": "remote_code_execution"
+}
+],
+"tools": [
+"shell_execute",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"shell_execute",
+"write_file"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"shell_execute",
+"write_file"
+],
+"vulnerability_type": "command_injection_persist"
+}
+],
+"tools": [
+"shell_execute",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"http_request",
+"execute_code"
+],
+"vulnerability_type": "remote_code_execution"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"execute_code",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"execute_code",
+"http_request"
+],
+"vulnerability_type": "code_exfiltration"
+}
+],
+"tools": [
+"http_request",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"http_request",
+"shell_execute"
+],
+"vulnerability_type": "remote_code_execution"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"shell_execute",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"shell_execute",
+"http_request"
+],
+"vulnerability_type": "command_injection_exfil"
+}
+],
+"tools": [
+"http_request",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_user_info",
+"generate_token"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"get_user_info",
+"generate_token"
+],
+"vulnerability_type": "authentication_bypass"
+}
+],
+"tools": [
+"get_user_info",
+"generate_token"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_config",
+"generate_token"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_config",
+"generate_token"
+],
+"vulnerability_type": "authentication_bypass"
+}
+],
+"tools": [
+"read_config",
+"generate_token"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"search_database",
+"generate_token"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"search_database",
+"generate_token"
+],
+"vulnerability_type": "authentication_bypass"
+}
+],
+"tools": [
+"search_database",
+"generate_token"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"http_request",
+"write_file"
+],
+"vulnerability_type": "data_poisoning"
+}
+],
+"tools": [
+"http_request",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"database_query",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"database_query",
+"http_request"
+],
+"vulnerability_type": "database_exfiltration"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"database_query"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"http_request",
+"database_query"
+],
+"vulnerability_type": "data_poisoning"
+}
+],
+"tools": [
+"http_request",
+"database_query"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"update_memory"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"http_request",
+"update_memory"
+],
+"vulnerability_type": "memory_poisoning"
+}
+],
+"tools": [
+"http_request",
+"update_memory"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_session",
+"send_email"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"get_session",
+"send_email"
+],
+"vulnerability_type": "session_hijacking"
+}
+],
+"tools": [
+"get_session",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_session",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"get_session",
+"http_request"
+],
+"vulnerability_type": "session_hijacking"
+}
+],
+"tools": [
+"get_session",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_list_servers",
+"mcp_invoke"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"mcp_list_servers",
+"mcp_invoke"
+],
+"vulnerability_type": "mcp_enumeration_to_exploit"
+}
+],
+"tools": [
+"mcp_list_servers",
+"mcp_invoke"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_invoke",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_invoke",
+"http_request"
+],
+"vulnerability_type": "mcp_data_exfiltration"
+}
+],
+"tools": [
+"mcp_invoke",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_list_servers",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_list_servers",
+"shell_execute"
+],
+"vulnerability_type": "mcp_to_rce"
+}
+],
+"tools": [
+"mcp_list_servers",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"s3_get",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"s3_get",
+"http_request"
+],
+"vulnerability_type": "cloud_data_exfiltration"
+}
+],
+"tools": [
+"s3_get",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"s3_get",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"s3_get",
+"send_email"
+],
+"vulnerability_type": "cloud_data_exfiltration"
+}
+],
+"tools": [
+"s3_get",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"gcs_read",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"gcs_read",
+"http_request"
+],
+"vulnerability_type": "cloud_data_exfiltration"
+}
+],
+"tools": [
+"gcs_read",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"blob_download",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"blob_download",
+"http_request"
+],
+"vulnerability_type": "cloud_data_exfiltration"
+}
+],
+"tools": [
+"blob_download",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"kms_decrypt",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"kms_decrypt",
+"http_request"
+],
+"vulnerability_type": "key_material_exfiltration"
+}
+],
+"tools": [
+"kms_decrypt",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"kms_decrypt",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"kms_decrypt",
+"send_email"
+],
+"vulnerability_type": "key_material_exfiltration"
+}
+],
+"tools": [
+"kms_decrypt",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"ssm_get_parameter",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"ssm_get_parameter",
+"shell_execute"
+],
+"vulnerability_type": "cloud_secret_to_rce"
+}
+],
+"tools": [
+"ssm_get_parameter",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"ssm_get_parameter",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"ssm_get_parameter",
+"http_request"
+],
+"vulnerability_type": "cloud_secret_exfiltration"
+}
+],
+"tools": [
+"ssm_get_parameter",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"secrets_manager",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"secrets_manager",
+"http_request"
+],
+"vulnerability_type": "cloud_secret_exfiltration"
+}
+],
+"tools": [
+"secrets_manager",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"secrets_manager",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"secrets_manager",
+"execute_code"
+],
+"vulnerability_type": "cloud_secret_to_rce"
+}
+],
+"tools": [
+"secrets_manager",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"lambda_invoke",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"lambda_invoke",
+"write_file"
+],
+"vulnerability_type": "cloud_function_persist"
+}
+],
+"tools": [
+"lambda_invoke",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"lambda_invoke",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"lambda_invoke",
+"shell_execute"
+],
+"vulnerability_type": "cloud_function_to_rce"
+}
+],
+"tools": [
+"lambda_invoke",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"http_request"
+],
+"vulnerability_type": "code_exfiltration"
+}
+],
+"tools": [
+"python_repl",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"write_file"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"write_file"
+],
+"vulnerability_type": "repl_persist"
+}
+],
+"tools": [
+"python_repl",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"shell_tool",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"shell_tool",
+"http_request"
+],
+"vulnerability_type": "shell_exfiltration"
+}
+],
+"tools": [
+"shell_tool",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"shell_tool",
+"write_file"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"shell_tool",
+"write_file"
+],
+"vulnerability_type": "shell_persist"
+}
+],
+"tools": [
+"shell_tool",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"requests_tool",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"requests_tool",
+"execute_code"
+],
+"vulnerability_type": "remote_code_execution"
+},
+{
+"chain_type": "direct",
+"graph_path": [
+"execute_code",
+"requests_tool"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"execute_code",
+"requests_tool"
+],
+"vulnerability_type": "code_exfiltration"
+}
+],
+"tools": [
+"requests_tool",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"requests_tool",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"requests_tool",
+"shell_execute"
+],
+"vulnerability_type": "remote_code_execution"
+}
+],
+"tools": [
+"requests_tool",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"serpapi",
+"send_email"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"serpapi",
+"send_email"
+],
+"vulnerability_type": "search_data_leak"
+}
+],
+"tools": [
+"serpapi",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"file_management",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"file_management",
+"http_request"
+],
+"vulnerability_type": "managed_file_exfil"
+}
+],
+"tools": [
+"file_management",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"sql_database",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"sql_database",
+"http_request"
+],
+"vulnerability_type": "orm_data_exfiltration"
+}
+],
+"tools": [
+"sql_database",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"sql_database",
+"send_email"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"sql_database",
+"send_email"
+],
+"vulnerability_type": "orm_data_leak"
+}
+],
+"tools": [
+"sql_database",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_read_resource",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_read_resource",
+"http_request"
+],
+"vulnerability_type": "mcp_resource_exfiltration"
+}
+],
+"tools": [
+"mcp_read_resource",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_read_resource",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_read_resource",
+"send_email"
+],
+"vulnerability_type": "mcp_resource_exfiltration"
+}
+],
+"tools": [
+"mcp_read_resource",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_read_resource",
+"mcp_invoke"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"mcp_read_resource",
+"mcp_invoke"
+],
+"vulnerability_type": "mcp_cross_tool_escalation"
+}
+],
+"tools": [
+"mcp_read_resource",
+"mcp_invoke"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_get_prompt",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_get_prompt",
+"shell_execute"
+],
+"vulnerability_type": "mcp_prompt_to_rce"
+}
+],
+"tools": [
+"mcp_get_prompt",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_get_prompt",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_get_prompt",
+"execute_code"
+],
+"vulnerability_type": "mcp_prompt_to_rce"
+}
+],
+"tools": [
+"mcp_get_prompt",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_sampling",
+"http_request"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"mcp_sampling",
+"http_request"
+],
+"vulnerability_type": "mcp_sampling_exfiltration"
+}
+],
+"tools": [
+"mcp_sampling",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_sampling",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"mcp_sampling",
+"write_file"
+],
+"vulnerability_type": "mcp_sampling_persist"
+}
+],
+"tools": [
+"mcp_sampling",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_invoke",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"mcp_invoke",
+"write_file"
+],
+"vulnerability_type": "mcp_tool_persist"
+}
+],
+"tools": [
+"mcp_invoke",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_invoke",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_invoke",
+"execute_code"
+],
+"vulnerability_type": "mcp_tool_to_rce"
+}
+],
+"tools": [
+"mcp_invoke",
+"execute_code"
+]
+},
+{
+"chains": [],
+"tools": [
+"mcp_invoke",
+"mcp_invoke"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_read_file",
+"mcp_fetch"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_read_file",
+"mcp_fetch"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"mcp_read_file",
+"mcp_fetch"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_git_diff",
+"mcp_fetch"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_git_diff",
+"mcp_fetch"
+],
+"vulnerability_type": "mcp_code_exfiltration"
+}
+],
+"tools": [
+"mcp_git_diff",
+"mcp_fetch"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_write_file",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_write_file",
+"execute_code"
+],
+"vulnerability_type": "mcp_write_to_rce"
+}
+],
+"tools": [
+"mcp_write_file",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"mcp_read_file",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"mcp_read_file",
+"send_email"
+],
+"vulnerability_type": "data_exfiltration"
+}
+],
+"tools": [
+"mcp_read_file",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"delegate_task",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"delegate_task",
+"execute_code"
+],
+"vulnerability_type": "delegation_to_rce"
+}
+],
+"tools": [
+"delegate_task",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"delegate_task",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"delegate_task",
+"shell_execute"
+],
+"vulnerability_type": "delegation_to_rce"
+}
+],
+"tools": [
+"delegate_task",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"agent_call",
+"http_request"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"agent_call",
+"http_request"
+],
+"vulnerability_type": "cross_agent_exfiltration"
+}
+],
+"tools": [
+"agent_call",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"agent_call",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"agent_call",
+"write_file"
+],
+"vulnerability_type": "cross_agent_persist"
+}
+],
+"tools": [
+"agent_call",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"send_task",
+"read_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"send_task",
+"read_file"
+],
+"vulnerability_type": "cross_agent_data_access"
+}
+],
+"tools": [
+"send_task",
+"read_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"send_task",
+"database_query"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"send_task",
+"database_query"
+],
+"vulnerability_type": "cross_agent_data_access"
+}
+],
+"tools": [
+"send_task",
+"database_query"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_agent_card",
+"mcp_invoke"
+],
+"risk_level": "medium",
+"risk_score": 0.5,
+"tools": [
+"get_agent_card",
+"mcp_invoke"
+],
+"vulnerability_type": "a2a_to_mcp_escalation"
+}
+],
+"tools": [
+"get_agent_card",
+"mcp_invoke"
+]
+},
+{
+"chains": [],
+"tools": [
+"agent_call",
+"agent_call"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_memory",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_memory",
+"http_request"
+],
+"vulnerability_type": "memory_exfiltration"
+}
+],
+"tools": [
+"read_memory",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_memory",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_memory",
+"send_email"
+],
+"vulnerability_type": "memory_exfiltration"
+}
+],
+"tools": [
+"read_memory",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"update_memory",
+"generate_token"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"update_memory",
+"generate_token"
+],
+"vulnerability_type": "memory_to_auth_bypass"
+}
+],
+"tools": [
+"update_memory",
+"generate_token"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"update_memory",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"update_memory",
+"execute_code"
+],
+"vulnerability_type": "memory_to_rce"
+}
+],
+"tools": [
+"update_memory",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"vector_store_write",
+"vector_store_read"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"vector_store_write",
+"vector_store_read"
+],
+"vulnerability_type": "rag_poisoning"
+}
+],
+"tools": [
+"vector_store_write",
+"vector_store_read"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"vector_store_write"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"http_request",
+"vector_store_write"
+],
+"vulnerability_type": "external_rag_poisoning"
+}
+],
+"tools": [
+"http_request",
+"vector_store_write"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"http_request",
+"update_context"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"http_request",
+"update_context"
+],
+"vulnerability_type": "context_injection"
+}
+],
+"tools": [
+"http_request",
+"update_context"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_memory",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_memory",
+"write_file"
+],
+"vulnerability_type": "memory_persist"
+}
+],
+"tools": [
+"read_memory",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"update_context",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"update_context",
+"execute_code"
+],
+"vulnerability_type": "context_to_rce"
+}
+],
+"tools": [
+"update_context",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"store_embedding",
+"http_request"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"store_embedding",
+"http_request"
+],
+"vulnerability_type": "embedding_exfiltration"
+}
+],
+"tools": [
+"store_embedding",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_env",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_env",
+"http_request"
+],
+"vulnerability_type": "env_secret_exfiltration"
+}
+],
+"tools": [
+"read_env",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_env",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_env",
+"send_email"
+],
+"vulnerability_type": "env_secret_exfiltration"
+}
+],
+"tools": [
+"read_env",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_env",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_env",
+"execute_code"
+],
+"vulnerability_type": "env_to_rce"
+}
+],
+"tools": [
+"read_env",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"git_commit",
+"deploy"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"git_commit",
+"deploy"
+],
+"vulnerability_type": "supply_chain_injection"
+}
+],
+"tools": [
+"git_commit",
+"deploy"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"git_commit",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"git_commit",
+"shell_execute"
+],
+"vulnerability_type": "git_to_rce"
+}
+],
+"tools": [
+"git_commit",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"run_pipeline",
+"shell_execute"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"run_pipeline",
+"shell_execute"
+],
+"vulnerability_type": "pipeline_to_rce"
+}
+],
+"tools": [
+"run_pipeline",
+"shell_execute"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_dockerfile",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_dockerfile",
+"write_file"
+],
+"vulnerability_type": "file_manipulation"
+}
+],
+"tools": [
+"read_dockerfile",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_env",
+"deploy"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"read_env",
+"deploy"
+],
+"vulnerability_type": "env_secret_injection"
+}
+],
+"tools": [
+"read_env",
+"deploy"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"read_env",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"read_env",
+"write_file"
+],
+"vulnerability_type": "env_secret_persist"
+}
+],
+"tools": [
+"read_env",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"browse_url",
+"write_file"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"browse_url",
+"write_file"
+],
+"vulnerability_type": "web_content_persist"
+}
+],
+"tools": [
+"browse_url",
+"write_file"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"browse_url",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"browse_url",
+"execute_code"
+],
+"vulnerability_type": "web_content_to_rce"
+}
+],
+"tools": [
+"browse_url",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"browse_url",
+"database_query"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"browse_url",
+"database_query"
+],
+"vulnerability_type": "web_content_injection"
+}
+],
+"tools": [
+"browse_url",
+"database_query"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"screenshot",
+"send_email"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"screenshot",
+"send_email"
+],
+"vulnerability_type": "screen_data_exfil"
+}
+],
+"tools": [
+"screenshot",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"screenshot",
+"http_request"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"screenshot",
+"http_request"
+],
+"vulnerability_type": "screen_data_exfil"
+}
+],
+"tools": [
+"screenshot",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"navigate",
+"execute_code"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"navigate",
+"execute_code"
+],
+"vulnerability_type": "nav_to_rce"
+}
+],
+"tools": [
+"navigate",
+"execute_code"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"form_fill",
+"http_request"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"form_fill",
+"http_request"
+],
+"vulnerability_type": "form_data_exfil"
+}
+],
+"tools": [
+"form_fill",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"scrape",
+"send_email"
+],
+"risk_level": "high",
+"risk_score": 0.75,
+"tools": [
+"scrape",
+"send_email"
+],
+"vulnerability_type": "scraped_data_leak"
+}
+],
+"tools": [
+"scrape",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_wallet",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"get_wallet",
+"http_request"
+],
+"vulnerability_type": "crypto_key_exfiltration"
+}
+],
+"tools": [
+"get_wallet",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"get_private_key",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"get_private_key",
+"send_email"
+],
+"vulnerability_type": "key_material_exfiltration"
+}
+],
+"tools": [
+"get_private_key",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"sign_transaction",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"sign_transaction",
+"http_request"
+],
+"vulnerability_type": "transaction_hijack"
+}
+],
+"tools": [
+"sign_transaction",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"decrypt",
+"http_request"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"decrypt",
+"http_request"
+],
+"vulnerability_type": "decrypted_data_exfil"
+}
+],
+"tools": [
+"decrypt",
+"http_request"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"sql_query",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"sql_query",
+"send_email"
+],
+"vulnerability_type": "database_exfiltration"
+}
+],
+"tools": [
+"sql_query",
+"send_email"
+]
+},
+{
+"chains": [
+{
+"chain_type": "direct",
+"graph_path": [
+"python_repl",
+"send_email"
+],
+"risk_level": "critical",
+"risk_score": 1.0,
+"tools": [
+"python_repl",
+"send_email"
+],
+"vulnerability_type": "repl_exfiltration"
+}
+],
+"tools": [
+"python_repl",
+"send_email"
+]
+}
+]
+}

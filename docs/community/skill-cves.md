@@ -18,11 +18,15 @@ DESIGN-RISK-NNN     # OWASP/framework design risk
 
 ## Current Database
 
-ZIRAN ships with 27 seed entries covering:
+ZIRAN ships with 49 seed entries (36 CVEs, 13 design risks) covering:
 
 ### Real CVEs
 - **LangChain** — CVE-2023-46229 (SSRF), CVE-2025-68664 (serialization injection), CVE-2025-65106 (template injection), CVE-2025-46059 (prompt injection), CVE-2025-8709 (SQL injection), CVE-2025-64439 (RCE), CVE-2025-2828 (SSRF)
 - **MCP** — CVE-2025-53109 (symlink bypass), CVE-2025-53110 (path traversal), CVE-2025-68145 (git path bypass), CVE-2025-6514 (command injection), CVE-2026-27825 (file write RCE)
+- **mcp-atlassian file read and exfiltration** — CVE-2026-77260, CVE-2026-77248, CVE-2026-77262, CVE-2026-77253, CVE-2026-77246, CVE-2026-73498, CVE-2026-77255
+- **MCP SDKs and servers** — CVE-2026-116686 (Python SDK `$ref` fetch), CVE-2026-104850 (TypeScript SDK OAuth credentials), CVE-2026-32871 (FastMCP OpenAPI SSRF), CVE-2026-105697 (Langflow MCP stdio command injection)
+- **Coding agents** — CVE-2025-61260 (Codex CLI MCP config), CVE-2026-54316, CVE-2026-39861, CVE-2026-88968, CVE-2026-55607, CVE-2026-40068 (Claude Code)
+- **Agent frameworks** — CVE-2026-113663 (AG2 SandboxShellTool), CVE-2026-7700 (Langflow Smart Transform), CVE-2026-59207, CVE-2026-65015, CVE-2026-86996 (n8n AI Agents)
 - **Other** — CVE-2025-32711 (M365 Copilot), CVE-2026-29783 (Copilot CLI)
 
 ### Design Risks (OWASP LLM Top 10)

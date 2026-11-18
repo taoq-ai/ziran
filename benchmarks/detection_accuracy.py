@@ -10,6 +10,7 @@ Usage:
     uv run python benchmarks/detection_accuracy.py --json results/detection_accuracy.json
     uv run python benchmarks/detection_accuracy.py --by-category --format markdown
     uv run python benchmarks/detection_accuracy.py --config .ziran/detectors.yaml
+    uv run python benchmarks/detection_accuracy.py --crossfire --categories borderline
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -30,6 +31,7 @@ from benchmarks.ground_truth.schema import (
     DetectionExample,
 )
 from benchmarks.replay_llm_client import ReplayLLMClient
+from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.ensemble import EnsembleConfig
 from ziran.application.detectors.pipeline import DetectorConfig, DetectorPipeline
 from ziran.application.detectors.thresholds import DetectorThresholds
@@ -43,7 +45,15 @@ if TYPE_CHECKING:
 DATASET_DIR = Path(__file__).parent / "ground_truth" / "detection"
 DEFAULT_OUTPUT = Path(__file__).parent / "results" / "detection_accuracy.json"
 
-CATEGORIES = ("clear_refusal", "partial_compliance", "full_compliance", "borderline")
+ORIGINAL_CATEGORIES = ("clear_refusal", "partial_compliance", "full_compliance", "borderline")
+#: Harder slices (spec 078): near-miss benign text, so a false positive gain is measurable.
+HARD_CATEGORIES = (
+    "indicator_near_miss",
+    "sensitive_tool_output",
+    "paraphrased_refusal",
+    "multilingual",
+)
+CATEGORIES = ORIGINAL_CATEGORIES + HARD_CATEGORIES
 MIN_PER_CATEGORY = 50
 MIN_APPLICABLE_PER_DETECTOR = 30
 #: Extra detectors row (spec 042): the refusal decision with the semantic tier's veto.
@@ -83,6 +93,23 @@ class DetectorMetrics(BaseModel):
     recall_ci: tuple[float, float]
 
 
+class CrossfireResult(BaseModel):
+    """Every library vector prompt against every benign reply (spec 078)."""
+
+    vectors: int
+    prompts: int
+    benign_replies: int
+    pairs: int
+    flagged: int
+    rate: float
+    vectors_with_hit: int
+    #: Flagged pairs where the indicator detector hit (benign tool calls flag on side_effect).
+    indicator_flagged: int
+    vectors_with_indicator_hit: int
+    flagged_by_category: dict[str, int]
+    top_indicators: list[tuple[str, int]]
+
+
 class DetectorAccuracyResult(BaseModel):
     timestamp: str
     dataset_size: int
@@ -91,6 +118,9 @@ class DetectorAccuracyResult(BaseModel):
     detectors: dict[str, DetectorMetrics]
     pipeline: DetectorMetrics
     below_floor: list[str] = []
+    #: category -> {"pipeline" or detector name -> confusion} (spec 078).
+    per_category_confusion: dict[str, dict[str, ConfusionMatrix]] = {}
+    crossfire: CrossfireResult | None = None
 
 
 # ── Metric math ───────────────────────────────────────────────────────
@@ -118,10 +148,12 @@ def _metrics(cm: ConfusionMatrix, applicable: int) -> DetectorMetrics:
 # ── Dataset loading ───────────────────────────────────────────────────
 
 
-def load_examples(dataset_dir: Path) -> list[DetectionExample]:
-    """Load and validate every example YAML under *dataset_dir*."""
+def load_examples(
+    dataset_dir: Path, categories: tuple[str, ...] = CATEGORIES
+) -> list[DetectionExample]:
+    """Load and validate every example YAML under *dataset_dir* for *categories*."""
     examples: list[DetectionExample] = []
-    for category in CATEGORIES:
+    for category in categories:
         cat_dir = dataset_dir / category
         if not cat_dir.is_dir():
             continue
@@ -135,6 +167,14 @@ def load_examples(dataset_dir: Path) -> list[DetectionExample]:
 
 
 # ── Pipeline execution ────────────────────────────────────────────────
+
+
+def _response(ex: DetectionExample) -> AgentResponse:
+    return AgentResponse(
+        content=ex.response_text,
+        tool_calls=[tc.model_dump(exclude_none=True) for tc in ex.tool_calls],
+        metadata=ex.metadata,
+    )
 
 
 async def _score(
@@ -162,6 +202,9 @@ async def _score(
     det_applicable: dict[str, int] = dict.fromkeys(keys, 0)
     pipeline_cm = ConfusionMatrix()
     per_category: dict[str, int] = defaultdict(int)
+    cat_cm: dict[str, dict[str, ConfusionMatrix]] = defaultdict(
+        lambda: defaultdict(ConfusionMatrix)
+    )
 
     for ex in examples:
         per_category[ex.category] += 1
@@ -170,14 +213,13 @@ async def _score(
             success_indicators=ex.prompt_success_indicators,
             failure_indicators=ex.prompt_failure_indicators,
         )
-        response = AgentResponse(
-            content=ex.response_text,
-            tool_calls=[tc.model_dump() for tc in ex.tool_calls],
-        )
-        verdict = await pipeline.evaluate(ex.attack.vector_id, response, prompt_spec)
+        verdict = await pipeline.evaluate(ex.attack.vector_id, _response(ex), prompt_spec)
 
         # Pipeline confusion vs overall label.
         pipeline_cm.add(expected=ex.label == "compromise", actual=verdict.successful)
+        cat_cm[ex.category]["pipeline"].add(
+            expected=ex.label == "compromise", actual=verdict.successful
+        )
 
         # Per-detector confusion vs each detector's own expected verdict.
         results = {r.detector_name: r for r in verdict.detector_results}
@@ -188,6 +230,7 @@ async def _score(
             det_applicable[name] += 1
             actual_fired = name in results and results[name].score >= thresholds.hit
             det_cm[name].add(expected=expected.should_fire, actual=actual_fired)
+            cat_cm[ex.category][name].add(expected=expected.should_fire, actual=actual_fired)
             if name == "refusal" and SEMANTIC_REFUSAL_KEY in det_cm:
                 sem = results.get("semantic")
                 vetoed = sem is not None and sem.score == 0.0
@@ -206,6 +249,54 @@ async def _score(
         detectors={d: _metrics(det_cm[d], det_applicable[d]) for d in keys},
         pipeline=_metrics(pipeline_cm, pipeline_cm.total),
         below_floor=below_floor,
+        per_category_confusion={c: dict(m) for c, m in cat_cm.items()},
+    )
+
+
+async def _crossfire(examples: list[DetectionExample]) -> CrossfireResult:
+    """Run every library vector prompt's indicators over every benign reply (spec 078).
+
+    Default ``DetectorConfig``, no judge, the vector passed: what a scan would flag if the
+    agent answered that prompt with that benign reply.
+    """
+    benign = [ex for ex in examples if ex.label == "no_compromise"]
+    responses = [_response(ex) for ex in benign]
+    vectors = AttackLibrary().vectors
+    pipeline = DetectorPipeline(detector_config=DetectorConfig())
+    hit = DetectorThresholds().hit
+    prompts = flagged = indicator_flagged = 0
+    hit_vectors: set[str] = set()
+    indicator_vectors: set[str] = set()
+    by_category: Counter[str] = Counter()
+    by_indicator: Counter[str] = Counter()
+    for vector in vectors:
+        for prompt in vector.prompts:
+            prompts += 1
+            for ex, response in zip(benign, responses, strict=True):
+                verdict = await pipeline.evaluate(prompt.template, response, prompt, vector)
+                if not verdict.successful:
+                    continue
+                flagged += 1
+                hit_vectors.add(vector.id)
+                by_category[ex.category] += 1
+                for r in verdict.detector_results:
+                    if r.detector_name == "indicator" and r.score >= hit:
+                        indicator_flagged += 1
+                        indicator_vectors.add(vector.id)
+                        by_indicator.update(r.matched_indicators)
+    pairs = prompts * len(benign)
+    return CrossfireResult(
+        vectors=len(vectors),
+        prompts=prompts,
+        benign_replies=len(benign),
+        pairs=pairs,
+        flagged=flagged,
+        rate=round(flagged / pairs, 4) if pairs else 0.0,
+        vectors_with_hit=len(hit_vectors),
+        indicator_flagged=indicator_flagged,
+        vectors_with_indicator_hit=len(indicator_vectors),
+        flagged_by_category=dict(by_category),
+        top_indicators=by_indicator.most_common(15),
     )
 
 
@@ -221,23 +312,30 @@ def run_benchmark(
     *,
     embedder: BaseEmbedder | None = None,
     disabled: frozenset[str] = frozenset(),
+    categories: tuple[str, ...] = CATEGORIES,
+    crossfire: bool = False,
 ) -> DetectorAccuracyResult:
     """Synchronous entry point: load, score, and return the result."""
-    examples = load_examples(dataset_dir)
+    examples = load_examples(dataset_dir, categories)
     if not examples:
         raise SystemExit(f"No examples found under {dataset_dir}")
-    return asyncio.run(
+    result = asyncio.run(
         _score(examples, thresholds or DetectorThresholds(), embedder=embedder, disabled=disabled)
     )
+    if crossfire:
+        result.crossfire = asyncio.run(_crossfire(examples))
+    return result
 
 
 # ── Coverage + rendering ──────────────────────────────────────────────
 
 
-def check_coverage(result: DetectorAccuracyResult, *, strict: bool) -> list[str]:
+def check_coverage(
+    result: DetectorAccuracyResult, *, strict: bool, categories: tuple[str, ...] = CATEGORIES
+) -> list[str]:
     """Return human-readable coverage warnings; raise in strict mode if any."""
     warnings: list[str] = []
-    for cat in CATEGORIES:
+    for cat in categories:
         n = result.per_category_counts.get(cat, 0)
         if n < MIN_PER_CATEGORY:
             warnings.append(f"category '{cat}' has {n} examples (floor {MIN_PER_CATEGORY})")
@@ -252,8 +350,7 @@ def check_coverage(result: DetectorAccuracyResult, *, strict: bool) -> list[str]
 
 
 def _row(name: str, m: DetectorMetrics) -> tuple[str, ...]:
-    cm = m.confusion
-    confusion = f"{cm.tp}/{cm.fp}/{cm.fn}/{cm.tn}"
+    confusion = _counts(m.confusion)
     ci = f"[{m.recall_ci[0]}, {m.recall_ci[1]}]"
     return (name, str(m.applicable), f"{m.precision}", f"{m.recall}", f"{m.f1}", confusion, ci)
 
@@ -274,12 +371,39 @@ def render(result: DetectorAccuracyResult, *, fmt: str, by_category: bool) -> st
         out = "\n".join("  ".join(c.ljust(widths[i]) for i, c in enumerate(r)) for r in rows)
 
     if by_category:
-        counts = ", ".join(f"{c}={result.per_category_counts.get(c, 0)}" for c in CATEGORIES)
+        counts = ", ".join(f"{c}={n}" for c, n in result.per_category_counts.items())
         out += f"\n\nPer-category counts: {counts}"
+        out += "\n\nPer-category tp/fp/fn/tn:"
+        for cat, cms in result.per_category_confusion.items():
+            cells = ", ".join(f"{name} {_counts(cm)}" for name, cm in cms.items())
+            out += f"\n  {cat}: {cells}"
+    cf = result.crossfire
+    if cf is not None:
+        top = ", ".join(f"{w} {n}" for w, n in cf.top_indicators)
+        out += (
+            f"\n\nCrossfire: {cf.flagged} of {cf.pairs} pairs flagged (rate {cf.rate}); "
+            f"{cf.vectors_with_hit} of {cf.vectors} vectors ({cf.prompts} prompts) hit "
+            f"{cf.benign_replies} benign replies\n  indicator hits: {cf.indicator_flagged} pairs, "
+            f"{cf.vectors_with_indicator_hit} vectors\n  top indicators: {top}"
+        )
     return out
 
 
+def _counts(cm: ConfusionMatrix) -> str:
+    return f"{cm.tp}/{cm.fp}/{cm.fn}/{cm.tn}"
+
+
 # ── CLI ───────────────────────────────────────────────────────────────
+
+
+def _categories(value: str) -> tuple[str, ...]:
+    names = tuple(value.split(","))
+    unknown = [n for n in names if n not in CATEGORIES]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unknown categories {unknown}; choose from {', '.join(CATEGORIES)}"
+        )
+    return names
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -290,14 +414,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--by-category", action="store_true", help="Show per-category counts")
     parser.add_argument("--format", choices=("table", "markdown"), default="table")
     parser.add_argument("--strict", action="store_true", help="Fail if coverage floors are not met")
+    parser.add_argument(
+        "--categories",
+        type=_categories,
+        default=CATEGORIES,
+        help="Comma-separated categories to load (default: all)",
+    )
+    parser.add_argument(
+        "--crossfire", action="store_true", help="Also run every library prompt on benign replies"
+    )
     args = parser.parse_args(argv)
 
     # load_detector_thresholds defaults to .ziran/detectors.yaml when --config is
     # omitted, and returns built-in defaults when that file is absent (CLI contract).
     thresholds = load_detector_thresholds(args.config)
-    result = run_benchmark(args.dataset, thresholds)
+    result = run_benchmark(
+        args.dataset, thresholds, categories=args.categories, crossfire=args.crossfire
+    )
 
-    warnings = check_coverage(result, strict=args.strict)
+    warnings = check_coverage(result, strict=args.strict, categories=args.categories)
     args.json.parent.mkdir(parents=True, exist_ok=True)
     args.json.write_text(result.model_dump_json(indent=2), encoding="utf-8")
 

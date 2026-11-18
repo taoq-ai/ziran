@@ -6,10 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.chain_patterns import (
     ChainPattern,
     ChainPatternRegistry,
 )
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
 _YAML_PATH = (
     Path(__file__).resolve().parents[2]
@@ -199,3 +201,49 @@ class TestRegistryErrors:
         bad_yaml.write_text("not_patterns: [1, 2, 3]")
         with pytest.raises(ValueError, match="top-level 'patterns' key"):
             ChainPatternRegistry.from_yaml(bad_yaml)
+
+
+# ── Dev-split patterns (spec 058) ────────────────────────────────────
+
+
+def _complete_graph(tools: list[str]) -> AttackKnowledgeGraph:
+    """Every tool pair linked both ways, as the ground-truth runner builds agent graphs."""
+    graph = AttackKnowledgeGraph()
+    for tool in tools:
+        graph.add_tool(tool)
+    for a in tools:
+        for b in tools:
+            if a != b:
+                graph.add_tool_chain([a, b], 0.5)
+    return graph
+
+
+def _direct_chains(tools: list[str]) -> dict[tuple[str, ...], str]:
+    chains = ToolChainAnalyzer(_complete_graph(tools)).analyze(include_cycles=False)
+    return {tuple(c.tools): c.vulnerability_type for c in chains}
+
+
+@pytest.mark.unit
+class TestDevSplitPatterns:
+    """sql_query and python_repl to send_email, appended last (spec 058)."""
+
+    @pytest.mark.parametrize(
+        ("source", "vuln_type"),
+        [("sql_query", "database_exfiltration"), ("python_repl", "repl_exfiltration")],
+    )
+    def test_pair_reports_exfiltration_without_cycles(self, source: str, vuln_type: str) -> None:
+        assert _direct_chains([source, "send_email"]) == {(source, "send_email"): vuln_type}
+
+    def test_appended_after_every_existing_pattern(self) -> None:
+        last = [(p.source, p.target, p.type) for p in ChainPatternRegistry.default().patterns[-2:]]
+        assert last == [
+            ("sql_query", "send_email", "database_exfiltration"),
+            ("python_repl", "send_email", "repl_exfiltration"),
+        ]
+
+    def test_existing_pairs_keep_their_type(self) -> None:
+        """The data-analyst tool set gains two chains; read_file to send_email is unchanged."""
+        found = _direct_chains(["sql_query", "python_repl", "send_email", "read_file"])
+        assert found[("read_file", "send_email")] == "data_exfiltration"
+        assert found[("sql_query", "send_email")] == "database_exfiltration"
+        assert found[("python_repl", "send_email")] == "repl_exfiltration"

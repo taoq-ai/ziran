@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.domain.entities.attack import AttackResult, TokenUsage
+from ziran.domain.interfaces.adapter import drop_reserved
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
@@ -119,6 +120,7 @@ class TacticExecutor:
 
             try:
                 response = await self._adapter.invoke(rendered_prompt)
+                response.metadata = drop_reserved(response.metadata)
 
                 total_tokens = total_tokens + TokenUsage(
                     prompt_tokens=response.prompt_tokens,

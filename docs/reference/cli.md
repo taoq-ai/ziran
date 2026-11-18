@@ -44,6 +44,7 @@ ziran scan [OPTIONS]
 | `--phase-timeout` | No | `300` | Per-phase timeout in seconds |
 | `--incremental` | No | `false` | Reuse cached results for vectors whose inputs are unchanged (`.ziran/scan_cache/`). Opt-in; not for release gates. See [Incremental Scanning](../guides/incremental-scanning.md). |
 | `--no-cache` | No | `false` | Bypass the incremental cache: neither read nor write it (overrides `--incremental`) |
+| `--hybrid-route-share` | No | `0.0` | Share of uncertain traces the hybrid sends to its model judge, `0.0` to `1.0`. `0.0` is deterministic mode, no model call. ziran sends no hybrid call in this release, so a share above `0.0` exits `2`. The flag overrides `hybrid_route_share` in `.ziran/detectors.yaml`; with no LLM backbone the file value is ignored with a warning. |
 
 \* Either `--framework` + `--agent-path` (local) or `--target` (remote) is required.
 
@@ -247,6 +248,7 @@ ziran audit PATH [OPTIONS]
 | `--baseline FILE` | Fail when a Claude Code agent's tools or chains widen beyond this baseline (see [Allowlist baseline](#allowlist-baseline)) |
 | `--write-baseline FILE` | Record each Claude Code agent's tools and chains as the accepted baseline, then report as if `--baseline FILE` was given |
 | `--sarif FILE` | Also write the reported findings (after the baseline step and `--severity`) as SARIF v2.1.0 for GitHub code scanning; `json` stdout is unchanged, `SARIF written to FILE` goes to stderr. An unwritable `FILE` exits `2` |
+| `--typed-chains` | Also report typed chains: a tool whose name reads data, paired with a tool whose name sends, runs or changes something (V2 role typing). Off by default; not allowed with `--baseline` or `--write-baseline`, since a baseline holds no typed chains. Reads no config file |
 
 **Examples:**
 

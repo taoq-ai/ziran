@@ -1,6 +1,6 @@
 # ziran Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-10-04
+Auto-generated from all feature plans. Last updated: 2026-11-12
 
 ## Active Technologies
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + asyncio, dataclasses, logging, OpenTelemetry (tracing) (003-split-agent-scanner)
@@ -69,6 +69,8 @@ Auto-generated from all feature plans. Last updated: 2026-10-04
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies. (054-benchmark-pr-delta)
 - committed `benchmarks/results/baseline.json` (gate); CI-only `_bench_base/benchmarks/results/baseline.json` (delta, never committed). (054-benchmark-pr-delta)
 - Markdown (MkDocs Material); Python 3.11+ test (CI matrix 3.11, 3.12, 3.13) + none new. Reads output of the existing `benchmarks/atlas_coverage.py`. (055-atlas-coverage-docs)
+- Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `hashlib`/`json`/`re`/`decimal`; reuses `BaseLLMClient`. No new dependencies. (064-llm-seam)
+- one caller-named `*.requests.jsonl` per record run; ziran-paper's `outcomes.jsonl` read in replay; neither committed. (064-llm-seam)
 
 - Python 3.11+ (CI matrix: 3.11, 3.12, 3.13) + click (CLI only), PyYAML, Playwright (optional), boto3 (optional), LangChain (optional), CrewAI (optional) (002-extract-shared-factories)
 
@@ -88,11 +90,15 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 070-hybrid-harness: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `argparse`/`json`/`importlib`; no new dependencies. `benchmarks/external_eval/run.py --hybrid-replies | --hybrid-record` with `--hybrid-model` and `--hybrid-client-version`: the worker runs the pin's trace judge (`judge_traces(share=1.0)`) on every AgentDojo variant through `RecordReplayClient` and writes the predictors `hybrid`, `hybrid_r025`, `hybrid_r050` and `hybrid_r075` (the same replies at each routing share, by the pin's `routed`); rows gain `reply_outcome` values and `no_reply_cause`; `pins.<pin>.hybrid.<variant>` counts band, sent per share, outcomes, no-usable replies by cause and label, and mask changes.
+- 069-agentdojo-reserve: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13), stdlib `json`; no new dependencies. `benchmarks/external_eval/` gains the `agentdojo_reserve` set (ziran-paper `rules.reserve`: defended model folders, attack not `none`) with an `attack` cell beside the model folder, and `run.py --paper <ziran-paper checkout>`: the fresh and reserve sets refuse before reading `--data` unless the set's committed use log ends in the guard's matching `aborted` line and holds no `scored` line (`run.require_admitted`).
+- 067-hybrid-jobs: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `hashlib`/`json`/`re`/`unicodedata`; no new dependencies. `ziran/application/hybrid/jobs.py` (trace judge, capability and plausibility jobs on the spec 064 seam); prompts at `ziran/application/hybrid/prompts/<job>/v<N>.md` (sha256 pinned); `provenance.evidence_values`; `request_key(repeat=)`; `hybrid_route_share` and `typed_chains` in `.ziran/detectors.yaml`, `scan --hybrid-route-share`, `audit --typed-chains`.
+- 065-harness-fresh: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `re`/`json`, Pydantic v2; no new dependencies. `benchmarks/external_eval/` gains the `agentdojo_fresh` set, passes `trusted_task`, `tool_results`, `message_index` and `payload` to the detector (payload-known variants `payload_whole`, `payload_post_injection`), reports `deterministic` (`provenance().hit`), excludes a `ProvenanceInputError` unit as `detector_raised`, and writes one allowlisted row per unit (`run.check_row`). The HTTP adapter drops those three keys from remote metadata.
+- 066-v2-role-typing: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `re`; no new dependencies. `ziran/application/knowledge_graph/role_typing.py` (`tool_roles`: source, egress, exec, high_impact from the dev probe's V2 name rules, or a caller's override); `ToolChainAnalyzer(graph, typed=True, role_overrides=...)` adds typed chains (`DangerousChain.typed`, types `typed_*`) beside the unchanged table chains; off by default.
+- 064-llm-seam: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `hashlib`/`json`/`re`/`decimal`; reuses `BaseLLMClient`. No new dependencies.
+- 063-provenance-side-effect: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `re`/`json`; no new dependencies. `ziran/application/detectors/provenance.py` (rules T3 and P1, per-call evidence record) read from `AgentResponse.metadata` keys `trusted_task`, `tool_results`, `payload`; the detection dataset gains six benign-task items (228 total, baseline rebuilt).
 - 053-enables-edge-fanout: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + existing NetworkX-backed `AttackKnowledgeGraph`; stdlib only
 - 054-benchmark-pr-delta: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13); GitHub Actions YAML + bash (the benchmark job uses Python 3.12). + stdlib `argparse`/`json`/`pathlib` (already imported), `actions/checkout@v7` (already used). No new dependencies.
-- 055-atlas-coverage-docs: Added Markdown (MkDocs Material); Python 3.11+ test (CI matrix 3.11, 3.12, 3.13) + none new. Reads output of the existing `benchmarks/atlas_coverage.py`.
-- 050-langgraph-native-scanning: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (domain models), existing `AttackKnowledgeGraph` (NetworkX) and `ToolChainAnalyzer`, `langgraph` 1.2.x + `langchain-core` via the existing `langchain` extra (transitive). No new dependencies.
-- 049-incremental-scan-cache: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (cache models), stdlib `hashlib`/`json`/`os`/`re`/`shutil`/`asyncio.to_thread`, Click (scan flags, `cache clear`); reuses `PhaseExecutor`, `ResultBuilder`, the `CheckpointManager.save` atomic-write pattern. No new dependencies.
 
 
 <!-- MANUAL ADDITIONS START -->

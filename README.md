@@ -69,7 +69,7 @@ Auditing a whole plugin, gating CI on an allowlist baseline, scoring hook traces
 [![Tests](https://github.com/taoq-ai/ziran/actions/workflows/test.yml/badge.svg)](https://github.com/taoq-ai/ziran/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/ziran.svg)](https://pypi.org/project/ziran/)
 [![Downloads](https://img.shields.io/pypi/dm/ziran.svg)](https://pypistats.org/packages/ziran)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-FSL--1.1--ALv2-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
 </div>
@@ -114,7 +114,7 @@ Campaign strategies: `fixed` (sequential, reproducible for CI), `adaptive` (rule
 | Industry compliance plugins | -- | Yes (46) | -- | -- | -- | -- |
 | Streaming (SSE/WebSocket) | Yes | -- | -- | -- | -- | -- |
 | CI/CD quality gate | Yes | Yes | -- | -- | -- | -- |
-| Open source | Apache-2.0 | MIT | Partial | Apache-2.0 | MIT | MIT |
+| License | FSL-1.1-ALv2 (source-available) | MIT | Partial | Apache-2.0 | MIT | MIT |
 
 **ZIRAN is not** an LLM safety or alignment tool (use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak) for jailbreak breadth and compliance), not a runtime guardrail ([NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails), [Lakera Guard](https://www.lakera.ai/), [LLM Guard](https://github.com/protectai/llm-guard)), and not a general eval framework ([Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai), [Deepeval](https://github.com/confident-ai/deepeval)). It sits next to them: Promptfoo or Garak for attack breadth, ZIRAN for agent depth; guardrails at runtime, ZIRAN before deploy; [Langfuse](https://langfuse.com/) or [LangSmith](https://smith.langchain.com/) for traces, ZIRAN `analyze-traces` to score them. Full mapping in the [Agent Security Landscape](https://taoq-ai.github.io/ziran/concepts/agent-security-landscape/).
 
@@ -122,7 +122,7 @@ Campaign strategies: `fixed` (sequential, reproducible for CI), `adaptive` (rule
 
 ## Benchmarks
 
-639 attack vectors in 11 categories. 10/10 OWASP LLM Top 10 categories, 72/86 MITRE ATLAS techniques (14/14 agent-specific), measured against 20 published benchmarks. Numbers, per-benchmark tables and open gaps: [benchmarks/](benchmarks/) and the [coverage comparison](https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/).
+677 attack vectors in 11 categories. 10/10 OWASP LLM Top 10 categories, 75/88 MITRE ATLAS techniques (14/14 agent-specific), measured against 20 published benchmarks. Numbers, per-benchmark tables and open gaps: [benchmarks/](benchmarks/) and the [coverage comparison](https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/).
 
 ---
 
@@ -141,6 +141,18 @@ pip install ziran[otel]         # OpenTelemetry tracing
 pip install ziran[ui]           # web dashboard
 pip install ziran[all]          # everything
 ```
+
+### Claude Code plugin
+
+Skills that run ZIRAN from Claude Code and explain the results: `audit-agents`, `triage-findings`,
+`set-up-scan` and `threat-model-agent` (the last works without ZIRAN installed).
+
+```text
+/plugin marketplace add taoq-ai/ziran
+/plugin install ziran@ziran
+```
+
+Details: [plugins/ziran/](plugins/ziran/).
 
 ---
 
@@ -296,7 +308,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Ways to help:
   author    = {{TaoQ AI} and Lage Perdigao, Leone},
   year      = {2026},
   url       = {https://github.com/taoq-ai/ziran},
-  license   = {Apache-2.0},
+  license   = {FSL-1.1-ALv2},
   version   = {0.25.0}
 }
 ```
@@ -305,7 +317,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Ways to help:
 
 ## License
 
-[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for third-party attributions.
+ZIRAN is source-available, not open source. New versions are released under the [Functional Source License 1.1, Apache-2.0 future licence](LICENSE) (`FSL-1.1-ALv2`): you may use, modify and redistribute it for any purpose except a competing commercial product or service, and each version becomes Apache-2.0 two years after its release.
+
+Versions up to and including v0.42.0, and the `study-v1` and `study-v2` tags, were released under Apache-2.0 and stay under it. See [NOTICE](NOTICE) for the details and for third-party attributions.
+
+Commercial licences are available from TaoQ AI at [info@taoq.ai](mailto:info@taoq.ai), on the [standard terms](COMMERCIAL-LICENSE.md) and an [order form](COMMERCIAL-ORDER-FORM.md).
 
 <p align="center">
   Built by <a href="https://www.taoq.ai">TaoQ AI</a>

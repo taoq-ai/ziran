@@ -88,6 +88,14 @@ def write_step_summary(
         f"**Target agent:** `{result.target_agent}`  ",
         f"**Campaign:** `{result.campaign_id}`  ",
         f"**Trust score:** `{result.final_trust_score:.2f}`  ",
+        *(
+            [
+                f"> **Warning:** {len(result.unmeasured_vectors)} vector(s) unmeasured; "
+                "the gate saw no evidence for them"
+            ]
+            if result.unmeasured_vectors
+            else []
+        ),
         "",
         "### Finding Summary",
         "",

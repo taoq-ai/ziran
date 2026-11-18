@@ -104,6 +104,13 @@ class DetectorThresholds(BaseModel):
         default_factory=PrefilterConfig,
         description="Cheap-model prefilter before the LLM judge (spec 043). Off by default.",
     )
+    hybrid_route_share: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Share of band units the hybrid sends to its model jobs (spec 067). "
+        "0.0 is deterministic mode: no model call.",
+    )
 
     @model_validator(mode="after")
     def _hit_above_safe(self) -> DetectorThresholds:

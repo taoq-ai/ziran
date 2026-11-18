@@ -109,6 +109,10 @@ class DangerousChain(BaseModel):
     chain_type: str = Field(
         default="direct", description="Chain topology: direct, indirect, or cycle"
     )
+    typed: bool = Field(
+        default=False,
+        description="True if found by role typing (a source and a sink role), not the pattern table",
+    )
     observed_in_production: bool = Field(
         default=False, description="True if this chain was observed in production traces"
     )

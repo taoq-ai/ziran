@@ -85,6 +85,12 @@ def generate_markdown(
     _many_shot = inventory.get("tags", {}).get("many-shot", 0)
     if _many_shot:
         lines.append(f"- **{_many_shot}** long-context `many-shot` jailbreak vectors")
+    _server_surface = inventory.get("tags", {}).get("mcp_server_surface", 0)
+    if _server_surface:
+        lines.append(
+            f"- **{_server_surface}** MCP server-initiated vectors (sampling, elicitation, roots), "
+            "sent by `ziran mcp-hostile-server`, never by a scan"
+        )
     lines.append(f"- **{inventory['harm_category_count']}** harm categories (AgentHarm-aligned)")
     gap_summary = gaps["summary"]
     lines.append(

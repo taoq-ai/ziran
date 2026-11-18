@@ -9,8 +9,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from ziran.domain.entities.mcp_server_surface import McpServerRequest
 from ziran.domain.entities.phase import ScanPhase
 
 
@@ -211,9 +212,11 @@ class AtlasTechnique(StrEnum):
     POISON_TRAINING_DATA = "AML.T0020"
     LLM_PROMPT_SELF_REPLICATION = "AML.T0061"
     RAG_POISONING = "AML.T0070"
+    EVENT_TRIGGERED_EXECUTION = "AML.T0142"  # ATLAS v2026.10
 
     # ── Privilege Escalation (AML.TA0012) ────────────────────────────
     LLM_JAILBREAK = "AML.T0054"
+    ESCAPE_TO_HOST = "AML.T0105"  # ATLAS v5.4.0
 
     # ── Defense Evasion (AML.TA0007) ─────────────────────────────────
     LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION = "AML.T0067"
@@ -319,7 +322,9 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.POISON_TRAINING_DATA: "Poison Training Data",
     AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: "LLM Prompt Self-Replication",
     AtlasTechnique.RAG_POISONING: "RAG Poisoning",
+    AtlasTechnique.EVENT_TRIGGERED_EXECUTION: "Event Triggered Execution",
     AtlasTechnique.LLM_JAILBREAK: "LLM Jailbreak",
+    AtlasTechnique.ESCAPE_TO_HOST: "Escape to Host",
     AtlasTechnique.LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION: (
         "LLM Trusted Output Components Manipulation"
     ),
@@ -436,6 +441,8 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     ],
     AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: [AtlasTactic.PERSISTENCE],
     AtlasTechnique.RAG_POISONING: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.EVENT_TRIGGERED_EXECUTION: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.ESCAPE_TO_HOST: [AtlasTactic.PRIVILEGE_ESCALATION],
     AtlasTechnique.LLM_JAILBREAK: [
         AtlasTactic.PRIVILEGE_ESCALATION,
         AtlasTactic.DEFENSE_EVASION,
@@ -770,6 +777,28 @@ class AttackVector(BaseModel):
         description="Many-shot jailbreaking config; present → the executor stacks N shots "
         "before the final request.",
     )
+    mcp_server_request: McpServerRequest | None = Field(
+        default=None,
+        description="Server-surface config (spec 071); present → only the hostile MCP server "
+        "sends this vector, never a scan.",
+    )
+
+    @model_validator(mode="after")
+    def _check_sampling_canary(self) -> AttackVector:
+        request = self.mcp_server_request
+        if request is not None and not self.prompts:
+            raise ValueError(f"server-surface vector {self.id} needs a prompt (its request text)")
+        if request is None or request.method != "sampling":
+            return self
+        # The model must build the canary, so an echo or a quoting refusal never matches.
+        for prompt in self.prompts:
+            if not prompt.success_indicators:
+                raise ValueError(f"sampling vector {self.id} needs a canary (success_indicators)")
+            sent = f"{prompt.template}\n{request.system_prompt or ''}".casefold()
+            literal = [c for c in prompt.success_indicators if c.casefold() in sent]
+            if literal:
+                raise ValueError(f"sampling vector {self.id}: canary {literal} is in the request")
+        return self
 
     @property
     def is_critical(self) -> bool:

@@ -40,6 +40,7 @@ These examples use ZIRAN's built-in scanner without calling any LLM.
 | 08 | [Custom Adapter](08-custom-adapter/) | Implement `AgentAdapter` for any agent framework |
 | 24 | [Claude Code Agent Audit](24-claude-code-agent-audit/) | `ziran audit` on a subagent whose `Read` + `WebFetch` tools form an exfiltration chain |
 | 25 | [Claude Code Plugin](25-claude-code-plugin/) | Safe vs. vulnerable plugin: `ziran audit`, allowlist baseline, hook traces and MCP registry import, offline |
+| 28 | [Langfuse Live Analysis](28-langfuse-live-analysis/) | `analyze-traces` pulls tool calls live from Langfuse (needs Langfuse API keys, no LLM) |
 
 ## LLM scans (API key required)
 
@@ -57,6 +58,8 @@ These examples call an LLM provider. Set `OPENAI_API_KEY` in `../.env` first.
 | 16 | [LLM-as-a-Judge](16-llm-judge/) | Enhanced detection with AI-powered judge (multi-provider) | `--extra langchain` + `litellm` |
 | 17 | [Bedrock Agent Scan](17-bedrock-agent-scan/) | Scan an Amazon Bedrock Agent via the AWS SDK | `--extra bedrock` |
 | 18 | [AgentCore Scan](18-agentcore-scan/) | Scan an AgentCore-deployed agent in-process (mock included) | `--extra agentcore` |
+| 26 | [OpenAI Agents Scan](26-openai-agents-scan/) | OpenAI Agents SDK support agent with a billing handoff | `--extra openai-agents` |
+| 27 | [AutoGen Agent](27-autogen-agent/) | AutoGen AgentChat code-writer team: a coder with tools and a reviewer | `--extra autogen` + `autogen-ext[openai]` |
 
 ---
 

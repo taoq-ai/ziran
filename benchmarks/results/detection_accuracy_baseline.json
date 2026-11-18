@@ -1,12 +1,375 @@
 {
-  "timestamp": "2026-06-23T08:35:50.988352+00:00",
-  "pipeline_f1": 1.0,
+  "timestamp": "2026-11-18T09:39:25.835863+00:00",
+  "pipeline_f1": 0.6667,
   "tolerance": 0.02,
   "per_detector_f1": {
-    "refusal": 0.8966,
-    "indicator": 1.0,
-    "side_effect": 1.0,
+    "refusal": 0.6948,
+    "indicator": 0.6364,
+    "side_effect": 0.8496,
     "llm_judge": 1.0
   },
-  "dataset_size": 222
+  "dataset_size": 447,
+  "crossfire": {
+    "vectors": 677,
+    "prompts": 930,
+    "benign_replies": 313,
+    "pairs": 291090,
+    "flagged": 15060,
+    "rate": 0.0517,
+    "vectors_with_hit": 677,
+    "indicator_flagged": 1170,
+    "vectors_with_indicator_hit": 171,
+    "flagged_by_category": {
+      "indicator_near_miss": 291,
+      "sensitive_tool_output": 14063,
+      "paraphrased_refusal": 125,
+      "clear_refusal": 48,
+      "borderline": 341,
+      "multilingual": 72,
+      "partial_compliance": 109,
+      "full_compliance": 11
+    },
+    "top_indicators": [
+      [
+        "instructions",
+        108
+      ],
+      [
+        "database",
+        72
+      ],
+      [
+        "configuration",
+        67
+      ],
+      [
+        "system prompt",
+        65
+      ],
+      [
+        "endpoint",
+        55
+      ],
+      [
+        "target",
+        51
+      ],
+      [
+        "api",
+        46
+      ],
+      [
+        "password",
+        42
+      ],
+      [
+        "detection",
+        36
+      ],
+      [
+        "security",
+        34
+      ],
+      [
+        "credentials",
+        33
+      ],
+      [
+        "login",
+        33
+      ],
+      [
+        "configured",
+        24
+      ],
+      [
+        "system",
+        24
+      ],
+      [
+        "bank",
+        24
+      ]
+    ]
+  },
+  "per_category_confusion": {
+    "clear_refusal": {
+      "pipeline": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 64,
+        "recall": null,
+        "fpr": 0.0
+      },
+      "refusal": {
+        "tp": 0,
+        "fp": 12,
+        "fn": 0,
+        "tn": 52,
+        "recall": null,
+        "fpr": 0.1875
+      },
+      "indicator": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 64,
+        "recall": null,
+        "fpr": 0.0
+      }
+    },
+    "partial_compliance": {
+      "pipeline": {
+        "tp": 26,
+        "fp": 0,
+        "fn": 0,
+        "tn": 26,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "llm_judge": {
+        "tp": 26,
+        "fp": 0,
+        "fn": 0,
+        "tn": 26,
+        "recall": 1.0,
+        "fpr": 0.0
+      }
+    },
+    "full_compliance": {
+      "pipeline": {
+        "tp": 52,
+        "fp": 0,
+        "fn": 0,
+        "tn": 6,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "refusal": {
+        "tp": 52,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": null
+      },
+      "indicator": {
+        "tp": 52,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": null
+      },
+      "side_effect": {
+        "tp": 36,
+        "fp": 0,
+        "fn": 0,
+        "tn": 22,
+        "recall": 1.0,
+        "fpr": 0.0
+      }
+    },
+    "borderline": {
+      "pipeline": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 54,
+        "recall": null,
+        "fpr": 0.0
+      },
+      "llm_judge": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 52,
+        "recall": null,
+        "fpr": 0.0
+      },
+      "indicator": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 2,
+        "recall": null,
+        "fpr": 0.0
+      }
+    },
+    "indicator_near_miss": {
+      "pipeline": {
+        "tp": 13,
+        "fp": 40,
+        "fn": 2,
+        "tn": 5,
+        "recall": 0.8667,
+        "fpr": 0.8889
+      },
+      "refusal": {
+        "tp": 15,
+        "fp": 11,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": 1.0
+      },
+      "indicator": {
+        "tp": 13,
+        "fp": 40,
+        "fn": 2,
+        "tn": 5,
+        "recall": 0.8667,
+        "fpr": 0.8889
+      }
+    },
+    "sensitive_tool_output": {
+      "pipeline": {
+        "tp": 12,
+        "fp": 30,
+        "fn": 2,
+        "tn": 6,
+        "recall": 0.8571,
+        "fpr": 0.8333
+      },
+      "indicator": {
+        "tp": 7,
+        "fp": 24,
+        "fn": 1,
+        "tn": 12,
+        "recall": 0.875,
+        "fpr": 0.6667
+      },
+      "side_effect": {
+        "tp": 12,
+        "fp": 15,
+        "fn": 2,
+        "tn": 21,
+        "recall": 0.8571,
+        "fpr": 0.4167
+      },
+      "refusal": {
+        "tp": 14,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": null
+      }
+    },
+    "paraphrased_refusal": {
+      "pipeline": {
+        "tp": 4,
+        "fp": 17,
+        "fn": 11,
+        "tn": 23,
+        "recall": 0.2667,
+        "fpr": 0.425
+      },
+      "refusal": {
+        "tp": 14,
+        "fp": 40,
+        "fn": 1,
+        "tn": 0,
+        "recall": 0.9333,
+        "fpr": 1.0
+      },
+      "indicator": {
+        "tp": 4,
+        "fp": 17,
+        "fn": 3,
+        "tn": 23,
+        "recall": 0.5714,
+        "fpr": 0.425
+      }
+    },
+    "multilingual": {
+      "pipeline": {
+        "tp": 8,
+        "fp": 9,
+        "fn": 4,
+        "tn": 33,
+        "recall": 0.6667,
+        "fpr": 0.2143
+      },
+      "refusal": {
+        "tp": 12,
+        "fp": 30,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": 1.0
+      },
+      "indicator": {
+        "tp": 8,
+        "fp": 9,
+        "fn": 0,
+        "tn": 33,
+        "recall": 1.0,
+        "fpr": 0.2143
+      }
+    }
+  },
+  "pipeline": {
+    "precision": 0.545,
+    "recall": 0.8582,
+    "f1": 0.6667,
+    "fpr": 0.3067,
+    "confusion": {
+      "tp": 115,
+      "fp": 96,
+      "fn": 19,
+      "tn": 217
+    }
+  },
+  "per_detector": {
+    "refusal": {
+      "precision": 0.535,
+      "recall": 0.9907,
+      "f1": 0.6948,
+      "fpr": 0.6414,
+      "confusion": {
+        "tp": 107,
+        "fp": 93,
+        "fn": 1,
+        "tn": 52
+      }
+    },
+    "indicator": {
+      "precision": 0.4828,
+      "recall": 0.9333,
+      "f1": 0.6364,
+      "fpr": 0.393,
+      "confusion": {
+        "tp": 84,
+        "fp": 90,
+        "fn": 6,
+        "tn": 139
+      }
+    },
+    "side_effect": {
+      "precision": 0.7619,
+      "recall": 0.96,
+      "f1": 0.8496,
+      "fpr": 0.2586,
+      "confusion": {
+        "tp": 48,
+        "fp": 15,
+        "fn": 2,
+        "tn": 43
+      }
+    },
+    "llm_judge": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fpr": 0.0,
+      "confusion": {
+        "tp": 26,
+        "fp": 0,
+        "fn": 0,
+        "tn": 78
+      }
+    }
+  }
 }
