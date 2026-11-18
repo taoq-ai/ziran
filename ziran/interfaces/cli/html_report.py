@@ -52,9 +52,9 @@ def graph_state_to_vis(graph_state: dict[str, Any]) -> dict[str, Any]:
     """Convert graph export_state() dict to vis-network nodes/edges.
 
     Styling, sizing, severity/danger emphasis, attack-edge weighting, and
-    phase levels are all derived from the shared :mod:`ziran.interfaces.
-    graph_style` spec, so this mapping stays in lockstep with the web UI's
-    ``graphMapping.ts``.
+    phase levels are all derived from :mod:`ziran.interfaces.graph_style`,
+    whose ``graph_style.json`` is the published styling spec for the knowledge
+    graph. Other renderers read the same file from the installed package.
 
     Args:
         graph_state: Dictionary from ``AttackKnowledgeGraph.export_state()``.

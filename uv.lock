@@ -5892,6 +5892,9 @@ pentest = [
     { name = "litellm" },
     { name = "numpy" },
 ]
+streaming = [
+    { name = "websockets" },
+]
 ui = [
     { name = "alembic" },
     { name = "asyncpg" },
@@ -5996,9 +5999,10 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'all'", specifier = ">=0.27,<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'ui'", specifier = ">=0.27,<1" },
     { name = "websockets", marker = "extra == 'all'", specifier = ">=12.0,<18" },
+    { name = "websockets", marker = "extra == 'streaming'", specifier = ">=12.0,<18" },
     { name = "websockets", marker = "extra == 'ui'", specifier = ">=12.0,<18" },
 ]
-provides-extras = ["a2a", "agentcore", "all", "anthropic", "autogen", "bedrock", "browser", "crewai", "langchain", "langfuse", "llm", "mcp", "openai-agents", "otel", "pentest", "promptfoo", "ui"]
+provides-extras = ["a2a", "agentcore", "all", "anthropic", "autogen", "bedrock", "browser", "crewai", "langchain", "langfuse", "llm", "mcp", "openai-agents", "otel", "pentest", "promptfoo", "streaming", "ui"]
 
 [package.metadata.requires-dev]
 dev = [

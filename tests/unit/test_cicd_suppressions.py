@@ -34,7 +34,6 @@ from ziran.domain.entities.ci import (
 from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
 from ziran.infrastructure.trace_ingestors.otel_ingestor import OTelIngestor
 from ziran.interfaces.cli.main import cli
-from ziran.interfaces.web.services import findings_extractor
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -158,7 +157,8 @@ class TestFingerprints:
             attack_fingerprint("test_agent", "v1", "prompt_injection")
             == "a8fe72c13edad12d1df1d032a83ebe7a5b0320e125cfc28de5321a0421117f6e"
         )
-        assert findings_extractor._compute_fingerprint is attack_fingerprint
+        (finding,) = QualityGate._findings(_campaign(attacks=[_attack()]))
+        assert finding.fingerprint == attack_fingerprint("test_agent", "v1", "prompt_injection")
 
     def test_chain_fingerprint_identity(self) -> None:
         base = chain_fingerprint("test_agent", "data_exfiltration")
