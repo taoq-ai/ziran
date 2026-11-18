@@ -21,17 +21,6 @@ updates:
       python-dependencies:
         patterns: ["*"]
 
-  - package-ecosystem: "npm"
-    directory: "/ui"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore"
-    groups:
-      frontend-dependencies:
-        patterns: ["*"]
-
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

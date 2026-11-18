@@ -118,9 +118,6 @@ packages = ["ziran"]
 [tool.hatch.build.hooks.vcs]
 version-file = "ziran/_version.py"
 
-[tool.hatch.build.hooks.custom]
-path = "hatch_build.py"
-
 [dependency-groups]
 dev = [
     { include-group = "lint" },
