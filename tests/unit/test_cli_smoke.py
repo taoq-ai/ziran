@@ -62,3 +62,21 @@ class TestCLIScanOptions:
     def test_phase_timeout_in_help(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["scan", "--help"])
         assert "--phase-timeout" in result.output
+
+
+@pytest.mark.unit
+class TestUIMovedStub:
+    """Spec 083: ``ziran ui`` is a hidden stub for one minor release."""
+
+    @pytest.mark.parametrize("args", [[], ["--host", "0.0.0.0", "--port", "8484", "--dev"]])
+    def test_ui_prints_moved_notice_and_exits_2(self, runner: CliRunner, args: list[str]) -> None:
+        result = runner.invoke(cli, ["ui", *args])
+        assert result.exit_code == 2
+        text = " ".join(result.output.split())
+        for needle in ("ZIRAN Cloud", "ZIRAN Enterprise", "info@taoq.ai", "v0.42.0", "Apache-2.0"):
+            assert needle in text
+
+    def test_ui_hidden_from_help(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert not any(line.split()[:1] == ["ui"] for line in result.output.splitlines())
