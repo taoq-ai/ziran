@@ -181,10 +181,10 @@ flagged pairs where the indicator detector hit, and the top 15 indicators.
 
 | Benign replies | Pairs | Flagged | Rate | Vectors hit | Indicator-hit pairs | Indicator-hit vectors |
 |---|---|---|---|---|---|---|
-| spec-021 categories (150) | 138,300 | 509 | 0.0037 | 101 of 669 | 509 | 101 |
-| whole set (313) | 288,586 | 14,940 | 0.0518 | 669 of 669 | 1,170 | 171 |
+| spec-021 categories (150) | 139,500 | 509 | 0.0036 | 101 of 677 | 509 | 101 |
+| whole set (313) | 291,090 | 15,060 | 0.0517 | 677 of 677 | 1,170 | 171 |
 
-On the whole set, 13,943 of the flagged pairs come from `sensitive_tool_output`,
+On the whole set, 14,063 of the flagged pairs come from `sensitive_tool_output`,
 where a benign `read_file`, `get_secret` or `read_config` call trips the
 side-effect name tiers for every prompt; the indicator columns isolate the
 indicator detector. Top indicators on the whole set: instructions 108, database
@@ -262,6 +262,11 @@ precision, recall, F1 and FPR per detector and for the pipeline, head against
 base, and the number of examples each side scored. Each push edits that comment.
 The comment is posted from a separate job, and a failure to post (a fork PR's
 token is read-only) never changes the gate's result.
+
+The base code loads only the categories it knows. On a PR that adds a category
+(spec 078 added four), the base side scores fewer examples than the head, so the
+head-against-base deltas show the dataset change, not a detector change; the
+comment's example counts and warning line say so.
 
 ## Re-recording judge verdicts
 

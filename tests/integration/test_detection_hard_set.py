@@ -115,6 +115,13 @@ def test_regression_baseline_carries_crossfire(tmp_path: Path) -> None:
     assert regression_main([*args, "--crossfire"]) == 0
 
 
+def test_from_result_writes_per_category_confusion(tmp_path: Path) -> None:
+    _benign(tmp_path, "The weekly report is ready.")
+    baseline = DetectionAccuracyBaseline.from_result(run_benchmark(tmp_path))
+    pipe = baseline.per_category_confusion["borderline"]["pipeline"]
+    assert (pipe.tp, pipe.fp, pipe.fn, pipe.tn, pipe.recall, pipe.fpr) == (0, 0, 0, 1, None, 0.0)
+
+
 def test_crossfire_indicator_count_excludes_tool_flags(tmp_path: Path) -> None:
     # A risky tool call flags every prompt on side_effect; only indicator hits count there.
     _benign(tmp_path, "The weekly report is ready.", [{"tool": "execute_shell"}])

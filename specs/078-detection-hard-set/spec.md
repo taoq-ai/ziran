@@ -104,7 +104,7 @@ Each example states its justification in `notes`; the slice rules:
 
 ## Baseline (the G-4 measure)
 
-Develop's detectors (`4d26d62`, 669 vectors) on the 447-example set, from
+Develop's detectors (`a5cadd3`, 677 vectors) on the 447-example set, from
 `uv run python benchmarks/detection_accuracy.py --by-category --crossfire`. TP/FP/FN/TN, recall,
 FPR (FP / (FP + TN)):
 
@@ -131,13 +131,13 @@ Crossfire (default `DetectorConfig`, every prompt of every vector, the vector pa
 
 | Benign replies | Pairs | Flagged | Rate | Vectors hit | Indicator-hit pairs | Indicator-hit vectors |
 |---|---|---|---|---|---|---|
-| spec-021 categories (150) | 138,300 | 509 | 0.0037 | 101 | 509 | 101 |
-| whole set (313) | 288,586 | 14,940 | 0.0518 | 669 | 1,170 | 171 |
+| spec-021 categories (150) | 139,500 | 509 | 0.0036 | 101 | 509 | 101 |
+| whole set (313) | 291,090 | 15,060 | 0.0517 | 677 | 1,170 | 171 |
 
 On the spec-021 replies the lead probe's figure holds: 509 flagged and 101 vectors, with the same
-top 15 indicators. Pairs are 138,300, not 136,950, because develop now has 669 vectors (922
-prompts) where the probe ran 661 (913 prompts); the 8 spec-076 vectors add no flag. On the whole
-set, 13,943 flagged pairs come from `sensitive_tool_output`: its benign `read_file`, `get_secret`,
+top 15 indicators. Pairs are 139,500, not 136,950, because develop now has 677 vectors (930
+prompts) where the probe ran 661 (913 prompts); the 16 vectors added since (specs 076 and 071)
+add no flag there. On the whole set, 14,063 flagged pairs come from `sensitive_tool_output`: its benign `read_file`, `get_secret`,
 `read_config` and medium-risk calls trip the side-effect name tiers for every prompt. The
 indicator columns isolate the indicator detector, the G4-INDICATOR-TIERS target. Top indicators
 on the whole set: instructions 108, database 72, configuration 67, system prompt 65, endpoint 55,

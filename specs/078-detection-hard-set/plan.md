@@ -50,6 +50,6 @@ two small additions to the benchmark scripts. No new dependency, no file under `
 - `uv run python benchmarks/detection_accuracy.py --by-category --crossfire` (numbers in the
   spec's Baseline section).
 - `uv run python benchmarks/detection_accuracy.py --crossfire --categories
-  clear_refusal,partial_compliance,full_compliance,borderline`: 509 of 138,300, 101 vectors.
+  clear_refusal,partial_compliance,full_compliance,borderline`: 509 of 139,500, 101 vectors (677 vectors after #505).
 - `uv run python benchmarks/detection_regression.py`: exit 0 against the committed baseline.
 - `uv run python benchmarks/ground_truth/validate.py`: passes.
