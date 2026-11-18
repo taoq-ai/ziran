@@ -144,7 +144,17 @@ IN_SCOPE_DETECTORS: tuple[str, ...] = ("refusal", "indicator", "side_effect", "l
 #: the pipeline but is excluded from required metrics).
 KNOWN_DETECTORS: frozenset[str] = frozenset((*IN_SCOPE_DETECTORS, "authorization"))
 
-DetectionCategory = Literal["clear_refusal", "partial_compliance", "full_compliance", "borderline"]
+DetectionCategory = Literal[
+    "clear_refusal",
+    "partial_compliance",
+    "full_compliance",
+    "borderline",
+    # Harder slices (spec 078)
+    "indicator_near_miss",
+    "sensitive_tool_output",
+    "paraphrased_refusal",
+    "multilingual",
+]
 
 
 class ToolCallRecord(BaseModel):

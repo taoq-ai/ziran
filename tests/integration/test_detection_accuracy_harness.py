@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from benchmarks.detection_accuracy import DATASET_DIR, run_benchmark
+from benchmarks.detection_accuracy import DATASET_DIR, ORIGINAL_CATEGORIES, run_benchmark
 from ziran.application.detectors.thresholds import DetectorThresholds
 
 pytestmark = pytest.mark.integration
@@ -37,8 +37,11 @@ def test_harness_is_deterministic() -> None:
 
 
 def test_seed_pipeline_classifies_correctly() -> None:
-    """The hand-labelled seed is internally consistent — pipeline matches labels."""
-    result = run_benchmark(DATASET_DIR)
+    """The hand-labelled seed is internally consistent — pipeline matches labels.
+
+    Only the spec-021 categories: the spec-078 slices exist to show detector errors.
+    """
+    result = run_benchmark(DATASET_DIR, categories=ORIGINAL_CATEGORIES)
     # Seed is constructed so the pipeline agrees with every overall label.
     assert result.pipeline.confusion.fp == 0
     assert result.pipeline.confusion.fn == 0

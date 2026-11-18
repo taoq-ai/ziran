@@ -9,6 +9,7 @@ Usage:
     uv run python benchmarks/detection_regression.py
     uv run python benchmarks/detection_regression.py --update-baseline
     uv run python benchmarks/detection_regression.py --format markdown
+    uv run python benchmarks/detection_regression.py --crossfire   # spec 078, non-blocking
     uv run python benchmarks/detection_regression.py --comment c.md --base-result base.json
 
 Exit codes:
@@ -28,6 +29,7 @@ from pydantic import BaseModel
 from benchmarks.detection_accuracy import (
     DATASET_DIR,
     ConfusionMatrix,
+    CrossfireResult,
     DetectorAccuracyResult,
     DetectorMetrics,
     run_benchmark,
@@ -62,6 +64,29 @@ def result_snapshots(result: DetectorAccuracyResult) -> dict[str, MetricSnapshot
     return out
 
 
+class SliceSnapshot(BaseModel):
+    """One category's confusion for one row (spec 078); reported, never gated."""
+
+    tp: int
+    fp: int
+    fn: int
+    tn: int
+    recall: float | None
+    fpr: float | None
+
+    @classmethod
+    def of(cls, cm: ConfusionMatrix) -> SliceSnapshot:
+        pos, neg = cm.tp + cm.fn, cm.fp + cm.tn
+        return cls(
+            tp=cm.tp,
+            fp=cm.fp,
+            fn=cm.fn,
+            tn=cm.tn,
+            recall=round(cm.tp / pos, 4) if pos else None,
+            fpr=round(cm.fp / neg, 4) if neg else None,
+        )
+
+
 class DetectionAccuracyBaseline(BaseModel):
     """Recorded reference the regression gate compares against."""
 
@@ -70,6 +95,10 @@ class DetectionAccuracyBaseline(BaseModel):
     tolerance: float = DEFAULT_TOLERANCE
     per_detector_f1: dict[str, float]
     dataset_size: int
+    # Spec 078: recorded with --update-baseline --crossfire; reported, never gated.
+    crossfire: CrossfireResult | None = None
+    #: category -> {"pipeline" or detector name -> snapshot} (spec 078); reported, never gated.
+    per_category_confusion: dict[str, dict[str, SliceSnapshot]] = {}
     # Spec 077: absent in older baselines, which then gate on F1 alone.
     pipeline: MetricSnapshot | None = None
     per_detector: dict[str, MetricSnapshot] = {}
@@ -84,6 +113,11 @@ class DetectionAccuracyBaseline(BaseModel):
             tolerance=tolerance,
             per_detector_f1={name: m.f1 for name, m in result.detectors.items()},
             dataset_size=result.dataset_size,
+            crossfire=result.crossfire,
+            per_category_confusion={
+                cat: {name: SliceSnapshot.of(cm) for name, cm in rows.items()}
+                for cat, rows in result.per_category_confusion.items()
+            },
             pipeline=MetricSnapshot.of(result.pipeline),
             per_detector={name: MetricSnapshot.of(m) for name, m in result.detectors.items()},
         )
@@ -195,6 +229,13 @@ def _render(
         base = baseline.per_detector_f1.get(name)
         d = f"{round(m.f1 - base, 4):+}" if base is not None else "n/a"
         lines.append(f"  {name} F1: {m.f1} (baseline {base}, delta {d}) [non-blocking]")
+    if result.crossfire is not None:
+        cf, base_cf = result.crossfire, baseline.crossfire
+        was = f"{base_cf.flagged} of {base_cf.pairs}" if base_cf else "n/a"
+        lines.append(
+            f"  crossfire: {cf.flagged} of {cf.pairs} pairs flagged (rate {cf.rate}; "
+            f"baseline {was}) [non-blocking]"
+        )
     if fmt == "markdown":
         return "```\n" + "\n".join(lines) + "\n```"
     return "\n".join(lines)
@@ -206,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=Path, default=DATASET_DIR)
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--format", choices=("table", "markdown"), default="table")
+    parser.add_argument("--crossfire", action="store_true", help="Also measure crossfire")
     parser.add_argument("--comment", type=Path, help="Write a head vs base PR comment to PATH")
     parser.add_argument(
         "--base-result",
@@ -214,10 +256,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    result = run_benchmark(args.dataset)
+    result = run_benchmark(args.dataset, crossfire=args.crossfire)
 
     if args.update_baseline:
         baseline = DetectionAccuracyBaseline.from_result(result)
+        if not args.crossfire and args.baseline.exists():
+            # Keep the recorded crossfire: this run did not measure it.
+            old = DetectionAccuracyBaseline.model_validate_json(
+                args.baseline.read_text(encoding="utf-8")
+            )
+            baseline.crossfire = old.crossfire
         args.baseline.parent.mkdir(parents=True, exist_ok=True)
         args.baseline.write_text(baseline.model_dump_json(indent=2), encoding="utf-8")
         print(f"Updated baseline at {args.baseline} (pipeline F1 {baseline.pipeline_f1})")

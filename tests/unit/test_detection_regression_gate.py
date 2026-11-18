@@ -132,7 +132,9 @@ def test_comment_marks_unchanged_and_missing_base() -> None:
 def test_unreadable_base_result_falls_back_to_baseline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(detection_regression, "run_benchmark", lambda _d: _result(BASE_PIPELINE))
+    monkeypatch.setattr(
+        detection_regression, "run_benchmark", lambda _d, **_kw: _result(BASE_PIPELINE)
+    )
     baseline = tmp_path / "baseline.json"
     baseline.write_text(_baseline().model_dump_json(), encoding="utf-8")
     bad = tmp_path / "base.json"
@@ -148,7 +150,9 @@ def test_unreadable_base_result_falls_back_to_baseline(
 def test_base_result_feeds_comment_and_gate_still_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(detection_regression, "run_benchmark", lambda _d: _result((77, 0, 1, 150)))
+    monkeypatch.setattr(
+        detection_regression, "run_benchmark", lambda _d, **_kw: _result((77, 0, 1, 150))
+    )
     baseline = tmp_path / "baseline.json"
     baseline.write_text(_baseline().model_dump_json(), encoding="utf-8")
     base = tmp_path / "base.json"
