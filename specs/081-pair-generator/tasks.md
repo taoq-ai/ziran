@@ -21,16 +21,16 @@ since none of them is done here.
 ## Build slice 1 (follow-up item; not started)
 
 Test-first: each implementation task follows a test task run red first. No network, no key. Two
-PRs: PR 1 is B001 to B004 (about 380 lines), PR 2 is B005 to B008 (about 160 lines).
+PRs: PR 1 is B001 to B004 (about 375 lines), PR 2 is B005 to B008 (about 200 lines). PR 1 adds
+no `tactic` value, so a release cut between the two runs no PAIR vector.
 
 PR 1, phase 1, model and stage:
 
 1. B001 Failing tests: `PairConfig` defaults and bounds (`max_iterations` 0 and 101 rejected,
-   `timeout_seconds` 0 rejected, an unknown `seed` key rejected); a vector YAML with
-   `tactic: pair` and a `pair:` block loads; the `attacker` stage is accepted by
-   `UsageLedger.record` and sorts after `strategy`.
-2. B002 Add `PairConfig`, `AttackVector.pair`, the `tactic` description, `TacticType.PAIR` and the
-   `attacker` stage.
+   `timeout_seconds` 0 rejected, an unknown `seed` key rejected); a vector YAML with a `pair:`
+   block loads; the `attacker` stage is accepted by `UsageLedger.record` and sorts after
+   `strategy`.
+2. B002 Add `PairConfig`, `AttackVector.pair` and the `attacker` stage.
 
 PR 1, phase 2, the executor (`tests/unit/test_pair_executor.py`, copying the spike's toy target
 and scripted attacker):
@@ -49,14 +49,27 @@ and scripted attacker):
 
 PR 2, phase 3, wiring (`tests/unit/test_phase_executor_pair.py`):
 
-5. B005 Failing tests: `AttackExecutor` sends `tactic: pair` to `PairExecutor` and other tactics
-   as before; `AgentScanner` passes `attacker_llm_client` unchanged and its budget; with
-   `phase_timeout=2` and a PAIR vector of `timeout_seconds=60` whose target sleeps each call, the
-   vector returns `pair.stop == "timeout"` with a best attempt before the phase times out, and a
-   static vector in the same phase completes; a PAIR vector with less than `GRACE` left gets an
-   error result and no target call; with `scan_cache` on, a failed PAIR result writes no entry.
-6. B006 Wire `attack_executor.py`, `scanner.py`, `phase_executor.py` (plan section 3) and
-   `scan_cache.is_cacheable` (plan section 5).
+5. B005 Failing tests, with `phase_executor.PAIR_GRACE_SECONDS` patched to 0.05 so the timers
+   stay under a second:
+   - `AttackExecutor` sends `tactic: pair` to `PairExecutor` and other tactics as before;
+     `AgentScanner` passes `attacker_llm_client` unchanged and its budget.
+   - Deadline: `phase_timeout=0.5`, one PAIR vector with `timeout_seconds=60` whose target sleeps
+     0.05 s per call returns `pair.stop == "timeout"` with a best attempt, and is recorded.
+   - Queued static vectors: `max_concurrent=2`, two PAIR vectors listed first and six static
+     vectors after them, each static target call sleeping 0.05 s, `phase_timeout=0.5`. All six
+     static results are recorded; each static vector acquires its slot before either PAIR vector
+     (recorded acquire order); both PAIR vectors are recorded.
+   - Extension: with k PAIR vectors the phase runs under the extended timer and logs
+     `phase_timeout_extended`; with none, the timer is `phase_timeout`.
+   - The deadline is taken after the slot is acquired: with `phase_timeout=2`, a PAIR vector of
+     `timeout_seconds=0.3` that waits 0.2 s for a slot stops with `timeout` about 0.3 s after it
+     acquires the slot, not 0.3 s after it was queued.
+   - A PAIR vector that gets its slot with less than the grace left is recorded as an error with
+     no target call.
+   - With `scan_cache` on, a failed PAIR result writes no entry.
+6. B006 Wire `TacticType.PAIR`, the `tactic` description, `attack_executor.py`, `scanner.py` (with
+   the `track()` double-count warning in the `attacker_llm_client` docstring), `phase_executor.py`
+   (plan section 3) and `scan_cache.is_cacheable` (plan section 5).
 
 PR 2, phase 4, docs and gates:
 

@@ -204,7 +204,9 @@ fall back to the binary score when no judge is configured.
   when an outer one is earlier (the arch gate confirmed this with a scaled probe). This is
   code-derived, since live latency is **unmeasured**. The build gives each PAIR vector a deadline
   that ends a grace period before the phase deadline, and the executor returns its best attempt
-  there (plan.md section 3).
+  there. A PAIR vector also holds a slot for minutes, so static vectors queued behind it would
+  start late and be dropped by the phase timer; the build queues PAIR vectors after every static
+  vector and extends the phase timer for them (plan.md section 3).
 - **Scan cache.** The spec-049 cache context keys on the judge, prefilter and detector models,
   not on an attacker, and `is_cacheable` stores a failed result that has a response. A cached
   PAIR failure would hide a finding after a switch to a stronger attacker. The build never caches
