@@ -53,7 +53,7 @@ agentcore = [
     "boto3>=1.28,<2",
 ]
 anthropic = [
-    "anthropic>=0.39,<2",
+    "anthropic>=0.39,<3",
 ]
 openai-agents = [
     "openai-agents>=0.20,<1",
@@ -71,7 +71,7 @@ browser = [
     "playwright>=1.40,<2",
 ]
 langfuse = [
-    "langfuse>=2.0,<5",
+    "langfuse>=2.0,<6",
 ]
 promptfoo = []
 # Spec 071: the hostile MCP server (ziran mcp-hostile-server); same range as the override.
