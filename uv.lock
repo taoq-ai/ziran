@@ -401,6 +401,35 @@ wheels = [
 ]
 
 [[package]]
+name = "autogen-agentchat"
+version = "0.7.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "autogen-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e5/b6/df2f835ce3aaaa2716a3dfbbd4ab8855839184f08b35ce0baa23b26a1885/autogen_agentchat-0.7.5.tar.gz", hash = "sha256:8d9c718db52ef24a518806b3a0ef848f0e4c1902877675dc0abed73a8e6e7755", size = 147716, upload-time = "2025-09-30T06:16:14.413Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/82/23490a70837d77d691948863d393cef71a06d36903249f635b28f579292b/autogen_agentchat-0.7.5-py3-none-any.whl", hash = "sha256:d19ca8ec26cb15e071a56c4269140aea2bf3c718bdc7e06f6677af9a905815ba", size = 119302, upload-time = "2025-09-30T06:16:12.895Z" },
+]
+
+[[package]]
+name = "autogen-core"
+version = "0.7.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonref" },
+    { name = "opentelemetry-api" },
+    { name = "pillow" },
+    { name = "protobuf" },
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/11/fea52bf3541c5308bed1ee9b9b3596fa510b2c5db893d32b649d22f02b87/autogen_core-0.7.5.tar.gz", hash = "sha256:70c2871389f1d0a7f6db8ef78717a51b7ce877ff4a08a836b7758d604dece203", size = 101980, upload-time = "2025-09-30T06:16:25.957Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/83/8ad899fca9dd2d2b3e5e37be13dd9e6aee3e53a621041b0624d74b07e1ee/autogen_core-0.7.5-py3-none-any.whl", hash = "sha256:4f4a0d3b88a36da75b2ef0d40be2d5e3a207cae7f7d951511e498ad1d68f8ef4", size = 101874, upload-time = "2025-09-30T06:16:24.306Z" },
+]
+
+[[package]]
 name = "backoff"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -5771,6 +5800,7 @@ all = [
     { name = "alembic" },
     { name = "anthropic" },
     { name = "asyncpg" },
+    { name = "autogen-agentchat" },
     { name = "bedrock-agentcore" },
     { name = "boto3" },
     { name = "crewai" },
@@ -5797,6 +5827,9 @@ all = [
 ]
 anthropic = [
     { name = "anthropic" },
+]
+autogen = [
+    { name = "autogen-agentchat" },
 ]
 bedrock = [
     { name = "boto3" },
@@ -5876,6 +5909,8 @@ requires-dist = [
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.39,<3" },
     { name = "asyncpg", marker = "extra == 'all'", specifier = ">=0.29,<1" },
     { name = "asyncpg", marker = "extra == 'ui'", specifier = ">=0.29,<1" },
+    { name = "autogen-agentchat", marker = "extra == 'all'", specifier = ">=0.7,<0.8" },
+    { name = "autogen-agentchat", marker = "extra == 'autogen'", specifier = ">=0.7,<0.8" },
     { name = "bedrock-agentcore", marker = "extra == 'agentcore'", specifier = ">=1.0,<2" },
     { name = "bedrock-agentcore", marker = "extra == 'all'", specifier = ">=1.0,<2" },
     { name = "boto3", marker = "extra == 'agentcore'", specifier = ">=1.28,<2" },
@@ -5934,7 +5969,7 @@ requires-dist = [
     { name = "websockets", marker = "extra == 'all'", specifier = ">=12.0,<18" },
     { name = "websockets", marker = "extra == 'ui'", specifier = ">=12.0,<18" },
 ]
-provides-extras = ["a2a", "agentcore", "all", "anthropic", "bedrock", "browser", "crewai", "langchain", "langfuse", "llm", "openai-agents", "otel", "pentest", "promptfoo", "ui"]
+provides-extras = ["a2a", "agentcore", "all", "anthropic", "autogen", "bedrock", "browser", "crewai", "langchain", "langfuse", "llm", "openai-agents", "otel", "pentest", "promptfoo", "ui"]
 
 [package.metadata.requires-dev]
 dev = [
