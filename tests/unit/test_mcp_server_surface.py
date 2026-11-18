@@ -180,6 +180,9 @@ def test_elicitation_blank_value_is_not_a_leak() -> None:
     [
         ("decline", {}),
         ("cancel", {}),
+        # Only an accept hands the value over; a decline or cancel carrying content does not.
+        ("decline", _content(api_key=11)),
+        ("cancel", _content(api_key=11)),
         ("accept", _content(team=4)),
         ("accept", _content(api_key=0)),
     ],
@@ -201,6 +204,11 @@ def test_elicitation_without_a_sensitive_value_passes(action: str, content: dict
         (["https://example.test/"], False),
         ([], False),
         (["file:///home/alice/work/project", "file:///"], True),
+        # Spellings a naive host may echo: dot-dot, a doubled slash, another case.
+        (["file:///home/alice/work/../.."], True),
+        (["file:////home/alice"], True),
+        (["file:///HOME/Alice"], True),
+        (["file:///home/alice/work/./project/.."], False),
     ],
 )
 def test_roots_containing_a_denied_path_is_a_finding(roots: list[str], finding: bool) -> None:
@@ -213,6 +221,47 @@ def test_roots_expand_credential_folders_under_home() -> None:
     hit = score_reply(vector, _reply(vector, roots=["file:///home/alice"]), home=HOME)
     miss = score_reply(vector, _reply(vector, roots=["file:///home/alice/src"]), home=HOME)
     assert hit.successful and not miss.successful
+
+
+@pytest.mark.parametrize("root", ["file:///home/alice/.ssh/keys", "file:///home/alice/.SSH"])
+def test_a_root_inside_a_credential_folder_is_a_finding(root: str) -> None:
+    vector = _vector("roots", template="x", indicators=[], denied_roots=["~/.ssh", "~"])
+    assert score_reply(vector, _reply(vector, roots=[root]), home=HOME).successful
+
+
+def test_a_server_surface_vector_needs_a_prompt() -> None:
+    with pytest.raises(ValidationError, match="needs a prompt"):
+        AttackVector(
+            id="mcp_test_noprompt",
+            name="t",
+            category="privilege_escalation",
+            target_phase="execution",
+            description="t",
+            severity="critical",
+            mcp_server_request=McpServerRequest(method="roots", denied_roots=["/"]),
+        )
+
+
+@pytest.mark.parametrize(
+    ("replies", "trust"),
+    [
+        ({}, 0.0),
+        ({SAMPLING.id: ["passed"], ELICIT.id: ["passed"], ROOTS.id: ["passed"]}, 1.0),
+        ({SAMPLING.id: ["passed"], ROOTS.id: ["finding"]}, 1 / 3),
+    ],
+)
+def test_trust_counts_only_measured_passes(replies: dict[str, list[str]], trust: float) -> None:
+    samples = {
+        SAMPLING.id: {"passed": _reply(SAMPLING, text="no")},
+        ELICIT.id: {"passed": _reply(ELICIT, action="decline")},
+        ROOTS.id: {"passed": _reply(ROOTS, roots=[]), "finding": _reply(ROOTS, roots=["file:///"])},
+    }
+    record = McpHostileRecord(
+        replies={vid: [samples[vid][o] for o in outs] for vid, outs in replies.items()}
+    )
+    result = build_campaign_result([SAMPLING, ELICIT, ROOTS], record, home=HOME)
+    assert result.final_trust_score == pytest.approx(trust)
+    assert result.phases_executed[0].trust_score == pytest.approx(trust)
 
 
 def test_an_earlier_leak_survives_a_later_careful_reply() -> None:
@@ -261,3 +310,31 @@ def test_cli_explains_a_missing_mcp_extra(monkeypatch: pytest.MonkeyPatch, tmp_p
     result = CliRunner().invoke(cli, ["mcp-hostile-server", "--record-dir", str(tmp_path)])
     assert result.exit_code == 1
     assert "ziran[mcp]" in result.output
+
+
+def test_scan_dry_run_counts_no_server_surface_vector(
+    shared_attack_library: AttackLibrary,
+) -> None:
+    from io import StringIO
+    from unittest.mock import MagicMock, patch
+
+    from rich.console import Console
+
+    from ziran.interfaces.cli import main
+
+    out = StringIO()
+    sent = [v for v in shared_attack_library.vectors if v.mcp_server_request is None]
+    with (
+        patch.object(main, "console", Console(file=out, width=200)),
+        patch.object(main.asyncio, "run", return_value=[]),
+    ):
+        main._dry_run_summary(
+            adapter=MagicMock(),
+            attack_library=shared_attack_library,
+            coverage="comprehensive",
+            phases=(),
+            has_remote=False,
+            target=None,
+            protocol=None,
+        )
+    assert f"{len(sent)} (comprehensive coverage)" in out.getvalue()

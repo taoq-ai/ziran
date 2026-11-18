@@ -16,3 +16,8 @@
 - [x] T012 Run ruff, ruff format --check, mypy, pytest --cov and the benchmark checks.
 - [x] T013 Keep every reply per vector so an earlier leak survives a later careful reply;
   count a whitespace-only elicited value as blank. Mutants of both run red.
+- [x] T014 Fix round 1 (gates at bdd2079): an unmeasured result reads INCOMPLETE in terminal,
+  markdown and HTML and stays out of the OWASP and ATLAS tables; trust counts measured passes;
+  `ziran ci` fails a run with nothing measured; late replies logged without content; malformed
+  replies stored as their error type; roots normalised, case-folded, credential descendants;
+  tests for the dry-run count, decline with content, include_context, never-called exit.

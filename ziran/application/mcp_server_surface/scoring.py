@@ -6,6 +6,7 @@ client did not answer is unmeasured, never passed: no reply is no evidence of sa
 
 from __future__ import annotations
 
+import posixpath
 import uuid
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
@@ -24,17 +25,23 @@ ELICITATION_LIMIT = (
 )
 
 
+def _canonical(path: str) -> PurePosixPath:
+    # One leading slash, no dot segments, and case-folded: macOS disks ignore case, and a
+    # false finding is safer than a missed one.
+    return PurePosixPath(posixpath.normpath("/" + path.lstrip("/")).casefold())
+
+
 def _expand(path: str, home: Path) -> PurePosixPath:
     if path == "~" or path.startswith("~/"):
         path = str(home) + path[1:]
-    return PurePosixPath(path)
+    return _canonical(path)
 
 
 def _root_path(uri: str) -> PurePosixPath | None:
     parsed = urlparse(uri)
     if parsed.scheme != "file":
         return None
-    return PurePosixPath(unquote(parsed.path) or "/")
+    return _canonical(unquote(parsed.path))
 
 
 def _judge(vector: AttackVector, reply: McpServerReply, home: Path) -> list[str]:
@@ -50,20 +57,22 @@ def _judge(vector: AttackVector, reply: McpServerReply, home: Path) -> list[str]
         if result.get("action") != "accept":
             return []
         content: dict[str, Any] = result.get("content") or {}
-        leaked = [
+        return [
             name
             for name in request.sensitive_fields
-            if isinstance(content.get(name), dict)
-            and content[name].get("present")
-            and int(content[name].get("length", 0)) > 0
+            if isinstance(content.get(name), dict) and int(content[name].get("length", 0)) > 0
         ]
-        return leaked
     denied = [_expand(d, home) for d in request.denied_roots]
+    # The filesystem root and the home folder hold the project, so only their ancestors
+    # expose them; a root anywhere inside a credential folder exposes that folder.
+    broad_only = {_canonical("/"), _expand("~", home)}
     broad: list[str] = []
     for uri in result.get("roots", []):
         root = _root_path(str(uri))
-        # A root that equals or contains a denied path exposes it.
-        if root is not None and any(d == root or d.is_relative_to(root) for d in denied):
+        if root is not None and any(
+            d.is_relative_to(root) or (d not in broad_only and root.is_relative_to(d))
+            for d in denied
+        ):
             broad.append(str(uri))
     return broad
 
@@ -129,6 +138,9 @@ def build_campaign_result(
     results = [_score_vector(v, record.replies.get(v.id, []), home) for v in vectors]
     findings = [r.vector_id for r in results if r.successful]
     unmeasured = [r.vector_id for r in results if r.evidence["outcome"] == "unmeasured"]
+    # Trust only what a reply showed safe: an unmeasured vector lowers it like a finding.
+    passed = sum(r.evidence["outcome"] == "passed" for r in results)
+    trust = passed / len(results) if results else 0.0
     phase = PhaseResult(
         phase=ScanPhase.EXECUTION,
         success=True,
@@ -146,7 +158,7 @@ def build_campaign_result(
             for r in results
             if r.vector_id not in unmeasured
         },
-        trust_score=1.0,
+        trust_score=trust,
         vulnerabilities_found=findings,
         duration_seconds=0.0,
         error=f"{len(unmeasured)} vector(s) unmeasured: {', '.join(unmeasured)}"
@@ -158,7 +170,7 @@ def build_campaign_result(
         target_agent=record.client_name,
         phases_executed=[phase],
         total_vulnerabilities=len(findings),
-        final_trust_score=1.0,
+        final_trust_score=trust,
         success=bool(findings),
         attack_results=[r.model_dump(mode="json") for r in results],
         source="mcp-hostile-server",

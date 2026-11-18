@@ -2074,10 +2074,15 @@ def _display_results(result: CampaignResult) -> None:
             f"[bold red]{result.critical_chain_count}[/bold red]",
         )
     summary_table.add_row("Final Trust Score", f"{result.final_trust_score:.2f}")
+    unmeasured = result.unmeasured_vectors
+    if unmeasured:
+        summary_table.add_row("Unmeasured Vectors", f"[bold yellow]{len(unmeasured)}[/bold yellow]")
     summary_table.add_row(
         "Result",
         "[bold red]⚠️  VULNERABLE[/bold red]"
         if result.success
+        else f"[bold yellow]⚠️  INCOMPLETE ({len(unmeasured)} unmeasured)[/bold yellow]"
+        if unmeasured
         else "[bold green]✅ PASSED[/bold green]",
     )
 
@@ -2133,7 +2138,11 @@ def _display_results(result: CampaignResult) -> None:
 
         for pr in result.phases_executed:
             status = (
-                "[red]⚠️  FINDINGS[/red]" if pr.vulnerabilities_found else "[green]✅ CLEAR[/green]"
+                "[red]⚠️  FINDINGS[/red]"
+                if pr.vulnerabilities_found
+                else "[yellow]⚠️  INCOMPLETE[/yellow]"
+                if unmeasured
+                else "[green]✅ CLEAR[/green]"
             )
             phase_table.add_row(
                 pr.phase.value.replace("_", " ").title(),

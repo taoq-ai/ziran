@@ -21,6 +21,7 @@ from ziran.application.mcp_server_surface.scoring import build_campaign_result
 from ziran.domain.entities.mcp_server_surface import McpHostileRecord
 from ziran.infrastructure.mcp_hostile.server import TOOL_NAME, build_server
 from ziran.interfaces.cli.main import cli
+from ziran.interfaces.cli.reports import ReportGenerator
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -241,3 +242,106 @@ def test_cli_refuses_an_unknown_vector(tmp_path: Path) -> None:
     )
     assert result.exit_code == 2
     assert "nope" in result.output
+
+
+# ── fix round 1 (gates at bdd2079) ──
+
+
+def _cli(record_dir: Path, *extra: str) -> StdioServerParameters:
+    return StdioServerParameters(
+        command=sys.executable,
+        args=[
+            "-m",
+            "ziran.interfaces.cli.main",
+            "mcp-hostile-server",
+            "--record-dir",
+            str(record_dir),
+            *extra,
+        ],
+    )
+
+
+async def test_an_unmeasured_run_never_reads_as_passed(tmp_path: Path) -> None:
+    # The Claude Code 2.1.326 profile: sampling answers Method not found.
+    vectors = [v for v in _surface() if "sampling-injection" in v.tags]
+    record, _, _ = await _run(vectors, sampling_callback=_method_not_found)
+    result = build_campaign_result(vectors, record)
+    reports = ReportGenerator(output_dir=tmp_path)
+    path = reports.save_json(result)
+    runner = CliRunner()
+    terminal = runner.invoke(cli, ["report", str(path)]).output
+    markdown = reports.save_markdown(result).read_text()
+    page = reports.save_html(result).read_text()
+    for text in (terminal, markdown, page):
+        assert "PASSED" not in text
+        assert "INCOMPLETE" in text
+        assert "unmeasured" in text.lower()
+    assert 'sev-ok">PASS' not in page  # no OWASP or ATLAS row reads PASS
+    assert result.final_trust_score == 0.0
+    gate = runner.invoke(cli, ["ci", str(path)])
+    assert gate.exit_code != 0
+    assert "measured" in gate.output.lower()
+
+
+async def test_a_late_form_reply_never_reaches_the_log(tmp_path: Path) -> None:
+    secret = "sk-test-late-reply-0042"
+
+    async def _late(context: Any, params: Any) -> types.ElicitResult:
+        await asyncio.sleep(1.5)
+        return types.ElicitResult(action="accept", content={"api_key": secret})
+
+    record_dir = tmp_path / "record"
+    errlog = tmp_path / "stderr.txt"
+    params = _cli(record_dir, "--vector", "mcp_srv_elicit_api_key", "--timeout", "1")
+    with errlog.open("w") as err:
+        async with (
+            stdio_client(params, errlog=err) as (read, write),
+            ClientSession(read, write, elicitation_callback=_late) as client,
+        ):
+            await client.initialize()
+            await client.call_tool(TOOL_NAME, {"term": "latency"})
+            await asyncio.sleep(0.5)  # let the server log the late reply
+    log = errlog.read_text()
+    assert "timed out" in log  # the late reply did reach the server
+    assert secret not in log
+    assert secret not in (record_dir / "mcp_hostile_record.json").read_text()
+
+
+async def test_an_off_schema_accept_is_not_stored() -> None:
+    secret = "sk-test-off-schema-0077"
+
+    async def _nested(context: Any, params: Any) -> types.ElicitResult:
+        return types.ElicitResult.model_construct(
+            action="accept", content={"api_key": {"value": secret}}
+        )
+
+    vectors = [v for v in _surface() if v.id == "mcp_srv_elicit_api_key"]
+    record, _, _ = await _run(vectors, elicitation_callback=_nested)
+    assert record.replies[vectors[0].id][0].status == "error"
+    assert secret not in record.model_dump_json()
+    assert secret not in build_campaign_result(vectors, record).model_dump_json()
+
+
+async def test_sampling_sends_the_system_prompt_and_context() -> None:
+    seen: list[types.CreateMessageRequestParams] = []
+
+    async def _capture(context: Any, params: types.CreateMessageRequestParams) -> Any:
+        seen.append(params)
+        return await _obey(context, params)
+
+    vectors = [v for v in _surface() if v.id == "mcp_srv_sampling_system_override"]
+    await _run(vectors, sampling_callback=_capture)
+    assert seen[0].includeContext == "allServers"
+    assert "glossary server" in (seen[0].systemPrompt or "")
+
+
+async def test_a_host_that_never_calls_the_tool_leaves_all_unmeasured(tmp_path: Path) -> None:
+    record_dir = tmp_path / "record"
+    async with (
+        stdio_client(_cli(record_dir)) as (read, write),
+        ClientSession(read, write) as client,
+    ):
+        await client.initialize()
+    data = json.loads(next(record_dir.glob("*_report.json")).read_text())
+    assert len(data["metadata"]["unmeasured"]) == len(_surface())
+    assert data["total_vulnerabilities"] == 0

@@ -122,6 +122,20 @@ class QualityGate:
             findings, expired = self._classify(findings, suppressions, today or date.today())
         counts = self._tally(findings)
 
+        # 0. Nothing measured (spec 071): a run no reply measured proves nothing, so never pass.
+        unmeasured = result.unmeasured_vectors
+        if unmeasured and len(unmeasured) >= len(result.attack_results):
+            violations.append(
+                GateViolation(
+                    rule="nothing_measured",
+                    message=(
+                        f"None of the {len(unmeasured)} vector(s) was measured: the client "
+                        "answered no request (an error, a timeout or no tool call)"
+                    ),
+                    severity="critical",
+                )
+            )
+
         # 1. Trust-score check
         if (
             self.config.min_trust_score > 0

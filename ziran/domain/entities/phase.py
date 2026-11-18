@@ -247,6 +247,14 @@ class CampaignResult(BaseModel):
     source: str = Field(default="scan", description="Result source: 'scan' or 'trace-analysis'")
 
     @property
+    def unmeasured_vectors(self) -> list[str]:
+        """Vectors no reply measured (``ziran mcp-hostile-server``, spec 071); empty for scans.
+
+        A result with any is never a plain pass: the reports label it INCOMPLETE.
+        """
+        return [str(v) for v in self.metadata.get("unmeasured", [])]
+
+    @property
     def phases_with_findings(self) -> list[PhaseResult]:
         """Return only phases that discovered vulnerabilities."""
         return [p for p in self.phases_executed if p.vulnerabilities_found]

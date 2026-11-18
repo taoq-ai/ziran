@@ -11,6 +11,7 @@ Requires the ``mcp`` extra (``pip install ziran[mcp]``).
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 
 from mcp import types
@@ -85,11 +86,28 @@ async def send_request(session: Any, vector: AttackVector, timeout: float) -> Mc
         reply.status = "reply"
     except TimeoutError:
         reply.status, reply.error = "timeout", f"no reply within {timeout:g}s"
-    except McpError as exc:
+    except McpError as exc:  # the client's own error, such as Method not found
         reply.error = str(exc.error.message)
     except Exception as exc:  # a malformed reply is still no measurement
-        reply.error = f"{type(exc).__name__}: {exc}"
+        # The type only: a validation message quotes the reply, which may hold a typed secret.
+        reply.error = f"malformed reply ({type(exc).__name__})"
     return reply
+
+
+class _WithholdLateReplies(logging.Filter):
+    """The SDK logs a reply to a timed-out request in full; it may carry a typed secret."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if "unknown request ID" in record.getMessage():
+            record.msg, record.args = "a reply arrived after its request timed out (withheld)", ()
+        return True
+
+
+def _withhold_late_replies() -> None:
+    for name in ("mcp.server.lowlevel.server", "mcp.shared.session"):
+        logger = logging.getLogger(name)
+        if not any(isinstance(f, _WithholdLateReplies) for f in logger.filters):
+            logger.addFilter(_WithholdLateReplies())
 
 
 def build_server(
@@ -100,6 +118,7 @@ def build_server(
     timeout: float = 120.0,
 ) -> FastMCP:
     """Build the hostile server; ``record`` is updated and passed to ``on_update`` per call."""
+    _withhold_late_replies()
     server = FastMCP("glossary")
     roots_notes = [
         v.prompts[0].template.strip()
