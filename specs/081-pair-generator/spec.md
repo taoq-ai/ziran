@@ -33,22 +33,23 @@ Out of scope here: GCG, universal triggers, any merged runtime code, and the CLI
 
 ## Finding: go, for one bounded slice
 
-**Go** for a first slice of about 370 changed lines: PAIR as a `tactic: pair` vector run by a new
-executor, reached from the Python API, with offline tests. **No-go** for the full #275 design
-sketch (new domain port, `--advanced-attacks` flag, `advanced_generator` YAML field) until that
-slice ships and a live run measures efficacy.
+**Go** for a first slice of about 540 changed lines in two PRs (about 380, then about 160): PAIR
+as a `tactic: pair` vector run by a new executor, reached from the Python API, with offline
+tests. **No-go** for the full #275 design sketch (new domain port, `--advanced-attacks` flag,
+`advanced_generator` YAML field) until that slice ships and a live run measures efficacy.
 
 Evidence (all from [research.md](research.md), offline, 50 seeds):
 
 - **It fits without changing a seam.** The attacker was a plain `BaseLLMClient`, the scorer the
-  existing `DetectorPipeline`, the accounting the existing `UsageTrackingClient` and
-  `CampaignBudget`. The spike changed no ziran file.
+  existing `DetectorPipeline`, the accounting the existing `UsageLedger` and `CampaignBudget`.
+  The spike changed no ziran file.
 - **The loop works and the cap holds.** With the graded judge signal, 50 of 50 toy runs found the
   secret (median 13 iterations, max 37). A 1,500-token cap stopped a run after 3 iterations, 695
   tokens over the cap (one cooperative check per iteration).
-- **It is deterministic offline.** The same seed gave the same trajectory, a different seed a
-  different one, and a cassette replay equalled the direct run. Live runs are not reproducible:
-  the live client passes no seed.
+- **It is deterministic offline.** A deterministic attacker client gave the same trajectory on
+  every run, a differently seeded one a different trajectory, and a cassette replay equalled the
+  direct run. Determinism belongs to the attacker client: the live client passes no seed, so live
+  runs are not reproducible.
 - **The judge signal is known.** The deterministic pipeline score is binary, so it can stop the
   loop but not steer it (40 of 50 runs, median 15). The quality judge's StrongREJECT composite
   steers it (50 of 50, 40 percent fewer tokens). It is readable from `evaluate()` on failures,
@@ -74,11 +75,17 @@ This text goes into the vector docs and the executor's docstring in the first sl
 
 ## How this fails
 
-1. A live PAIR vector runs past the 60-second per-attack timeout and is cut off with no result.
-   The slice gives a PAIR vector its own timeout and returns its best attempt.
+1. A live PAIR vector outlives its phase. `PhaseExecutor` wraps the whole phase in
+   `phase_timeout` (300 s by default) and each vector in `attack_timeout` (60 s). Either one
+   cancels the vector, so its best attempt is lost, and a phase timeout also cuts every other
+   vector still running. The slice gives each PAIR vector a deadline that ends before the phase's,
+   and the executor returns its best attempt when the deadline passes (plan section 3).
 2. A campaign budget is checked only between vectors, so one PAIR vector spends its whole
    iteration cap past the cap. The loop checks the budget before each iteration.
-3. A deterministic attacker or a cassette keyed on the last turn sees a repeated request and
+3. A scan cache entry hides a finding. A failed PAIR result keyed without the attacker would be
+   replayed after the operator switches to a stronger attacker. The slice never caches a PAIR
+   result.
+4. A deterministic attacker or a cassette keyed on the last turn sees a repeated request and
    loops. The spike hit this (6 of 20 runs succeeded); the request carries the iteration and the
    history.
 
@@ -113,47 +120,64 @@ reaches the secret in a known number of iterations.
 
 1. **Given** a campaign token cap, **When** the ledger reaches it mid-vector, **Then** the loop
    stops before its next iteration with `pair.stop == "budget"`.
-2. **Given** a PAIR timeout, **When** it runs out mid-vector, **Then** the result carries the best
-   attempt so far with `pair.stop == "timeout"`.
+2. **Given** a PAIR vector whose `timeout_seconds` or whose phase's remaining time runs out
+   mid-vector, **When** the earlier of the two passes, **Then** the vector returns its best attempt
+   with `pair.stop == "timeout"` before the phase timeout fires, its result is recorded, and the
+   other vectors of the phase are not cancelled because of it.
 3. **Given** any run, **Then** attacker tokens are recorded under the `attacker` usage stage and
-   judge tokens under `judge`.
+   judge tokens under `judge`, and target tokens are recorded once, at vector end.
+4. **Given** `scan_cache` is on, **When** a PAIR vector fails, **Then** no cache entry is written
+   for it, and the next scan runs it again.
 
-### User Story 3 - A fixed seed replays (Priority: P2)
+### User Story 3 - A deterministic attacker replays (Priority: P2)
 
 **Acceptance Scenarios**:
 
-1. **Given** a scripted or replayed attacker and a fixed seed, **When** the vector runs twice,
-   **Then** the two `pair.trajectory` lists are equal.
+1. **Given** a deterministic attacker client (scripted, or replayed from a cassette), **When** the
+   vector runs twice, **Then** the two `pair.trajectory` lists are equal. ziran adds no seed of its
+   own: reproducibility is the attacker client's property.
 
 ### Edge Cases
 
 - The attacker reply is not JSON or has no `prompt`: count the iteration, record
   `attacker_parse_errors`, keep the last prompt.
-- The attacker returns a `PendingResponse` (hybrid mode): stop with `pair.stop == "pending"`.
-- The target raises or times out on one iteration: score it 0 and continue, as `AttackExecutor`
-  does for a failed prompt.
+- The attacker returns a pending reply (spec-064 hybrid mode): stop with `pair.stop == "pending"`.
+- A hybrid judge returns a pending reply: the judge result carries no quality score, so the loop
+  refines on the binary score.
+- The target raises, times out, or returns an error sentinel on one iteration: score it 0, count
+  it in `prompt_errors`, and continue, as `AttackExecutor` does for a failed prompt.
 
 ## Requirements *(mandatory)*
 
-- **FR-001**: `TacticType` gains `PAIR = "pair"`; `AttackExecutor` sends a `tactic: pair` vector to
-  the PAIR executor, as it sends other tactics to `TacticExecutor`.
-- **FR-002**: `AttackExecutor` takes an optional attacker `BaseLLMClient`; `AgentScanner` passes
-  `scanner_config["attacker_llm_client"]`, wrapped by `track(..., "attacker")`.
+- **FR-001**: `TacticType` gains `PAIR = "pair"`, and the `AttackVector.tactic` description lists
+  it. `AttackExecutor` sends a `tactic: pair` vector to the PAIR executor before its
+  `TacticExecutor` branch.
+- **FR-002**: `AttackExecutor` takes an optional attacker `BaseLLMClient` and the scan's
+  `CampaignBudget`; `AgentScanner` passes `scanner_config["attacker_llm_client"]` unchanged and its
+  own budget. The caller passes the attacker unwrapped; the PAIR executor records each attacker
+  call in `budget.ledger` under `attacker`. No application code calls infrastructure `track()`.
 - **FR-003**: Each iteration makes one attacker call, one `adapter.invoke` and one
   `DetectorPipeline.evaluate`. It stops on `verdict.successful`, and otherwise refines on
   `verdict.quality_score.composite_score` when present and on 0 or 1 when not.
 - **FR-004**: Bounds: `max_iterations` (1 to 100, default 20), the campaign budget checked before
-  each iteration, and a PAIR timeout. Each stop sets `pair.stop` to `success`, `max_iterations`,
+  each iteration, and a deadline: the earlier of `timeout_seconds` (default 240) and the phase
+  deadline less a grace period. Each stop sets `pair.stop` to `success`, `max_iterations`,
   `budget`, `timeout` or `pending`.
-- **FR-005**: The result's evidence holds `pair`: `iterations`, `stop`, `seed` and a
-  `trajectory` of `{i, score, prompt_sha256}` (hashes, so a report never stores every attempt).
+- **FR-005**: The result's evidence holds `pair`: `iterations`, `stop`, `attacker_model`,
+  `attacker_parse_errors` and a `trajectory` of `{i, score, prompt_sha256}` (hashes, so a report
+  never stores every attempt).
 - **FR-006**: The attacker request holds the goal, the iteration number and the scored history,
   so no two requests in one stream repeat.
 - **FR-007**: `usage.py` gains the `attacker` stage.
-- **FR-008**: `AttackVector` gains an optional `pair: PairConfig` block (`max_iterations`, `seed`,
+- **FR-008**: `AttackVector` gains an optional `pair: PairConfig` block (`max_iterations`,
   `timeout_seconds`), validated like `many_shot`; a `tactic: pair` vector without it uses the
-  defaults.
-- **FR-009**: No new runtime dependency.
+  defaults. No `seed` field.
+- **FR-009**: Each iteration keeps the `AttackExecutor` invariants: `drop_reserved` on the response
+  metadata, the error-sentinel check, `prompt_errors` for swallowed failures, and `token_usage`
+  summed over every target call.
+- **FR-010**: `is_cacheable` returns False for a result whose evidence holds `pair`, so the
+  spec-049 cache never stores a PAIR result.
+- **FR-011**: No new runtime dependency.
 
 ## Success Criteria *(mandatory)*
 
@@ -176,22 +200,44 @@ reaches the secret in a known number of iterations.
   target calls without a stream checkpoint (research.md, hybrid). The slice stops with `pending`
   if a hybrid attacker is given.
 - Q: Parallel streams? → A: One stream in the first slice; cost scales linearly with streams.
+- Q: How does a PAIR vector survive the phase timeout? → A: `PhaseExecutor` passes each PAIR
+  vector a deadline that ends a grace period before the phase deadline; the executor stops there
+  and returns its best attempt. The per-attack timeout for a PAIR vector is that deadline plus the
+  grace, as a backstop.
+- Q: Who records attacker tokens? → A: The PAIR executor, into the injected budget's ledger. Only
+  the interface layer wraps clients with `track()` today, and the slice has no interface change.
+- Q: Cache PAIR results with the attacker in the key, or not at all? → A: Not at all. A live
+  attacker is not reproducible, so a cached failure says nothing about the next run, and caching
+  successes only saves cost on a feature that is opt-in. Keying on the attacker can come later.
+- Q: A `seed` field in `PairConfig`? → A: No. Nothing in the loop draws randomness and the live
+  client passes no seed, so the field would do nothing and cost a major to remove.
 
 ## Smallest first build slice
 
+PR 1, the executor (reachable only from a test until PR 2):
+
 | File | Change | Lines (est.) |
 |---|---|---|
-| `ziran/domain/entities/attack.py` | `PairConfig` and the vector's `pair` field, like `ManyShotConfig` | 20 |
-| `ziran/application/attacks/pair.py` | new: `PairExecutor` | 125 |
+| `ziran/domain/entities/attack.py` | `PairConfig`, the `pair` field, the `tactic` description | 20 |
+| `ziran/application/attacks/pair.py` | new: `PairExecutor` with the deadline, ledger records and executor invariants | 165 |
 | `ziran/application/attacks/tactics.py` | `TacticType.PAIR` | 1 |
-| `ziran/application/agent_scanner/attack_executor.py` | attacker argument and dispatch | 15 |
-| `ziran/application/agent_scanner/scanner.py` | pass the tracked attacker client | 5 |
 | `ziran/application/usage.py` | `attacker` stage | 2 |
-| `ziran/application/agent_scanner/phase_executor.py` | a PAIR vector's own timeout | 3 |
-| `docs/concepts/attack-vectors.md` | cost warning and a `tactic: pair` example | 25 |
-| `tests/unit/test_pair_executor.py` | new: scripted attacker, toy target, each scenario | 170 |
+| `tests/unit/test_pair_executor.py` | new: scripted attacker, toy target, US1, US2.1 to US2.3, US3, edge cases | 190 |
 
-About 370 changed lines, one PR, under the 400-line batch. Plan: [plan.md](plan.md). Tasks:
+About 380 lines.
+
+PR 2, the wiring:
+
+| File | Change | Lines (est.) |
+|---|---|---|
+| `ziran/application/agent_scanner/attack_executor.py` | attacker and budget arguments, deadline, dispatch | 20 |
+| `ziran/application/agent_scanner/scanner.py` | pass the attacker client and the budget | 5 |
+| `ziran/application/agent_scanner/phase_executor.py` | phase deadline, PAIR vector deadline and backstop | 20 |
+| `ziran/application/agent_scanner/scan_cache.py` | `is_cacheable` skips PAIR results | 2 |
+| `docs/concepts/attack-vectors.md` | cost warning and a `tactic: pair` example | 25 |
+| `tests/unit/test_phase_executor_pair.py` | new: phase deadline (US2.2), cache skip (US2.4), dispatch | 90 |
+
+About 160 lines. Both PRs together: about 540. Plan: [plan.md](plan.md). Tasks:
 [tasks.md](tasks.md).
 
 ## Assumptions
@@ -203,5 +249,7 @@ About 370 changed lines, one PR, under the 400-line batch. Plan: [plan.md](plan.
   the ratios and the judge share stay close.
 - `PairConfig` lives on the vector (`pair:` block in YAML, like `many_shot:`). If owners want it
   scan-wide instead, it moves to `scanner_config` with no other change.
+- The grace period is 5 seconds, enough for the result to be recorded under the phase lock. A
+  slow cache write or checkpoint flush would need more; the plan makes it a constant.
 - The `tasks.md` build tasks are listed without checkboxes, since this PR stops before implement;
   only the spike's own tasks are checked.

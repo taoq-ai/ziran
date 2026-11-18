@@ -14,6 +14,15 @@ The script is [spike/pair_spike.py](spike/pair_spike.py) and its output is
 [spike/result.json](spike/result.json). It runs in under a second. A second run in a separate process,
 compared with `diff` against the committed `result.json`, printed nothing.
 
+The command needs a git checkout: ziran's version comes from hatch-vcs (setuptools-scm), which
+fails to build without `.git`. In a `git archive` copy, set a version first:
+
+```bash
+SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv run python specs/081-pair-generator/spike/pair_spike.py
+```
+
+The arch gate ran it that way twice at 893b000; both runs matched the committed `result.json`.
+
 What the prototype wires together, all from `develop` unchanged:
 
 | PAIR role | ziran seam used | File |
@@ -108,7 +117,9 @@ history, never on the last turn alone.
 
 Determinism holds only offline. The live client (`ziran/infrastructure/llm/litellm_client.py`)
 passes no `seed`, and PAIR's attacker samples at a high temperature by design. Live runs are not
-reproducible; a replayed run is.
+reproducible; a replayed run is. The seed in these checks belongs to the scripted attacker
+client, not to the loop, which draws no randomness. So the build adds no `seed` field:
+reproducibility is the attacker client's property.
 
 ### Budget and iteration cap
 
@@ -119,6 +130,12 @@ reproducible; a replayed run is.
 
 Source: `result.json` key `budget_cap_1500_tokens`. The check is cooperative, as in spec 047:
 it runs before each iteration, so a run overshoots by at most one iteration (here 695 tokens).
+That bound is per stream. In a scan, each PAIR vector in flight can overshoot by one iteration,
+so up to `max_concurrent_attacks` (default 5) iterations in all. The spike also wrote target
+tokens to the ledger every iteration (`run_pair`); in a scan, `PhaseExecutor` records a vector's
+`token_usage` under `target` only when the vector ends. A build must not record them twice, and
+its per-iteration check sees attacker and judge tokens plus the target tokens of finished
+vectors.
 
 ### The hybrid cassette (#491) path
 
@@ -166,16 +183,32 @@ fall back to the binary score when no judge is configured.
   so the YAML-driven vector model stays (constitution V) and no `advanced_generator` field is
   needed.
 - **Attacker client.** `AttackExecutor` takes no LLM client today (`TacticExecutor(self._adapter)`).
-  The build adds one constructor argument, passed from `scanner_config` the way `llm_client`
-  reaches the pipeline.
+  The build adds one constructor argument, passed from `scanner_config` unchanged. Only
+  `interfaces/cli/main.py` wraps clients with `track()` today, so the PAIR executor records the
+  attacker's tokens into the injected `CampaignBudget.ledger` itself, and application code never
+  calls infrastructure at runtime.
+- **Executor invariants.** Bypassing `AttackExecutor.execute()` follows the `TacticExecutor`
+  precedent, which calls `adapter.invoke` and `pipeline.evaluate` directly. The PAIR executor must
+  copy what `execute()` does per prompt: `drop_reserved` on the response metadata, the
+  `_is_error_response` sentinel check, `prompt_errors` for swallowed failures, and `token_usage`
+  summed over every target call.
 - **Usage stage.** The spike used the existing `strategy` stage. A build adds an `attacker` stage
   to `Stage` and `STAGES` in `ziran/application/usage.py`, so reports split attacker cost from
   the adaptive strategy's.
-- **Per-attack timeout.** `PhaseExecutor` wraps each vector in `asyncio.timeout(attack_timeout)`,
-  60 seconds by default (`AgentScanner.DEFAULT_ATTACK_TIMEOUT`). A live PAIR vector makes three
-  model or agent calls per iteration; 20 iterations will pass 60 seconds. This is code-derived,
-  since live latency is **unmeasured**. A build gives a PAIR vector its own timeout and returns
-  its best attempt when the time runs out.
+- **Two outer timeouts.** `PhaseExecutor` wraps each vector in `asyncio.timeout(attack_timeout)`,
+  60 seconds by default (`AgentScanner.DEFAULT_ATTACK_TIMEOUT`), and the whole phase gather in
+  `asyncio.timeout(phase_timeout)`, 300 seconds by default (`DEFAULT_PHASE_TIMEOUT`). A live PAIR
+  vector makes three model or agent calls per iteration; 20 iterations will pass 60 seconds and
+  may pass 300. Either outer timer cancels the vector and loses its best attempt; the phase timer
+  also cancels every other vector still running. A timeout nested inside the vector never fires
+  when an outer one is earlier (the arch gate confirmed this with a scaled probe). This is
+  code-derived, since live latency is **unmeasured**. The build gives each PAIR vector a deadline
+  that ends a grace period before the phase deadline, and the executor returns its best attempt
+  there (plan.md section 3).
+- **Scan cache.** The spec-049 cache context keys on the judge, prefilter and detector models,
+  not on an attacker, and `is_cacheable` stores a failed result that has a response. A cached
+  PAIR failure would hide a finding after a switch to a stronger attacker. The build never caches
+  a PAIR result (plan.md section 5).
 - **Budget overshoot.** The campaign budget is checked between vectors. One PAIR vector can spend
   50 iterations at once, so the loop itself checks the budget before each iteration, as the spike
   does.
