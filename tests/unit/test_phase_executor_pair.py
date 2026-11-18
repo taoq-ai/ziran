@@ -189,6 +189,17 @@ async def test_pair_deadline_is_taken_after_the_slot_is_acquired() -> None:
     assert 0.28 <= end - start < 0.5  # its 0.3 s ran from the acquire, not from the queue
 
 
+async def test_pair_vector_stops_a_grace_before_the_phase_deadline() -> None:
+    # Phase timer 0.1 + 1 * 0.3 = 0.4 s; the PAIR slot opens at 0.3 s, so the phase bound wins.
+    executor = _Executor(static_delay=0.3)
+    results = await _run(
+        [_vector("p", pair_timeout=0.3), _vector("s")], executor, phase_timeout=0.1, concurrent=1
+    )
+    _, end = executor.spans["p"]
+    assert results["p"].evidence["pair"]["stop"] == "timeout"
+    assert end - executor.spans["s"][0] == pytest.approx(0.35, abs=0.04)
+
+
 async def test_pair_vector_without_grace_time_left_is_an_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
