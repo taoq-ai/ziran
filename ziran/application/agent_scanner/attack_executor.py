@@ -82,8 +82,12 @@ class AttackExecutor:
 
     # -- public API --------------------------------------------------------
 
-    async def execute(self, attack: AttackVector) -> AttackResult:
-        """Execute *attack* and return the result."""
+    async def execute(self, attack: AttackVector, *, deadline: float | None = None) -> AttackResult:
+        """Execute *attack* and return the result.
+
+        *deadline* (event-loop time) is the PAIR vector's stop time from ``PhaseExecutor``
+        (spec 081); only the PAIR dispatch, added with ``TacticType.PAIR``, reads it.
+        """
         bind_vector(attack.id)
         _attack_span = _tracer.start_span(
             "ziran.attack",

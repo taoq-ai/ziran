@@ -7,6 +7,7 @@ execution within a single campaign phase.
 from __future__ import annotations
 
 import asyncio
+import math
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
@@ -17,7 +18,7 @@ from ziran.application.agent_scanner.progress import (
     ProgressEventType,
 )
 from ziran.application.usage import TARGET_MODEL
-from ziran.domain.entities.attack import AttackResult, TokenUsage
+from ziran.domain.entities.attack import AttackResult, PairConfig, TokenUsage, get_business_impacts
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
 from ziran.infrastructure.logging.context import bind_phase
 from ziran.infrastructure.logging.logger import get_logger
@@ -41,6 +42,13 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
+
+#: A PAIR vector stops this long before the phase deadline, so its result is recorded (spec 081).
+PAIR_GRACE_SECONDS = 5.0
+
+
+def _is_pair(attack: AttackVector) -> bool:
+    return getattr(attack, "tactic", None) == "pair"  # test stubs carry no tactic
 
 
 class PhaseExecutor:
@@ -170,6 +178,20 @@ class PhaseExecutor:
             if decision.max_attacks is not None:
                 attacks = attacks[: decision.max_attacks]
 
+        # PAIR vectors queue last: with the FIFO semaphore no static vector waits on one (spec 081).
+        pair_attacks = [a for a in attacks if _is_pair(a)]
+        phase_timeout = self._phase_timeout
+        if pair_attacks:
+            attacks = [a for a in attacks if not _is_pair(a)] + pair_attacks
+            longest = max((a.pair or PairConfig()).timeout_seconds for a in pair_attacks)
+            phase_timeout += math.ceil(len(pair_attacks) / max_concurrent) * longest
+            logger.info(
+                "phase_timeout_extended",
+                phase=phase.value,
+                pair_vectors=len(pair_attacks),
+                timeout_seconds=phase_timeout,
+            )
+
         logger.info(
             "phase_attacks_loaded",
             phase=phase.value,
@@ -228,8 +250,7 @@ class PhaseExecutor:
                         metrics.attack_started(phase.value)
                         started = perf_counter()
                         try:
-                            async with asyncio.timeout(self._attack_timeout):
-                                result = await self._attack_executor.execute(attack)
+                            result = await self._run_one(attack, phase_deadline)
                         finally:
                             metrics.attack_finished(phase.value)
                         # Refused = agent responded but the attack did not succeed
@@ -313,14 +334,15 @@ class PhaseExecutor:
 
         # Run attacks concurrently with bounded parallelism
         tasks = [_run_attack(idx, atk) for idx, atk in enumerate(attacks)]
+        phase_deadline = asyncio.get_running_loop().time() + phase_timeout
         try:
-            async with asyncio.timeout(self._phase_timeout):
+            async with asyncio.timeout_at(phase_deadline):
                 await asyncio.gather(*tasks)
         except TimeoutError:
             logger.warning(
                 "phase_timed_out",
                 phase=phase.value,
-                timeout_seconds=self._phase_timeout,
+                timeout_seconds=phase_timeout,
             )
 
         # Calculate trust score
@@ -362,3 +384,28 @@ class PhaseExecutor:
                 "total_tokens": phase_tokens.total_tokens,
             },
         )
+
+    async def _run_one(self, attack: AttackVector, phase_deadline: float) -> AttackResult:
+        """Run *attack* under its timer. A PAIR vector's deadline is taken here, after the slot
+        is acquired, and ends ``PAIR_GRACE_SECONDS`` before the phase's (spec 081)."""
+        if not _is_pair(attack):
+            async with asyncio.timeout(self._attack_timeout):
+                return await self._attack_executor.execute(attack)
+        now = asyncio.get_running_loop().time()
+        config = attack.pair or PairConfig()
+        deadline = min(now + config.timeout_seconds, phase_deadline - PAIR_GRACE_SECONDS)
+        if deadline <= now:
+            return AttackResult(
+                vector_id=attack.id,
+                vector_name=attack.name,
+                category=attack.category,
+                severity=attack.severity,
+                successful=False,
+                error="PAIR vector skipped: the phase deadline leaves no time to run it",
+                owasp_mapping=attack.owasp_mapping,
+                atlas_mapping=attack.atlas_mapping,
+                business_impact=get_business_impacts(attack.category, attack.severity),
+                harm_category=attack.harm_category,
+            )
+        async with asyncio.timeout_at(deadline + PAIR_GRACE_SECONDS):  # backstop only
+            return await self._attack_executor.execute(attack, deadline=deadline)
