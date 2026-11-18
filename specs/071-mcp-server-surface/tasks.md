@@ -11,6 +11,6 @@
 - [x] T008 Write the integration tests (in-memory server, stdio CLI, `ziran report`), run red.
 - [x] T009 Write the hostile server and the `mcp-hostile-server` command; register it.
 - [x] T010 Skip server-surface vectors in the scan dry-run count.
-- [ ] T011 Write the guide, add it to `mkdocs.yml`, regenerate the coverage docs and refresh the
+- [x] T011 Write the guide, add it to `mkdocs.yml`, regenerate the coverage docs and refresh the
   baseline.
 - [ ] T012 Run ruff, ruff format --check, mypy, pytest --cov and the benchmark checks.

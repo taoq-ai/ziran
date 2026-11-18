@@ -112,7 +112,7 @@ JSON output is deterministic (stable key + array ordering, no timestamps) so dow
 
 `AML.T0040` and `AML.T0047` coverage comes from the premise that every ZIRAN scan reaches the target through its inference API, inside an AI-enabled product or service. It is not a separate model-access attack, so read these two counts as context, not as a distinct capability.
 
-The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 661-vector library); the table above therefore lists techniques.
+The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 669-vector library); the table above therefore lists techniques.
 
 No dedicated staging or reconnaissance vectors are added for AI Attack Staging: adversary-side staging has no observable outcome on a target, and tagging vectors with it would only pad counts.
 
