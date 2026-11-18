@@ -116,12 +116,10 @@ class OpenAIAgentsAdapter(BaseAgentAdapter):
 
         Extra ``kwargs`` are passed to ``Runner.run`` (for example ``max_turns``).
         """
-        turn_input: list[TResponseInputItem] = [
-            *self._input,
-            {"role": "user", "content": message},
-        ]
-        result = await Runner.run(self.agent, turn_input, **kwargs)
-        self._input = result.to_input_list()
+        user_item: TResponseInputItem = {"role": "user", "content": message}
+        result = await Runner.run(self.agent, [*self._input, user_item], **kwargs)
+        # Append this turn rather than replace, so concurrent turns do not drop each other.
+        self._input += [user_item, *(item.to_input_item() for item in result.new_items)]
 
         outputs = {
             _field(item.raw_item, "call_id"): str(item.output)

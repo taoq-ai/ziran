@@ -169,7 +169,9 @@ the handoff tree:
 
 **Limits.** Tools from `mcp_servers`, guardrails, realtime and voice agents are not read.
 Streaming falls back to one `invoke`. Agents are identified by name. The SDK's own tracing
-stays as you configured it, so with tracing on, attack prompts appear in your traces.
+stays as you configured it, so with tracing on, attack prompts appear in your traces. To
+turn it off, set `OPENAI_AGENTS_DISABLE_TRACING=1` or call
+`agents.set_tracing_disabled(True)` in the agent file.
 
 ## Creating a Custom Adapter
 

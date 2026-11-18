@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import builtins
 import json
 from pathlib import Path
@@ -135,6 +136,14 @@ class TestDiscoverStructure:
         assert [a.id for a in topo.agents] == ["openai_agents:entry", "openai_agents:sub"]
         assert topo.edges[0].delegation == DelegationPattern.PARTIAL_CONTEXT
 
+    async def test_handoff_object_target_tools_discovered(self) -> None:
+        tool = function_tool(lambda path: path, name_override="read_file")
+        entry = Agent(name="entry", handoffs=[handoff(Agent(name="sub", tools=[tool]))])
+        adapter = OpenAIAgentsAdapter(entry)
+        assert [c.id for c in await adapter.discover_capabilities()] == ["tool_read_file"]
+        topo = await adapter.discover_structure()
+        assert topo.agents[1].capabilities == ["tool_read_file"]
+
     async def test_scanner_imports_tools_and_handoff(
         self, shared_attack_library: AttackLibrary
     ) -> None:
@@ -189,6 +198,13 @@ class TestInvoke:
         assert adapter.get_state().conversation_history == []
         await adapter.invoke("third")
         assert len(model.inputs[2]) == 1
+
+    async def test_concurrent_turns_both_kept(self) -> None:
+        model = ScriptedModel([_message("a")], [_message("b")], [_message("c")])
+        adapter = OpenAIAgentsAdapter(Agent(name="echo", model=model))
+        await asyncio.gather(adapter.invoke("one"), adapter.invoke("two"))
+        await adapter.invoke("three")
+        assert len(model.inputs[2]) == 5  # one, a, two, b (any order), three
 
     async def test_unparsable_arguments_kept_as_text(self) -> None:
         bad = ResponseFunctionToolCall(

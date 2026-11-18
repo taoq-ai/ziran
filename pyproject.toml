@@ -201,6 +201,7 @@ module = [
     "a2a.*",
     "a2a_sdk.*",
     "anthropic.*",
+    "agents.*",
     "boto3.*",
     "botocore.*",
     "litellm.*",
