@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -227,3 +228,19 @@ def test_campaign_result_counts_findings_and_unmeasured() -> None:
     assert result.metadata["unmeasured"] == [ELICIT.id, ROOTS.id]
     assert result.phases_executed[0].vulnerabilities_found == [SAMPLING.id]
     assert "unmeasured" in (result.phases_executed[0].error or "")
+    # Unmeasured vectors stay out of the artifacts the OWASP and ATLAS tables count as tested.
+    assert set(result.phases_executed[0].artifacts) == {SAMPLING.id}
+
+
+# ── CLI ─────────────────────────────────────────────────────────────
+
+
+def test_cli_explains_a_missing_mcp_extra(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    from ziran.interfaces.cli.main import cli
+
+    monkeypatch.setitem(sys.modules, "ziran.infrastructure.mcp_hostile.server", None)
+    result = CliRunner().invoke(cli, ["mcp-hostile-server", "--record-dir", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "ziran[mcp]" in result.output

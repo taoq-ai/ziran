@@ -1982,7 +1982,7 @@ def _dry_run_summary(
 
     # Count vectors by coverage
     coverage_level = CoverageLevel(coverage.lower())
-    vectors = attack_library.vectors
+    vectors = [v for v in attack_library.vectors if v.mcp_server_request is None]
     if coverage_level == CoverageLevel.ESSENTIAL:
         vectors = [v for v in vectors if v.severity in ("critical",)]
     elif coverage_level == CoverageLevel.STANDARD:
@@ -2834,8 +2834,10 @@ def _register_v08_commands() -> None:
 def _register_extra_commands() -> None:
     """Register additional CLI commands (lazy imports)."""
     from ziran.interfaces.cli.init_command import init
+    from ziran.interfaces.cli.mcp_hostile_server import mcp_hostile_server
 
     cli.add_command(init)
+    cli.add_command(mcp_hostile_server)
 
 
 _register_v08_commands()

@@ -119,7 +119,20 @@ def build_campaign_result(
     phase = PhaseResult(
         phase=ScanPhase.EXECUTION,
         success=True,
-        artifacts={"vectors": len(results), "findings": len(findings), "unmeasured": unmeasured},
+        # Keyed by vector ID like a scan phase's, so the reports read them. Unmeasured
+        # vectors stay out: the OWASP and ATLAS tables would show them as passed.
+        artifacts={
+            r.vector_id: {
+                "name": r.vector_name,
+                "category": r.category.value,
+                "severity": r.severity,
+                "outcome": r.evidence["outcome"],
+                "owasp_mapping": [o.value for o in r.owasp_mapping],
+                "atlas_mapping": [t.value for t in r.atlas_mapping],
+            }
+            for r in results
+            if r.vector_id not in unmeasured
+        },
         trust_score=1.0,
         vulnerabilities_found=findings,
         duration_seconds=0.0,
