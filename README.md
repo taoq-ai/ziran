@@ -122,7 +122,7 @@ Campaign strategies: `fixed` (sequential, reproducible for CI), `adaptive` (rule
 
 ## Benchmarks
 
-639 attack vectors in 11 categories. 10/10 OWASP LLM Top 10 categories, 72/86 MITRE ATLAS techniques (14/14 agent-specific), measured against 20 published benchmarks. Numbers, per-benchmark tables and open gaps: [benchmarks/](benchmarks/) and the [coverage comparison](https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/).
+677 attack vectors in 11 categories. 10/10 OWASP LLM Top 10 categories, 75/88 MITRE ATLAS techniques (14/14 agent-specific), measured against 20 published benchmarks. Numbers, per-benchmark tables and open gaps: [benchmarks/](benchmarks/) and the [coverage comparison](https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/).
 
 ---
 
