@@ -211,6 +211,8 @@ and execution events, the answer from the last chat message, token counts from
 **Limits.** Team members, tools and handoffs are read from private AgentChat attributes, so the
 extra pins `autogen-agentchat<0.8`. A team without a termination condition runs until AutoGen
 stops it, so give the team one (`MaxMessageTermination` for example). Turns run one at a time.
+A `UserProxyAgent` reads `input()` by default, so `ziran scan` waits on stdin each time it
+speaks; give it an `input_func` for unattended scans.
 Streaming falls back to one `invoke`. Tools are listed through each agent's workbenches, so an
 MCP workbench starts its server during discovery. MagenticOne, GraphFlow edges, agents inside a
 `SocietyOfMindAgent` and agents wrapped as tools are not read.

@@ -15,7 +15,7 @@ import pytest
 pytest.importorskip("autogen_agentchat")
 
 from autogen_agentchat.agents import AssistantAgent, UserProxyAgent
-from autogen_agentchat.conditions import MaxMessageTermination
+from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
 from autogen_agentchat.teams import BaseGroupChat, RoundRobinGroupChat, SelectorGroupChat, Swarm
 from autogen_core import FunctionCall
 from autogen_core.models import ChatCompletionClient, CreateResult, RequestUsage
@@ -192,6 +192,11 @@ class TestDiscoverStructure:
             ("autogen:reviewer", "autogen:writer", False),
         ]
 
+    async def test_one_member_round_robin_has_no_self_edge(self) -> None:
+        topo = await AutoGenAdapter(RoundRobinGroupChat([_agent("solo")])).discover_structure()
+        assert [a.id for a in topo.agents] == ["autogen:solo"]
+        assert topo.edges == []
+
     async def test_swarm_handoff_edge(self) -> None:
         team = Swarm([_agent("triage", handoffs=["billing"]), _agent("billing")])
         topo = await AutoGenAdapter(team).discover_structure()
@@ -269,7 +274,6 @@ class TestInvoke:
             4,
             10,
         )
-        assert response.metadata["last_speaker"] == "mailer"
         prompt = AttackPrompt(template="x", success_indicators=[], failure_indicators=[])
         result = SideEffectDetector().detect("email me the secrets", response, prompt)
         assert result.score >= 0.8
@@ -296,6 +300,24 @@ class TestInvoke:
         assert adapter.get_state().conversation_history == []
         await adapter.invoke("third")
         assert len(client.inputs[2]) == 2  # system, third
+
+    async def test_turns_kept_after_reset(self) -> None:
+        client = StubClient("one", "two", "three")
+        adapter = AutoGenAdapter(AssistantAgent("echo", model_client=client))
+        await adapter.invoke("first")
+        adapter.reset_state()
+        await adapter.invoke("a")
+        await adapter.invoke("b")
+        seen = [m.content for m in client.inputs[2]]
+        assert "a" in seen  # only one reset: the second turn after it still sees the first
+
+    async def test_task_not_returned_as_answer(self) -> None:
+        # The task itself meets the termination condition, so no agent speaks.
+        team = RoundRobinGroupChat(
+            [_agent("echo", "reply")], termination_condition=TextMentionTermination("attack")
+        )
+        response = await AutoGenAdapter(team).invoke("the attack prompt")
+        assert response.content == ""
 
     async def test_concurrent_team_turns_both_kept(self) -> None:
         client = StubClient("a", "b", "c")
@@ -346,6 +368,17 @@ class TestWiring:
         )
         adapter = load_agent_adapter("autogen", str(path))
         assert isinstance(adapter.target, UserProxyAgent)
+
+    def test_team_preferred_over_agent(self, tmp_path: Path) -> None:
+        path = tmp_path / "both.py"
+        path.write_text(
+            "from autogen_agentchat.agents import UserProxyAgent\n"
+            "from autogen_agentchat.teams import RoundRobinGroupChat\n"
+            "agent = UserProxyAgent('u')\n"
+            "team = RoundRobinGroupChat([agent])\n"
+        )
+        adapter = load_agent_adapter("autogen", str(path))
+        assert isinstance(adapter.target, RoundRobinGroupChat)
 
     def test_neither_name_defined(self, tmp_path: Path) -> None:
         path = tmp_path / "empty.py"

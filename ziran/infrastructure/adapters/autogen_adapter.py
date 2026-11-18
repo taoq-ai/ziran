@@ -145,11 +145,7 @@ class AutoGenAdapter(BaseAgentAdapter):
         return AgentResponse(
             content=content,
             tool_calls=tool_calls,
-            metadata={
-                "framework": FRAMEWORK,
-                "last_speaker": chat[-1].source if chat else "",
-                "stop_reason": result.stop_reason or "",
-            },
+            metadata={"framework": FRAMEWORK},
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=prompt_tokens + completion_tokens,
