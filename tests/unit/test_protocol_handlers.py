@@ -344,12 +344,21 @@ class TestMCPHandler:
         h = MCPProtocolHandler(client, _target_config())
         assert await h.health_check() is False
 
-    async def test_send_fallback_no_completion(self) -> None:
-        """When completion/complete and sampling/createMessage both fail."""
+    async def test_send_fallback_no_completion(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A server with no chat method sees only completion/complete, never the
+        server-to-client sampling/createMessage, and the handler warns once."""
         from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler
+
+        methods: list[str] = []
 
         async def _err(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
+            methods.append(body["method"])
+            if body["method"] == "tools/list":
+                tools = {"tools": [{"name": "search", "description": "Search"}]}
+                return httpx.Response(
+                    200, json={"jsonrpc": "2.0", "id": body["id"], "result": tools}
+                )
             return httpx.Response(
                 200,
                 json={
@@ -361,8 +370,17 @@ class TestMCPHandler:
 
         client = _mock_client(_err)
         h = MCPProtocolHandler(client, _target_config())
-        result = await h.send("hello")
-        assert "does not support direct messaging" in result["content"]
+        assert [c["name"] for c in await h.discover()] == ["search"]
+        methods.clear()
+        with caplog.at_level("WARNING"):
+            first = await h.send("hello")
+            second = await h.send("again")
+        assert "does not support direct messaging" in first["content"]
+        assert second["content"] == first["content"]
+        assert methods == ["completion/complete", "completion/complete"]
+        warnings = [r for r in caplog.records if "no chat prompt" in r.getMessage()]
+        assert len(warnings) == 1
+        assert "Method not found" in warnings[0].getMessage()
 
     async def test_jsonrpc_api_error(self) -> None:
         from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler

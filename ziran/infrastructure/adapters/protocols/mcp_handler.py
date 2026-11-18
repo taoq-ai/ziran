@@ -36,13 +36,14 @@ class MCPProtocolHandler(BaseProtocolHandler):
     def __init__(self, client: httpx.AsyncClient, config: TargetConfig) -> None:
         super().__init__(client, config)
         self._request_id = 0
+        self._warned_no_chat = False
 
     async def send(self, message: str, **kwargs: Any) -> ProtocolResponse:
-        """Send a message by invoking the MCP server's chat/prompt method.
+        """Send a message through ``completion/complete``, or ``tools/call`` for a tool.
 
-        Since MCP servers are primarily tool providers, this wraps the
-        message in a ``completion/complete`` or falls back to a
-        ``tools/call`` if a specific tool is targeted.
+        ``sampling/createMessage`` is a server-to-client request, so a client never sends
+        it. When the server takes no chat prompt, the content is the no-chat placeholder,
+        which the attack executors treat as a prompt error, never as a reply (spec 082).
 
         Args:
             message: The prompt to send.
@@ -56,27 +57,30 @@ class MCPProtocolHandler(BaseProtocolHandler):
         if tool_name:
             return await self._call_tool(tool_name, kwargs.get("arguments", {}))
 
-        # Try completion/complete first; fall back to sampling/createMessage
-        for method in ("completion/complete", "sampling/createMessage"):
-            try:
-                result = await self._jsonrpc_call(
-                    method,
-                    {"messages": [{"role": "user", "content": {"type": "text", "text": message}}]},
+        method = "completion/complete"
+        try:
+            result = await self._jsonrpc_call(
+                method,
+                {"messages": [{"role": "user", "content": {"type": "text", "text": message}}]},
+            )
+        except ProtocolError as exc:
+            if not self._warned_no_chat:
+                self._warned_no_chat = True
+                logger.warning(
+                    "MCP server %s took no chat prompt (%s); its prompts count as errors, "
+                    "not replies",
+                    self._config.normalized_url,
+                    exc,
                 )
-                content = self._extract_content(result)
-                return {
-                    "content": content,
-                    "tool_calls": [],
-                    "metadata": {"method": method, "protocol": "mcp"},
-                }
-            except ProtocolError:
-                continue
-
-        # If no completion method works, return an indicator message
+            return {
+                "content": "[MCP server does not support direct messaging — use tools/call]",
+                "tool_calls": [],
+                "metadata": {"protocol": "mcp"},
+            }
         return {
-            "content": "[MCP server does not support direct messaging — use tools/call]",
+            "content": self._extract_content(result),
             "tool_calls": [],
-            "metadata": {"protocol": "mcp"},
+            "metadata": {"method": method, "protocol": "mcp"},
         }
 
     async def discover(self) -> list[dict[str, Any]]:

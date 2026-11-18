@@ -23,6 +23,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.agent_scanner.attack_executor import _is_error_response
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.interfaces.adapter import drop_reserved
@@ -114,6 +115,7 @@ class TacticExecutor:
         last_prompt_used: str | None = None
         review: dict[str, Any] = {}
         prompt_errors = 0  # swallowed turn failures; non-zero blocks caching (spec 049)
+        evaluated = 0  # turns that reached the detectors
 
         for i, prompt_spec in enumerate(attack.prompts):
             rendered_prompt = render_fn(prompt_spec)
@@ -127,6 +129,10 @@ class TacticExecutor:
                     completion_tokens=response.completion_tokens,
                     total_tokens=response.total_tokens,
                 )
+
+                if _is_error_response(response.content):  # e.g. the MCP no-chat placeholder
+                    prompt_errors += 1
+                    continue
 
                 if response.content:
                     last_response_content = response.content
@@ -149,6 +155,7 @@ class TacticExecutor:
                     prompt_spec,
                     attack,
                 )
+                evaluated += 1
                 if verdict.needs_review:
                     review = review_evidence(verdict)
 
@@ -213,6 +220,7 @@ class TacticExecutor:
                 "turns_attempted": len(attack.prompts),
                 **review,
                 **({"prompt_errors": prompt_errors} if prompt_errors else {}),
+                **({"outcome": "unmeasured"} if prompt_errors and not evaluated else {}),
             },
             agent_response=last_response_content,
             prompt_used=last_prompt_used,

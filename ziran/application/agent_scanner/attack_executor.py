@@ -44,6 +44,8 @@ _ERROR_SENTINELS: frozenset[str] = frozenset(
         "agent stopped due to iteration limit",
         "agent stopped due to max iterations",
         "agent stopped due to time limit",
+        # the MCP handler's no-chat placeholder: no prompt reached the target (spec 082)
+        "mcp server does not support direct messaging",
     }
 )
 
@@ -264,6 +266,8 @@ class AttackExecutor:
         # None of the prompts succeeded
         if answered < len(prompt_attempts):  # swallowed failures block caching
             review["prompt_errors"] = len(prompt_attempts) - answered
+        if not answered:  # no reply measured this vector (spec 082)
+            review["outcome"] = "unmeasured"
         _attack_span.set_attribute("ziran.attack.successful", False)
         _attack_span.end()
         return AttackResult(
