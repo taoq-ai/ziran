@@ -39,14 +39,15 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _load_python_object(filepath: str, object_name: str) -> Any:
+def _load_python_object(filepath: str, object_name: str, *fallbacks: str) -> Any:
     """Load a Python object from a file by executing it.
 
-    Executes the file and extracts the named object from its namespace.
+    Executes the file once and extracts the first of the named objects it defines.
 
     Args:
         filepath: Path to the Python file.
         object_name: Name of the object to extract.
+        fallbacks: Names to try, in order, when ``object_name`` is not defined.
 
     Returns:
         The extracted Python object.
@@ -73,15 +74,16 @@ def _load_python_object(filepath: str, object_name: str) -> Any:
     except Exception as e:
         raise ImportError(f"Error executing {filepath}: {e}") from e
 
-    obj = getattr(module, object_name, None)
-    if obj is None:
-        available = [a for a in dir(module) if not a.startswith("_")]
-        raise ValueError(
-            f"Object '{object_name}' not found in {filepath}. "
-            f"Available objects: {', '.join(available)}"
-        )
-
-    return obj
+    names = (object_name, *fallbacks)
+    for name in names:
+        obj = getattr(module, name, None)
+        if obj is not None:
+            return obj
+    available = [a for a in dir(module) if not a.startswith("_")]
+    wanted = "' or '".join(names)
+    raise ValueError(
+        f"Object '{wanted}' not found in {filepath}. Available objects: {', '.join(available)}"
+    )
 
 
 def _load_bedrock_config(agent_path: str) -> dict[str, Any]:
@@ -186,9 +188,10 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
 
     Args:
         framework: Framework name (``langchain``, ``langgraph``, ``crewai``,
-            ``bedrock``, ``agentcore``, ``openai-agents``). For ``langgraph`` the agent
-            file must expose a compiled graph as ``graph``; for ``openai-agents`` an
-            ``agents.Agent`` as ``agent``.
+            ``bedrock``, ``agentcore``, ``openai-agents``, ``autogen``). For ``langgraph``
+            the agent file must expose a compiled graph as ``graph``; for ``openai-agents`` an
+            ``agents.Agent`` as ``agent``; for ``autogen`` an AgentChat team as ``team`` or an
+            agent as ``agent``.
         agent_path: Path to the agent code/config.
 
     Returns:
@@ -231,6 +234,16 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
 
         agent = _load_python_object(agent_path, "agent")
         return OpenAIAgentsAdapter(agent)
+
+    if framework == "autogen":
+        try:
+            from ziran.infrastructure.adapters.autogen_adapter import AutoGenAdapter
+        except ImportError as e:
+            raise ImportError(
+                f"autogen-agentchat not installed. Run: uv sync --extra autogen\n{e}"
+            ) from e
+
+        return AutoGenAdapter(_load_python_object(agent_path, "team", "agent"))
 
     if framework == "crewai":
         try:
