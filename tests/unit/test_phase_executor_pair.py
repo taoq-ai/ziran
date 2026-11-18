@@ -8,11 +8,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-from structlog.testing import capture_logs
 
 from ziran.application.agent_scanner import phase_executor
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
+from ziran.application.attacks import pair as pair_module
 from ziran.application.attacks.pair import PairExecutor
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
@@ -84,6 +84,8 @@ class _Executor:
         loop = asyncio.get_running_loop()
         start = loop.time()
         self.order.append(attack.id)
+        if attack.id.startswith("slow"):  # a PAIR route that ignores its deadline
+            await asyncio.sleep(10)
         if attack.tactic == "pair":
             assert deadline is not None
             budget = CampaignBudget(UsageLedger(), UsageBudget())
@@ -124,14 +126,19 @@ class _Graph:
 
 
 async def _run(
-    vectors: list[AttackVector], executor: _Executor, *, phase_timeout: float, concurrent: int
+    vectors: list[AttackVector],
+    executor: _Executor,
+    *,
+    phase_timeout: float,
+    concurrent: int,
+    attack_timeout: float = 5.0,
 ) -> dict[str, AttackResult]:
     results: list[AttackResult] = []
     await PhaseExecutor(
         executor,  # type: ignore[arg-type]
         _Library(vectors),  # type: ignore[arg-type]
         _Graph(),  # type: ignore[arg-type]
-        attack_timeout=5.0,
+        attack_timeout=attack_timeout,
         phase_timeout=phase_timeout,
     ).execute(
         PHASE,
@@ -144,38 +151,92 @@ async def _run(
     return {r.vector_id: r for r in results}
 
 
+class _Log:
+    """Stands in for the module logger: structlog caches loggers, so capture_logs misses them."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict[str, Any]]] = []
+
+    def info(self, event: str, **kw: Any) -> None:
+        self.events.append((event, kw))
+
+    warning = exception = debug = info
+
+    def named(self, event: str) -> list[dict[str, Any]]:
+        return [kw for name, kw in self.events if name == event]
+
+
 @pytest.fixture(autouse=True)
-def _grace(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(phase_executor, "PAIR_GRACE_SECONDS", 0.05)
+def log(monkeypatch: pytest.MonkeyPatch) -> _Log:
+    monkeypatch.setattr(pair_module, "PAIR_GRACE_SECONDS", 0.05)
+    stub = _Log()
+    monkeypatch.setattr(phase_executor, "logger", stub)
+    monkeypatch.setattr(pair_module, "logger", stub)
+    return stub
 
 
-async def test_static_vectors_acquire_before_pair_and_all_are_recorded() -> None:
-    pair = [_vector(f"p{i}", pair_timeout=0.4) for i in range(2)]
+async def test_static_vectors_acquire_before_pair_and_all_are_recorded(log: _Log) -> None:
+    pair = [_vector("p0", pair_timeout=0.4), _vector("p1", pair_timeout=0.2)]
     static = [_vector(f"s{i}") for i in range(6)]
     executor = _Executor()
-    with capture_logs() as logs:
-        results = await _run(pair + static, executor, phase_timeout=0.5, concurrent=2)
+    results = await _run(pair + static, executor, phase_timeout=0.5, concurrent=2)
 
     assert executor.order[:6] == [v.id for v in static]
     assert set(executor.order[6:]) == {"p0", "p1"}
     assert set(results) == {v.id for v in pair + static}
-    # PAIR vectors end at about 0.55 s, past the unextended 0.5 s timer, with a best attempt.
+    # p0 ends at about 0.55 s, past the unextended 0.5 s timer, with a best attempt.
     assert all(results[p.id].evidence["pair"]["stop"] == "timeout" for p in pair)
     assert all(results[p.id].prompt_used == "try again" for p in pair)
-    extended = [e for e in logs if e["event"] == "phase_timeout_extended"]
+    extended = log.named("phase_timeout_extended")
     assert len(extended) == 1
     assert extended[0]["pair_vectors"] == 2
-    assert extended[0]["timeout_seconds"] == pytest.approx(0.9)  # 0.5 + ceil(2 / 2) * 0.4
+    assert extended[0]["timeout_seconds"] == pytest.approx(0.9)  # 0.5 + ceil(2 / 2) * max(0.4, 0.2)
 
 
-async def test_phase_without_pair_keeps_its_timer() -> None:
+async def test_phase_without_pair_keeps_its_timer(log: _Log) -> None:
     executor = _Executor()
-    with capture_logs() as logs:
-        results = await _run(
-            [_vector(f"s{i}") for i in range(3)], executor, phase_timeout=0.5, concurrent=2
-        )
+    results = await _run(
+        [_vector(f"s{i}") for i in range(3)], executor, phase_timeout=0.5, concurrent=2
+    )
     assert len(results) == 3
-    assert not [e for e in logs if e["event"] == "phase_timeout_extended"]
+    assert not log.named("phase_timeout_extended")
+
+
+async def test_more_pair_vectors_than_slots_extend_by_whole_rounds(log: _Log) -> None:
+    # 0.5 + ceil(3 / 2) * 0.4 = 1.3 s: the third PAIR vector starts at 0.9 s and still runs.
+    pair = [_vector(f"p{i}", pair_timeout=0.4) for i in range(3)]
+    executor = _Executor(static_delay=0.5)
+    results = await _run(
+        [*pair, _vector("s0"), _vector("s1")], executor, phase_timeout=0.5, concurrent=2
+    )
+    assert all(results[p.id].error is None for p in pair)
+    assert all(results[p.id].evidence["pair"]["stop"] == "timeout" for p in pair)
+    assert log.named("phase_timeout_extended")[0]["timeout_seconds"] == pytest.approx(1.3)
+
+
+async def test_pair_vector_outlives_attack_timeout() -> None:
+    executor = _Executor()
+    results = await _run(
+        [_vector("p", pair_timeout=0.3)],
+        executor,
+        phase_timeout=2.0,
+        concurrent=1,
+        attack_timeout=0.1,
+    )
+    start, end = executor.spans["p"]
+    assert results["p"].evidence["pair"]["stop"] == "timeout"
+    assert end - start >= 0.28
+
+
+async def test_backstop_records_an_error_and_logs_the_pair_timer(log: _Log) -> None:
+    executor = _Executor()
+    results = await _run(
+        [_vector("slow", pair_timeout=0.1)], executor, phase_timeout=2.0, concurrent=1
+    )
+    assert "past its deadline" in (results["slow"].error or "")
+    fired = log.named("pair_backstop_timed_out")
+    assert fired[0]["pair_seconds"] == pytest.approx(0.1, abs=0.01)
+    assert not log.named("attack_timed_out")
 
 
 async def test_pair_deadline_is_taken_after_the_slot_is_acquired() -> None:
@@ -203,7 +264,7 @@ async def test_pair_vector_stops_a_grace_before_the_phase_deadline() -> None:
 async def test_pair_vector_without_grace_time_left_is_an_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(phase_executor, "PAIR_GRACE_SECONDS", 1.0)
+    monkeypatch.setattr(pair_module, "PAIR_GRACE_SECONDS", 1.0)
     executor = _Executor()
     results = await _run(
         [_vector("p", pair_timeout=0.1)], executor, phase_timeout=0.3, concurrent=1

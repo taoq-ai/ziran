@@ -51,7 +51,7 @@ and scripted attacker):
 
 Phase 3, wiring (`tests/unit/test_phase_executor_pair.py`); `[x]` items are in PR 1:
 
-5. B005 Failing tests, with `phase_executor.PAIR_GRACE_SECONDS` patched to 0.05 so the timers
+5. B005 Failing tests, with `pair.PAIR_GRACE_SECONDS` patched to 0.05 so the timers
    stay under a second:
    - [ ] (PR 2) `AttackExecutor` sends `tactic: pair` to `PairExecutor` and other tactics as before;
      `AgentScanner` passes `attacker_llm_client` unchanged and its budget.
@@ -70,7 +70,8 @@ Phase 3, wiring (`tests/unit/test_phase_executor_pair.py`); `[x]` items are in P
    - [x] A PAIR vector that gets its slot with less than the grace left is recorded as an error with
      no target call.
    - [ ] (PR 2) With `scan_cache` on, a failed PAIR result writes no entry.
-6. B006 [x] `phase_executor.py` (plan section 3) and the `deadline` keyword in PR 1. [ ] (PR 2)
+6. B006 [x] Plan section 3 in PR 1: the helpers in `attacks/pair.py` (the 400-line budget of
+   `phase_executor.py`), their call sites in `phase_executor.py`, and the `deadline` keyword. [ ] (PR 2)
    Wire `TacticType.PAIR`, the `tactic` description, `attack_executor.py`, `scanner.py` (with
    the `track()` double-count warning in the `attacker_llm_client` docstring), the dispatch in `attack_executor.py`
    and `scan_cache.is_cacheable` (plan section 5).

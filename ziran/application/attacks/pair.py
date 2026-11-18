@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.attacks.many_shot import estimate_tokens
@@ -29,7 +30,7 @@ from ziran.domain.replies import is_error_response
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.application.usage import CampaignBudget
@@ -45,7 +46,53 @@ ATTACKER_SYSTEM_PROMPT = (
     "its score from 0 to 1, write an improved prompt that moves the target toward the GOAL. "
     'Reply with one JSON object: {"improvement": "<what you changed>", "prompt": "<new prompt>"}.'
 )
+#: A PAIR vector stops this long before the phase deadline, so its result is recorded.
+PAIR_GRACE_SECONDS = 5.0
+
 _NO_REPLY = "(no reply)"  # what the attacker sees after a failed or sentinel target call
+
+
+def is_pair(attack: AttackVector) -> bool:
+    return getattr(attack, "tactic", None) == "pair"  # phase-executor test stubs carry no tactic
+
+
+def queue_pair_last(
+    attacks: list[AttackVector], phase_timeout: float, max_concurrent: int
+) -> tuple[list[AttackVector], float]:
+    """PAIR vectors after every other vector (stable), and the phase timer extended by
+    ``ceil(k / max_concurrent)`` times the longest PAIR timeout. With the semaphore's FIFO
+    wake-up no static vector then waits on a PAIR vector (plan section 3)."""
+    pair = [a for a in attacks if is_pair(a)]
+    if not pair:
+        return attacks, phase_timeout
+    longest = max((a.pair or PairConfig()).timeout_seconds for a in pair)
+    rest = [a for a in attacks if not is_pair(a)]
+    return rest + pair, phase_timeout + math.ceil(len(pair) / max_concurrent) * longest
+
+
+async def run_in_phase(
+    execute: Callable[..., Awaitable[AttackResult]], attack: AttackVector, phase_deadline: float
+) -> AttackResult:
+    """Run a PAIR vector once it holds its slot. Its deadline is taken now, so queue time does
+    not eat PAIR time, and ends ``PAIR_GRACE_SECONDS`` before *phase_deadline*; the deadline
+    plus the grace is a backstop only. Always returns a result, so the vector is recorded."""
+    now = asyncio.get_running_loop().time()
+    config = attack.pair or PairConfig()
+    deadline = min(now + config.timeout_seconds, phase_deadline - PAIR_GRACE_SECONDS)
+    if deadline <= now:
+        error = "PAIR vector skipped: the phase deadline leaves no time to run it"
+        return PairExecutor._result(attack, error=error)
+    try:
+        async with asyncio.timeout_at(deadline + PAIR_GRACE_SECONDS):
+            return await execute(attack, deadline=deadline)
+    except TimeoutError:
+        logger.warning(
+            "pair_backstop_timed_out",
+            vector_id=attack.id,
+            pair_seconds=round(deadline - now, 3),
+            grace_seconds=PAIR_GRACE_SECONDS,
+        )
+        return PairExecutor._result(attack, error="PAIR vector ran past its deadline and grace")
 
 
 def _parse_prompt(text: str) -> str | None:
@@ -64,8 +111,9 @@ class PairExecutor:
     Stops on ``verdict.successful``; otherwise refines on the quality judge's composite score
     (0 when no judge scores quality). Bounds: ``PairConfig.max_iterations``, the campaign budget
     checked before each iteration, and *deadline* (event-loop time), where the best attempt is
-    returned with ``pair.stop == "timeout"``. Attacker tokens go into ``budget.ledger`` under
-    ``attacker``; target tokens stay in ``token_usage`` for the phase to record once.
+    returned with ``pair.stop == "timeout"``. An attacker-client error stops with
+    ``attacker_error``, also with the best attempt. Attacker tokens go into ``budget.ledger``
+    under ``attacker``; target tokens stay in ``token_usage`` for the phase to record once.
     Pass the attacker unwrapped: a ``track()`` wrapper would count its tokens twice.
     """
 
@@ -124,7 +172,12 @@ class PairExecutor:
                     if loop.time() >= deadline:  # a stream that never yields still stops
                         stop = "timeout"
                         break
-                    reply = await self._ask(attack.description, i, last, best)
+                    try:
+                        reply = await self._ask(attack.description, i, last, best)
+                    except Exception as exc:  # a provider error keeps the attempts so far
+                        logger.warning("pair_attacker_error", vector_id=attack.id, error=str(exc))
+                        stop = "attacker_error"
+                        break
                     if reply is None:
                         stop = "pending"
                         break

@@ -133,6 +133,8 @@ class Attacker(BaseLLMClient):
         self.requests.append(text)
         if self.replies is not None:
             reply = self.replies.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
             if isinstance(reply, LLMResponse):
                 return reply
             content = reply if isinstance(reply, str) else json.dumps({"prompt": reply[0]})
@@ -288,6 +290,27 @@ async def test_max_iterations_returns_the_best_attempt() -> None:
     assert sha(result.prompt_used) == best["prompt_sha256"]
 
 
+async def test_a_later_higher_score_is_the_best_attempt() -> None:
+    result = await run(ToyGuardAgent(), Attacker(seed=7), max_iterations=8)
+    trajectory = result.evidence["pair"]["trajectory"]
+    best = max(trajectory, key=lambda t: t["score"])
+    assert best["score"] > 0
+    assert best["i"] > 1
+    assert sha(result.prompt_used) == best["prompt_sha256"] != trajectory[0]["prompt_sha256"]
+    assert LEAKS[0] in (result.agent_response or "")
+
+
+async def test_attacker_error_stops_and_keeps_the_best_attempt() -> None:
+    ledger = UsageLedger()
+    attacker = Attacker(replies=[(FRAMES["roleplay"] + " hi",), (BASE,), RuntimeError("429")])
+    result = await run(ToyGuardAgent(), attacker, ledger=ledger)
+    pair = result.evidence["pair"]
+    assert (pair["stop"], pair["iterations"]) == ("attacker_error", 2)
+    assert result.prompt_used == FRAMES["roleplay"] + " hi"
+    assert result.token_usage.total_tokens == 10  # both finished target calls
+    assert next(e for e in ledger.entries() if e.stage == "attacker").calls == 2
+
+
 async def test_token_cap_stops_with_budget() -> None:
     result = await run(ToyGuardAgent(), Attacker(seed=7), max_iterations=50, max_tokens=1500)
     assert result.evidence["pair"]["stop"] == "budget"
@@ -333,9 +356,10 @@ async def test_deterministic_attacker_and_replay_give_equal_trajectories() -> No
 
 async def test_unparseable_reply_counts_and_keeps_the_last_prompt() -> None:
     target = ToyGuardAgent()
-    result = await run(target, Attacker(replies=["not json", '{"no": 1}', (WIN,)]))
-    assert result.evidence["pair"]["attacker_parse_errors"] == 2
-    assert target.prompts == [BASE, BASE, WIN]
+    replies = ["not json", '{"no": 1}', '"a bare string"', "[1]", (WIN,)]
+    result = await run(target, Attacker(replies=replies))
+    assert result.evidence["pair"]["attacker_parse_errors"] == 4
+    assert target.prompts == [BASE, BASE, BASE, BASE, WIN]
     assert result.successful
 
 
