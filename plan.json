@@ -63,6 +63,36 @@
    "changed": "2026-11-18T16:42:45.663144+00:00"
   },
   {
+   "id": "CLAUDE-ARCHIVE-RECIPE",
+   "title": "docs(claude): archive-copy test recipe in CLAUDE.md",
+   "goal": "G-5",
+   "repo": "taoq-ai/ziran",
+   "tier": "light",
+   "framework": "wsjf",
+   "scores": {
+    "value": 3,
+    "time": 2,
+    "risk": 2,
+    "size": 1
+   },
+   "score": 7.0,
+   "why": "retro 2026-11-18 proposal 1: 15 verdicts rediscovered SETUPTOOLS_SCM_PRETEND_VERSION, 18 PYTHONPATH pinning, 8 git-dependent tests, 3 ruff-.venv",
+   "promise": "Add a short 'Testing in an archive copy' section to CLAUDE.md with the four rules from .wuwei/standards.md (retro 2026-11-18).",
+   "acceptance": [
+    "given CLAUDE.md, when read, then it names SETUPTOOLS_SCM_PRETEND_VERSION, PYTHONPATH pinning, ruff on named folders and the git-dependent tests"
+   ],
+   "prs": [],
+   "domain": "",
+   "in_doubt": false,
+   "class": null,
+   "after": [],
+   "host": "agent",
+   "status": "open",
+   "added": "2026-11-18",
+   "approved": false,
+   "changed": "2026-11-18T17:48:46.083275+00:00"
+  },
+  {
    "id": "PAIR-PR2",
    "title": "feat(attacks): wire tactic: pair, cache skip and docs (spec 081 slice 2)",
    "goal": "G-5",
@@ -206,6 +236,38 @@
    "kind": "run"
   },
   {
+   "id": "ci-npm-audit-runtime",
+   "title": "ci(audit): scope the frontend npm audit to runtime deps with a picomatch risk acceptance",
+   "goal": null,
+   "repo": "taoq-ai/ziran",
+   "tier": "light",
+   "framework": "wsjf",
+   "scores": {
+    "value": 8,
+    "time": 8,
+    "risk": 5,
+    "size": 1
+   },
+   "score": 21.0,
+   "why": "develop dependency-audit red on picomatch GHSA-fc5q-39xc-vjpf (high, no patch) via build-time devDeps only; npm audit --omit=dev reports 0; owner chose 'Scope to runtime' 2026-11-18; holds every v0.43.0 PR",
+   "promise": "develop's dependency-audit passes while still failing on any high runtime-dependency advisory",
+   "acceptance": [
+    "given develop with this change, when CI runs the frontend audit, then it audits runtime deps only and passes",
+    "given docs/security/risk-acceptances.md, when read, then a row records picomatch GHSA-fc5q-39xc-vjpf as dev-only with a review trigger of a patched release"
+   ],
+   "prs": [],
+   "domain": "",
+   "in_doubt": false,
+   "class": "expedite",
+   "after": [],
+   "host": "agent",
+   "status": "done",
+   "added": "2026-11-18",
+   "approved": true,
+   "changed": "2026-11-18T07:27:55.322012+00:00",
+   "reason": "merged as taoq-ai/ziran#506"
+  },
+  {
    "id": "dep-langgraph",
    "title": "chore(deps): land Dependabot #481 (langgraph 1.2.4 to 1.2.14) to close alert #234",
    "goal": "G-5",
@@ -239,38 +301,6 @@
    "reason": "#481 merged as 78c9df6 (langgraph 1.2.14); quality gate pass at e6d7c5e; re-run test 3.11/3.12/3.13 green; Dependabot alert #234 fixed"
   },
   {
-   "id": "ci-npm-audit-runtime",
-   "title": "ci(audit): scope the frontend npm audit to runtime deps with a picomatch risk acceptance",
-   "goal": null,
-   "repo": "taoq-ai/ziran",
-   "tier": "light",
-   "framework": "wsjf",
-   "scores": {
-    "value": 8,
-    "time": 8,
-    "risk": 5,
-    "size": 1
-   },
-   "score": 21.0,
-   "why": "develop dependency-audit red on picomatch GHSA-fc5q-39xc-vjpf (high, no patch) via build-time devDeps only; npm audit --omit=dev reports 0; owner chose 'Scope to runtime' 2026-11-18; holds every v0.43.0 PR",
-   "promise": "develop's dependency-audit passes while still failing on any high runtime-dependency advisory",
-   "acceptance": [
-    "given develop with this change, when CI runs the frontend audit, then it audits runtime deps only and passes",
-    "given docs/security/risk-acceptances.md, when read, then a row records picomatch GHSA-fc5q-39xc-vjpf as dev-only with a review trigger of a patched release"
-   ],
-   "prs": [],
-   "domain": "",
-   "in_doubt": false,
-   "class": "expedite",
-   "after": [],
-   "host": "agent",
-   "status": "done",
-   "added": "2026-11-18",
-   "approved": true,
-   "changed": "2026-11-18T07:27:55.322012+00:00",
-   "reason": "merged as taoq-ai/ziran#506"
-  },
-  {
    "id": "G5-DEFLAKE-LINEAR",
    "title": "test: make the linear-time guard immune to millisecond timer noise",
    "goal": "G-5",
@@ -302,6 +332,39 @@
    "approved": true,
    "changed": "2026-11-18T12:15:00.026835+00:00",
    "reason": "merged as taoq-ai/ziran#516"
+  },
+  {
+   "id": "dep-frontend",
+   "title": "chore: bump the frontend-dependencies group (16 updates)",
+   "goal": null,
+   "repo": "taoq-ai/ziran",
+   "tier": "light",
+   "framework": "wsjf",
+   "scores": {
+    "value": 5,
+    "time": 5,
+    "risk": 3,
+    "size": 1
+   },
+   "score": 13.0,
+   "why": "fixes develop's red npm dependency-audit (minimatch GHSA-g3hv-75wg-m249) that holds every v0.43.0 PR",
+   "promise": "npm audit --audit-level=high passes on develop",
+   "acceptance": [
+    "given develop with #489 merged, when CI runs, then dependency-audit passes"
+   ],
+   "prs": [
+    "taoq-ai/ziran#489"
+   ],
+   "domain": "",
+   "in_doubt": false,
+   "class": null,
+   "after": [],
+   "host": "agent",
+   "status": "done",
+   "added": "2026-11-18",
+   "approved": true,
+   "changed": "2026-11-18T07:43:51.300122+00:00",
+   "reason": "merged as taoq-ai/ziran#489"
   },
   {
    "id": "G5-AUTOGEN-EXTRA",
@@ -340,42 +403,9 @@
    "reason": "merged as taoq-ai/ziran#517"
   },
   {
-   "id": "dep-frontend",
-   "title": "chore: bump the frontend-dependencies group (16 updates)",
+   "id": "fsl-license",
+   "title": "Relicense future ziran versions under FSL-1.1-ALv2",
    "goal": null,
-   "repo": "taoq-ai/ziran",
-   "tier": "light",
-   "framework": "wsjf",
-   "scores": {
-    "value": 5,
-    "time": 5,
-    "risk": 3,
-    "size": 1
-   },
-   "score": 13.0,
-   "why": "fixes develop's red npm dependency-audit (minimatch GHSA-g3hv-75wg-m249) that holds every v0.43.0 PR",
-   "promise": "npm audit --audit-level=high passes on develop",
-   "acceptance": [
-    "given develop with #489 merged, when CI runs, then dependency-audit passes"
-   ],
-   "prs": [
-    "taoq-ai/ziran#489"
-   ],
-   "domain": "",
-   "in_doubt": false,
-   "class": null,
-   "after": [],
-   "host": "agent",
-   "status": "done",
-   "added": "2026-11-18",
-   "approved": true,
-   "changed": "2026-11-18T07:43:51.300122+00:00",
-   "reason": "merged as taoq-ai/ziran#489"
-  },
-  {
-   "id": "UI-523-DOCS",
-   "title": "docs!: document the web UI move in README, docs, roadmap and licence terms (#523)",
-   "goal": "G-6",
    "repo": "taoq-ai/ziran",
    "tier": "standard",
    "framework": "wsjf",
@@ -386,26 +416,22 @@
     "size": 2
    },
    "score": 10.5,
-   "why": "Owner decision 2026-11-18 (#520). #523 updates README, docs, roadmap, COMMERCIAL-LICENSE.md (to v1.1, because the definition of ziran names the web UI) and archives specs 008, 009 and 052.",
-   "promise": "Do exactly what #523 lists (`gh issue view 523`): README drops pip install ziran[ui] and the Web UI section, adds one line that the UI is in ZIRAN Cloud and Enterprise with v0.42.0 as the last Apache-2.0 release that includes it, and adds the streaming extra; update docs/concepts/knowledge-graph.md, docs/guides/interpreting-results.md, docs/guides/cicd-integration.md, docs/guides/long-running-campaigns.md; docs/community/roadmap.md marks v0.13 Web UI Foundation as moved and lists the UI items under ZIRAN Cloud; COMMERCIAL-LICENSE.md removes 'the web UI' from the definition and is published as version 1.1 with the new date; COMMERCIAL-ORDER-FORM.md points to 1.1; specs 008, 009 and 052 go to Superseded with a one-line note and move to specs/archive/ (add the note to 010 and 026 too); CLAUDE.md drops the web UI Active Technologies entries. The licence-terms wording is an owner-path change: show the diff to the owner before ready. Closes #523. Files: README.md, docs/**, mkdocs.yml, COMMERCIAL-LICENSE.md, COMMERCIAL-ORDER-FORM.md, specs/008*, specs/009*, specs/052*, specs/archive/*, CLAUDE.md.",
-   "acceptance": [
-    "given the PR head, when grep -rn -i 'web ui\\|ziran ui\\|ziran\\[ui\\]' README.md docs mkdocs.yml runs, then it returns only the moved notice and the roadmap entries",
-    "given the docs workflow, when the site builds, then it has no broken links",
-    "given COMMERCIAL-LICENSE.md, when read, then it is version 1.1 and no longer licenses a web UI"
+   "why": "Owner asked to relicense future versions to FSL-1.1-ALv2 and merge PR 499",
+   "promise": "",
+   "acceptance": [],
+   "prs": [
+    "taoq-ai/ziran#499"
    ],
-   "prs": [],
    "domain": "",
    "in_doubt": false,
-   "class": null,
-   "after": [
-    "UI-522-BACKEND"
-   ],
+   "class": "expedite",
+   "after": [],
    "host": "agent",
    "status": "done",
-   "added": "2026-11-18",
-   "approved": true,
-   "changed": "2026-11-18T14:36:18.720635+00:00",
-   "reason": "merged as taoq-ai/ziran#528"
+   "added": "2026-11-16",
+   "approved": false,
+   "changed": "2026-11-16T14:26:12.218539+00:00",
+   "reason": "PR taoq-ai/ziran#499 merged into develop at 4fc1e83; quality and security gates passed at 6453035; 17/17 CI green"
   },
   {
    "id": "G5-BENCH-STICKY",
@@ -444,9 +470,9 @@
    "reason": "merged as taoq-ai/ziran#518"
   },
   {
-   "id": "fsl-license",
-   "title": "Relicense future ziran versions under FSL-1.1-ALv2",
-   "goal": null,
+   "id": "UI-523-DOCS",
+   "title": "docs!: document the web UI move in README, docs, roadmap and licence terms (#523)",
+   "goal": "G-6",
    "repo": "taoq-ai/ziran",
    "tier": "standard",
    "framework": "wsjf",
@@ -457,22 +483,26 @@
     "size": 2
    },
    "score": 10.5,
-   "why": "Owner asked to relicense future versions to FSL-1.1-ALv2 and merge PR 499",
-   "promise": "",
-   "acceptance": [],
-   "prs": [
-    "taoq-ai/ziran#499"
+   "why": "Owner decision 2026-11-18 (#520). #523 updates README, docs, roadmap, COMMERCIAL-LICENSE.md (to v1.1, because the definition of ziran names the web UI) and archives specs 008, 009 and 052.",
+   "promise": "Do exactly what #523 lists (`gh issue view 523`): README drops pip install ziran[ui] and the Web UI section, adds one line that the UI is in ZIRAN Cloud and Enterprise with v0.42.0 as the last Apache-2.0 release that includes it, and adds the streaming extra; update docs/concepts/knowledge-graph.md, docs/guides/interpreting-results.md, docs/guides/cicd-integration.md, docs/guides/long-running-campaigns.md; docs/community/roadmap.md marks v0.13 Web UI Foundation as moved and lists the UI items under ZIRAN Cloud; COMMERCIAL-LICENSE.md removes 'the web UI' from the definition and is published as version 1.1 with the new date; COMMERCIAL-ORDER-FORM.md points to 1.1; specs 008, 009 and 052 go to Superseded with a one-line note and move to specs/archive/ (add the note to 010 and 026 too); CLAUDE.md drops the web UI Active Technologies entries. The licence-terms wording is an owner-path change: show the diff to the owner before ready. Closes #523. Files: README.md, docs/**, mkdocs.yml, COMMERCIAL-LICENSE.md, COMMERCIAL-ORDER-FORM.md, specs/008*, specs/009*, specs/052*, specs/archive/*, CLAUDE.md.",
+   "acceptance": [
+    "given the PR head, when grep -rn -i 'web ui\\|ziran ui\\|ziran\\[ui\\]' README.md docs mkdocs.yml runs, then it returns only the moved notice and the roadmap entries",
+    "given the docs workflow, when the site builds, then it has no broken links",
+    "given COMMERCIAL-LICENSE.md, when read, then it is version 1.1 and no longer licenses a web UI"
    ],
+   "prs": [],
    "domain": "",
    "in_doubt": false,
-   "class": "expedite",
-   "after": [],
+   "class": null,
+   "after": [
+    "UI-522-BACKEND"
+   ],
    "host": "agent",
    "status": "done",
-   "added": "2026-11-16",
-   "approved": false,
-   "changed": "2026-11-16T14:26:12.218539+00:00",
-   "reason": "PR taoq-ai/ziran#499 merged into develop at 4fc1e83; quality and security gates passed at 6453035; 17/17 CI green"
+   "added": "2026-11-18",
+   "approved": true,
+   "changed": "2026-11-18T14:36:18.720635+00:00",
+   "reason": "merged as taoq-ai/ziran#528"
   },
   {
    "id": "G4-PR-DELTA",
@@ -579,39 +609,6 @@
    "reason": "merged as taoq-ai/ziran#526"
   },
   {
-   "id": "dep-python",
-   "title": "chore: bump the python-dependencies group (langfuse <6)",
-   "goal": null,
-   "repo": "taoq-ai/ziran",
-   "tier": "light",
-   "framework": "wsjf",
-   "scores": {
-    "value": 3,
-    "time": 3,
-    "risk": 2,
-    "size": 1
-   },
-   "score": 8.0,
-   "why": "widens langfuse range; must land before G2-LANGFUSE-LIVE per lead",
-   "promise": "dependency bump lands with green CI",
-   "acceptance": [
-    "given develop with #479 merged, when CI runs, then all checks pass"
-   ],
-   "prs": [
-    "taoq-ai/ziran#479"
-   ],
-   "domain": "",
-   "in_doubt": false,
-   "class": null,
-   "after": [],
-   "host": "agent",
-   "status": "done",
-   "added": "2026-11-18",
-   "approved": true,
-   "changed": "2026-11-18T08:07:53.293637+00:00",
-   "reason": "merged as taoq-ai/ziran#479"
-  },
-  {
    "id": "poc-dedent",
    "title": "fix(poc): dedent the Python PoC template before filling it",
    "goal": null,
@@ -643,6 +640,39 @@
    "approved": false,
    "changed": "2026-11-18T06:06:24.394554+00:00",
    "reason": "merged as taoq-ai/ziran#501"
+  },
+  {
+   "id": "dep-python",
+   "title": "chore: bump the python-dependencies group (langfuse <6)",
+   "goal": null,
+   "repo": "taoq-ai/ziran",
+   "tier": "light",
+   "framework": "wsjf",
+   "scores": {
+    "value": 3,
+    "time": 3,
+    "risk": 2,
+    "size": 1
+   },
+   "score": 8.0,
+   "why": "widens langfuse range; must land before G2-LANGFUSE-LIVE per lead",
+   "promise": "dependency bump lands with green CI",
+   "acceptance": [
+    "given develop with #479 merged, when CI runs, then all checks pass"
+   ],
+   "prs": [
+    "taoq-ai/ziran#479"
+   ],
+   "domain": "",
+   "in_doubt": false,
+   "class": null,
+   "after": [],
+   "host": "agent",
+   "status": "done",
+   "added": "2026-11-18",
+   "approved": true,
+   "changed": "2026-11-18T08:07:53.293637+00:00",
+   "reason": "merged as taoq-ai/ziran#479"
   },
   {
    "id": "G4-INDICATOR-TIERS",
@@ -682,41 +712,6 @@
    "reason": "merged as taoq-ai/ziran#514"
   },
   {
-   "id": "G5-DOCS-DRIFT",
-   "title": "docs: refresh the public roadmap, the audit skill's action pin and the detection-accuracy side tables",
-   "goal": "G-5",
-   "repo": "taoq-ai/ziran",
-   "tier": "light",
-   "framework": "wsjf",
-   "scores": {
-    "value": 5,
-    "time": 8,
-    "risk": 2,
-    "size": 2
-   },
-   "score": 7.5,
-   "why": "G-5 measure 3 ('docs counts (roadmap.md) match the code') plus the roadmap half of the owner's sweep request. Evidence at 6f7ccd7: roadmap.md:127 says 72/86; 17 roadmap items link issues that `gh issue view` shows closed; `gh api repos/taoq-ai/ziran/issues/271` returns html_url taoq-ai/ziran-cloud/issues/21; SKILL.md:97 and 102 pin b813e4f and 0.42.0; detection-accuracy.md:384 shows 78/0/0/144 and 222 calls while the harness now scores 447 examples. WSJF: value 5, the public roadmap is the first page a buyer reads; time 8, G-5 is due 2026-12-09; risk 2; size 2, about 80 lines of prose.",
-   "promise": "The docs match develop. (1) docs/community/roadmap.md: line 127 reads 75/88 ATLAS techniques, the count benchmarks/atlas_coverage.py prints at the head (README.md already says 75/88 and 677 vectors). The 17 unticked items whose issues are closed (#259, #272 to #274, #276 to #287, #292) are ticked and moved under Recently Delivered, with the v0.43.0 batch (#392, #394) and the Claude Code plugin audit (#415, sub-issues #416 to #423) added there. The NeMo Guardrails line loses its #271 link, because #271 now redirects to the private taoq-ai/ziran-cloud repository. In Flight keeps the open issues (#275, #289, #290, #291) as the owner's verdicts leave them. (2) plugins/ziran/skills/audit-agents/SKILL.md lines 97 and 102 pin `taoq-ai/ziran@591ccafa3fca7da82fd6f2673358552584f55339  # v0.43.0` and `ziran==0.43.0`, the v0.43.0 tag's commit. (3) docs/reference/benchmarks/detection-accuracy.md: the Two-tier judging table and the Semantic tier's regex-only rows show a harness run at the head on the 447-example dataset, with the command named (the lead's run at 6f7ccd7: single 115/64/19/249 with 447 frontier calls, deterministic_only 241 calls and reduction 0.4609, refusal 107/93/1/52; the doc shows 222 and 228-example figures). Files: docs/community/roadmap.md, plugins/ziran/skills/audit-agents/SKILL.md, docs/reference/benchmarks/detection-accuracy.md. Outside: the deliberate 0.40.0 baseline pins in docs/guides/claude-code.md:156 and examples/07-cicd-quality-gate/claude-code-audit.yml (they pin the release the baseline was recorded with), the `>=0.42.0` minimums in the skills, closing issues or milestones.",
-   "acceptance": [
-    "given roadmap.md at the head, when each linked issue's state is read with `gh issue view`, then every closed issue is ticked or under Recently Delivered, every unticked item links an open issue, and no link points at #271",
-    "given roadmap.md, then its ATLAS line equals the technique count benchmarks/atlas_coverage.py prints at the head (75/88 today)",
-    "given SKILL.md, when tests/unit/test_claude_plugin_skills.py runs, then it passes and the pinned SHA equals `git rev-list -n1 v0.43.0`",
-    "given detection-accuracy.md, when `uv run python benchmarks/two_tier_judging.py compare --format markdown` runs at the head, then its table rows equal the doc's",
-    "given `uvx --with mkdocs-material mkdocs build`, then it reports no new warning for the edited pages"
-   ],
-   "prs": [],
-   "domain": "clear: each fix copies a value that gh, git or a harness prints at the head",
-   "in_doubt": false,
-   "class": null,
-   "after": [],
-   "host": "agent",
-   "status": "done",
-   "added": "2026-11-18",
-   "approved": true,
-   "changed": "2026-11-18T15:08:00.639578+00:00",
-   "reason": "merged as taoq-ai/ziran#529"
-  },
-  {
    "id": "G5-MCP-SEND-UNMEASURED",
    "title": "fix(mcp): stop scoring the MCP no-chat placeholder as an agent reply, and stop sending sampling/createMessage to servers",
    "goal": "G-5",
@@ -752,6 +747,70 @@
    "reason": "merged as taoq-ai/ziran#524"
   },
   {
+   "id": "G5-DOCS-DRIFT",
+   "title": "docs: refresh the public roadmap, the audit skill's action pin and the detection-accuracy side tables",
+   "goal": "G-5",
+   "repo": "taoq-ai/ziran",
+   "tier": "light",
+   "framework": "wsjf",
+   "scores": {
+    "value": 5,
+    "time": 8,
+    "risk": 2,
+    "size": 2
+   },
+   "score": 7.5,
+   "why": "G-5 measure 3 ('docs counts (roadmap.md) match the code') plus the roadmap half of the owner's sweep request. Evidence at 6f7ccd7: roadmap.md:127 says 72/86; 17 roadmap items link issues that `gh issue view` shows closed; `gh api repos/taoq-ai/ziran/issues/271` returns html_url taoq-ai/ziran-cloud/issues/21; SKILL.md:97 and 102 pin b813e4f and 0.42.0; detection-accuracy.md:384 shows 78/0/0/144 and 222 calls while the harness now scores 447 examples. WSJF: value 5, the public roadmap is the first page a buyer reads; time 8, G-5 is due 2026-12-09; risk 2; size 2, about 80 lines of prose.",
+   "promise": "The docs match develop. (1) docs/community/roadmap.md: line 127 reads 75/88 ATLAS techniques, the count benchmarks/atlas_coverage.py prints at the head (README.md already says 75/88 and 677 vectors). The 17 unticked items whose issues are closed (#259, #272 to #274, #276 to #287, #292) are ticked and moved under Recently Delivered, with the v0.43.0 batch (#392, #394) and the Claude Code plugin audit (#415, sub-issues #416 to #423) added there. The NeMo Guardrails line loses its #271 link, because #271 now redirects to the private taoq-ai/ziran-cloud repository. In Flight keeps the open issues (#275, #289, #290, #291) as the owner's verdicts leave them. (2) plugins/ziran/skills/audit-agents/SKILL.md lines 97 and 102 pin `taoq-ai/ziran@591ccafa3fca7da82fd6f2673358552584f55339  # v0.43.0` and `ziran==0.43.0`, the v0.43.0 tag's commit. (3) docs/reference/benchmarks/detection-accuracy.md: the Two-tier judging table and the Semantic tier's regex-only rows show a harness run at the head on the 447-example dataset, with the command named (the lead's run at 6f7ccd7: single 115/64/19/249 with 447 frontier calls, deterministic_only 241 calls and reduction 0.4609, refusal 107/93/1/52; the doc shows 222 and 228-example figures). Files: docs/community/roadmap.md, plugins/ziran/skills/audit-agents/SKILL.md, docs/reference/benchmarks/detection-accuracy.md. Outside: the deliberate 0.40.0 baseline pins in docs/guides/claude-code.md:156 and examples/07-cicd-quality-gate/claude-code-audit.yml (they pin the release the baseline was recorded with), the `>=0.42.0` minimums in the skills, closing issues or milestones.",
+   "acceptance": [
+    "given roadmap.md at the head, when each linked issue's state is read with `gh issue view`, then every closed issue is ticked or under Recently Delivered, every unticked item links an open issue, and no link points at #271",
+    "given roadmap.md, then its ATLAS line equals the technique count benchmarks/atlas_coverage.py prints at the head (75/88 today)",
+    "given SKILL.md, when tests/unit/test_claude_plugin_skills.py runs, then it passes and the pinned SHA equals `git rev-list -n1 v0.43.0`",
+    "given detection-accuracy.md, when `uv run python benchmarks/two_tier_judging.py compare --format markdown` runs at the head, then its table rows equal the doc's",
+    "given `uvx --with mkdocs-material mkdocs build`, then it reports no new warning for the edited pages"
+   ],
+   "prs": [],
+   "domain": "clear: each fix copies a value that gh, git or a harness prints at the head",
+   "in_doubt": false,
+   "class": null,
+   "after": [],
+   "host": "agent",
+   "status": "done",
+   "added": "2026-11-18",
+   "approved": true,
+   "changed": "2026-11-18T15:08:00.639578+00:00",
+   "reason": "merged as taoq-ai/ziran#529"
+  },
+  {
+   "id": "commercial-contact",
+   "title": "Fill in the commercial licensing contact",
+   "goal": null,
+   "repo": "taoq-ai/ziran",
+   "tier": "standard",
+   "framework": "wsjf",
+   "scores": {
+    "value": 3,
+    "time": 3,
+    "risk": 1,
+    "size": 1
+   },
+   "score": 7.0,
+   "why": "Owner asked to replace the licensing contact placeholder with info@taoq.ai",
+   "promise": "",
+   "acceptance": [],
+   "prs": [],
+   "domain": "",
+   "in_doubt": false,
+   "class": "expedite",
+   "after": [],
+   "host": "agent",
+   "status": "done",
+   "added": "2026-11-16",
+   "approved": false,
+   "changed": "2026-11-16T14:56:02.476003+00:00",
+   "reason": "PR taoq-ai/ziran#500 merged into develop; 16/16 CI green; docs only"
+  },
+  {
    "id": "PAIR-PR1",
    "title": "feat(attacks): PAIR executor and PairConfig model (spec 081 slice 1)",
    "goal": "G-5",
@@ -783,35 +842,6 @@
    "approved": true,
    "changed": "2026-11-18T15:23:05.016364+00:00",
    "reason": "merged as taoq-ai/ziran#531"
-  },
-  {
-   "id": "commercial-contact",
-   "title": "Fill in the commercial licensing contact",
-   "goal": null,
-   "repo": "taoq-ai/ziran",
-   "tier": "standard",
-   "framework": "wsjf",
-   "scores": {
-    "value": 3,
-    "time": 3,
-    "risk": 1,
-    "size": 1
-   },
-   "score": 7.0,
-   "why": "Owner asked to replace the licensing contact placeholder with info@taoq.ai",
-   "promise": "",
-   "acceptance": [],
-   "prs": [],
-   "domain": "",
-   "in_doubt": false,
-   "class": "expedite",
-   "after": [],
-   "host": "agent",
-   "status": "done",
-   "added": "2026-11-16",
-   "approved": false,
-   "changed": "2026-11-16T14:56:02.476003+00:00",
-   "reason": "PR taoq-ai/ziran#500 merged into develop; 16/16 CI green; docs only"
   },
   {
    "id": "UI-522-BACKEND",
@@ -1028,6 +1058,41 @@
    "reason": "merged as taoq-ai/ziran#510"
   },
   {
+   "id": "G3-CVE-BATCH",
+   "title": "feat(benchmarks): CVE ground truth for agent and MCP CVEs published 2026-03-20 to 2026-11-18",
+   "goal": "G-3",
+   "repo": "taoq-ai/ziran",
+   "tier": "smart",
+   "framework": "wsjf",
+   "scores": {
+    "value": 8,
+    "time": 8,
+    "risk": 5,
+    "size": 5
+   },
+   "score": 4.2,
+   "why": "Last CVE added to the skill_cve database 2026-03-19 (9d3957d, #158): 14 CVEs plus 13 design risks, newest CVE-2026-29783 and CVE-2026-27825. Ground-truth agents: 22 (11 vulnerable, 11 safe); the last pair, Claude Code, 2026-09-29 (7f41499) added no CVE. Seed list from gh api /advisories (published >= 2026-03-20) for MCP, coding-agent and agent-framework packages, run 2026-11-18. Overlaps G3-VECTOR-BATCH only on generated docs (regenerate on rebase). WSJF: value 8, half of G-3 (priority 2); time 8, ships in v0.43.0 on 2026-12-02; risk 5, a CVE entry that over-matches would add findings, guarded by the safe twins; size 5, about 25 entries plus three agent pairs, mostly data.",
+   "promise": "The CVE ground truth covers agent and MCP CVEs published since the last addition. Spec dir specs/075-cve-ground-truth-2026h2. (1) ziran/application/skill_cve/__init__.py gains entries for the agent-relevant advisories below, each with its direct advisory URL (github.com/advisories/GHSA-... or nvd.nist.gov/vuln/detail/CVE-...; not the search URLs older entries use), the first patched version, framework and vulnerability_type from the existing vocabulary. (2) Vulnerable and safe ground-truth agent pairs under benchmarks/ground_truth/agents/ with scenarios under benchmarks/ground_truth/scenarios/ for at least three tool-chain shapes: mcp-atlassian attachment upload reading server-local files and exfiltrating them, a malicious MCP server config leading to command execution, and exfiltration through a pre-approved fetch domain. (3) benchmarks/ground_truth/README.md CVE table and the generated benchmark docs updated. Seed list from the GitHub Advisory Database (published on or after 2026-03-20, agent and MCP packages); the builder verifies each and drops any that no agent can trigger: mcp-atlassian file read and exfil family CVE-2026-77260, -77248, -77262, -77253, -77246, CVE-2026-73498, confused deputy CVE-2026-77255, ENABLED_TOOLS bypass CVE-2026-77243; MCP Python SDK client fetching server-chosen $ref URLs CVE-2026-116686; MCP TypeScript SDK OAuth credentials to a server-chosen authorization server CVE-2026-104850; LiteLLM MCP auth bypass CVE-2026-59822; FastMCP OpenAPI provider SSRF and path traversal CVE-2026-32871; Langflow command execution via MCP stdio config CVE-2026-105697; OpenAI Codex CLI code execution via malicious MCP config CVE-2025-61260 (published 2026-04-14); Claude Code: exfil via pre-approved HuggingFace domain CVE-2026-54316, symlink sandbox escape CVE-2026-39861, Edit TOCTOU outside workspace CVE-2026-88968, git-worktree sandbox escape CVE-2026-55607, trust-dialog bypass CVE-2026-40068, plugin hash-pin bypass CVE-2026-86063; AG2 SandboxShellTool newline injection CVE-2026-113663; Langflow prompt injection to code execution CVE-2026-7700; n8n AI Agents MCP connector domain bypass CVE-2026-59207, run_node_tool privilege escalation CVE-2026-65015, agent workflow tool caller-policy bypass CVE-2026-86996, credentials leaked into LLM node data CVE-2026-65589. Files: ziran/application/skill_cve/__init__.py, benchmarks/ground_truth/agents/*.yaml (new pairs), benchmarks/ground_truth/scenarios/**, benchmarks/ground_truth/README.md, generated docs under docs/reference/benchmarks/ and benchmarks/results/ (regenerated), tests that count CVE entries if any, specs/075-cve-ground-truth-2026h2/. Outside: new attack vectors (G3-VECTOR-BATCH), non-agent web bugs in the same products (most n8n and Langflow advisories), the MCP SDK's DoS and session bugs.",
+   "acceptance": [
+    "given each new skill_cve entry, then it has a cve_id, a direct advisory URL, a first patched version, a framework and a vulnerability_type from the existing vocabulary, and its advisory was published on or after 2026-03-20",
+    "given each new vulnerable ground-truth agent, when benchmarks/ground_truth/validate.py and the ground-truth runner run, then it validates and its expected CVE and chain are detected; and given its safe twin, then neither is flagged",
+    "given the existing 22 agents, when the runner runs, then no safe agent is newly flagged by the new CVE entries",
+    "given the PR head, when benchmarks/generate_all.py and benchmarks/regression_check.py run, then they pass and the README CVE table lists every new entry",
+    "given the PR head, when ruff check, ruff format --check, mypy ziran/ and pytest --cov=ziran run, then all pass with coverage at or above 85%"
+   ],
+   "prs": [],
+   "domain": "clear: data in existing schemas (skill_cve entries, ground-truth agent and scenario YAML), one reading of each advisory settles it",
+   "in_doubt": false,
+   "class": null,
+   "after": [],
+   "host": "agent",
+   "status": "done",
+   "added": "2026-11-18",
+   "approved": true,
+   "changed": "2026-11-18T07:43:51.317139+00:00",
+   "reason": "merged as taoq-ai/ziran#504"
+  },
+  {
    "id": "G2-AUTOGEN",
    "title": "feat(adapters): AutoGen AgentChat adapter for agents and teams",
    "goal": "G-2",
@@ -1062,41 +1127,6 @@
    "approved": true,
    "changed": "2026-11-18T09:18:39.778489+00:00",
    "reason": "merged as taoq-ai/ziran#507"
-  },
-  {
-   "id": "G3-CVE-BATCH",
-   "title": "feat(benchmarks): CVE ground truth for agent and MCP CVEs published 2026-03-20 to 2026-11-18",
-   "goal": "G-3",
-   "repo": "taoq-ai/ziran",
-   "tier": "smart",
-   "framework": "wsjf",
-   "scores": {
-    "value": 8,
-    "time": 8,
-    "risk": 5,
-    "size": 5
-   },
-   "score": 4.2,
-   "why": "Last CVE added to the skill_cve database 2026-03-19 (9d3957d, #158): 14 CVEs plus 13 design risks, newest CVE-2026-29783 and CVE-2026-27825. Ground-truth agents: 22 (11 vulnerable, 11 safe); the last pair, Claude Code, 2026-09-29 (7f41499) added no CVE. Seed list from gh api /advisories (published >= 2026-03-20) for MCP, coding-agent and agent-framework packages, run 2026-11-18. Overlaps G3-VECTOR-BATCH only on generated docs (regenerate on rebase). WSJF: value 8, half of G-3 (priority 2); time 8, ships in v0.43.0 on 2026-12-02; risk 5, a CVE entry that over-matches would add findings, guarded by the safe twins; size 5, about 25 entries plus three agent pairs, mostly data.",
-   "promise": "The CVE ground truth covers agent and MCP CVEs published since the last addition. Spec dir specs/075-cve-ground-truth-2026h2. (1) ziran/application/skill_cve/__init__.py gains entries for the agent-relevant advisories below, each with its direct advisory URL (github.com/advisories/GHSA-... or nvd.nist.gov/vuln/detail/CVE-...; not the search URLs older entries use), the first patched version, framework and vulnerability_type from the existing vocabulary. (2) Vulnerable and safe ground-truth agent pairs under benchmarks/ground_truth/agents/ with scenarios under benchmarks/ground_truth/scenarios/ for at least three tool-chain shapes: mcp-atlassian attachment upload reading server-local files and exfiltrating them, a malicious MCP server config leading to command execution, and exfiltration through a pre-approved fetch domain. (3) benchmarks/ground_truth/README.md CVE table and the generated benchmark docs updated. Seed list from the GitHub Advisory Database (published on or after 2026-03-20, agent and MCP packages); the builder verifies each and drops any that no agent can trigger: mcp-atlassian file read and exfil family CVE-2026-77260, -77248, -77262, -77253, -77246, CVE-2026-73498, confused deputy CVE-2026-77255, ENABLED_TOOLS bypass CVE-2026-77243; MCP Python SDK client fetching server-chosen $ref URLs CVE-2026-116686; MCP TypeScript SDK OAuth credentials to a server-chosen authorization server CVE-2026-104850; LiteLLM MCP auth bypass CVE-2026-59822; FastMCP OpenAPI provider SSRF and path traversal CVE-2026-32871; Langflow command execution via MCP stdio config CVE-2026-105697; OpenAI Codex CLI code execution via malicious MCP config CVE-2025-61260 (published 2026-04-14); Claude Code: exfil via pre-approved HuggingFace domain CVE-2026-54316, symlink sandbox escape CVE-2026-39861, Edit TOCTOU outside workspace CVE-2026-88968, git-worktree sandbox escape CVE-2026-55607, trust-dialog bypass CVE-2026-40068, plugin hash-pin bypass CVE-2026-86063; AG2 SandboxShellTool newline injection CVE-2026-113663; Langflow prompt injection to code execution CVE-2026-7700; n8n AI Agents MCP connector domain bypass CVE-2026-59207, run_node_tool privilege escalation CVE-2026-65015, agent workflow tool caller-policy bypass CVE-2026-86996, credentials leaked into LLM node data CVE-2026-65589. Files: ziran/application/skill_cve/__init__.py, benchmarks/ground_truth/agents/*.yaml (new pairs), benchmarks/ground_truth/scenarios/**, benchmarks/ground_truth/README.md, generated docs under docs/reference/benchmarks/ and benchmarks/results/ (regenerated), tests that count CVE entries if any, specs/075-cve-ground-truth-2026h2/. Outside: new attack vectors (G3-VECTOR-BATCH), non-agent web bugs in the same products (most n8n and Langflow advisories), the MCP SDK's DoS and session bugs.",
-   "acceptance": [
-    "given each new skill_cve entry, then it has a cve_id, a direct advisory URL, a first patched version, a framework and a vulnerability_type from the existing vocabulary, and its advisory was published on or after 2026-03-20",
-    "given each new vulnerable ground-truth agent, when benchmarks/ground_truth/validate.py and the ground-truth runner run, then it validates and its expected CVE and chain are detected; and given its safe twin, then neither is flagged",
-    "given the existing 22 agents, when the runner runs, then no safe agent is newly flagged by the new CVE entries",
-    "given the PR head, when benchmarks/generate_all.py and benchmarks/regression_check.py run, then they pass and the README CVE table lists every new entry",
-    "given the PR head, when ruff check, ruff format --check, mypy ziran/ and pytest --cov=ziran run, then all pass with coverage at or above 85%"
-   ],
-   "prs": [],
-   "domain": "clear: data in existing schemas (skill_cve entries, ground-truth agent and scenario YAML), one reading of each advisory settles it",
-   "in_doubt": false,
-   "class": null,
-   "after": [],
-   "host": "agent",
-   "status": "done",
-   "added": "2026-11-18",
-   "approved": true,
-   "changed": "2026-11-18T07:43:51.317139+00:00",
-   "reason": "merged as taoq-ai/ziran#504"
   },
   {
    "id": "G3-VECTOR-BATCH",
@@ -1134,39 +1164,6 @@
    "reason": "merged as taoq-ai/ziran#508"
   },
   {
-   "id": "ISSUE-405-REACT-TABLE-V9",
-   "title": "chore(ui): migrate FindingsTable to @tanstack/react-table 9",
-   "goal": "G-5",
-   "repo": "taoq-ai/ziran",
-   "tier": "smart",
-   "framework": "wsjf",
-   "scores": {
-    "value": 2,
-    "time": 1,
-    "risk": 3,
-    "size": 2
-   },
-   "score": 3.0,
-   "why": "#405 is open and still true: ui/package.json pins ^8.21.3 while v9 is stable (npm dist-tag latest 9.3.1), and the major stays ignored for Dependabot until this lands, so the UI's table library falls behind. Small and local. WSJF: value 2; time 1; risk 3, keeps a runtime UI dependency current; size 2.",
-   "promise": "The UI runs on @tanstack/react-table 9 with no behaviour change; this closes #405. ui/package.json moves `@tanstack/react-table` from ^8.21.3 to ^9 (npm's latest is 9.3.1), ui/package-lock.json is refreshed, and ui/src/components/findings/FindingsTable.tsx (221 lines, the only useReactTable caller) and the RowSelectionState import in ui/src/pages/Findings.tsx follow the v9 API; sorting, filtering, pagination and row selection behave as today. Files: ui/package.json, ui/package-lock.json, ui/src/components/findings/FindingsTable.tsx, ui/src/pages/Findings.tsx. Outside: TypeScript 7, other UI dependencies, the Dependabot ignore for the major (the owner can lift it with a Dependabot command after merge).",
-   "acceptance": [
-    "given the PR head, when `npm ci`, `npm run build` and `npm run lint` run in ui/, then they pass with react-table 9.x in the lockfile",
-    "given ui/e2e/findings.spec.ts, when it runs under a timeout against the dev server, then it passes as it does on develop",
-    "given `npm audit --audit-level=high --omit=dev` in ui/, then it reports 0 vulnerabilities"
-   ],
-   "prs": [],
-   "domain": "clear: one component, migrated by the library's v8 to v9 guide, checked by build, lint and the findings e2e test",
-   "in_doubt": false,
-   "class": null,
-   "after": [],
-   "host": "agent",
-   "status": "dropped",
-   "added": "2026-11-18",
-   "approved": false,
-   "changed": "2026-11-18T13:20:01.729335+00:00",
-   "reason": "UI leaves the free version (#520); #405 closed as moved"
-  },
-  {
    "id": "ISSUE-174-SARIF",
    "title": "feat(ui): SARIF export of a run, reusing the CLI's SARIF generator",
    "goal": "G-5",
@@ -1199,6 +1196,39 @@
    "approved": false,
    "changed": "2026-11-18T13:20:01.654668+00:00",
    "reason": "UI leaves the free version (#520); #174 closed as moved to ziran-cloud"
+  },
+  {
+   "id": "ISSUE-405-REACT-TABLE-V9",
+   "title": "chore(ui): migrate FindingsTable to @tanstack/react-table 9",
+   "goal": "G-5",
+   "repo": "taoq-ai/ziran",
+   "tier": "smart",
+   "framework": "wsjf",
+   "scores": {
+    "value": 2,
+    "time": 1,
+    "risk": 3,
+    "size": 2
+   },
+   "score": 3.0,
+   "why": "#405 is open and still true: ui/package.json pins ^8.21.3 while v9 is stable (npm dist-tag latest 9.3.1), and the major stays ignored for Dependabot until this lands, so the UI's table library falls behind. Small and local. WSJF: value 2; time 1; risk 3, keeps a runtime UI dependency current; size 2.",
+   "promise": "The UI runs on @tanstack/react-table 9 with no behaviour change; this closes #405. ui/package.json moves `@tanstack/react-table` from ^8.21.3 to ^9 (npm's latest is 9.3.1), ui/package-lock.json is refreshed, and ui/src/components/findings/FindingsTable.tsx (221 lines, the only useReactTable caller) and the RowSelectionState import in ui/src/pages/Findings.tsx follow the v9 API; sorting, filtering, pagination and row selection behave as today. Files: ui/package.json, ui/package-lock.json, ui/src/components/findings/FindingsTable.tsx, ui/src/pages/Findings.tsx. Outside: TypeScript 7, other UI dependencies, the Dependabot ignore for the major (the owner can lift it with a Dependabot command after merge).",
+   "acceptance": [
+    "given the PR head, when `npm ci`, `npm run build` and `npm run lint` run in ui/, then they pass with react-table 9.x in the lockfile",
+    "given ui/e2e/findings.spec.ts, when it runs under a timeout against the dev server, then it passes as it does on develop",
+    "given `npm audit --audit-level=high --omit=dev` in ui/, then it reports 0 vulnerabilities"
+   ],
+   "prs": [],
+   "domain": "clear: one component, migrated by the library's v8 to v9 guide, checked by build, lint and the findings e2e test",
+   "in_doubt": false,
+   "class": null,
+   "after": [],
+   "host": "agent",
+   "status": "dropped",
+   "added": "2026-11-18",
+   "approved": false,
+   "changed": "2026-11-18T13:20:01.729335+00:00",
+   "reason": "UI leaves the free version (#520); #405 closed as moved"
   }
  ]
 }
