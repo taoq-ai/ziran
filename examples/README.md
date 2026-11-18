@@ -57,6 +57,7 @@ These examples call an LLM provider. Set `OPENAI_API_KEY` in `../.env` first.
 | 16 | [LLM-as-a-Judge](16-llm-judge/) | Enhanced detection with AI-powered judge (multi-provider) | `--extra langchain` + `litellm` |
 | 17 | [Bedrock Agent Scan](17-bedrock-agent-scan/) | Scan an Amazon Bedrock Agent via the AWS SDK | `--extra bedrock` |
 | 18 | [AgentCore Scan](18-agentcore-scan/) | Scan an AgentCore-deployed agent in-process (mock included) | `--extra agentcore` |
+| 26 | [OpenAI Agents Scan](26-openai-agents-scan/) | OpenAI Agents SDK support agent with a billing handoff | `--extra openai-agents` |
 
 ---
 

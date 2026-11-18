@@ -136,6 +136,41 @@ adapter = CrewAIAdapter(crew=your_crew)
 
 Requires: `uv sync --extra crewai`
 
+### OpenAI Agents SDK
+
+```python
+from ziran.infrastructure.adapters.openai_agents_adapter import OpenAIAgentsAdapter
+
+adapter = OpenAIAgentsAdapter(agent=your_agent)  # an agents.Agent
+```
+
+Requires: `uv sync --extra openai-agents` (or `pip install ziran[openai-agents]`).
+
+The agent file must expose the entry `agents.Agent` as `agent`:
+
+```bash
+ziran discover --framework openai-agents agent.py
+ziran scan --framework openai-agents --agent-path agent.py
+```
+
+See [`examples/26-openai-agents-scan/`](https://github.com/taoq-ai/ziran/tree/main/examples/26-openai-agents-scan)
+for a support agent with a billing handoff.
+
+**What is mapped.** Each turn runs `Runner.run` from the entry agent, with the conversation of
+earlier turns until the scanner resets state. Tool calls and their outputs come from the run's
+items, the answer from `final_output`, token counts from the model responses. Discovery walks
+the handoff tree:
+
+| Agents SDK | Knowledge graph |
+|---|---|
+| agent `billing` | agent node `openai_agents:billing` (the wrapped agent is the entry point) |
+| handoff `support -> billing` | `delegates_to` edge, `partial_context` when the handoff has an `input_filter`, else `full_context` |
+| tools of an agent | capabilities `tool_<name>` with description and JSON schema, linked with `uses_tool` |
+
+**Limits.** Tools from `mcp_servers`, guardrails, realtime and voice agents are not read.
+Streaming falls back to one `invoke`. Agents are identified by name. The SDK's own tracing
+stays as you configured it, so with tracing on, attack prompts appear in your traces.
+
 ## Creating a Custom Adapter
 
 Implement the `BaseAgentAdapter` abstract class:
