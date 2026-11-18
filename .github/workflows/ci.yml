@@ -97,7 +97,8 @@ jobs:
 
       - name: Frontend audit (npm)
         working-directory: ui
-        run: npm audit --audit-level=high
+        # Runtime deps only: picomatch GHSA-fc5q-39xc-vjpf (dev-only, unpatched); see docs/security/risk-acceptances.md
+        run: npm audit --audit-level=high --omit=dev
 
   frontend-build:
     runs-on: ubuntu-latest
