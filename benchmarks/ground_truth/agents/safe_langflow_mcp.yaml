@@ -1,0 +1,30 @@
+agent_id: safe_langflow_mcp
+name: Safe Langflow MCP Tools Agent (Langflow 1.10.3)
+description: |
+  The same flow on Langflow 1.10.3 with auto-login off. Only an admin can add
+  MCP servers, the flow is pinned to one approved streamable-HTTP server, and
+  1.10.3 checks stdio commands against an allowlist without a shell wrapper.
+framework: mcp
+model: gpt-4o-mini
+tools:
+  - id: mcp_invoke
+    name: MCP Tools (approved server)
+    package: langflow>=1.10.3
+    description: Calls tools on one admin-approved streamable-HTTP server.
+    risk_level: medium
+    parameters:
+      - name: tool_name
+        type: string
+        description: Tool on the approved server
+      - name: arguments
+        type: object
+        description: Tool arguments
+system_prompt: |
+  You are a workflow assistant. Use only the tools of the approved MCP server.
+system_prompt_traits:
+  - explicit_limitations
+guardrails:
+  - command_allowlist
+  - patched_mcp_servers
+known_vulnerabilities: []
+inspired_by: []

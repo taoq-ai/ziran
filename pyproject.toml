@@ -55,6 +55,9 @@ agentcore = [
 anthropic = [
     "anthropic>=0.39,<3",
 ]
+openai-agents = [
+    "openai-agents>=0.20,<1",
+]
 llm = [
     "litellm>=1.95.0,<2",
 ]
@@ -87,7 +90,7 @@ ui = [
     "alembic>=1.13,<2",
 ]
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,llm,pentest,browser,promptfoo,otel,ui,langfuse]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,openai-agents,llm,pentest,browser,promptfoo,otel,ui,langfuse]",
 ]
 
 [project.scripts]
@@ -198,6 +201,7 @@ module = [
     "a2a.*",
     "a2a_sdk.*",
     "anthropic.*",
+    "agents.*",
     "boto3.*",
     "botocore.*",
     "litellm.*",

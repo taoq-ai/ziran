@@ -350,6 +350,488 @@ _SEED_CVES: list[dict[str, Any]] = [
             "https://github.com/advisories?query=CVE-2026-27825",
         ],
     },
+    # ── Agent and MCP advisories published 2026-03-20 to 2026-11-18 (spec 075) ──
+    {
+        "cve_id": "CVE-2026-77260",
+        "skill_name": "mcp_atlassian.upload_attachment",
+        "skill_version": "<0.22.0",
+        "framework": "mcp",
+        "vulnerability_type": "path_traversal",
+        "severity": "high",
+        "cvss_score": 8.3,
+        "affected_tool_patterns": ["upload", "attachment", "attachments"],
+        "description": (
+            "The mcp-atlassian Confluence and Jira upload_attachment tools open an "
+            "unconstrained file_path on the server host and upload it, so any file the "
+            "server process can read is attached to a page or issue."
+        ),
+        "exploit_example": "upload_attachment(file_path='/proc/self/environ', ...)",
+        "remediation": "Upgrade mcp-atlassian to 0.22.0 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-09-22",
+        "references": [
+            "https://github.com/advisories/GHSA-f4p7-qx46-wc5j",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-77260",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-77248",
+        "skill_name": "mcp_atlassian.upload_attachment",
+        "skill_version": "<0.22.0",
+        "framework": "mcp",
+        "vulnerability_type": "path_traversal",
+        "severity": "high",
+        "cvss_score": 8.6,
+        "affected_tool_patterns": ["upload", "attachment", "attachments"],
+        "description": (
+            "In the streamable-http deployment mcp-atlassian exposes every tool without "
+            "authentication, and upload_attachment reads an attacker-supplied file_path "
+            "with no validation, so a network client reads arbitrary server files."
+        ),
+        "remediation": (
+            "Upgrade mcp-atlassian to 0.22.0 or later; do not expose the HTTP transport "
+            "without authentication."
+        ),
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-09-22",
+        "references": [
+            "https://github.com/advisories/GHSA-cc5h-2pwp-pvcc",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-77248",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-77262",
+        "skill_name": "mcp_atlassian.confluence_upload_attachment",
+        "skill_version": "<0.22.0",
+        "framework": "mcp",
+        "vulnerability_type": "data_exfiltration",
+        "severity": "high",
+        "cvss_score": 8.6,
+        "affected_tool_patterns": ["upload", "attachment", "attachments"],
+        "description": (
+            "confluence_upload_attachment passes file_path straight to open(), the read-side "
+            "twin of CVE-2026-27825. A caller reads any server file and exfiltrates it in a "
+            "multipart upload to an attacker-controlled Confluence host."
+        ),
+        "remediation": "Upgrade mcp-atlassian to 0.22.0 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-09-22",
+        "references": [
+            "https://github.com/advisories/GHSA-p6hp-93wp-fh6p",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-77262",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-77253",
+        "skill_name": "mcp_atlassian.upload_attachment",
+        "skill_version": "<0.22.0",
+        "framework": "mcp",
+        "vulnerability_type": "path_traversal",
+        "severity": "high",
+        "cvss_score": 7.1,
+        "affected_tool_patterns": ["upload", "attachment", "attachments"],
+        "description": (
+            "The mcp-atlassian Jira and Confluence attachment upload tools accept arbitrary "
+            "local paths, so a caller that can invoke write tools sends any file the MCP "
+            "process can read to Jira or Confluence."
+        ),
+        "remediation": "Upgrade mcp-atlassian to 0.22.0 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-09-22",
+        "references": [
+            "https://github.com/advisories/GHSA-vc25-24vv-fxxm",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-77253",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-77246",
+        "skill_name": "mcp_atlassian.upload_attachment",
+        "skill_version": "<0.22.0",
+        "framework": "mcp",
+        "vulnerability_type": "data_exfiltration",
+        "severity": "high",
+        "cvss_score": 7.4,
+        "affected_tool_patterns": ["upload", "attachment", "attachments"],
+        "description": (
+            "Over the HTTP transport, X-Atlassian-Confluence-Url headers redirect an "
+            "attachment upload to an attacker host while file_path names any server file, "
+            "so an unauthenticated client exfiltrates secrets such as ~/.env or SSH keys."
+        ),
+        "remediation": "Upgrade mcp-atlassian to 0.22.0 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-09-22",
+        "references": [
+            "https://github.com/advisories/GHSA-wv8v-v4c5-v75j",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-77246",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-73498",
+        "skill_name": "mcp_atlassian.confluence_upload_attachment",
+        "skill_version": "<0.22.0",
+        "framework": "mcp",
+        "vulnerability_type": "path_traversal",
+        "severity": "high",
+        "cvss_score": 7.7,
+        "affected_tool_patterns": ["upload", "attachment", "attachments"],
+        "description": (
+            "confluence_upload_attachment opens file_path with no validate_safe_path() call, "
+            "so an MCP client or a prompt-injected agent reads any file the server can access "
+            "and attaches it to Confluence."
+        ),
+        "remediation": "Upgrade mcp-atlassian to 0.22.0 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-07-10",
+        "references": [
+            "https://github.com/advisories/GHSA-g5r6-gv6m-f5jv",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-73498",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-77255",
+        "skill_name": "mcp_atlassian.jira_update_issue",
+        "skill_version": "<0.22.0",
+        "framework": "mcp",
+        "vulnerability_type": "data_exfiltration",
+        "severity": "high",
+        "cvss_score": 8.6,
+        "description": (
+            "Confused deputy in mcp-atlassian jira_update_issue: the attachments parameter "
+            "takes absolute host paths, so an agent makes the MCP process upload host files "
+            "and its own environment to a Jira ticket."
+        ),
+        "remediation": "Upgrade mcp-atlassian to 0.22.0 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-09-22",
+        "references": [
+            "https://github.com/advisories/GHSA-2xj6-xx86-cwwc",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-77255",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-116686",
+        "skill_name": "mcp.client.ClientSession.call_tool",
+        "skill_version": ">=1.10.0 <1.30.0, >=2.0.0 <2.2.0",
+        "framework": "mcp",
+        "vulnerability_type": "ssrf",
+        "severity": "medium",
+        "cvss_score": 6.5,
+        "description": (
+            "The MCP Python SDK client validated call_tool results against a server-declared "
+            "outputSchema with jsonschema's default resolver, fetching any http, https or "
+            "file $ref the server chose from the client's network position."
+        ),
+        "remediation": "Upgrade the mcp package to 1.30.0 (1.x) or 2.2.0 (2.x) or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-10-27",
+        "references": [
+            "https://github.com/advisories/GHSA-rwrf-2pqf-9j8j",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-116686",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-104850",
+        "skill_name": "modelcontextprotocol.sdk.client.auth",
+        "skill_version": ">=1.12.0 <1.31.0 (sdk), >=2.0.0 <2.2.0 (client)",
+        "framework": "mcp",
+        "vulnerability_type": "credential_theft",
+        "severity": "high",
+        "cvss_score": 7.5,
+        "description": (
+            "The MCP TypeScript SDK OAuth client let the MCP server name the authorization "
+            "server, so a malicious server received the stored refresh_token and "
+            "client_secret with no user interaction."
+        ),
+        "remediation": (
+            "Upgrade @modelcontextprotocol/sdk to 1.31.0 or @modelcontextprotocol/client "
+            "to 2.2.0 or later."
+        ),
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-10-06",
+        "references": [
+            "https://github.com/advisories/GHSA-6qxp-vccf-f47h",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-104850",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-32871",
+        "skill_name": "fastmcp.openapi_provider",
+        "skill_version": "<3.2.0",
+        "framework": "mcp",
+        "vulnerability_type": "ssrf",
+        "severity": "critical",
+        "cvss_score": 10.0,
+        "affected_tool_patterns": ["fastmcp", "openapi"],
+        "description": (
+            "FastMCP's OpenAPIProvider substitutes path parameters into the backend URL "
+            "without encoding, so ../ in a tool argument reaches arbitrary backend endpoints "
+            "with the provider's authorization headers."
+        ),
+        "remediation": "Upgrade fastmcp to 3.2.0 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-03-31",
+        "references": [
+            "https://github.com/advisories/GHSA-vv7q-7jx5-f767",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-32871",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-105697",
+        "skill_name": "langflow.mcp.stdio",
+        "skill_version": ">=1.1.2 <1.10.3",
+        "framework": "mcp",
+        "vulnerability_type": "command_injection",
+        "severity": "critical",
+        "cvss_score": 9.9,
+        "description": (
+            "Langflow's MCP stdio transport ran the command and args of any user-added MCP "
+            "server config through bash -c with no allowlist, so adding a server or building "
+            "a flow with the MCP Tools component ran an OS command on the host."
+        ),
+        "remediation": (
+            "Upgrade langflow to 1.10.3 (langflow-base 0.10.3) or later; disable "
+            "LANGFLOW_AUTO_LOGIN on exposed instances."
+        ),
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-10-07",
+        "references": [
+            "https://github.com/advisories/GHSA-w794-rj3p-xv45",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-105697",
+        ],
+    },
+    {
+        "cve_id": "CVE-2025-61260",
+        "skill_name": "openai.codex.mcp_config",
+        "skill_version": "<=0.23.0",
+        "framework": "generic",
+        "vulnerability_type": "remote_code_execution",
+        "severity": "critical",
+        "cvss_score": 9.8,
+        "description": (
+            "OpenAI Codex CLI loaded a repository's .env and .codex/config.toml without "
+            "confirmation, so MCP server commands in a malicious repository ran as soon as "
+            "the user started codex in it."
+        ),
+        "remediation": (
+            "Upgrade @openai/codex past 0.23.0. The advisory lists no patched release; "
+            "Check Point reports the fix in 0.23.0."
+        ),
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-04-14",
+        "references": [
+            "https://github.com/advisories/GHSA-xrxf-jgv3-qmrm",
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-61260",
+            "https://research.checkpoint.com/2025/openai-codex-cli-command-injection-vulnerability",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-54316",
+        "skill_name": "claude_code.WebFetch.huggingface",
+        "skill_version": ">=0.2.54 <2.1.163",
+        "framework": "generic",
+        "vulnerability_type": "data_exfiltration",
+        "severity": "medium",
+        "cvss_score": 6.0,
+        "description": (
+            "Claude Code pre-approved huggingface.co as a bare hostname for WebFetch, so "
+            "injected content could fetch attacker repository paths without a prompt and "
+            "encode files, environment variables or command output in the requests."
+        ),
+        "remediation": "Upgrade @anthropic-ai/claude-code to 2.1.163 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-06-17",
+        "references": [
+            "https://github.com/advisories/GHSA-fg94-h982-f3mm",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-54316",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-39861",
+        "skill_name": "claude_code.sandbox.Write",
+        "skill_version": "<2.1.64",
+        "framework": "generic",
+        "vulnerability_type": "symlink_bypass",
+        "severity": "high",
+        "cvss_score": 7.7,
+        "description": (
+            "A sandboxed Claude Code process could create a symlink out of the workspace; "
+            "the unsandboxed app then followed it on write, so prompt-injected code wrote "
+            "outside the workspace without a prompt."
+        ),
+        "remediation": "Upgrade @anthropic-ai/claude-code to 2.1.64 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-04-21",
+        "references": [
+            "https://github.com/advisories/GHSA-vp62-r36r-9xqp",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-39861",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-88968",
+        "skill_name": "claude_code.sandbox.Edit",
+        "skill_version": "<2.1.251",
+        "framework": "generic",
+        "vulnerability_type": "symlink_bypass",
+        "severity": "high",
+        "cvss_score": 7.7,
+        "description": (
+            "Claude Code's Edit tool checked its target path once; on macOS code in the Bash "
+            "sandbox could swap a parent directory for a symlink after the check, so the "
+            "unsandboxed Edit overwrote a file outside the workspace."
+        ),
+        "remediation": "Upgrade @anthropic-ai/claude-code to 2.1.251 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-11-09",
+        "references": [
+            "https://github.com/advisories/GHSA-5xjx-9qx6-jcrv",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-88968",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-55607",
+        "skill_name": "claude_code.git_worktree",
+        "skill_version": ">=2.1.38 <2.1.163",
+        "framework": "generic",
+        "vulnerability_type": "remote_code_execution",
+        "severity": "high",
+        "cvss_score": 7.7,
+        "description": (
+            "Claude Code allowed a worktree named .git and navigation outside the sandbox, "
+            "so a prompt-injected repository used git fsmonitor and symlinks to overwrite "
+            "files such as ~/.zshenv and run code outside the sandbox."
+        ),
+        "remediation": "Upgrade @anthropic-ai/claude-code to 2.1.163 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-07-24",
+        "references": [
+            "https://github.com/advisories/GHSA-7835-87q9-rgvv",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-55607",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-40068",
+        "skill_name": "claude_code.trust_dialog",
+        "skill_version": ">=2.1.63 <2.1.84",
+        "framework": "generic",
+        "vulnerability_type": "remote_code_execution",
+        "severity": "high",
+        "cvss_score": 7.7,
+        "description": (
+            "Claude Code trusted a folder by the git worktree commondir file without "
+            "validating it, so a cloned repository pointing it at a trusted path skipped the "
+            "trust dialog and ran hooks from .claude/settings.json."
+        ),
+        "remediation": "Upgrade @anthropic-ai/claude-code to 2.1.84 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-04-24",
+        "references": [
+            "https://github.com/advisories/GHSA-q5hj-mxqh-vv77",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-40068",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-113663",
+        "skill_name": "ag2.SandboxShellTool",
+        "skill_version": ">=0.13.2 <1.1.1",
+        "framework": "autogen",
+        "vulnerability_type": "command_injection",
+        "severity": "high",
+        "cvss_score": 8.8,
+        "description": (
+            "AG2 SandboxShellTool checked allowed=[...] and readonly=True against one line "
+            "but ran the string through sh -c, so an embedded newline let an agent run any "
+            "command on the host."
+        ),
+        "remediation": "Upgrade ag2 to 1.1.1 or later (the autogen alias has no fixed release).",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-11-10",
+        "references": [
+            "https://github.com/advisories/GHSA-2h4w-29cv-2cmv",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-113663",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-7700",
+        "skill_name": "langflow.smart_transform",
+        "skill_version": ">=1.3.0 <1.10.3",
+        "framework": "generic",
+        "vulnerability_type": "remote_code_execution",
+        "severity": "high",
+        "cvss_score": 8.8,
+        "description": (
+            "Langflow Smart Transform evaluated an LLM-generated lambda with full builtins, "
+            "so instructions or prompt-injected input data ran Python in the Langflow process."
+        ),
+        "remediation": "Upgrade langflow to 1.10.3 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-10-05",
+        "references": [
+            "https://github.com/advisories/GHSA-9fpm-3445-2vx4",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-7700",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-59207",
+        "skill_name": "n8n.agents.mcp_client",
+        "skill_version": "<2.27.4, >=2.28.0 <2.28.1",
+        "framework": "generic",
+        "vulnerability_type": "credential_theft",
+        "severity": "high",
+        "cvss_score": 7.1,
+        "description": (
+            "n8n AI Agents did not enforce a credential's Allowed HTTP Request Domains, so a "
+            "member pointing an MCP tool at their own URL sent the shared secret there."
+        ),
+        "remediation": "Upgrade n8n to 2.27.4 or 2.28.1 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-07-22",
+        "references": [
+            "https://github.com/advisories/GHSA-h44j-f5r5-ph73",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-59207",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-65015",
+        "skill_name": "n8n.agents.run_node_tool",
+        "skill_version": "<2.29.8, >=2.30.0 <2.30.1",
+        "framework": "generic",
+        "vulnerability_type": "privilege_escalation",
+        "severity": "high",
+        "cvss_score": 7.2,
+        "description": (
+            "n8n's agent node-execution tool checked only agent:execute, so a read-only "
+            "Project Viewer chatting with an agent ran tool nodes with the project's "
+            "credentials, and command nodes on the host."
+        ),
+        "remediation": "Upgrade n8n to 2.29.8 or 2.30.1 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-07-22",
+        "references": [
+            "https://github.com/advisories/GHSA-x5vx-c2c8-m3w9",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-65015",
+        ],
+    },
+    {
+        "cve_id": "CVE-2026-86996",
+        "skill_name": "n8n.agents.workflow_tool",
+        "skill_version": "<2.37.7, >=2.38.0 <2.38.2",
+        "framework": "generic",
+        "vulnerability_type": "privilege_escalation",
+        "severity": "medium",
+        "cvss_score": 5.3,
+        "description": (
+            "n8n skipped a workflow's caller policy when the workflow was attached to an "
+            "Agent as a tool, so anyone who could build an Agent called a restricted "
+            "workflow and read its output."
+        ),
+        "remediation": "Upgrade n8n to 2.37.7 or 2.38.2 or later.",
+        "reported_by": "GitHub Security Advisory",
+        "discovered_date": "2026-09-08",
+        "references": [
+            "https://github.com/advisories/GHSA-7hgx-277f-7vmg",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-86996",
+        ],
+    },
     # ── Design Risks (OWASP LLM Top 10 / Framework Security Docs) ─────
     {
         "cve_id": "DESIGN-RISK-001",

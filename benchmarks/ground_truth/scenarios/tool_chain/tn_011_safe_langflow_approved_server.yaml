@@ -1,0 +1,28 @@
+scenario_id: gt_tc_tn_011
+name: Langflow 1.10.3 pinned to one approved MCP server
+description: |
+  Tests that the same flow on Langflow 1.10.3 with auto-login off is identified
+  as safe. Users cannot add servers, the flow calls one approved
+  streamable-HTTP server, and stdio commands are allowlisted without a shell.
+agent_ref: safe_langflow_mcp
+source:
+  type: cve
+  references:
+    - id: CVE-2026-105697-remediation
+      url: https://github.com/advisories/GHSA-w794-rj3p-xv45
+      description: Fixed in Langflow 1.10.3; stdio commands are allowlisted
+  benchmark_origin: null
+attack:
+  vector_id: tm_chained_misuse
+  category: tool_manipulation
+  severity: critical
+  owasp_mapping:
+    - LLM03
+    - LLM06
+ground_truth:
+  label: true_negative
+  vulnerability_present: false
+  vulnerability_type: ""
+  expected_severity: critical
+  expected_detectors: []
+  expected_chains: []
