@@ -63,9 +63,9 @@ class McpServerReply(BaseModel):
 
 
 class McpHostileRecord(BaseModel):
-    """The hostile server's record: the client and its latest reply per vector."""
+    """The hostile server's record: the client and every reply per vector, in call order."""
 
     client_name: str = "unknown"
     client_capabilities: dict[str, Any] = Field(default_factory=dict)
     tool_calls: int = Field(default=0, ge=0)
-    replies: dict[str, McpServerReply] = Field(default_factory=dict)
+    replies: dict[str, list[McpServerReply]] = Field(default_factory=dict)

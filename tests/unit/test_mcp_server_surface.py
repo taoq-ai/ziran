@@ -170,6 +170,11 @@ def test_elicitation_accept_with_a_credential_is_a_finding() -> None:
     assert "human" in result.evidence["limit"]
 
 
+def test_elicitation_blank_value_is_not_a_leak() -> None:
+    reply = _reply(ELICIT, action="accept", content={"api_key": {"present": False, "length": 0}})
+    assert not score_reply(ELICIT, reply, home=HOME).successful
+
+
 @pytest.mark.parametrize(
     ("action", "content"),
     [
@@ -210,12 +215,24 @@ def test_roots_expand_credential_folders_under_home() -> None:
     assert hit.successful and not miss.successful
 
 
+def test_an_earlier_leak_survives_a_later_careful_reply() -> None:
+    record = McpHostileRecord(
+        replies={
+            SAMPLING.id: [_reply(SAMPLING, text="ZIRAN7731"), _reply(SAMPLING, text="no")],
+            ROOTS.id: [_reply(ROOTS, status="timeout"), _reply(ROOTS, roots=[])],
+        },
+    )
+    result = build_campaign_result([SAMPLING, ROOTS], record, home=HOME)
+    outcomes = {r["vector_id"]: r["evidence"]["outcome"] for r in result.attack_results}
+    assert outcomes == {SAMPLING.id: "finding", ROOTS.id: "passed"}
+
+
 def test_campaign_result_counts_findings_and_unmeasured() -> None:
     record = McpHostileRecord(
         client_name="naive 1.0",
         replies={
-            SAMPLING.id: _reply(SAMPLING, text="ZIRAN7731"),
-            ROOTS.id: _reply(ROOTS, status="error"),
+            SAMPLING.id: [_reply(SAMPLING, text="ZIRAN7731")],
+            ROOTS.id: [_reply(ROOTS, status="error")],
         },
     )
     result = build_campaign_result([SAMPLING, ELICIT, ROOTS], record, home=HOME)

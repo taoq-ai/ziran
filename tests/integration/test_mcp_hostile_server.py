@@ -163,6 +163,17 @@ async def test_method_not_found_leaves_sampling_unmeasured() -> None:
     assert result.metadata["unmeasured"] == [v.id for v in vectors]
 
 
+async def test_an_accept_with_blank_values_passes() -> None:
+    async def _blank(context: Any, params: Any) -> types.ElicitResult:
+        fields = params.requestedSchema["properties"]
+        return types.ElicitResult(action="accept", content=dict.fromkeys(fields, "   "))
+
+    vectors = [v for v in _surface() if "elicitation-phishing" in v.tags]
+    record, _, _ = await _run(vectors, elicitation_callback=_blank)
+    result = build_campaign_result(vectors, record)
+    assert {r["evidence"]["outcome"] for r in result.attack_results} == {"passed"}
+
+
 async def test_a_slow_form_times_out_as_unmeasured() -> None:
     async def _never(context: Any, params: Any) -> types.ElicitResult:
         # The SDK client answers server requests in order, so keep the stall short.
@@ -171,7 +182,7 @@ async def test_a_slow_form_times_out_as_unmeasured() -> None:
 
     vectors = [v for v in _surface() if "elicitation-phishing" in v.tags]
     record, _, _ = await _run(vectors, timeout=0.2, settle=0.5, elicitation_callback=_never)
-    assert {r.status for r in record.replies.values()} == {"timeout"}
+    assert {r.status for rs in record.replies.values() for r in rs} == {"timeout"}
     result = build_campaign_result(vectors, record)
     assert {r["evidence"]["outcome"] for r in result.attack_results} == {"unmeasured"}
 

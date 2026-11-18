@@ -13,4 +13,6 @@
 - [x] T010 Skip server-surface vectors in the scan dry-run count.
 - [x] T011 Write the guide, add it to `mkdocs.yml`, regenerate the coverage docs and refresh the
   baseline.
-- [ ] T012 Run ruff, ruff format --check, mypy, pytest --cov and the benchmark checks.
+- [x] T012 Run ruff, ruff format --check, mypy, pytest --cov and the benchmark checks.
+- [x] T013 Keep every reply per vector so an earlier leak survives a later careful reply;
+  count a whitespace-only elicited value as blank. Mutants of both run red.

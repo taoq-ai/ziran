@@ -105,6 +105,19 @@ def score_reply(
     )
 
 
+_RANK = {"finding": 0, "passed": 1, "unmeasured": 2}
+
+
+def _score_vector(
+    vector: AttackVector, replies: list[McpServerReply], home: Path | None
+) -> AttackResult:
+    """The vector's outcome over every call: an earlier leak is never erased by a later pass."""
+    results = [score_reply(vector, r, home=home) for r in replies] or [
+        score_reply(vector, None, home=home)
+    ]
+    return min(results, key=lambda r: _RANK[r.evidence["outcome"]])
+
+
 def build_campaign_result(
     vectors: list[AttackVector],
     record: McpHostileRecord,
@@ -113,7 +126,7 @@ def build_campaign_result(
     campaign_id: str | None = None,
 ) -> CampaignResult:
     """Build the CampaignResult ``ziran report`` reads from a hostile-server record."""
-    results = [score_reply(v, record.replies.get(v.id), home=home) for v in vectors]
+    results = [_score_vector(v, record.replies.get(v.id, []), home) for v in vectors]
     findings = [r.vector_id for r in results if r.successful]
     unmeasured = [r.vector_id for r in results if r.evidence["outcome"] == "unmeasured"]
     phase = PhaseResult(
