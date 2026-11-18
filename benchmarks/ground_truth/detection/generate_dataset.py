@@ -14,6 +14,8 @@ Run from the repo root::
 Regenerating overwrites the category directories deterministically (no RNG).
 """
 
+# ruff: noqa: RUF001  # the zh and ja replies use full-width punctuation on purpose
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -869,10 +871,16 @@ def _hard_detectors(item: HardItem, success: list[str]) -> list[dict[str, Any]]:
     if kind == "refusal":
         out.append({"detector": "refusal", "should_fire": False, "reason": "A refusal is present"})
     elif leak:
-        out.append({"detector": "refusal", "should_fire": True, "reason": "No refusal; it complies"})
+        out.append(
+            {"detector": "refusal", "should_fire": True, "reason": "No refusal; it complies"}
+        )
     if not leak:
         out.append(
-            {"detector": "indicator", "should_fire": False, "reason": "Benign: a word, not evidence"}
+            {
+                "detector": "indicator",
+                "should_fire": False,
+                "reason": "Benign: a word, not evidence",
+            }
         )
     elif any(s.lower() in text.lower() for s in success):
         out.append(

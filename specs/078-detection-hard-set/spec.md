@@ -100,7 +100,53 @@ Each example states its justification in `notes`; the slice rules:
 
 ## Baseline (the G-4 measure)
 
-Filled from the committed run; see the Results section of `plan.md`.
+Develop's detectors (`4d26d62`, 669 vectors) on the 447-example set, from
+`uv run python benchmarks/detection_accuracy.py --by-category --crossfire`. TP/FP/FN/TN, recall,
+FPR (FP / (FP + TN)):
+
+| Row | Whole set | Recall | FPR |
+|---|---|---|---|
+| refusal | 107/93/1/52 | 0.9907 | 0.6414 |
+| indicator | 84/90/6/139 | 0.9333 | 0.3930 |
+| side_effect | 48/15/2/43 | 0.9600 | 0.2586 |
+| llm_judge | 26/0/0/78 | 1.0000 | 0.0000 |
+| **pipeline** | 115/96/19/217 | 0.8582 | 0.3067 |
+
+Per slice (the spec-021 categories sum to pipeline 78/0/0/150 and refusal 52/12/0/52, as before):
+
+| Slice | Pipeline | Recall / FPR | Refusal | Indicator | Side effect |
+|---|---|---|---|---|---|
+| `indicator_near_miss` (15 / 45) | 13/40/2/5 | 0.8667 / 0.8889 | 15/11/0/0 | 13/40/2/5 | n.a. |
+| `sensitive_tool_output` (14 / 36) | 12/30/2/6 | 0.8571 / 0.8333 | 14/0/0/0 | 7/24/1/12 | 12/15/2/21 |
+| `paraphrased_refusal` (15 / 40) | 4/17/11/23 | 0.2667 / 0.4250 | 14/40/1/0 | 4/17/3/23 | n.a. |
+| `multilingual` (12 / 42) | 8/9/4/33 | 0.6667 / 0.2143 | 12/30/0/0 | 8/9/0/33 | n.a. |
+
+(compromise / no_compromise counts in brackets.)
+
+Crossfire (default `DetectorConfig`, every prompt of every vector, the vector passed):
+
+| Benign replies | Pairs | Flagged | Rate | Vectors hit | Indicator-hit pairs | Indicator-hit vectors |
+|---|---|---|---|---|---|---|
+| spec-021 categories (150) | 138,300 | 509 | 0.0037 | 101 | 509 | 101 |
+| whole set (313) | 288,586 | 14,940 | 0.0518 | 669 | 1,170 | 171 |
+
+On the spec-021 replies the lead probe's figure holds: 509 flagged and 101 vectors, with the same
+top 15 indicators. Pairs are 138,300, not 136,950, because develop now has 669 vectors (922
+prompts) where the probe ran 661 (913 prompts); the 8 spec-076 vectors add no flag. On the whole
+set, 13,943 flagged pairs come from `sensitive_tool_output`: its benign `read_file`, `get_secret`,
+`read_config` and medium-risk calls trip the side-effect name tiers for every prompt. The
+indicator columns isolate the indicator detector, the G4-INDICATOR-TIERS target. Top indicators
+on the whole set: instructions 108, database 72, configuration 67, system prompt 65, endpoint 55,
+target 51, api 46, password 42, detection 36, security 34, credentials 33, login 33, configured
+24, system 24, bank 24.
+
+What the numbers say:
+
+- Every one of the 40 paraphrased and 11 near-miss English refusals evades the refusal keyword
+  list, and so does every one of the 30 multilingual refusals under the default English config.
+- 40 of 45 benign `indicator_near_miss` replies are flagged by a single topical indicator word.
+- Compromises with no indicator and no tool call are missed: 11 of 15 in `paraphrased_refusal`.
+  A tiering change that drops topical words must not lower the 13 TP in `indicator_near_miss`.
 
 ## Assumptions
 
@@ -110,7 +156,7 @@ Filled from the committed run; see the Results section of `plan.md`.
 - The benchmark keeps the default English-only refusal config, the scanner default, so the
   multilingual slice shows the default's gap. Overturn if the measure should use
   `refusal_languages: ["all"]`.
-- Crossfire is opt-in in both scripts because it adds about 40 seconds; the workflow is not
+- Crossfire is opt-in in both scripts because it adds about 35 seconds (34 s measured on the whole set); the workflow is not
   edited (G4-PR-DELTA owns it), so CI does not run it until that item adds the flag.
 - `DetectionCategory` in `schema.py` gains the four names; the loader needs them.
 - The spec number is 078, as the item names it; `ls specs/` and `git branch -a` show it free.

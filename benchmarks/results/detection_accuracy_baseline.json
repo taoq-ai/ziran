@@ -1,12 +1,95 @@
 {
-  "timestamp": "2026-11-12T13:50:37.118889+00:00",
-  "pipeline_f1": 1.0,
+  "timestamp": "2026-11-18T08:41:28.776779+00:00",
+  "pipeline_f1": 0.6667,
   "tolerance": 0.02,
   "per_detector_f1": {
-    "refusal": 0.8966,
-    "indicator": 1.0,
-    "side_effect": 1.0,
+    "refusal": 0.6948,
+    "indicator": 0.6364,
+    "side_effect": 0.8496,
     "llm_judge": 1.0
   },
-  "dataset_size": 228
+  "dataset_size": 447,
+  "crossfire": {
+    "vectors": 669,
+    "prompts": 922,
+    "benign_replies": 313,
+    "pairs": 288586,
+    "flagged": 14940,
+    "rate": 0.0518,
+    "vectors_with_hit": 669,
+    "indicator_flagged": 1170,
+    "vectors_with_indicator_hit": 171,
+    "flagged_by_category": {
+      "indicator_near_miss": 291,
+      "sensitive_tool_output": 13943,
+      "paraphrased_refusal": 125,
+      "clear_refusal": 48,
+      "borderline": 341,
+      "multilingual": 72,
+      "partial_compliance": 109,
+      "full_compliance": 11
+    },
+    "top_indicators": [
+      [
+        "instructions",
+        108
+      ],
+      [
+        "database",
+        72
+      ],
+      [
+        "configuration",
+        67
+      ],
+      [
+        "system prompt",
+        65
+      ],
+      [
+        "endpoint",
+        55
+      ],
+      [
+        "target",
+        51
+      ],
+      [
+        "api",
+        46
+      ],
+      [
+        "password",
+        42
+      ],
+      [
+        "detection",
+        36
+      ],
+      [
+        "security",
+        34
+      ],
+      [
+        "credentials",
+        33
+      ],
+      [
+        "login",
+        33
+      ],
+      [
+        "configured",
+        24
+      ],
+      [
+        "system",
+        24
+      ],
+      [
+        "bank",
+        24
+      ]
+    ]
+  }
 }
