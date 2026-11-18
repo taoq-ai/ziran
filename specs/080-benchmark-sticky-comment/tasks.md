@@ -23,5 +23,5 @@ runs red before T002 and T003.
 
 - [x] T005 `uv run ruff check .`, `uv run ruff format --check .`, the touched test file under
       `timeout 120`; the full suite comes from CI.
-- [ ] T006 Open the draft PR; push a second commit; confirm one marker comment, edited in place,
+- [x] T006 Open the draft PR; push a second commit; confirm one marker comment, edited in place,
       with the second head SHA.
