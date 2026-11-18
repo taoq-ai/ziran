@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -427,6 +427,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/11/fea52bf3541c5308bed1ee9b9b3596fa510b2c5db893d32b649d22f02b87/autogen_core-0.7.5.tar.gz", hash = "sha256:70c2871389f1d0a7f6db8ef78717a51b7ce877ff4a08a836b7758d604dece203", size = 101980, upload-time = "2025-09-30T06:16:25.957Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/83/8ad899fca9dd2d2b3e5e37be13dd9e6aee3e53a621041b0624d74b07e1ee/autogen_core-0.7.5-py3-none-any.whl", hash = "sha256:4f4a0d3b88a36da75b2ef0d40be2d5e3a207cae7f7d951511e498ad1d68f8ef4", size = 101874, upload-time = "2025-09-30T06:16:24.306Z" },
+]
+
+[[package]]
+name = "autogen-ext"
+version = "0.7.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "autogen-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e5/c8/f0651372f814c48eb64ffe921166995b7734bec0df7f0ba663383e831f58/autogen_ext-0.7.5.tar.gz", hash = "sha256:711ab9238ea66ff2abef163c331e538092bdea661620727a4a9b2ebce1c22df9", size = 417568, upload-time = "2025-09-30T06:16:24.278Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/10/9333ba6c532086cce7ec7fb39e36b9a08afdbc39e2d3519f00af712e403a/autogen_ext-0.7.5-py3-none-any.whl", hash = "sha256:18cecc8aab37c7c4861fbad038a1017f0ef25e35e273aa158066ccf9d93fea4f", size = 331380, upload-time = "2025-09-30T06:16:22.832Z" },
+]
+
+[package.optional-dependencies]
+openai = [
+    { name = "aiofiles" },
+    { name = "openai" },
+    { name = "tiktoken" },
 ]
 
 [[package]]
@@ -5801,6 +5820,7 @@ all = [
     { name = "anthropic" },
     { name = "asyncpg" },
     { name = "autogen-agentchat" },
+    { name = "autogen-ext", extra = ["openai"] },
     { name = "bedrock-agentcore" },
     { name = "boto3" },
     { name = "crewai" },
@@ -5831,6 +5851,7 @@ anthropic = [
 ]
 autogen = [
     { name = "autogen-agentchat" },
+    { name = "autogen-ext", extra = ["openai"] },
 ]
 bedrock = [
     { name = "boto3" },
@@ -5915,6 +5936,8 @@ requires-dist = [
     { name = "asyncpg", marker = "extra == 'ui'", specifier = ">=0.29,<1" },
     { name = "autogen-agentchat", marker = "extra == 'all'", specifier = ">=0.7,<0.8" },
     { name = "autogen-agentchat", marker = "extra == 'autogen'", specifier = ">=0.7,<0.8" },
+    { name = "autogen-ext", extras = ["openai"], marker = "extra == 'all'", specifier = ">=0.7,<0.8" },
+    { name = "autogen-ext", extras = ["openai"], marker = "extra == 'autogen'", specifier = ">=0.7,<0.8" },
     { name = "bedrock-agentcore", marker = "extra == 'agentcore'", specifier = ">=1.0,<2" },
     { name = "bedrock-agentcore", marker = "extra == 'all'", specifier = ">=1.0,<2" },
     { name = "boto3", marker = "extra == 'agentcore'", specifier = ">=1.28,<2" },

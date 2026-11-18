@@ -60,6 +60,7 @@ openai-agents = [
 ]
 autogen = [
     "autogen-agentchat>=0.7,<0.8",
+    "autogen-ext[openai]>=0.7,<0.8",
 ]
 llm = [
     "litellm>=1.95.0,<2",
