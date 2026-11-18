@@ -2,7 +2,8 @@
 
 **Feature Branch**: `009-ui-findings-compliance`
 **Created**: 2026-03-24
-**Status**: Accepted
+**Status**: Superseded
+**Note**: The web UI moved out of ziran (#520) to ZIRAN Cloud and ZIRAN Enterprise; v0.42.0 is the last Apache-2.0 release that includes it.
 **Input**: GitHub issues #172, #176, #179, #180, #98
 **Scope**: Community (open-source) tier only — no auth, no enterprise features
 

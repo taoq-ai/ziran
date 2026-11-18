@@ -39,7 +39,7 @@ Indemnity by TaoQ AI:     [NONE, OR DESCRIBE]
 Other periods:            [AS IN THE STANDARD TERMS, OR LIST EACH CHANGED PERIOD]
 Special terms:            [NONE, OR LIST; THESE OVERRIDE THE STANDARD TERMS]
 
-The standard terms version [X] of [DATE] are attached as Annex 1. The licensee
+The standard terms version 1.1 of 2026-11-18 are attached as Annex 1. The licensee
 confirms it received and read them before signing and that it acts in the
 course of a business or profession.
 

@@ -169,8 +169,8 @@ a budget-stopped scan is 0.
 - Target tokens are what the adapter reports. Adapters that report none
   contribute 0, and no estimate is applied to the target.
 - Calls cancelled by a timeout or failing in the provider are not recorded.
-- Semantic-tier embedding calls, utility tasks, pentest and web UI budgets are
-  not tracked.
+- Semantic-tier embedding calls, utility tasks and pentest budgets are not
+  tracked.
 - After a mid-phase stop, the resumed run's result for that phase lists only the
   vulnerabilities found after the resume. The earlier ones remain in
   `attack_results`. Crash resume behaves the same way.

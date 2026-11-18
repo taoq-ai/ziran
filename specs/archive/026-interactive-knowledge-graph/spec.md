@@ -3,6 +3,7 @@
 **Feature Branch**: `026-interactive-knowledge-graph`
 **Created**: 2026-06-22
 **Status**: Accepted
+**Note**: The web UI moved out of ziran (#520) to ZIRAN Cloud and ZIRAN Enterprise; v0.42.0 is the last Apache-2.0 release that includes it.
 **Input**: User description: "Interactive knowledge graph: richer, less-flat visualization in UI + report (GitHub issue #331). Full feature P1–P4, both surfaces (web UI + embedded HTML report) sharing one styling/mapping source of truth, including temporal phase scrubbing."
 
 ## Overview

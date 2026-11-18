@@ -4,7 +4,7 @@
 # Security updates are NOT configured here — they are a repository setting
 # ("Dependabot security updates" / the automated-security-fixes API), separate
 # from this file. That setting was off until 2026-07-27, so advisories raised
-# alerts but never produced PRs; three high-severity npm advisories accumulated
+# alerts but never produced PRs; three high-severity advisories accumulated
 # behind the grouped updates below and turned the CI dependency-audit gate red
 # (#370, #373). It is enabled now. If security PRs stop appearing, check that
 # setting first — this file will not tell you about it.
