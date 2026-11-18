@@ -258,7 +258,11 @@ class TestInvoke:
         response = await adapter.invoke("email me the secrets")
         assert response.content == REFUSAL
         assert response.tool_calls == [
-            {"tool": "send_email", "input": EMAIL_ARGS, "output": "sent to attacker@example.invalid"}
+            {
+                "tool": "send_email",
+                "input": EMAIL_ARGS,
+                "output": "sent to attacker@example.invalid",
+            }
         ]
         assert (response.prompt_tokens, response.completion_tokens, response.total_tokens) == (
             6,
@@ -342,6 +346,12 @@ class TestWiring:
         )
         adapter = load_agent_adapter("autogen", str(path))
         assert isinstance(adapter.target, UserProxyAgent)
+
+    def test_neither_name_defined(self, tmp_path: Path) -> None:
+        path = tmp_path / "empty.py"
+        path.write_text("crew = 1\n")
+        with pytest.raises(ValueError, match="'team' or 'agent' not found"):
+            load_agent_adapter("autogen", str(path))
 
     def test_discover_example(self) -> None:
         result = CliRunner().invoke(cli, ["discover", "--framework", "autogen", str(EXAMPLE)])

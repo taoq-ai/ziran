@@ -208,7 +208,7 @@ class AutoGenAdapter(BaseAgentAdapter):
         self, target: Any, nodes: dict[str, AgentNode], edges: list[AgentEdge], *, nested: bool
     ) -> str | None:
         """Add *target*'s nodes and edges; return the node id a caller's edge should point to."""
-        node_id = NODE_ID_PREFIX + target.name
+        node_id: str = NODE_ID_PREFIX + target.name
         if not isinstance(target, Team):
             nodes.setdefault(
                 node_id,
@@ -226,7 +226,9 @@ class AutoGenAdapter(BaseAgentAdapter):
         head = node_id if selector or nested else None
         if head is not None:
             role = "router" if selector else "team"
-            nodes.setdefault(head, AgentNode(id=head, name=target.name, role=role, framework=FRAMEWORK))
+            nodes.setdefault(
+                head, AgentNode(id=head, name=target.name, role=role, framework=FRAMEWORK)
+            )
 
         members = _members(target)
         ids = [await self._graph(m, nodes, edges, nested=True) for m in members]
@@ -242,6 +244,8 @@ class AutoGenAdapter(BaseAgentAdapter):
             edges.extend(edge(head, i, conditional=selector) for i in member_ids)
         if isinstance(target, Swarm):
             for member, source in zip(members, ids, strict=True):
+                if source is None:
+                    continue
                 for handoff in getattr(member, "_handoffs", {}).values():
                     edges.append(
                         edge(
