@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ziran.domain.entities.mcp_server_surface import McpServerRequest
 from ziran.domain.entities.phase import ScanPhase
@@ -731,6 +731,14 @@ class ManyShotConfig(BaseModel):
     corpus: str = Field(description="Harm-category key into the synthetic shot corpus.")
 
 
+class PairConfig(BaseModel):
+    """PAIR refinement bounds for a vector (spec 081). No seed: the loop draws no randomness."""
+
+    model_config = ConfigDict(extra="forbid")  # a stray `seed:` is an error, not a no-op
+    max_iterations: int = Field(default=20, ge=1, le=100)
+    timeout_seconds: float = Field(default=240.0, gt=0)
+
+
 class AttackVector(BaseModel):
     """A specific attack technique to test against an agent.
 
@@ -776,6 +784,10 @@ class AttackVector(BaseModel):
         default=None,
         description="Many-shot jailbreaking config; present → the executor stacks N shots "
         "before the final request.",
+    )
+    pair: PairConfig | None = Field(
+        default=None,
+        description="PAIR attacker-LLM refinement bounds (spec 081); unset uses the defaults.",
     )
     mcp_server_request: McpServerRequest | None = Field(
         default=None,
