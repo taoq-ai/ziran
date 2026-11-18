@@ -344,6 +344,89 @@ class TestSkillCVEModel:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Agent and MCP advisories published 2026-03-20 to 2026-11-18 (spec 075)
+# ──────────────────────────────────────────────────────────────────────
+
+BATCH_2026H2 = [
+    "CVE-2026-77260",
+    "CVE-2026-77248",
+    "CVE-2026-77262",
+    "CVE-2026-77253",
+    "CVE-2026-77246",
+    "CVE-2026-73498",
+    "CVE-2026-77255",
+    "CVE-2026-116686",
+    "CVE-2026-104850",
+    "CVE-2026-32871",
+    "CVE-2026-105697",
+    "CVE-2025-61260",
+    "CVE-2026-54316",
+    "CVE-2026-39861",
+    "CVE-2026-88968",
+    "CVE-2026-55607",
+    "CVE-2026-40068",
+    "CVE-2026-113663",
+    "CVE-2026-7700",
+    "CVE-2026-59207",
+    "CVE-2026-65015",
+    "CVE-2026-86996",
+]
+
+# Types the ground truth already uses (skill CVE entries, run.py guardrail map, scenarios).
+KNOWN_TYPES = {
+    "command_injection",
+    "credential_theft",
+    "data_exfiltration",
+    "path_traversal",
+    "privilege_escalation",
+    "prompt_injection",
+    "remote_code_execution",
+    "ssrf",
+    "symlink_bypass",
+}
+
+
+def _cap(tool_id: str, description: str) -> AgentCapability:
+    return AgentCapability(
+        id=tool_id, name=tool_id, type=CapabilityType.TOOL, description=description
+    )
+
+
+@pytest.mark.unit
+class TestBatch2026H2:
+    @pytest.mark.parametrize("cve_id", BATCH_2026H2)
+    def test_entry_is_complete(self, db: SkillCVEDatabase, cve_id: str) -> None:
+        cve = db.get_by_id(cve_id)
+        assert cve is not None, cve_id
+        assert cve.risk_type == "cve"
+        assert cve.references[0].startswith("https://github.com/advisories/GHSA-")
+        assert f"https://nvd.nist.gov/vuln/detail/{cve_id}" in cve.references
+        assert cve.skill_version != "*"
+        assert cve.vulnerability_type in KNOWN_TYPES
+        assert cve.discovered_date is not None
+        assert cve.discovered_date.date().isoformat() >= "2026-03-20"
+
+    def test_upload_attachment_matches_its_cves(self, db: SkillCVEDatabase) -> None:
+        cap = _cap(
+            "confluence_upload_attachment",
+            "mcp-atlassian tool: opens a server-local file_path and uploads it.",
+        )
+        found = {c.cve_id for c in db.check_agent([cap])}
+        assert {"CVE-2026-77260", "CVE-2026-77262", "CVE-2026-73498"} <= found
+
+    def test_read_only_jira_tool_matches_nothing_new(self, db: SkillCVEDatabase) -> None:
+        cap = _cap("jira_search", "Searches Jira issues with JQL in read-only mode.")
+        found = {c.cve_id for c in db.check_agent([cap])}
+        assert not found & set(BATCH_2026H2)
+
+    def test_huggingface_preapproval_matches_only_when_named(self, db: SkillCVEDatabase) -> None:
+        open_fetch = _cap("WebFetch", "Claude Code WebFetch with huggingface.co pre-approved.")
+        scoped = _cap("WebFetch", "Fetches pages from docs.python.org only.")
+        assert "CVE-2026-54316" in {c.cve_id for c in db.check_agent([open_fetch])}
+        assert not {c.cve_id for c in db.check_agent([scoped])} & set(BATCH_2026H2)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Re-export module (database.py)
 # ──────────────────────────────────────────────────────────────────────
 
