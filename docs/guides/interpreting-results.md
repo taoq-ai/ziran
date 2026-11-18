@@ -15,7 +15,7 @@ The interactive HTML report includes:
 
 #### Working with the knowledge graph
 
-The graph is the same interactive component in both the HTML report and the web UI:
+The HTML report shows the graph as an interactive view:
 
 - **Layout modes** — switch between *Force*, *By phase* (hierarchical bands per campaign phase), and *Centrality*.
 - **Importance at a glance** — node size reflects betweenness centrality (chokepoints look bigger), severity drives node color/border, dangerous capabilities are marked, and attack edges (`exploits`/`can_chain_to`/`leads_to`) are emphasized.

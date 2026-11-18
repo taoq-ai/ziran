@@ -2,7 +2,8 @@
 
 **Feature Branch**: `008-web-ui-foundation`
 **Created**: 2026-03-23
-**Status**: Accepted
+**Status**: Superseded
+**Note**: The web UI moved out of ziran (#520) to ZIRAN Cloud and ZIRAN Enterprise; v0.42.0 is the last Apache-2.0 release that includes it.
 **Input**: User description: "Add web UI foundation to ziran - FastAPI backend with PostgreSQL (asyncpg + Alembic), React frontend (Vite + TypeScript + shadcn/ui + Tailwind) bundled into PyPI wheel, `ziran ui` CLI command. Frontend source at ui/ repo root, builds to ziran/interfaces/web/static/. Covers GitHub issues #105, #86, #88, #92, #103."
 
 ## User Scenarios & Testing *(mandatory)*

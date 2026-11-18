@@ -2,7 +2,7 @@
 
 ## Why Browser Scanning?
 
-Many AI agents are deployed as chat web UIs with no public API. These agents are inaccessible to traditional protocol-level scanners that rely on REST, OpenAI-compatible, MCP, or A2A endpoints.
+Many AI agents are deployed as chat web interfaces with no public API. These agents are inaccessible to traditional protocol-level scanners that rely on REST, OpenAI-compatible, MCP, or A2A endpoints.
 
 Browser scanning bridges this gap by using a headless browser (Playwright) to interact with the agent through its chat interface — the same way a real user (or attacker) would.
 

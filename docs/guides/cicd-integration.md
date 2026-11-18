@@ -98,7 +98,7 @@ entries:
 Each finding the gate counts gets two values:
 
 - **fingerprint**: what the finding is. For a successful attack it is the target agent, the
-  vector id and the category (the same fingerprint the web UI findings page uses). For a
+  vector id and the category. For a
   dangerous tool chain it is the target agent and the vulnerability type.
 - **content hash**: what the finding contains. For an attack it covers the severity and the
   category. For a chain it covers the tools, in order, and the risk level.

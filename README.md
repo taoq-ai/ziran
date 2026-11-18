@@ -138,9 +138,10 @@ pip install ziran[a2a]          # A2A protocol support
 pip install ziran[streaming]    # SSE/WebSocket streaming
 pip install ziran[pentest]      # autonomous pentesting agent
 pip install ziran[otel]         # OpenTelemetry tracing
-pip install ziran[ui]           # web dashboard
 pip install ziran[all]          # everything
 ```
+
+The web UI is part of ZIRAN Cloud and ZIRAN Enterprise (info@taoq.ai). v0.42.0 is the last Apache-2.0 release of ziran that includes it.
 
 ### Claude Code plugin
 
@@ -230,17 +231,12 @@ tls:
 
 `protocol: auto` probes for OpenAI-compatible chat completions, MCP (JSON-RPC 2.0) and A2A (`/.well-known/agent.json`) and falls back to REST. Ready-made targets in [examples/15-remote-agent-scan/](examples/15-remote-agent-scan/).
 
-### Web UI
+### Docker
 
 ```bash
-pip install ziran[ui]
-ziran ui                # http://127.0.0.1:8484
-docker compose up       # same, at http://localhost:8484
+docker build --build-arg ZIRAN_VERSION=<version> -t ziran .
+docker run --rm -v "$PWD:/work" -w /work ziran scan --target target.yaml
 ```
-
-<p align="center">
-  <img src="docs/assets/ui-dashboard.png" alt="ZIRAN dashboard: campaign results, attack library and knowledge graph" width="100%"/>
-</p>
 
 ---
 

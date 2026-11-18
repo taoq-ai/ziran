@@ -3,6 +3,7 @@
 **Feature Branch**: `010-ui-polish-pages`
 **Created**: 2026-03-30
 **Status**: Accepted
+**Note**: The web UI moved out of ziran (#520) to ZIRAN Cloud and ZIRAN Enterprise; v0.42.0 is the last Apache-2.0 release that includes it.
 **Input**: GitHub issues #99, #100, #101, #102, #104, #174
 **Scope**: Community (single-developer) edition only
 

@@ -2,7 +2,8 @@
 
 **Feature Branch**: `052-web-route-handler-tests`
 **Created**: 2026-10-04
-**Status**: Active
+**Status**: Superseded
+**Note**: The web UI moved out of ziran (#520) to ZIRAN Cloud and ZIRAN Enterprise; v0.42.0 is the last Apache-2.0 release that includes it.
 **Issue**: #368 (release 0.42.0, "faster scans, truer graphs" batch). Closes spec 010 task T035.
 **Base**: `develop` @ cff8b7f.
 **Siblings (parallel, separate worktrees)**: #288 / spec 049, #393 / spec 050, #73 / spec 051.
