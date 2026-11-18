@@ -5,6 +5,10 @@ name: Detection Accuracy
 # required check never reports on unrelated PRs and blocks merge forever. Instead
 # the job runs unconditionally and skips the gate (reporting success) when the
 # diff does not touch detector code, the dataset, or threshold config.
+#
+# Spec 077: on PRs it also scores the PR base code on the head dataset and posts
+# one sticky head vs base comment from a separate job, so the token that can
+# write PR comments never sits in the job that runs PR code.
 
 on:
   push:
@@ -18,6 +22,8 @@ permissions:
 jobs:
   detection-accuracy-gate:
     runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.changed.outputs.relevant }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -25,19 +31,32 @@ jobs:
 
       - name: Determine whether detection-relevant files changed
         id: changed
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base="origin/${{ github.base_ref }}"
-            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-            range="${base}...HEAD"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_REF"
+            range="origin/${BASE_REF}...HEAD"
           else
-            range="${{ github.event.before }}...${{ github.sha }}"
+            range="${BEFORE}...${SHA}"
           fi
           # Fall back to "changed" if the range can't be resolved (e.g. first push).
           if ! files=$(git diff --name-only "$range" 2>/dev/null); then
             echo "relevant=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          if echo "$files" | grep -qE '^(ziran/application/detectors/|benchmarks/(detection_accuracy|detection_regression|replay_llm_client)\.py|benchmarks/ground_truth/(schema\.py|detection/)|\.ziran/detectors\.yaml|benchmarks/results/detection_accuracy_baseline\.json)'; then
+          # Detector code and what it imports (tool classifier, result entities, the
+          # threshold loader, the LLM client base), the dataset, and the dependency set.
+          pattern='^(ziran/application/detectors/|ziran/application/attacks/vectors/'
+          pattern+='|ziran/domain/(entities/(attack|detection)\.py|tool_classifier\.py|interfaces/adapter\.py)'
+          pattern+='|ziran/infrastructure/(config/detectors|llm/base)\.py'
+          pattern+='|benchmarks/(detection_accuracy|detection_regression|replay_llm_client)\.py'
+          pattern+='|benchmarks/ground_truth/(schema\.py|detection/)|\.ziran/detectors\.yaml'
+          pattern+='|benchmarks/results/detection_accuracy_baseline\.json'
+          pattern+='|\.github/workflows/detection-accuracy\.yml|pyproject\.toml|uv\.lock)'
+          if echo "$files" | grep -qE "$pattern"; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
@@ -59,10 +78,89 @@ jobs:
         if: steps.changed.outputs.relevant == 'true'
         run: uv sync --frozen
 
+      # The base tree's own code, importing its own ziran, on this PR's dataset.
+      - name: Score the PR base
+        id: base
+        if: steps.changed.outputs.relevant == 'true' && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base_dir="$RUNNER_TEMP/detection_base"
+          mkdir -p "$base_dir"
+          git archive "$BASE_SHA" | tar -x -C "$base_dir"
+          PYTHONPATH="$base_dir" uv run python "$base_dir/benchmarks/detection_accuracy.py" \
+            --dataset benchmarks/ground_truth/detection --json "$RUNNER_TEMP/detection_base.json"
+
       - name: Run detection-accuracy regression gate
         if: steps.changed.outputs.relevant == 'true'
-        run: uv run python benchmarks/detection_regression.py
+        env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          BASE_OK: ${{ steps.base.outcome == 'success' }}
+        run: |
+          args=()
+          if [ "$IS_PR" = "true" ]; then
+            args+=(--comment "$RUNNER_TEMP/detection-comment/comment.md")
+            if [ "$BASE_OK" = "true" ]; then
+              args+=(--base-result "$RUNNER_TEMP/detection_base.json")
+            fi
+          fi
+          uv run python benchmarks/detection_regression.py "${args[@]}"
+
+      - name: Upload the PR comment
+        if: always() && steps.changed.outputs.relevant == 'true' && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: detection-accuracy-comment
+          path: ${{ runner.temp }}/detection-comment/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Skipped (no detection-relevant changes)
         if: steps.changed.outputs.relevant != 'true'
         run: echo "No detector/dataset/threshold changes — gate skipped, reporting success."
+
+  # Reporting only: every step may fail (a fork PR's token is read-only) without
+  # changing the gate's result. A Dependabot PR may get the write scope requested
+  # here; the comment is markdown the gate job wrote, and nothing else is written.
+  detection-accuracy-comment:
+    needs: detection-accuracy-gate
+    concurrency:
+      group: detection-accuracy-comment-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    if: always() && github.event_name == 'pull_request' && needs.detection-accuracy-gate.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download the PR comment
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: detection-accuracy-comment
+          path: comment
+
+      - name: Post or update the detection-accuracy comment
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          body=comment/comment.md
+          if [ ! -f "$body" ]; then
+            echo "::warning::No detection-accuracy comment: the gate did not write one."
+            exit 1
+          fi
+          printf '\n_PR head `%s`, base `%s`._\n' "${HEAD_SHA:0:7}" "${BASE_SHA:0:7}" >> "$body"
+          id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- ziran-detection-accuracy -->"))) | .id' \
+            | sed -n 1p)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$body" > /dev/null
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@"$body" > /dev/null
+          fi
