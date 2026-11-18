@@ -135,6 +135,10 @@ class LangfuseIngestor(TraceIngestor):
             msg = "Langfuse API mode needs LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY set."
             raise ValueError(msg)
         host = os.environ.get("LANGFUSE_HOST") or DEFAULT_HOST
+        if incremental and session_id:
+            # One cursor per host and key: a filtered pull would advance it past other sessions.
+            msg = "--incremental cannot be combined with --session-id."
+            raise ValueError(msg)
 
         start = _parse_since(since)
         cache_path = self._cache_path(host, public_key)
@@ -165,12 +169,19 @@ class LangfuseIngestor(TraceIngestor):
             timeout=30.0,
             transport=self._transport,
         ) as client:
+            cursors: set[str] = set()
             while True:
                 body = await self._get_page(client, params)
                 observations.extend(body.get("data", []))
                 cursor = body.get("meta", {}).get("cursor")
                 if not cursor:
                     break
+                if cursor in cursors:
+                    msg = (
+                        "Langfuse returned a pagination cursor it already sent; stopping the pull."
+                    )
+                    raise RuntimeError(msg)
+                cursors.add(cursor)
                 params["cursor"] = cursor
 
         # fromStartTime is inclusive: skip what the last run already analysed at its cursor.
@@ -267,7 +278,7 @@ class LangfuseIngestor(TraceIngestor):
             if isinstance(input_data, str):  # the v2 API returns input as a raw string
                 try:
                     input_data = json.loads(input_data)
-                except ValueError:
+                except (ValueError, RecursionError):  # a nested-array bomb raises RecursionError
                     input_data = None
             if isinstance(input_data, dict):
                 arguments = input_data

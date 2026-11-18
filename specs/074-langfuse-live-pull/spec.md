@@ -76,6 +76,11 @@ A scheduled job runs the command every hour and analyses only what arrived since
 - `--incremental` with no cache file: the pull starts at `--since`.
 - Observations at exactly the stored start time that were already pulled are not analysed again.
 - Alert delivery fails or the run errors: the cursor is not advanced, so the next run retries.
+- `--incremental` with `--session-id`: refused with exit 2. The cursor is keyed on host and public
+  key only, so a session-filtered pull would advance it past other sessions' traces.
+- The API repeats a `meta.cursor` it already sent: the pull stops with exit 2 instead of looping.
+- A JSON-string `input` nested deeply enough to raise `RecursionError`: the call keeps no
+  arguments and the pull goes on.
 
 ## Requirements
 

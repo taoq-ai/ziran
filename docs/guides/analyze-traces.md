@@ -24,12 +24,13 @@ ziran analyze-traces --source langfuse --since 24h --out ./reports
 | `--since` | Lower bound on observation start time: `30m`, `24h`, `7d`, or an ISO date such as `2026-01-31`. Default `24h`. |
 | `--session-id` | Pull one Langfuse session only (sent as `sessionId`). |
 | `--project-id` | Drop observations of another project. API keys are already scoped to one project. |
-| `--incremental` | Start where the last `--incremental` run ended. |
+| `--incremental` | Start where the last `--incremental` run ended. Cannot be combined with `--session-id`. |
 
 - **Auth**: HTTP basic auth, the public key as the user name and the secret key as the password.
   If either variable is unset, the command exits `2` and names both. Key values are never printed
   or logged.
-- **Pagination**: every page is read, following `meta.cursor` until it is absent.
+- **Pagination**: every page is read, following `meta.cursor` until it is absent. A cursor the
+  API already sent stops the pull with exit `2`.
 - **Rate limits**: an HTTP 429 waits for `Retry-After` (at most 60 seconds) and retries up to
   three times. After that the command exits `2` with a rate-limit message. Any other HTTP error
   also exits `2`.

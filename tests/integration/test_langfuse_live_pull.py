@@ -148,6 +148,7 @@ class TestLivePull:
 
         assert result.exit_code == 1, result.output  # critical chain matched
         assert len(mock.requests) == 2  # 6 observations, page size 4
+        assert {r.url.host for r in mock.requests} == {"lf.test"}  # LANGFUSE_HOST, not the default
         expected = "Basic " + base64.b64encode(f"{PUBLIC}:{SECRET}".encode()).decode()
         assert all(r.headers["authorization"] == expected for r in mock.requests)
         since = datetime.fromisoformat(mock.requests[0].url.params["fromStartTime"])
@@ -220,6 +221,33 @@ class TestLivePull:
         result = _invoke("--incremental")
         assert result.exit_code == 2, result.output
         assert "delete it" in result.output
+
+    def test_incremental_with_session_refused(
+        self, env: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock = MockLangfuse([])
+        _wire(monkeypatch, mock)
+        result = _invoke("--incremental", "--session-id", "s1")
+        assert result.exit_code == 2, result.output
+        assert "--incremental" in result.output and "--session-id" in result.output
+        assert mock.requests == []
+
+    def test_repeated_cursor_exits_two(self, env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[httpx.Request] = []
+
+        def _loop(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            return httpx.Response(200, json={"data": [], "meta": {"cursor": "same"}})
+
+        monkeypatch.setattr(
+            cli_module,
+            "_build_ingestor",
+            lambda source: LangfuseIngestor(transport=httpx.MockTransport(_loop)),
+        )
+        result = _invoke()
+        assert result.exit_code == 2, result.output
+        assert "cursor" in result.output.lower()
+        assert len(calls) == 2
 
     def test_429_once_then_success(self, env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         mock = MockLangfuse(_trace("a", "s1", _now() - timedelta(hours=1)))

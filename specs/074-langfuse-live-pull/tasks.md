@@ -9,3 +9,6 @@
 - [x] T007 Replace the old SDK ImportError test.
 - [x] T008 Docs section and `examples/28-langfuse-live-analysis/`.
 - [x] T009 Run ruff, ruff format --check, mypy and the suite with coverage.
+- [x] T010 Fix round at f8ae469: catch `RecursionError` on a nested `input`; assert requests go
+  to `LANGFUSE_HOST`; refuse `--incremental` with `--session-id`; ignore `.ziran/trace_cache/`;
+  stop on a repeated pagination cursor.

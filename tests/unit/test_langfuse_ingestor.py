@@ -194,6 +194,14 @@ class TestLangfuseErrorHandling:
         ]
         assert [p.tool_calls[0].arguments for p in parsed if p] == [{"command": "ls"}, {}, {}]
 
+    def test_deeply_nested_input_does_not_abort(self, ingestor: LangfuseIngestor) -> None:
+        """A nested-array bomb raises RecursionError in json.loads; the call keeps no arguments."""
+        obs = {"id": "o", "type": "SPAN", "name": "bash", "startTime": "2026-01-01T00:00:00Z"}
+        bomb = "[" * 200_000 + "]" * 200_000
+        session = ingestor._parse_trace({"id": "t", "observations": [{**obs, "input": bomb}]})
+        assert session is not None
+        assert session.tool_calls[0].arguments == {}
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
