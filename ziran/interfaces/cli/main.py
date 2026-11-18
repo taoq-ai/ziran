@@ -95,7 +95,15 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        [
+            "langchain",
+            "langgraph",
+            "crewai",
+            "bedrock",
+            "agentcore",
+            "anthropic",
+            "openai-agents",
+        ],
         case_sensitive=False,
     ),
     default=None,
@@ -766,7 +774,15 @@ def cache_clear() -> None:
 @click.option(
     "--framework",
     type=click.Choice(
-        ["langchain", "langgraph", "crewai", "bedrock", "agentcore", "anthropic"],
+        [
+            "langchain",
+            "langgraph",
+            "crewai",
+            "bedrock",
+            "agentcore",
+            "anthropic",
+            "openai-agents",
+        ],
         case_sensitive=False,
     ),
     default=None,
