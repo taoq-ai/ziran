@@ -173,6 +173,48 @@ stays as you configured it, so with tracing on, attack prompts appear in your tr
 turn it off, set `OPENAI_AGENTS_DISABLE_TRACING=1` or call
 `agents.set_tracing_disabled(True)` in the agent file.
 
+### AutoGen AgentChat
+
+```python
+from ziran.infrastructure.adapters.autogen_adapter import AutoGenAdapter
+
+adapter = AutoGenAdapter(your_team)  # an AgentChat team, or an agent such as AssistantAgent
+```
+
+Requires: `uv sync --extra autogen` (or `pip install ziran[autogen]`). The adapter targets
+Microsoft's `autogen-agentchat` 0.7, not AG2's classic `GroupChat` API.
+
+The agent file must expose the team as `team`, or a single agent as `agent`:
+
+```bash
+ziran discover --framework autogen agent.py
+ziran scan --framework autogen --agent-path agent.py
+```
+
+See [`examples/27-autogen-agent/`](https://github.com/taoq-ai/ziran/tree/main/examples/27-autogen-agent)
+for a code-writer team of a coder and a reviewer.
+
+**What is mapped.** Each turn awaits `run(task=...)`; the agent or team keeps earlier turns
+until the scanner resets state. Tool calls and their results come from the tool-call request
+and execution events, the answer from the last chat message, token counts from
+`models_usage`. Discovery walks nested teams:
+
+| AgentChat | Knowledge graph |
+|---|---|
+| agent `coder` | agent node `autogen:coder` (role `human` for a `UserProxyAgent`) |
+| `RoundRobinGroupChat` | a ring of `delegates_to` edges between members, in speaking order |
+| `SelectorGroupChat` named `desk` | router node `autogen:desk` with conditional edges to each member |
+| `Swarm` handoff `transfer_to_billing` | conditional `delegates_to` edge labelled with the handoff name |
+| team nested in a team | team node with edges to its members |
+| tools of an agent | capabilities `tool_<name>` with description and JSON schema, linked with `uses_tool` |
+
+**Limits.** Team members, tools and handoffs are read from private AgentChat attributes, so the
+extra pins `autogen-agentchat<0.8`. A team without a termination condition runs until AutoGen
+stops it, so give the team one (`MaxMessageTermination` for example). Turns run one at a time.
+Streaming falls back to one `invoke`. Tools are listed through each agent's workbenches, so an
+MCP workbench starts its server during discovery. MagenticOne, GraphFlow edges, agents inside a
+`SocietyOfMindAgent` and agents wrapped as tools are not read.
+
 ## Creating a Custom Adapter
 
 Implement the `BaseAgentAdapter` abstract class:
