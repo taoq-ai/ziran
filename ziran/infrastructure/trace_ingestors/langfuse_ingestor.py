@@ -140,9 +140,15 @@ class LangfuseIngestor(TraceIngestor):
         cache_path = self._cache_path(host, public_key)
         seen: set[str] = set()
         if incremental and cache_path.exists():
-            cached = json.loads(cache_path.read_text(encoding="utf-8"))
-            start = _parse_iso_datetime(cached["last_start_time"])
-            seen = set(cached.get("ids_at_last", []))
+            try:
+                cached = json.loads(cache_path.read_text(encoding="utf-8"))
+                start = _parse_iso_datetime(cached["last_start_time"])
+                seen = set(cached.get("ids_at_last", []))
+            except (ValueError, KeyError, TypeError) as exc:
+                msg = (
+                    f"Unreadable incremental cursor {cache_path}: delete it to restart at --since."
+                )
+                raise ValueError(msg) from exc
 
         params: dict[str, Any] = {
             "fields": "core,basic,io",

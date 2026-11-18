@@ -211,6 +211,16 @@ class TestLivePull:
         assert result.exit_code == 2, result.output
         assert not (env / ".ziran" / "trace_cache").exists()
 
+    def test_corrupt_cursor_exits_two(self, env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock = MockLangfuse(_trace("a", "s1", _now() - timedelta(hours=1)))
+        _wire(monkeypatch, mock)
+        assert _invoke("--incremental").exit_code == 1
+        (cache,) = (env / ".ziran" / "trace_cache").glob("*.json")
+        cache.write_text("{not json")
+        result = _invoke("--incremental")
+        assert result.exit_code == 2, result.output
+        assert "delete it" in result.output
+
     def test_429_once_then_success(self, env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         mock = MockLangfuse(_trace("a", "s1", _now() - timedelta(hours=1)))
         mock.rate_limit_left = 1
