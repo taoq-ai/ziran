@@ -532,7 +532,7 @@ _SEED_CVES: list[dict[str, Any]] = [
     {
         "cve_id": "CVE-2026-104850",
         "skill_name": "modelcontextprotocol.sdk.client.auth",
-        "skill_version": ">=1.12.0 <1.31.0 (@modelcontextprotocol/sdk), <2.2.0 (client)",
+        "skill_version": ">=1.12.0 <1.31.0 (sdk), >=2.0.0 <2.2.0 (client)",
         "framework": "mcp",
         "vulnerability_type": "credential_theft",
         "severity": "high",

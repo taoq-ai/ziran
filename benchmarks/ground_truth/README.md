@@ -1,14 +1,14 @@
 # Ground Truth Dataset for Accuracy Measurement
 
-A labeled dataset of 56 scenarios (30 true-positive, 26 true-negative) for measuring ZIRAN's detection precision, recall, and F1 score.
+A labeled dataset of 62 scenarios (33 true-positive, 29 true-negative) for measuring ZIRAN's detection precision, recall, and F1 score.
 
 ## Dataset Structure
 
 ```
 ground_truth/
-    agents/                    # 22 agent definitions (11 vulnerable + 11 safe)
+    agents/                    # 28 agent definitions (14 vulnerable + 14 safe)
     scenarios/
-        tool_chain/            # 20 scenarios (11 TP, 9 TN)
+        tool_chain/            # 26 scenarios (14 TP, 12 TN)
         side_effect/           # 18 scenarios (10 TP, 8 TN)
         campaign/              # 18 scenarios (9 TP, 9 TN)
     schema.py                  # Pydantic validation models
@@ -29,6 +29,47 @@ Each archetype has a vulnerable and safe (mitigated) version:
 | Multi-Agent System | CrewAI/LangGraph | CrewAI pentest research, MCPTox benchmark |
 | DevOps Automation | LangChain+MCP | CVE-2025-6514, CI/CD pipeline patterns |
 | Claude Code | Claude Code (built-in + MCP tools) | OWASP LLM06, OWASP LLM08 (design risk) |
+| Jira and Confluence (mcp-atlassian) | MCP | CVE-2026-77260, CVE-2026-77262, CVE-2026-73498, CVE-2026-77253, CVE-2026-77255 |
+| Langflow MCP Tools | MCP | CVE-2026-105697, CVE-2025-61260 |
+| Claude Code WebFetch | Claude Code | CVE-2026-54316 |
+
+## CVEs Added 2026-11-18
+
+Advisories published from 2026-03-20 to 2026-11-18 for agent and MCP packages, each checked
+against its GitHub advisory. The skill CVE database (`ziran/application/skill_cve/`) holds the
+full entries. "Agent pair" names the ground-truth agents that model the CVE.
+
+| CVE | Package | Affected | Fixed in | Type | Advisory | Agent pair |
+|---|---|---|---|---|---|---|
+| CVE-2026-77260 | mcp-atlassian | <0.22.0 | 0.22.0 | path_traversal | [GHSA-f4p7-qx46-wc5j](https://github.com/advisories/GHSA-f4p7-qx46-wc5j) | atlassian_mcp |
+| CVE-2026-77248 | mcp-atlassian | <0.22.0 | 0.22.0 | path_traversal | [GHSA-cc5h-2pwp-pvcc](https://github.com/advisories/GHSA-cc5h-2pwp-pvcc) | |
+| CVE-2026-77262 | mcp-atlassian | <0.22.0 | 0.22.0 | data_exfiltration | [GHSA-p6hp-93wp-fh6p](https://github.com/advisories/GHSA-p6hp-93wp-fh6p) | atlassian_mcp |
+| CVE-2026-77253 | mcp-atlassian | <0.22.0 | 0.22.0 | path_traversal | [GHSA-vc25-24vv-fxxm](https://github.com/advisories/GHSA-vc25-24vv-fxxm) | atlassian_mcp |
+| CVE-2026-77246 | mcp-atlassian | <0.22.0 | 0.22.0 | data_exfiltration | [GHSA-wv8v-v4c5-v75j](https://github.com/advisories/GHSA-wv8v-v4c5-v75j) | |
+| CVE-2026-73498 | mcp-atlassian | <0.22.0 | 0.22.0 | path_traversal | [GHSA-g5r6-gv6m-f5jv](https://github.com/advisories/GHSA-g5r6-gv6m-f5jv) | atlassian_mcp |
+| CVE-2026-77255 | mcp-atlassian | <0.22.0 | 0.22.0 | data_exfiltration | [GHSA-2xj6-xx86-cwwc](https://github.com/advisories/GHSA-2xj6-xx86-cwwc) | atlassian_mcp |
+| CVE-2026-116686 | mcp (Python SDK) | >=1.10.0 <1.30.0, >=2.0.0 <2.2.0 | 1.30.0, 2.2.0 | ssrf | [GHSA-rwrf-2pqf-9j8j](https://github.com/advisories/GHSA-rwrf-2pqf-9j8j) | |
+| CVE-2026-104850 | @modelcontextprotocol/sdk, /client | >=1.12.0 <1.31.0, >=2.0.0 <2.2.0 | 1.31.0, 2.2.0 | credential_theft | [GHSA-6qxp-vccf-f47h](https://github.com/advisories/GHSA-6qxp-vccf-f47h) | |
+| CVE-2026-32871 | fastmcp | <3.2.0 | 3.2.0 | ssrf | [GHSA-vv7q-7jx5-f767](https://github.com/advisories/GHSA-vv7q-7jx5-f767) | |
+| CVE-2026-105697 | langflow | >=1.1.2 <1.10.3 | 1.10.3 | command_injection | [GHSA-w794-rj3p-xv45](https://github.com/advisories/GHSA-w794-rj3p-xv45) | langflow_mcp |
+| CVE-2025-61260 | @openai/codex | <=0.23.0 | none listed (1) | remote_code_execution | [GHSA-xrxf-jgv3-qmrm](https://github.com/advisories/GHSA-xrxf-jgv3-qmrm) | |
+| CVE-2026-54316 | @anthropic-ai/claude-code | >=0.2.54 <2.1.163 | 2.1.163 | data_exfiltration | [GHSA-fg94-h982-f3mm](https://github.com/advisories/GHSA-fg94-h982-f3mm) | claude_code_webfetch |
+| CVE-2026-39861 | @anthropic-ai/claude-code | <2.1.64 | 2.1.64 | symlink_bypass | [GHSA-vp62-r36r-9xqp](https://github.com/advisories/GHSA-vp62-r36r-9xqp) | |
+| CVE-2026-88968 | @anthropic-ai/claude-code | <2.1.251 | 2.1.251 | symlink_bypass | [GHSA-5xjx-9qx6-jcrv](https://github.com/advisories/GHSA-5xjx-9qx6-jcrv) | |
+| CVE-2026-55607 | @anthropic-ai/claude-code | >=2.1.38 <2.1.163 | 2.1.163 | remote_code_execution | [GHSA-7835-87q9-rgvv](https://github.com/advisories/GHSA-7835-87q9-rgvv) | |
+| CVE-2026-40068 | @anthropic-ai/claude-code | >=2.1.63 <2.1.84 | 2.1.84 | remote_code_execution | [GHSA-q5hj-mxqh-vv77](https://github.com/advisories/GHSA-q5hj-mxqh-vv77) | |
+| CVE-2026-113663 | ag2 | >=0.13.2 <1.1.1 | 1.1.1 | command_injection | [GHSA-2h4w-29cv-2cmv](https://github.com/advisories/GHSA-2h4w-29cv-2cmv) | |
+| CVE-2026-7700 | langflow | >=1.3.0 <1.10.3 | 1.10.3 | remote_code_execution | [GHSA-9fpm-3445-2vx4](https://github.com/advisories/GHSA-9fpm-3445-2vx4) | |
+| CVE-2026-59207 | n8n | <2.27.4, >=2.28.0 <2.28.1 | 2.27.4, 2.28.1 | credential_theft | [GHSA-h44j-f5r5-ph73](https://github.com/advisories/GHSA-h44j-f5r5-ph73) | |
+| CVE-2026-65015 | n8n | <2.29.8, >=2.30.0 <2.30.1 | 2.29.8, 2.30.1 | privilege_escalation | [GHSA-x5vx-c2c8-m3w9](https://github.com/advisories/GHSA-x5vx-c2c8-m3w9) | |
+| CVE-2026-86996 | n8n | <2.37.7, >=2.38.0 <2.38.2 | 2.37.7, 2.38.2 | privilege_escalation | [GHSA-7hgx-277f-7vmg](https://github.com/advisories/GHSA-7hgx-277f-7vmg) | |
+
+(1) The advisory lists no patched release. Check Point, the reporter, gives the fix as 0.23.0.
+
+Seeded advisories left out because no agent tool call triggers them: CVE-2026-77243
+(mcp-atlassian tool filter bypass by direct JSON-RPC), CVE-2026-59822 (LiteLLM MCP endpoint
+authentication bypass), CVE-2026-65589 (n8n credential headers written to execution data) and
+CVE-2026-86063 (Claude Code plugin hash-pin bypass at install).
 
 ## Labeling Methodology
 

@@ -45,7 +45,7 @@ def _fixture() -> dict[str, Any]:
 def test_every_agent_keeps_its_study_v1_chains() -> None:
     v1 = _fixture()["agents"]
     agents = load_agents()
-    assert sorted(v1) == sorted(agents)
+    assert set(v1) <= set(agents)  # agents added after study-v1 (spec 075) are not in it
     assert len(v1) == 22
     for agent_id, expected in v1.items():
         assert [t.id for t in agents[agent_id].tools] == expected["tools"], agent_id
