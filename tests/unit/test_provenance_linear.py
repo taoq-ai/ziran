@@ -80,24 +80,35 @@ def test_atoms_of_a_long_value_equal_the_frozen_findall() -> None:
 def _assert_linear(run: Callable[[int], object]) -> None:
     """Quadrupling the input stays under 8 times the time (a quadratic pattern takes about 16).
 
-    CPU time (``process_time``), so other load on the runner does not count, and best of three:
-    one slow run never fails the test. Two large runs both at 12 times or more (quadratic is
-    about 16) fail without the third, so a quadratic pattern fails in seconds.
+    CPU time (``process_time``), so other load on the runner does not count. Each small sample
+    makes four calls, the same work as one large call, so it lasts long enough that timer and
+    scheduler noise cannot move the ratio past 8 (a single 2 ms call reached 8.3 on CI). Best of
+    five small samples, and of up to five large runs: a pass stops at the first large run under
+    8 times, and two large runs at 12 times or more fail without the rest.
     """
 
-    def timed(size: int) -> float:
+    def timed(size: int, calls: int = 1) -> float:
         start = time.process_time()
-        run(size)
-        return time.process_time() - start
+        for _ in range(calls):
+            run(size)
+        return (time.process_time() - start) / calls
 
-    small = min(timed(32_000) for _ in range(3))
+    small = min(timed(32_000, 4) for _ in range(5))
     large = timed(128_000)
-    for tries in (2, 3):
-        if large / small < 8 or (tries == 3 and large / small >= 12):
+    for tries in range(2, 6):
+        if large / small < 8 or (tries > 2 and large / small >= 12):
             break
         large = min(large, timed(128_000))
     assert large < 10.0  # backstop; the runner's speed sets the rest
     assert large / small < 8, (small, large)
+
+
+def test_the_helper_fails_a_quadratic_pattern() -> None:
+    quadratic = re.compile(r"a*b")  # from each start, a* runs to the end before it fails
+    started = time.process_time()
+    with pytest.raises(AssertionError):
+        _assert_linear(lambda size: quadratic.findall("a" * (size // 16)))
+    assert time.process_time() - started < 10.0
 
 
 # "a\u00e9" and "a_": word characters outside ASCII letters, which an ASCII-only mail class misses
