@@ -3,7 +3,7 @@
 ZIRAN maps every attack vector in its library to one or more [MITRE ATLAS](https://atlas.mitre.org/) techniques. This page explains how the mapping works, where the data comes from, and how to read it in reports and dashboards.
 
 !!! info "Snapshot"
-    The ATLAS taxonomy embedded in ZIRAN is **pinned to the October 2025 ATLAS release** (16 tactics, 86 techniques, 14 AI-agent-specific techniques). Later ATLAS updates are adopted by later ZIRAN releases. This mirrors how OWASP LLM Top 10 is already embedded.
+    The ATLAS taxonomy embedded in ZIRAN is **pinned to the October 2025 ATLAS release** (16 tactics, 14 AI-agent-specific techniques). Later techniques a vector needs are added one at a time, with the ATLAS release that introduced them noted in the enum (for example `AML.T0105` from v5.4.0 and `AML.T0142` from v2026.10); the enum holds 88 techniques. Later ATLAS updates are adopted by later ZIRAN releases. This mirrors how OWASP LLM Top 10 is already embedded.
 
 ## Why ATLAS
 
@@ -112,7 +112,7 @@ JSON output is deterministic (stable key + array ordering, no timestamps) so dow
 
 `AML.T0040` and `AML.T0047` coverage comes from the premise that every ZIRAN scan reaches the target through its inference API, inside an AI-enabled product or service. It is not a separate model-access attack, so read these two counts as context, not as a distinct capability.
 
-The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 669-vector library); the table above therefore lists techniques.
+The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 677-vector library); the table above therefore lists techniques.
 
 No dedicated staging or reconnaissance vectors are added for AI Attack Staging: adversary-side staging has no observable outcome on a target, and tagging vectors with it would only pad counts.
 
