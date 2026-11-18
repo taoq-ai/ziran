@@ -126,7 +126,7 @@ Moved to [ZIRAN Cloud and ZIRAN Enterprise](#ziran-cloud) in v0.44.0. v0.42.0 is
 ### v0.15 — Benchmark Maturity
 
 - :white_check_mark: **100% OWASP LLM Top 10 coverage** (10/10 categories, all strong+)
-- :white_check_mark: **MITRE ATLAS mapping** on every vector (72/86 techniques, 14/14 agent-specific)
+- :white_check_mark: **MITRE ATLAS mapping** on every vector (75/88 techniques, 14/14 agent-specific, 677 vectors)
 - :white_check_mark: **Defence profile schema + evasion-rate metric** (schema + metric field; evaluator adapters follow in the next cycle)
 - :white_check_mark: **RAG-poisoning attack category** — retrieval-aware indirect injection vectors
 - :white_check_mark: **Benchmark expansion** — TensorTrust, WildJailbreak, ToolEmu, CyberSecEval coverage lifts
@@ -143,38 +143,38 @@ Work is organised into **themes**, each tracked by an open GitHub milestone. The
 
 Close the **pre-deploy → runtime → observability** loop that v0.8 sketched. Today the runtime-bridge commands (`export-policy`, `analyze-traces`, `watch-registry`) ship infrastructure but leave the integration endpoints to humans. This theme wires them through to real systems.
 
-- [ ] **NeMo Guardrails evaluator adapter** — makes `evasion_rate` computable for the first concrete guardrail; unblocks Lakera and Invariant follow-ups ([#271](https://github.com/taoq-ai/ziran/issues/271))
-- [ ] **Registry-watcher alerting** — Slack + GitHub issue output adapters when MCP drift is detected ([#272](https://github.com/taoq-ai/ziran/issues/272))
-- [ ] **Policy auto-refresh GitHub Action** — PR-based refresh of exported policies when the library or target config changes ([#273](https://github.com/taoq-ai/ziran/issues/273))
-- [ ] **Trace-analysis → GitHub issues** — auto-file issues when production traces match dangerous chains ([#274](https://github.com/taoq-ai/ziran/issues/274))
+- [ ] **NeMo Guardrails evaluator adapter** — makes `evasion_rate` computable for the first concrete guardrail; unblocks Lakera and Invariant follow-ups
+- [x] **Registry-watcher alerting** — Slack + GitHub issue output adapters when MCP drift is detected ([#272](https://github.com/taoq-ai/ziran/issues/272))
+- [x] **Policy auto-refresh GitHub Action** — PR-based refresh of exported policies when the library or target config changes ([#273](https://github.com/taoq-ai/ziran/issues/273))
+- [x] **Trace-analysis → GitHub issues** — auto-file issues when production traces match dangerous chains ([#274](https://github.com/taoq-ai/ziran/issues/274))
 
 ### Theme: Detection Depth
 
 Close frontier attack gaps (gradient-based attacks, many-shot jailbreaks, tool-schema confusion) and detection-quality gaps (multilingual refusal, untuned thresholds, no precision/recall baseline). Benchmark what ZIRAN claims against labelled ground truth.
 
 - [ ] **Gradient-based adversarial attacks (GCG / PAIR)** — new `AdvancedAttackGenerator` subsystem for optimiser-based attacks ([#275](https://github.com/taoq-ai/ziran/issues/275))
-- [ ] **Many-shot jailbreaking category** — exploits long-context windows with hundreds of shots ([#276](https://github.com/taoq-ai/ziran/issues/276))
-- [ ] **Tool-schema confusion category** — malformed schemas, parameter type confusion, enum injection ([#277](https://github.com/taoq-ai/ziran/issues/277))
-- [ ] **Multilingual refusal detection** — extend the refusal detector beyond English (Chinese, Spanish, German, French, Japanese) ([#278](https://github.com/taoq-ai/ziran/issues/278))
-- [ ] **Precision/recall/F1 benchmark per detector** — labelled ground-truth eval, threshold tuning methodology ([#279](https://github.com/taoq-ai/ziran/issues/279))
-- [ ] **Pentesting-agent ground-truth evaluation** — does the autonomous agent find vulnerabilities the rule-based scanner misses? ([#280](https://github.com/taoq-ai/ziran/issues/280))
+- [x] **Many-shot jailbreaking category** — exploits long-context windows with hundreds of shots ([#276](https://github.com/taoq-ai/ziran/issues/276))
+- [x] **Tool-schema confusion category** — malformed schemas, parameter type confusion, enum injection ([#277](https://github.com/taoq-ai/ziran/issues/277))
+- [x] **Multilingual refusal detection** — extend the refusal detector beyond English (Chinese, Spanish, German, French, Japanese) ([#278](https://github.com/taoq-ai/ziran/issues/278))
+- [x] **Precision/recall/F1 benchmark per detector** — labelled ground-truth eval, threshold tuning methodology ([#279](https://github.com/taoq-ai/ziran/issues/279))
+- [x] **Pentesting-agent ground-truth evaluation** — does the autonomous agent find vulnerabilities the rule-based scanner misses? ([#280](https://github.com/taoq-ai/ziran/issues/280))
 
 ### Theme: Production Scale
 
 Harden the runtime for enterprise production use — rate-limiting, structured logging, resumable checkpoints, proper metrics.
 
-- [ ] **Rate-limiting + retry with backoff** — per-provider token bucket, exponential retry on 429s, scale beyond the current 5-concurrent default ([#281](https://github.com/taoq-ai/ziran/issues/281))
-- [ ] **Structured JSON logging (structlog)** — machine-queryable audit trail for ELK / Datadog / Splunk ingestion ([#282](https://github.com/taoq-ai/ziran/issues/282))
-- [ ] **Partial-phase checkpoint resume** — save progress within a phase; don't lose 30 min of work on a crash ([#283](https://github.com/taoq-ai/ziran/issues/283))
-- [ ] **OTel metrics export (Prometheus-compatible)** — counters, gauges, histograms beyond the existing span export ([#284](https://github.com/taoq-ai/ziran/issues/284))
+- [x] **Rate-limiting + retry with backoff** — per-provider token bucket, exponential retry on 429s, scale beyond the current 5-concurrent default ([#281](https://github.com/taoq-ai/ziran/issues/281))
+- [x] **Structured JSON logging (structlog)** — machine-queryable audit trail for ELK / Datadog / Splunk ingestion ([#282](https://github.com/taoq-ai/ziran/issues/282))
+- [x] **Partial-phase checkpoint resume** — save progress within a phase; don't lose 30 min of work on a crash ([#283](https://github.com/taoq-ai/ziran/issues/283))
+- [x] **OTel metrics export (Prometheus-compatible)** — counters, gauges, histograms beyond the existing span export ([#284](https://github.com/taoq-ai/ziran/issues/284))
 
 ### Theme: Ecosystem + Enterprise
 
 Expand framework reach and unlock enterprise-facing positioning: incremental scanning for dev-loop speed, compliance evidence bundles for procurement.
 
-- [ ] **AutoGen adapter** — Microsoft's multi-agent framework ([#285](https://github.com/taoq-ai/ziran/issues/285))
-- [ ] **Anthropic SDK native adapter** — direct path, no LangChain wrapping ([#286](https://github.com/taoq-ai/ziran/issues/286))
-- [ ] **Langfuse API trace ingestor** — live pulls, not file exports ([#287](https://github.com/taoq-ai/ziran/issues/287))
+- [x] **AutoGen adapter** — Microsoft's multi-agent framework ([#285](https://github.com/taoq-ai/ziran/issues/285))
+- [x] **Anthropic SDK native adapter** — direct path, no LangChain wrapping ([#286](https://github.com/taoq-ai/ziran/issues/286))
+- [x] **Langfuse API trace ingestor** — live pulls, not file exports ([#287](https://github.com/taoq-ai/ziran/issues/287))
 - [x] **Incremental / diff scanning** — only re-test changed vectors; unlock pre-commit-hook and fast-CI-gate use ([#288](https://github.com/taoq-ai/ziran/issues/288))
 - [ ] **Compliance evidence bundles** — EU AI Act / NIST AI RMF / ISO 42001 mapping + export ([#289](https://github.com/taoq-ai/ziran/issues/289))
 
@@ -184,9 +184,9 @@ These don't block a milestone but are worth landing when someone has a slot:
 
 - [ ] **Attack library community submission workflow** — clear contributor path, PR template, CI schema linter ([#290](https://github.com/taoq-ai/ziran/issues/290)) — `good first issue`
 - [ ] **Supply-chain signing** — cosign signatures on releases, CycloneDX SBOM, SLSA provenance ([#291](https://github.com/taoq-ai/ziran/issues/291))
-- [ ] **`ziran init` scaffolding command** — one-liner onboarding ([#292](https://github.com/taoq-ai/ziran/issues/292)) — `good first issue`
+- [x] **`ziran init` scaffolding command** — one-liner onboarding ([#292](https://github.com/taoq-ai/ziran/issues/292)) — `good first issue`
 - [x] **Expand ATLAS coverage to remaining tactics** — AI Model Access, AI Attack Staging ([#264](https://github.com/taoq-ai/ziran/issues/264))
-- [ ] **asqav signing integration sketch** — downstream signing of ZIRAN outputs ([#259](https://github.com/taoq-ai/ziran/issues/259))
+- [x] **asqav signing integration sketch** — downstream signing of ZIRAN outputs ([#259](https://github.com/taoq-ai/ziran/issues/259))
 - [x] **HTML report graph size cap** — perf improvement for large campaigns ([#217](https://github.com/taoq-ai/ziran/issues/217))
 
 ### UI Hardening
@@ -203,7 +203,7 @@ Directions we're watching but not yet committed to a milestone on. These are the
 - **Custom chain rule language** — user-defined tool chain patterns complementing auto-discovery
 - **AgentSecBench** — purpose-built benchmark of deliberately-vulnerable agents with known tool-chain vulnerabilities; demonstrates what ZIRAN catches that other tools miss
 - **Tool chain methodology paper** — publish the discovery-based approach as research
-- **Red-team / blue-team split mode** — meaningful once the DefenceProfile evaluator ecosystem has multiple implementations (waits for #271 and the next evaluator)
+- **Red-team / blue-team split mode** — meaningful once the DefenceProfile evaluator ecosystem has multiple implementations (waits for the next evaluator)
 - **Federated agent trust boundary modelling** — cross-org / cross-network agent topologies
 
 ---

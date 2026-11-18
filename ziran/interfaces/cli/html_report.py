@@ -20,8 +20,7 @@ from ziran.domain.entities.alerting import SEVERITY_RANK
 from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
-# vis-network CDN version — kept in step with the web UI's ``vis-network``
-# dependency so both surfaces behave identically.
+# vis-network CDN version used by the self-contained report.
 _VIS_NETWORK_VERSION = "10.0.2"
 
 # Graph payload caps for the self-contained report (spec 048). Applied to the
