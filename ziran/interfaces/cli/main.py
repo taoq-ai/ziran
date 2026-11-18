@@ -2823,38 +2823,25 @@ def _display_session_results(session: Any) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Web UI
+# Web UI (moved out of ziran, spec 083)
 # ──────────────────────────────────────────────────────────────────────
 
+_UI_MOVED_NOTICE = (
+    "The ziran web UI has moved. It continues in ZIRAN Cloud and ZIRAN Enterprise "
+    "(info@taoq.ai). ziran v0.42.0 and earlier still include the UI under Apache-2.0."
+)
 
-@cli.command("ui")
-@click.option("--host", default="127.0.0.1", help="Server bind address.")
-@click.option("--port", default=8484, type=int, help="Server port.")
-@click.option("--dev", is_flag=True, default=False, help="Development mode (CORS + auto-reload).")
-def ui_cmd(host: str, port: int, dev: bool) -> None:
-    """Launch the web dashboard."""
-    try:
-        import uvicorn
 
-        from ziran.interfaces.web.app import create_app
-    except ImportError as exc:
-        console.print("[red]Web UI dependencies not installed.[/red]")
-        console.print("Run: [bold]pip install ziran[ui][/bold]")
-        raise SystemExit(1) from exc
-
-    if dev:
-        console.print("[bold cyan]Ziran Web UI starting in development mode...[/bold cyan]")
-        console.print(f"Dashboard: [link]http://{host}:{port}[/link]")
-        console.print("CORS enabled for all origins.")
-        console.print("Auto-reload enabled.")
-    else:
-        console.print("[bold cyan]Ziran Web UI starting...[/bold cyan]")
-        console.print(f"Dashboard: [link]http://{host}:{port}[/link]")
-
-    console.print("Press Ctrl+C to stop.\n")
-
-    app = create_app(dev=dev)
-    uvicorn.run(app, host=host, port=port, reload=dev)
+# shortcut: stub for one minor release, remove it in the release after (#522).
+@cli.command(
+    "ui",
+    hidden=True,
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+def ui_cmd() -> None:
+    """Removed: print where the web UI went and exit 2."""
+    click.echo(_UI_MOVED_NOTICE, err=True)
+    raise SystemExit(2)
 
 
 def _register_v08_commands() -> None:

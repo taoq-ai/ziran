@@ -1,10 +1,10 @@
 """Canonical, surface-agnostic knowledge-graph style/mapping specification.
 
 This module is the **single source of truth** for how graph nodes and edges
-map to visual properties. Both the interactive web UI (which imports the
-sibling ``graph_style.json`` directly) and the self-contained HTML report
-(which loads it through this module) render from the same definition, so the
-two surfaces cannot drift.
+map to visual properties. The sibling ``graph_style.json`` is the published
+styling spec for the knowledge graph: the self-contained HTML report loads it
+through this module, and other renderers read the same file from the
+installed package.
 
 See ``specs/archive/026-interactive-knowledge-graph/contracts/graph-style-spec.md``.
 """

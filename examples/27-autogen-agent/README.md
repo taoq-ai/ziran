@@ -22,8 +22,7 @@ RoundRobinGroupChat (until the reviewer says APPROVE, at most 8 messages)
 ## Prerequisites
 
 - Python 3.11+
-- `pip install ziran[autogen] "autogen-ext[openai]>=0.7,<0.8"` (or `uv sync --extra autogen`
-  plus `uv pip install "autogen-ext[openai]>=0.7,<0.8"` in the ziran repo)
+- `pip install ziran[autogen]` (or `uv sync --extra autogen` in the ziran repo)
 - `OPENAI_API_KEY` set for `scan` (`discover` needs no key)
 
 ## Run

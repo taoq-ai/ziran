@@ -101,6 +101,8 @@ auth:
 
 **How it works:** ZIRAN discovers available tools via the MCP protocol and tests each one for vulnerabilities.
 
+A prompt goes to the server's `completion/complete` method. When the server rejects it, ZIRAN logs one warning and counts each prompt as an error, not a reply: the vector is unmeasured, the report reads INCOMPLETE and `ziran ci` fails when no vector was measured.
+
 ### A2A (Agent-to-Agent)
 
 For agents implementing Google's A2A protocol:

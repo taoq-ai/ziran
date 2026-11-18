@@ -1,6 +1,6 @@
 # ziran commercial licence
 
-Standard terms, version 1.0, 2026-11-16
+Standard terms, version 1.1, 2026-11-18
 
 These terms apply only when you and TaoQ AI have both signed an order form that refers to them. Without a signed order form they grant nothing, and ziran stays available to you under its public licences (see the LICENSE and NOTICE files).
 
@@ -12,7 +12,7 @@ These terms apply only when you and TaoQ AI have both signed an order form that 
 
 "Affiliate" means a company under common control with you. Affiliates named in the Order Form may use the licence within the one shared scope, for as long as they remain under common control with you. You answer for them as for yourself.
 
-"ziran" means the software we publish at github.com/taoq-ai/ziran and on PyPI: the Python CLI and library, the web UI, the GitHub Action and the Claude Code plugin.
+"ziran" means the software we publish at github.com/taoq-ai/ziran and on PyPI: the Python CLI and library, the GitHub Action and the Claude Code plugin.
 
 "FSL" means the Functional Source License, Version 1.1, ALv2 Future License, in the LICENSE file. "Competing Use" has the meaning the FSL gives it.
 

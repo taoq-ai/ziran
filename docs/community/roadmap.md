@@ -105,6 +105,8 @@ Priorities shift as the landscape changes. This page tracks **themes** we're act
 
 ### v0.13 — Web UI Foundation
 
+Moved to [ZIRAN Cloud and ZIRAN Enterprise](#ziran-cloud) in v0.44.0. v0.42.0 is the last Apache-2.0 release that includes the web UI.
+
 - :white_check_mark: **Web UI** — React + Vite frontend, FastAPI + SQLAlchemy backend, PostgreSQL
 - :white_check_mark: **Findings management** — filtering, triage, OWASP compliance view
 - :white_check_mark: **Attack library browser** — filter by category, severity, OWASP, tags
@@ -213,6 +215,9 @@ A hosted platform layer is planned for commercial / enterprise use cases. OSS ZI
 - **Managed parallel scanning** — campaigns fan out across worker pools with global rate-limiting; no self-hosted Ray/Celery required
 - **Curated premium threat-intel feed** — continuously updated vector library with researcher provenance, SLA-backed, complementing the open community-submission path
 - **Multi-tenant RBAC** — red-team / blue-team role dashboards, audit logs, team-based compliance workflows
+- **Web UI** — campaign dashboard, attack library browser and settings, moved from OSS ZIRAN in v0.44.0 and also offered as self-hosted ZIRAN Enterprise
+- **Findings and OWASP compliance view** — filtering, triage and OWASP LLM Top 10 coverage across campaigns
+- **Knowledge-graph explorer** — the full campaign graph with no node cap (the HTML report in OSS ZIRAN keeps its interactive graph)
 
 These are deliberately not in the OSS roadmap because they either require hosted infrastructure to be useful or would conflict with the partner ecosystem (NeMo, Lakera, Invariant, Langfuse) that OSS ZIRAN works **with**, not against.
 

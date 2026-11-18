@@ -1,21 +1,8 @@
-# Stage 1: Build frontend
-FROM node:20-slim AS frontend-builder
-WORKDIR /app/ui
-COPY ui/package.json ui/package-lock.json ./
-RUN npm ci
-COPY ui/ ./
-RUN npm run build
-
-# Stage 2: Python runtime
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim
 WORKDIR /app
-# Install system deps for asyncpg
-RUN apt-get update && apt-get install -y --no-install-recommends libpq5 && rm -rf /var/lib/apt/lists/*
-COPY pyproject.toml uv.lock hatch_build.py ./
+# .git is not copied, so hatch-vcs takes the version from this build arg
+ARG ZIRAN_VERSION=0+unknown
+COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY ziran/ ./ziran/
-COPY --from=frontend-builder /app/ui/dist/ ./ziran/interfaces/web/static/
-# Install using pip (no uv in container for simplicity)
-RUN pip install --no-cache-dir ".[ui]"
-EXPOSE 8484
-ENV ZIRAN_DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/ziran
-CMD ["ziran", "ui", "--host", "0.0.0.0"]
+RUN SETUPTOOLS_SCM_PRETEND_VERSION=${ZIRAN_VERSION} pip install --no-cache-dir .
+ENTRYPOINT ["ziran"]

@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING, Any
 
 from ziran.application.campaign.evasion import compute_evasion_rate
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
-from ziran.domain.entities.phase import CampaignResult, PhaseResult, compute_resilience
+from ziran.domain.entities.phase import (
+    UNMEASURED_METADATA_KEY,
+    CampaignResult,
+    PhaseResult,
+    compute_resilience,
+)
 
 if TYPE_CHECKING:
     from ziran.application.agent_scanner.scan_cache import ScanCache
@@ -119,6 +124,11 @@ class ResultBuilder:
                 metadata["status"] = "budget_exceeded"
         if scan_cache is not None:  # incremental cache counts (spec 049); absent when off
             metadata["scan_cache"] = scan_cache.stats.model_dump()
+        unmeasured = [
+            r.vector_id for r in attack_results if r.evidence.get("outcome") == "unmeasured"
+        ]
+        if unmeasured:  # no reply measured these vectors (spec 082); absent when none
+            metadata[UNMEASURED_METADATA_KEY] = unmeasured
 
         if baseline_score is not None and post_score is not None:
             metadata["utility"] = _compute_utility(

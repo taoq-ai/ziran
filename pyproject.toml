@@ -60,6 +60,7 @@ openai-agents = [
 ]
 autogen = [
     "autogen-agentchat>=0.7,<0.8",
+    "autogen-ext[openai]>=0.7,<0.8",
 ]
 llm = [
     "litellm>=1.95.0,<2",
@@ -81,23 +82,18 @@ promptfoo = []
 mcp = [
     "mcp>=1.30,<2",
 ]
+# WebSocket targets (ws_handler.py).
+streaming = [
+    "websockets>=12.0,<18",
+]
 otel = [
     "opentelemetry-api>=1.45.2,<2",
     "opentelemetry-sdk>=1.45.2,<2",
     "opentelemetry-exporter-prometheus>=0.44b0,<1",
     "opentelemetry-exporter-otlp-proto-http>=1.23,<2",
 ]
-ui = [
-    "fastapi>=0.115,<1",
-    "uvicorn[standard]>=0.27,<1",
-    "sqlalchemy[asyncio]>=2.0,<3",
-    "asyncpg>=0.29,<1",
-    "psycopg2-binary>=2.9,<3",
-    "websockets>=12.0,<18",
-    "alembic>=1.13,<2",
-]
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,openai-agents,autogen,llm,pentest,browser,promptfoo,otel,ui,langfuse,mcp]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,openai-agents,autogen,llm,pentest,browser,promptfoo,otel,streaming,langfuse,mcp]",
 ]
 
 [project.scripts]
@@ -122,9 +118,6 @@ packages = ["ziran"]
 [tool.hatch.build.hooks.vcs]
 version-file = "ziran/_version.py"
 
-[tool.hatch.build.hooks.custom]
-path = "hatch_build.py"
-
 [dependency-groups]
 dev = [
     { include-group = "lint" },
@@ -140,6 +133,9 @@ test = [
     "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
     "respx>=0.21,<1",
+    # The promptfoo live-server integration test serves examples/15 (spec 083: no ui extra now).
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.27,<1",
 ]
 
 [tool.uv]
@@ -222,21 +218,9 @@ module = [
     "opentelemetry.*",
     "prometheus_client.*",
     "langfuse.*",
-    "fastapi.*",
-    "uvicorn.*",
-    "sqlalchemy.*",
-    "asyncpg.*",
-    "alembic.*",
-    "starlette.*",
     "mcp.*",
 ]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["ziran.interfaces.web.*"]
-# FastAPI/SQLAlchemy decorators and bases are untyped stubs — suppress in web module.
-disallow_untyped_decorators = false
-disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

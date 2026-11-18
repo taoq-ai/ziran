@@ -326,3 +326,36 @@ class TestWSUtilities:
             pytest.raises((ProtocolError, ImportError)),
         ):
             await handler._ensure_connected()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# The streaming extra (spec 083): websockets no longer rides on the ui extra
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestStreamingExtra:
+    def test_streaming_extra_declares_websockets(self) -> None:
+        import tomllib
+        from pathlib import Path
+
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        extras = tomllib.loads(pyproject.read_text())["project"]["optional-dependencies"]
+        assert extras["streaming"] == ["websockets>=12.0,<18"]
+        (all_spec,) = extras["all"]
+        listed = all_spec.split("[", 1)[1].rstrip("]").split(",")
+        assert "streaming" in listed
+        assert "ui" not in listed
+        assert "ui" not in extras
+
+    async def test_connect_uses_installed_websockets(self) -> None:
+        websockets = pytest.importorskip("websockets")
+        from ziran.infrastructure.adapters.protocols.ws_handler import (
+            WebSocketProtocolHandler,
+        )
+
+        handler = WebSocketProtocolHandler(httpx.AsyncClient(), _target_config("https://a.io"))
+        conn = MagicMock()
+        with patch.object(websockets, "connect", AsyncMock(return_value=conn)) as connect:
+            assert await handler._ensure_connected() is conn
+        connect.assert_awaited_once_with("wss://a.io")

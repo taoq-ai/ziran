@@ -59,8 +59,7 @@ jobs:
     # Prevention gate (spec 024, #330): blocks a PR that introduces a new known
     # vulnerability. pip-audit has no native severity filter, so it fails on ANY
     # un-ignored advisory — which matches the "all severities to zero" policy
-    # (clarification Q3); npm audit fails on high or above (a known low esbuild
-    # dev-server advisory is below threshold). Accepted-risk advisories
+    # (clarification Q3). Accepted-risk advisories
     # (--ignore-vuln below) mirror the pip rows in docs/security/risk-acceptances.md
     # — keep the two lists in sync.
     # --disable-pip (spec 056): audit the exact exported lock versions without
@@ -94,29 +93,3 @@ jobs:
           --ignore-vuln GHSA-36p7-vc44-83pf
           --ignore-vuln GHSA-2wm9-hf6c-p5cr
           --ignore-vuln GHSA-xph7-9rjv-w5fr
-
-      - name: Frontend audit (npm)
-        working-directory: ui
-        # Runtime deps only: picomatch GHSA-fc5q-39xc-vjpf (dev-only, unpatched); see docs/security/risk-acceptances.md
-        run: npm audit --audit-level=high --omit=dev
-
-  frontend-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-
-      - name: Install
-        working-directory: ui
-        run: npm ci
-
-      - name: Build
-        working-directory: ui
-        run: npm run build
-
-      - name: Lint
-        working-directory: ui
-        run: npm run lint

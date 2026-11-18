@@ -1,7 +1,7 @@
 """Attack execution logic extracted from AgentScanner.
 
 Contains :class:`AttackExecutor` which runs a single :class:`AttackVector`
-against the target agent, plus the ``_is_error_response`` sentinel checker.
+against the target agent. ``_is_error_response`` is re-exported from :mod:`ziran.domain.replies`.
 """
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ from ziran.domain.entities.attack import (
     get_business_impacts,
 )
 from ziran.domain.interfaces.adapter import AgentResponse, drop_reserved
+from ziran.domain.replies import ERROR_SENTINELS as _ERROR_SENTINELS
+from ziran.domain.replies import is_error_response as _is_error_response
 from ziran.infrastructure.logging.context import bind_vector
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
@@ -35,26 +37,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
 
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
-
-_ERROR_SENTINELS: frozenset[str] = frozenset(
-    {
-        "agent stopped due to iteration limit",
-        "agent stopped due to max iterations",
-        "agent stopped due to time limit",
-    }
-)
-
-
-def _is_error_response(text: str) -> bool:
-    """Return *True* when *text* looks like a framework error rather than
-    a genuine agent answer.  Used to avoid counting iteration-limit
-    timeouts as successful attacks.
-    """
-    text_lower = text.strip().lower().rstrip(".")
-    return any(sentinel in text_lower for sentinel in _ERROR_SENTINELS)
+__all__ = ["_ERROR_SENTINELS", "AttackExecutor", "_is_error_response"]
 
 
 class AttackExecutor:
@@ -264,6 +247,8 @@ class AttackExecutor:
         # None of the prompts succeeded
         if answered < len(prompt_attempts):  # swallowed failures block caching
             review["prompt_errors"] = len(prompt_attempts) - answered
+        if not answered:  # no reply measured this vector (spec 082)
+            review["outcome"] = "unmeasured"
         _attack_span.set_attribute("ziran.attack.successful", False)
         _attack_span.end()
         return AttackResult(

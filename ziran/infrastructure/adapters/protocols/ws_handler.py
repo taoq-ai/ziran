@@ -4,8 +4,8 @@ Implements real-time bidirectional communication with agents that expose
 WebSocket endpoints. Supports both text and binary frames, JSON-based
 message protocols, and persistent connections for multi-turn interactions.
 
-Uses ``websockets`` for async WebSocket communication (optional dependency
-under the ``[streaming]`` extra).
+Uses ``websockets`` for async WebSocket communication, an optional dependency
+installed with ``pip install ziran[streaming]``.
 """
 
 from __future__ import annotations
