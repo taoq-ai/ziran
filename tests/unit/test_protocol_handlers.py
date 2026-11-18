@@ -379,9 +379,11 @@ class TestMCPHandler:
             second = await h.send("again")
         assert first["content"] == second["content"] == NO_CHAT_REPLY
         assert methods == ["completion/complete", "completion/complete"]
-        warnings = [r.getMessage() for r in caplog.records if "no chat prompt" in r.getMessage()]
-        assert len(warnings) == 1
-        assert "mcp.example.com" in warnings[0]
+        records = [r for r in caplog.records if "no chat prompt" in r.getMessage()]
+        assert len(records) == 1
+        assert isinstance(records[0].args, tuple)
+        assert records[0].args[0] == "mcp.example.com"  # the host field, exactly
+        warnings = [records[0].getMessage()]
         assert "completion/complete failed: ProtocolError" in warnings[0]
         for leaked in ("secret", "\n", "FAKE", "Method not found"):
             assert leaked not in warnings[0]
