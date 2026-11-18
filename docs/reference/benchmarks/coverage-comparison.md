@@ -195,13 +195,13 @@ Per-detector and pipeline precision/recall/F1 over the labelled detection datase
 
 | Detector | F1 |
 |----------|-----|
-| refusal | 0.90 |
-| indicator | 1.00 |
-| side_effect | 1.00 |
+| refusal | 0.69 |
+| indicator | 0.64 |
+| side_effect | 0.85 |
 | llm_judge | 1.00 |
-| **pipeline** | **1.00** |
+| **pipeline** | **0.67** |
 
-Baseline over 228 labelled examples. The refusal detector's F1 is bounded by precision (false-alarms on atypically-phrased refusals), not missed compromises.
+Baseline over 447 labelled examples. The refusal detector's F1 is bounded by precision (false-alarms on atypically-phrased refusals), not missed compromises.
 
 ## Pentest Agent vs Rule-Based Scanner
 
