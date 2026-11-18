@@ -11,6 +11,7 @@ from ziran.application.agent_scanner.attack_executor import (
     AttackExecutor,
     _is_error_response,
 )
+from ziran.domain.replies import NO_CHAT_REPLY as _NO_CHAT
 
 
 @pytest.mark.unit
@@ -143,9 +144,6 @@ class TestAttackExecutorInstantiation:
         assert executor._emitter.active is False
 
 
-_NO_CHAT = "[MCP server does not support direct messaging — use tools/call]"
-
-
 def _vector(tactic: str = "single", prompts: int = 1) -> Any:
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
 
@@ -189,15 +187,42 @@ class TestNoChatPlaceholder:
         assert result.agent_response is None
         assert is_cacheable(result) is False
 
-    async def test_a_measured_prompt_keeps_the_vector_measured(self) -> None:
+    @pytest.mark.parametrize("tactic", ["single", "crescendo"])
+    async def test_a_measured_prompt_keeps_the_vector_measured(self, tactic: str) -> None:
         from tests.conftest import MockAgentAdapter
         from ziran.domain.entities.detection import DetectionVerdict
 
         pipeline = MagicMock()
         pipeline.evaluate = AsyncMock(return_value=DetectionVerdict(successful=False, score=0.0))
         adapter = MockAgentAdapter(responses=[_NO_CHAT, "I cannot help with that."])
-        result = await AttackExecutor(adapter, pipeline).execute(_vector(prompts=2))
+        result = await AttackExecutor(adapter, pipeline).execute(_vector(tactic, prompts=2))
 
         assert pipeline.evaluate.await_count == 1
         assert result.evidence["prompt_errors"] == 1
+        assert "outcome" not in result.evidence
+
+    @pytest.mark.parametrize(
+        ("tactic", "quoted"),
+        [
+            ("single", _NO_CHAT),
+            ("crescendo", _NO_CHAT),
+            ("crescendo", "Agent stopped due to iteration limit"),
+        ],
+    )
+    async def test_a_reply_quoting_a_sentinel_is_still_scored(
+        self, tactic: str, quoted: str
+    ) -> None:
+        """A hostile target cannot hide a finding by quoting the placeholder (spec 082)."""
+        from tests.conftest import MockAgentAdapter
+        from ziran.domain.entities.detection import DetectionVerdict
+
+        async def _verdict(_prompt: str, response: Any, *_: Any) -> DetectionVerdict:
+            return DetectionVerdict(successful="PWNED" in response.content, score=1.0)
+
+        pipeline = MagicMock()
+        pipeline.evaluate = AsyncMock(side_effect=_verdict)
+        adapter = MockAgentAdapter(responses=[f"PWNED leak sk-1. {quoted}", "I cannot help."])
+        result = await AttackExecutor(adapter, pipeline).execute(_vector(tactic, prompts=2))
+
+        assert result.successful is True
         assert "outcome" not in result.evidence

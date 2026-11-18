@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
+from ziran.domain.replies import NO_CHAT_REPLY
 from ziran.infrastructure.adapters.protocols import ProtocolError
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -364,23 +365,26 @@ class TestMCPHandler:
                 json={
                     "jsonrpc": "2.0",
                     "id": body["id"],
-                    "error": {"code": -32601, "message": "Method not found"},
+                    "error": {"code": -32601, "message": "Method not found\nFAKE log line"},
                 },
             )
 
         client = _mock_client(_err)
-        h = MCPProtocolHandler(client, _target_config())
+        url = "https://user:pw-secret@mcp.example.com/rpc?api_key=q-secret"
+        h = MCPProtocolHandler(client, _target_config(url))
         assert [c["name"] for c in await h.discover()] == ["search"]
         methods.clear()
         with caplog.at_level("WARNING"):
             first = await h.send("hello")
             second = await h.send("again")
-        assert "does not support direct messaging" in first["content"]
-        assert second["content"] == first["content"]
+        assert first["content"] == second["content"] == NO_CHAT_REPLY
         assert methods == ["completion/complete", "completion/complete"]
-        warnings = [r for r in caplog.records if "no chat prompt" in r.getMessage()]
+        warnings = [r.getMessage() for r in caplog.records if "no chat prompt" in r.getMessage()]
         assert len(warnings) == 1
-        assert "Method not found" in warnings[0].getMessage()
+        assert "mcp.example.com" in warnings[0]
+        assert "completion/complete failed: ProtocolError" in warnings[0]
+        for leaked in ("secret", "\n", "FAKE", "Method not found"):
+            assert leaked not in warnings[0]
 
     async def test_jsonrpc_api_error(self) -> None:
         from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from ziran.domain.replies import NO_CHAT_REPLY
 from ziran.infrastructure.adapters.protocols import (
     BaseProtocolHandler,
     ProtocolError,
@@ -66,14 +67,17 @@ class MCPProtocolHandler(BaseProtocolHandler):
         except ProtocolError as exc:
             if not self._warned_no_chat:
                 self._warned_no_chat = True
+                # host, method and error class only: the URL and server text are untrusted
                 logger.warning(
-                    "MCP server %s took no chat prompt (%s); its prompts count as errors, "
-                    "not replies",
-                    self._config.normalized_url,
-                    exc,
+                    "MCP server %s took no chat prompt (%s failed: %s, HTTP %s); its "
+                    "prompts count as errors, not replies",
+                    httpx.URL(self._config.normalized_url).host,
+                    method,
+                    type(exc).__name__,
+                    exc.status_code,
                 )
             return {
-                "content": "[MCP server does not support direct messaging — use tools/call]",
+                "content": NO_CHAT_REPLY,
                 "tool_calls": [],
                 "metadata": {"protocol": "mcp"},
             }

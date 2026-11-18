@@ -60,15 +60,18 @@ After this change:
 - A transport failure on `completion/complete` (HTTP 5xx, connection reset) also yields the
   placeholder, as today. That prompt counts as an error and stays out of the cache, which is the
   safe side. The warning names the underlying error.
-- A target whose reply contains the sentinel text is treated as an error too: its vector becomes
-  unmeasured, never resisted.
+- A target whose reply quotes the placeholder inside other text is still scored: only a reply that
+  equals the placeholder (after strip) is an error, so a target cannot hide a finding by quoting it.
+  A reply that is exactly the placeholder carries no evidence and reads unmeasured.
 
 ## Requirements *(mandatory)*
 
 - **FR-001**: `MCPProtocolHandler.send` MUST NOT send `sampling/createMessage`.
-- **FR-002**: `_is_error_response` MUST match the MCP no-chat placeholder.
-- **FR-003**: `TacticExecutor` MUST skip an error-sentinel turn as a prompt error, as
-  `AttackExecutor` does.
+- **FR-002**: `is_error_response` (in `ziran/domain/replies.py`, shared by the handler and both
+  executors) MUST match the MCP no-chat placeholder by exact equality after strip, never as a
+  substring. The LangChain phrases keep their substring match in the single-turn executor.
+- **FR-003**: `TacticExecutor` MUST skip a turn equal to the placeholder as a prompt error. It
+  adds no check for the other sentinels, which keep their develop behaviour there.
 - **FR-004**: A result no reply measured MUST carry `evidence["outcome"] == "unmeasured"`, and
   `ResultBuilder` MUST list it under `UNMEASURED_METADATA_KEY`.
 - **FR-005**: The no-chat warning MUST be logged at most once per handler.
@@ -92,10 +95,11 @@ After this change:
 
 ## How this fails
 
-1. A real agent reply that quotes the sentinel text is dropped as an error. Bounded: the vector
-   reads unmeasured, never resisted.
+1. A target forges the placeholder to hide a finding. Bounded by the exact match: only a reply
+   that is the placeholder and nothing else is dropped, and its vector reads unmeasured.
 2. A transient error on the first prompt prints the no-chat warning for a server that does chat.
-   The warning names the underlying error, and each later prompt still tries `completion/complete`.
+   The warning names the method, host and error class (never the URL's userinfo or query, or the
+   server's text), and each later prompt still tries `completion/complete`.
 3. Unmeasured vectors still count toward the phase trust score and resilience metrics as not
    vulnerable. The overall verdict says INCOMPLETE; the numbers are a known residual.
 

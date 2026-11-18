@@ -49,10 +49,12 @@ generator.
 
 1. `mcp_handler.py`: call `completion/complete` once; on `ProtocolError`, warn once per handler
    and return the placeholder.
-2. `attack_executor.py`: add the placeholder to `_ERROR_SENTINELS`; when `answered == 0`, set
-   `outcome: unmeasured` in the evidence.
-3. `tactics.py`: an error-sentinel turn is a prompt error; with no evaluated turn and any prompt
-   error, set `outcome: unmeasured`.
+2. `ziran/domain/replies.py` (new): `NO_CHAT_REPLY`, `ERROR_SENTINELS`, `is_no_chat_reply` (exact
+   match) and `is_error_response`, moved out of `attack_executor.py` so the handler, both executors
+   and the 400-line size guard all fit; `attack_executor.py` re-exports the old private names.
+   When `answered == 0`, set `outcome: unmeasured` in the evidence.
+3. `tactics.py`: a turn equal to the placeholder is a prompt error; with no evaluated turn and any
+   prompt error, set `outcome: unmeasured`.
 4. `result_builder.py`: `metadata[UNMEASURED_METADATA_KEY]` lists the unmeasured vector ids when
    there are any.
 5. `phase.py`: docstring of `unmeasured_vectors` no longer says "empty for scans".

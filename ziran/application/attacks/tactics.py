@@ -23,10 +23,10 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from ziran.application.agent_scanner.attack_executor import _is_error_response
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.interfaces.adapter import drop_reserved
+from ziran.domain.replies import is_no_chat_reply
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
@@ -130,7 +130,7 @@ class TacticExecutor:
                     total_tokens=response.total_tokens,
                 )
 
-                if _is_error_response(response.content):  # e.g. the MCP no-chat placeholder
+                if is_no_chat_reply(response.content):  # no prompt reached the target (spec 082)
                     prompt_errors += 1
                     continue
 
