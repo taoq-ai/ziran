@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-11-18T09:39:25.835863+00:00",
-  "pipeline_f1": 0.6667,
+  "timestamp": "2026-11-18T10:32:56.852170+00:00",
+  "pipeline_f1": 0.7348,
   "tolerance": 0.02,
   "per_detector_f1": {
     "refusal": 0.6948,
-    "indicator": 0.6364,
+    "indicator": 0.7217,
     "side_effect": 0.8496,
     "llm_judge": 1.0
   },
@@ -14,81 +14,81 @@
     "prompts": 930,
     "benign_replies": 313,
     "pairs": 291090,
-    "flagged": 15060,
-    "rate": 0.0517,
+    "flagged": 14446,
+    "rate": 0.0496,
     "vectors_with_hit": 677,
-    "indicator_flagged": 1170,
-    "vectors_with_indicator_hit": 171,
+    "indicator_flagged": 539,
+    "vectors_with_indicator_hit": 151,
     "flagged_by_category": {
-      "indicator_near_miss": 291,
-      "sensitive_tool_output": 14063,
-      "paraphrased_refusal": 125,
-      "clear_refusal": 48,
-      "borderline": 341,
-      "multilingual": 72,
-      "partial_compliance": 109,
-      "full_compliance": 11
+      "sensitive_tool_output": 14029,
+      "paraphrased_refusal": 76,
+      "indicator_near_miss": 158,
+      "multilingual": 21,
+      "clear_refusal": 27,
+      "borderline": 94,
+      "full_compliance": 11,
+      "partial_compliance": 30
     },
     "top_indicators": [
       [
-        "instructions",
-        108
-      ],
-      [
-        "database",
-        72
-      ],
-      [
-        "configuration",
-        67
-      ],
-      [
         "system prompt",
         65
-      ],
-      [
-        "endpoint",
-        55
-      ],
-      [
-        "target",
-        51
-      ],
-      [
-        "api",
-        46
       ],
       [
         "password",
         42
       ],
       [
-        "detection",
-        36
-      ],
-      [
-        "security",
-        34
-      ],
-      [
         "credentials",
         33
       ],
       [
-        "login",
-        33
+        "key",
+        24
+      ],
+      [
+        "instructions",
+        21
+      ],
+      [
+        "API keys",
+        15
+      ],
+      [
+        "no",
+        11
+      ],
+      [
+        "users",
+        10
+      ],
+      [
+        "production",
+        10
       ],
       [
         "configured",
-        24
+        10
       ],
       [
-        "system",
-        24
+        "API key",
+        10
       ],
       [
-        "bank",
-        24
+        "bot",
+        10
+      ],
+      [
+        "victim",
+        10
+      ],
+      [
+        "endpoint",
+        9
+      ],
+      [
+        "download",
+        9
       ]
     ]
   },
@@ -200,11 +200,11 @@
     "indicator_near_miss": {
       "pipeline": {
         "tp": 13,
-        "fp": 40,
+        "fp": 24,
         "fn": 2,
-        "tn": 5,
+        "tn": 21,
         "recall": 0.8667,
-        "fpr": 0.8889
+        "fpr": 0.5333
       },
       "refusal": {
         "tp": 15,
@@ -216,29 +216,29 @@
       },
       "indicator": {
         "tp": 13,
-        "fp": 40,
+        "fp": 24,
         "fn": 2,
-        "tn": 5,
+        "tn": 21,
         "recall": 0.8667,
-        "fpr": 0.8889
+        "fpr": 0.5333
       }
     },
     "sensitive_tool_output": {
       "pipeline": {
         "tp": 12,
-        "fp": 30,
+        "fp": 28,
         "fn": 2,
-        "tn": 6,
+        "tn": 8,
         "recall": 0.8571,
-        "fpr": 0.8333
+        "fpr": 0.7778
       },
       "indicator": {
-        "tp": 7,
-        "fp": 24,
-        "fn": 1,
-        "tn": 12,
-        "recall": 0.875,
-        "fpr": 0.6667
+        "tp": 6,
+        "fp": 21,
+        "fn": 2,
+        "tn": 15,
+        "recall": 0.75,
+        "fpr": 0.5833
       },
       "side_effect": {
         "tp": 12,
@@ -260,11 +260,11 @@
     "paraphrased_refusal": {
       "pipeline": {
         "tp": 4,
-        "fp": 17,
+        "fp": 10,
         "fn": 11,
-        "tn": 23,
+        "tn": 30,
         "recall": 0.2667,
-        "fpr": 0.425
+        "fpr": 0.25
       },
       "refusal": {
         "tp": 14,
@@ -276,21 +276,21 @@
       },
       "indicator": {
         "tp": 4,
-        "fp": 17,
+        "fp": 10,
         "fn": 3,
-        "tn": 23,
+        "tn": 30,
         "recall": 0.5714,
-        "fpr": 0.425
+        "fpr": 0.25
       }
     },
     "multilingual": {
       "pipeline": {
         "tp": 8,
-        "fp": 9,
+        "fp": 2,
         "fn": 4,
-        "tn": 33,
+        "tn": 40,
         "recall": 0.6667,
-        "fpr": 0.2143
+        "fpr": 0.0476
       },
       "refusal": {
         "tp": 12,
@@ -302,24 +302,24 @@
       },
       "indicator": {
         "tp": 8,
-        "fp": 9,
+        "fp": 2,
         "fn": 0,
-        "tn": 33,
+        "tn": 40,
         "recall": 1.0,
-        "fpr": 0.2143
+        "fpr": 0.0476
       }
     }
   },
   "pipeline": {
-    "precision": 0.545,
+    "precision": 0.6425,
     "recall": 0.8582,
-    "f1": 0.6667,
-    "fpr": 0.3067,
+    "f1": 0.7348,
+    "fpr": 0.2045,
     "confusion": {
       "tp": 115,
-      "fp": 96,
+      "fp": 64,
       "fn": 19,
-      "tn": 217
+      "tn": 249
     }
   },
   "per_detector": {
@@ -336,15 +336,15 @@
       }
     },
     "indicator": {
-      "precision": 0.4828,
-      "recall": 0.9333,
-      "f1": 0.6364,
-      "fpr": 0.393,
+      "precision": 0.5929,
+      "recall": 0.9222,
+      "f1": 0.7217,
+      "fpr": 0.2489,
       "confusion": {
-        "tp": 84,
-        "fp": 90,
-        "fn": 6,
-        "tn": 139
+        "tp": 83,
+        "fp": 57,
+        "fn": 7,
+        "tn": 172
       }
     },
     "side_effect": {
