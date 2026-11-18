@@ -1,0 +1,30 @@
+Verdict: PASS
+Gate: goal
+Item: G5-BENCH-STICKY
+PR: taoq-ai/ziran#518
+Head: 2e1d454a30d643ccdb48985c70a3396b6e7a278c
+Confidence: high
+
+## Findings
+- [low] .github/workflows/benchmark.yml:99 blocks: no. Only the comment job has a concurrency group; the benchmark job does not. If two pushes land close together and the older run's benchmark job finishes last, the comment shows the older head until the next push. The footer names the head, so a reader can tell, and the PR body (STATE) and #509 disclose it. A workflow-level `concurrency: {group: benchmark-<PR>, cancel-in-progress: true}` would close it. Not run: it needs two live pushes racing on the host.
+- [low] blocks: no. Not every PR shows a benchmark. benchmark.yml is path-filtered (vectors, attack.py, benchmarks/**, its own file), and detection-accuracy.yml comments only when `relevant == 'true'`. A PR that touches neither area gets no benchmark comment. That is correct, since nothing benchmarked changed, but the answer to "every PR now shows a benchmark" is no. The owner's complaint was a stale comment that never updated, and that is fixed on every PR where either workflow runs.
+- [low] blocks: no. Acceptance 5 (a fork or Dependabot token) is checked from the workflow's structure and a stub run, not on the live host. A fork PR from a test account would settle it.
+
+## Probes
+- Promise trace: G-5 measure ".wuwei/goals.md:35" says "the Benchmark Coverage workflow keeps one current PR comment instead of a new one per push". At the head, `gh api repos/taoq-ai/ziran/issues/518/comments --paginate` returns exactly 1 comment: id 6978457051, github-actions[bot], created 12:23:29Z, updated 12:26:15Z, first line `<!-- ziran-benchmark-coverage -->`.
+- Edit history (GraphQL userContentEdits on 6978457051) has 3 versions. 12:23:29Z footer `PR head 9614753`, no regressions. 12:24:52Z footer `PR head 61c8ffb`, `:x: **Regressions detected:**` and `- Total attack vectors decreased: 678 -> 677 (delta: -1)`. 12:26:14Z footer `PR head 2e1d454, base 3e7eb6b`, `:white_check_mark: No regressions detected.` This covers acceptance 1 and 4.
+- No version holds a log line. The current body contains `## Benchmark Coverage Report` and no `[info`, `[debug` or `[warning` line (read in full). This covers acceptance 2.
+- `gh run view`: run 44303382091 (9614753) had benchmark success and benchmark-comment success. Run 44303612763 (61c8ffb) had benchmark failure at "Run benchmark regression check", while "Upload the PR comment" succeeded and benchmark-comment succeeded. Run 44303813512 (2e1d454) had both jobs succeed. `git diff --stat origin/develop 2e1d454 -- benchmarks/results/` is empty, so the probe baseline was reverted, and the f24328f..2e1d454 diff is tasks.md only.
+- Acceptance 3, from the workflow at the head: top-level permissions are `contents: read` only. The `benchmark` job (checkout, uv sync, PR code) has no pull-requests scope. `benchmark-comment` holds `pull-requests: write`, and its steps are download-artifact@v8 plus an inline gh script, with no checkout and no uv or python.
+- Red team 1 (stand-in runtime: the host's comment API). I ran the comment step's exact `run:` script, extracted from the workflow YAML, under `bash --noprofile --norc -eo pipefail` with a stub gh on PATH that applies the real jq filter to a 2-page fixture. It PATCHed id 77, found on page 2. It ignored the decoys on page 1: a non-bot comment carrying the marker, an unmarked bot comment, and the detection-accuracy marker. With no marked comment it POSTed a new one. When the write was refused (stub returns 403) it exited 1, and with no comment file it gave `::warning::` and exited 1. Both steps are continue-on-error, so the job still succeeds and the benchmark job's result is untouched (acceptance 5, structurally). The real host behaved the same: 3 runs, 1 comment.
+- Red team 2 (sibling path: the push event to develop, which runs with no args). In the archive copy, `regression_check.py` with no args exited 0 and wrote no file. An empty `"${args[@]}"` under GitHub's default `bash -eo pipefail` (no -u) gives argc=0. detection-accuracy.yml has run the same args pattern on develop pushes (run 44302487349, success). The marker `<!-- ziran-benchmark-coverage -->` differs from `<!-- ziran-detection-accuracy -->`, so neither job can edit the other's comment.
+- Red team 3 (repeated defect: log lines in the captured comment, PR #514). With `--comment` in the archive copy, stdout line 1 was `2026-11-18 13:30:00 [info     ] attack_library_initialized ...`, while the file starts with the marker and 0 of its lines match `\[(info|debug|warning)`. With the baseline total_vectors raised by 5, the script exits 1 and the file holds `- Total attack vectors decreased: 682 -> 677 (delta: -5)`.
+- Tests: `timeout 120 pytest tests/unit/test_benchmark_regression.py` at the head gives 14 passed. The 5 new tests match the PR body's count.
+- Mutant 1, `if args.comment is not None` reversed: 5 tests fail, including test_comment_file_starts_with_marker_and_holds_no_log_line. Killed.
+- Mutant 3, comment write moved after the regression `sys.exit(1)` (fresh copy): test_regression_still_writes_comment_and_fails fails. Killed. Mutant 2 was malformed, so I discarded it and its result is not counted.
+- Explain-back: the PR body's "Promise, in my words" matches the plan promise and all 6 acceptance lines, with no drift either way. The builder's assumption that old unmarked comments stay is in scope per the plan's "Outside". `gh pr list --state open` shows only #518, so no open PR now carries old comments.
+- Builder's How-this-fails (STATE race): agree. Kept as the first note.
+- Confidence high: every acceptance line except the fork token was observed on the live host at this head or killed by a mutant. Only the fork path and the run-order race are unrun.
+
+## Residual risk
+Two quick pushes can leave the older head showing until the next push, since the benchmark job has no concurrency group. The fork and Dependabot comment path is checked from the workflow's structure, not live.

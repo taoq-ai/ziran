@@ -1,0 +1,29 @@
+Verdict: PASS
+Gate: arch
+Item: G2-LANGFUSE-LIVE
+PR: taoq-ai/ziran#503
+Head: f8ae4696f94668fcb8dd6f4a788ac5a837a1adbb
+Confidence: medium
+Breaking: no (minor: new --session-id and --incremental options; --since is now honoured, where before it was ignored even though it was documented as the fetch window; same LANGFUSE_* env vars, same exit codes)
+
+## Findings
+- [medium] ziran/infrastructure/trace_ingestors/langfuse_ingestor.py:229 blocks: no. The cursor key covers only host and public key, as the promise says, but the pull filters on sessionId on the server. So `--incremental --session-id s1` followed by `--incremental` (or `--session-id s2`) starts the second pull at s1's cursor, and other sessions' observations from before it are never analysed. This two-way choice is not under Assumptions. Fix: add the session and project filter to the hash, or refuse `--incremental` together with `--session-id`.
+- [low] ziran/interfaces/cli/analyze_traces.py:204 blocks: no. `hasattr(ingestor, "save_cursor")` is duck typing on an adapter method the TraceIngestor port does not declare. The CLI already builds the concrete adapter, so the layering holds, but a renamed method would fail silently and the cursor would never advance. An isinstance check on LangfuseIngestor, or an optional `commit()` no-op on the port, would make this explicit.
+- [low] ziran/infrastructure/trace_ingestors/langfuse_ingestor.py:154 blocks: no. `fields=core,basic,io` with no type filter pulls every observation's input and output, including GENERATION prompts and completions, only to drop all but SPAN and TOOL in `_parse_trace`. On a 7d window that costs payload, memory and rate-limit budget. The API's `filter` parameter can restrict type on the server.
+- [low] ziran/infrastructure/trace_ingestors/langfuse_ingestor.py:167 blocks: no. The cursor pagination loop has no page cap or repeated-cursor guard, so a server that keeps returning the same `meta.cursor` would loop forever.
+- [low] .gitignore:77 blocks: no. `.ziran/scan_cache/` is ignored but the new `.ziran/trace_cache/` is not, so a cursor file can end up committed. It holds no key; the risk is noise and a shared cursor.
+- [low] ziran/infrastructure/trace_ingestors/langfuse_ingestor.py:185 blocks: no. Untested: removing `ids += sorted(seen)` (the case where the newest start time equals the old cursor) passes all 84 trace tests. Missing test: a third incremental run where new observations share the cursor timestamp must not re-analyse the earlier ones.
+- [low] blocks: no. pyproject.toml:70 and :211: nothing in ziran/ imports `langfuse` any more, so the `langfuse` extra and its mypy override are now dead. Removing them is outside this item (#479 owns pyproject.toml); a follow-up should take them out.
+
+## Probes
+- Layering: httpx, env, file I/O and 429 handling all sit in the infrastructure adapter (ziran/infrastructure/trace_ingestors/langfuse_ingestor.py). The new `AnalyzerService.analyze_sessions` / `emit_session_findings` are pure application methods over domain TraceSession and existing alerting types, with no new imports. `analyze` / `emit_findings` stay as ingest-and-delegate wrappers (still used by tests/unit/test_analyzer_service.py and tests/integration/test_analyze_traces_alerting.py). The CLI (interfaces) wires the adapter as before through `_build_ingestor`. Dependencies flow inward (constitution I). No cycle.
+- Endpoint departure: fetched https://cloud.langfuse.com/generated/api/openapi.yml. `/api/public/traces` and `/api/public/traces/{traceId}` list only `delete`; `/api/public/v2/observations` lists `get` with fromStartTime, sessionId, cursor, limit (max 1000) and fields (`io` = input, output), and is described as the only real-time read path. The builder's claim holds, and the departure is recorded under spec Assumptions, along with what would overturn it (older self-hosted servers).
+- Cursor store: `.ziran/trace_cache/langfuse-<sha256(host\npublic_key)[:12]>.json` in cwd, matching the promise. It is written atomically (temp file and os.replace) and holds only last_start_time and ids_at_last. It is saved only after the report and alerts: an alert failure raises SystemExit(2), which bypasses `except Exception` and the save (checked at analyze_traces.py:203-210). The late-arrival and split-trace limits are documented in docs/guides/analyze-traces.md and spec Assumptions.
+- Old SDK path: `from langfuse`, `fetch_traces` and `ziran[langfuse]` have no hits in ziran/, docs/ or examples/ (`git grep` at f8ae469). `_emit_alerts` no longer re-ingests (the kwargs/ingest_source parameters are removed).
+- Mutants (in git archive copies, tests/integration/test_langfuse_live_pull.py and tests/unit/test_langfuse_ingestor.py): dropping the seen-id filter is killed by test_incremental_pulls_only_new; `or`->`and` on the missing-key guard is killed by test_missing_key_exits_two[both]; SPAN-only tool types are killed by 4 tests; dropping cursor follow-up is killed by test_pages_since_and_basic_auth. Survivors: `ids += sorted(seen)` -> pass (re-run fresh: 84 passed, noted above) and `if attempt == _MAX_RETRIES` -> `if False` (re-run fresh: 84 passed). The second only adds one extra bounded sleep before the same RuntimeError, so no concrete harm.
+- mypy (strict config) on the 3 changed runtime modules: no issues. pytest on the 4 trace test files: 63 passed.
+- Fitness functions: the constitution states no runtime line or config budget; there is no new dependency (pyproject untouched); httpx is an existing core dependency.
+- Confidence medium: the design is checked against the live OpenAPI, but there is no recorded live response, so the fixture follows the schema rather than a real server.
+
+## Residual risk
+The incremental cursor uses observation start time, so late-ingested tool spans and chains that cross a boundary are missed by design (documented). Self-hosted Langfuse without the v2 observations API gets an HTTP error and exit 2.

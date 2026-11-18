@@ -1,0 +1,32 @@
+Verdict: PASS
+Gate: quality
+Item: G2-MCP-SURFACE
+PR: taoq-ai/ziran#505
+Head: 006161dbdebea5613bd8fb0d0080b0e50da1ba68
+Confidence: medium
+Breaking: no
+
+## Findings
+- [low] ziran/interfaces/cli/main.py:2141 blocks: no. The phase-table status "INCOMPLETE" instead of a green "CLEAR" for a run with unmeasured vectors is not asserted by any test (mutant cli-display-phase survived); the Result row and the markdown and html reports are asserted. Same for the "Unmeasured Vectors" summary row (main.py:2077) and the html phase error span (html_report.py:421). Display only
+- [low] ziran/application/cicd/gate.py:126 blocks: no. Only the all-unmeasured case is tested; changing the condition to fire on any unmeasured vector (len(unmeasured) >= 1) leaves 59/59 green, so the partial case (some vectors measured) has no test that pins "not a gate violation"
+- [low] ziran/infrastructure/mcp_hostile/server.py:107 blocks: no. Dropping "mcp.shared.session" from the withheld-late-reply logger names leaves every test green; the test only exercises mcp.server.lowlevel.server. Untested, not shown to matter
+- [low] ziran/interfaces/cli/mcp_hostile_server.py:110 blocks: no. The finally write is still only covered together with the initial write (either alone survives; both removed fails test_a_host_that_never_calls_the_tool_leaves_all_unmeasured). Its unique role, saving replies already recorded when the host ends mid-call, has no test
+- [low] tests/integration/test_mcp_hostile_server.py:290 blocks: no. test_a_late_form_reply_never_reaches_the_log is timing-tight: the late reply is sent 1.5 s after the request and the client closes after about 1.0 s plus the 0.5 s settle, so the two meet; 24 of 24 runs passed on 3.11 and 3.13 (12 each, under load from a parallel mutant run), but a slow CI runner could close first and fail the "timed out" assertion. Raising the sleep to 2 s or waiting for the log line removes the tie
+- [low] ziran/application/mcp_server_surface/scoring.py:151 blocks: no. trust = ... else 0.0 for an empty vector list is untested (mutant trust-empty survived); unreachable from the CLI, which refuses an empty selection
+
+## Probes
+- closed: dry-run count filter untested at bdd2079; now test_scan_dry_run_counts_no_server_surface_vector calls _dry_run_summary and the dry-run mutant is killed.
+- closed: roots with dot-dot, doubled slash and other case scored passed at bdd2079; normalised by _canonical, mutants canon-normpath, canon-lstrip and canon-casefold each killed by a named roots case.
+- closed: prompt-required guard untested; mutant killed by test_a_server_surface_vector_needs_a_prompt. closed: decline or cancel with content; mutant elicit-action killed by test_elicitation_without_a_sensitive_value_passes[decline-content2]. closed: includeContext and system prompt unasserted; mutants sampling-ctx and sampling-sysprompt killed by test_sampling_sends_the_system_prompt_and_context. closed: never-called host untested; covered (see above). closed: the d == root, present and leaked-variable simplifications were applied; the elicit-len mutant is now killed by test_elicitation_blank_value_is_not_a_leak.
+- McpError branch kept by the builder: judged right. With the branch removed the generic handler now records only "malformed reply (McpError)", and test_method_not_found_leaves_sampling_unmeasured fails, so the branch carries the Method not found text acceptance 3 needs. Not deletable.
+- Fresh git-archive copy of 006161d, lock-frozen venvs (all extras, dev only, 3.11 and 3.13 with mcp). ruff check ziran tests benchmarks scripts passes, ruff format --check: 497 files formatted, mypy ziran: 231 files clean with all extras and in a dev-only env without extras. gh pr checks 505: 10 pass lines (20 checks per the coordinator), merge state CLEAN.
+- pytest on the two new files: 59 passed (47 passed and 1 skipped in the dev-only env). Full suite with coverage (3.14, external_eval files ignored as before): 3908 passed, 1 skipped, 1 failed (tests/unit/test_hybrid_prompts.py::test_an_unset_base_skips_and_a_set_unfetched_base_fails, same unrelated failure as at bdd2079, my archive copy has no git base); total coverage 90%; server.py 100%, scoring.py 99%, gate.py 98%.
+- Mutants on the changed code, 63 run, 55 killed, 8 survived (the first five are the findings above): cli-display-phase, cli-display-row, html-phase-error, gate-all, late-filter-names2, cli-finally and cli-empty-write (each redundant with the other), trust-empty. Killed by named tests: library exclusion, scorer worst-of (max, last, rank swap), status ignored, accept-only guard, length guard, sensitive-all, roots containing and inside-credential logic, all three broad_only variants, the three canonical-path parts, scheme, ~ expansion, trust formula, phase and final trust, redaction, wait_for timeout, exception text leak (test_an_off_schema_accept_is_not_stored), late-reply filter body, install and server logger name, includeContext, system prompt, canary validators, prompt-required, dry-run, CLI selection and unknown vector, gate rule, unmeasured_vectors property, terminal Result row, markdown overall, html label, html OWASP and ATLAS skip.
+- Unmeasured stays out of every pass path: error, timeout, never-called host and Method not found give unmeasured; trust 0.0; terminal, markdown and html show INCOMPLETE and never PASSED; OWASP and ATLAS html rows skip them; ziran ci fails with nothing measured (test_an_unmeasured_run_never_reads_as_passed).
+- Scans are unaffected by the shared-code edits: unmeasured_vectors is empty for them, so the gate rule, the report labels and the OWASP skip do nothing.
+- Docs and baseline at the new head (after the develop merge): benchmarks/regression_check.py says "No changes from baseline" at 669 vectors; generate_all.py output is byte-identical to the committed coverage-comparison.md, atlas-mapping.md, benchmarks/README.md; atlas_coverage.py --strict exits 0.
+- Simplicity: none to delete that the diff still carries; the McpError branch is needed (above) and the late-reply log filter is a data-leak safeguard, not deletable. The case-fold and normpath canonicalisation is required by the roots tests.
+- Confidence is medium: one machine, full suite minus external_eval, flake check on 12 runs per Python version.
+
+## Residual risk
+The late-reply test is the one timing-tight test and could flake on a slow runner; elicitation still cannot tell a human from an automatic accept (stated in the guide).

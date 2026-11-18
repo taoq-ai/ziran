@@ -1,0 +1,33 @@
+Verdict: PASS
+Gate: security
+Item: G5-BENCH-STICKY
+PR: taoq-ai/ziran#518
+Head: 2e1d454a30d643ccdb48985c70a3396b6e7a278c
+Confidence: high
+
+## Findings
+- [low] tests/unit/test_benchmark_regression.py:206 blocks: no. Mutant M3 (selector `startswith` changed to `contains` at benchmark.yml:137) survives all 14 tests: the selector test has no github-actions[bot] comment that holds the marker after line 1. Add one. The harm is limited to editing another github-actions[bot] comment, and only workflows holding a write token can create those.
+- [low] .github/workflows/benchmark.yml:67 blocks: no. No test pins that the regression gate step has no continue-on-error (mutant M6 survives) or that the comment upload keeps `always()` at line 90 (mutant M7 survives). Both are correct at this head (YAML parse below), but a later edit could mask the gate or drop the regression comment and no test would fail.
+- [low] .github/workflows/benchmark.yml:138 blocks: no. The step runs under `bash -e` without pipefail, so a failed comments list call still leaves `sed` exiting 0 with an empty id, and the step POSTs a new marker comment. A transient API error therefore duplicates the comment. The probe saw this: with the socket unreachable, the GET failed and a POST followed. detection-accuracy.yml has the same shape. Reliability, not a trust defect.
+- [low] blocks: no. The comment body is free text written by PR-controlled code. On a same-repo or Dependabot PR, the PR author or a malicious package installed by `uv sync` can put arbitrary markdown (mentions, links, text an agent seat reads as a prompt) into this one comment as github-actions[bot] (OWASP LLM01 / CWE-74 residual). This narrows the old exposure: before, that same code held a job-wide pull-requests: write token. Fork PRs cannot post at all (the repo is public, so their token is read-only).
+- [low] .github/workflows/benchmark.yml:31 blocks: no. Existing: the first checkout keeps persist-credentials: true, so the contents:read token sits in `$RUNNER_TEMP/git-credentials-<uuid>.config` while PR code runs. The comment artifact path is the sibling `$RUNNER_TEMP/benchmark-comment/` and does not include it (run log: 1 file, 390 bytes). `persist-credentials: false` would be a hardening.
+
+## Probes
+- Head check: `gh pr view 518` headRefOid = 2e1d454a30d6..., isCrossRepository false, draft. All checks ran in a `git archive 2e1d454` copy under the scratch folder.
+- Triggers (YAML parse of benchmark.yml at head): push and pull_request only. `grep pull_request_target|workflow_run .github/workflows/` finds 0 hits in the repo.
+- Permissions: top level is `{contents: read}`. Job `benchmark` has no permissions key; job `benchmark-comment` has `{pull-requests: write}`, no checkout and no uv/python. Live run 44303813512 at head logs "Contents: read, Metadata: read" for benchmark and "Metadata: read, PullRequests: write" for benchmark-comment.
+- Fork PRs: `gh api repos/taoq-ai/ziran` returns visibility public, so pull_request runs from forks get a read-only token and the comment step fails under continue-on-error.
+- `${{` inside `run:` blocks: 0 across all 12 steps. github.* values reach the script only through env. The concurrency group uses only the integer PR number.
+- No job outputs, and no `needs.*.outputs` read in the write job. The only data crossing into it is the artifact `benchmark-coverage-comment`. Run log: 1 file, 390 bytes, include-hidden-files false.
+- Stub-API run: I ran the workflow's own step script, extracted verbatim, under `bash -e` with the real gh 2.103.2 pointed by `http_unix_socket` at a logging unix-socket server. Page 1 held 11 decoys: user "someone" with the marker; "github-actions"; "github-actions[bot] " with a trailing space; "GitHub-Actions[bot]"; a U+2010 homoglyph; dependabot[bot] with the marker; a bot comment with the marker after a leading space; a bot comment with the detection-accuracy marker; a bot comment with the marker on line 2; an empty body; a truncated marker. Page 2, reached through the Link header, held the real comment 200 and a second real one, 201. Result: exactly one PATCH, to /repos/taoq-ai/ziran/issues/comments/200. With page 2 empty, all decoys were left alone and one POST went to /issues/518/comments. With no comment file: the ::warning, exit 1, 0 requests.
+- Body handling: the PATCH body equalled the file byte for byte plus the SHA line. `$(touch PWNED)`, backticks, `${HOME}`, `{owner}/{repo}`, `@/etc/hosts` and `true` were all sent literally, and no PWNED file was created. Every request had Host api.github.com, and the token went to no other host.
+- actionlint 1.7.12 (shellcheck integrated) on benchmark.yml: exit 0, 0 findings. zizmor is not installed: unmeasured. The repo's CI has no workflow or secret scanner (only pip-audit). pip-audit was not run because the diff changes no dependency file; the only action new to this workflow is actions/download-artifact@v8, already used in 5 places. No workflow in the repo pins actions by SHA.
+- The gate cannot be masked: the regression step has no continue-on-error and runs before both uploads. The continue-on-error steps (base checkout, base metrics, comment upload, and both comment-job steps) only report. Nothing depends on benchmark-comment. regression_check.py writes the comment before `sys.exit(1)` (main, --comment branch).
+- Comment content from honest code is integers and fixed labels only. Category names and vector text never reach the body.
+- Item tests at head: 14 passed (tests/unit/test_benchmark_regression.py, `-o addopts=`, timeout 120).
+- Mutants, each in a fresh archive copy: M1 drop login check, killed (selector test). M2 drop marker check, killed (selector test). M4 pull-requests: write back at top level, killed (permissions test). M5 drop continue-on-error on the comment step, killed (permissions test). M8 drop the marker from the file, killed (2 tests). M9 write the comment after the regression exit, killed (regression test). M3, M6 and M7 survived and survived again on a fresh-copy re-run (notes above).
+- Live result: PR 518 has exactly 1 comment, from github-actions[bot], first line the marker, tail "_PR head `2e1d454`, base `3e7eb6b`._". The run log has 0 "ghs_" strings.
+- Confidence is high because the selector, the permission split and the body handling were each shown by an executed probe and the live run log, not by reading alone. A GitHub change to fork-token rules or to artifact symlink handling would lower it.
+
+## Residual risk
+Same-repo and Dependabot PR code (or a compromised dependency it installs) still chooses the text of one bot comment. The write token never reaches that code, and the token cannot edit any comment except the marker-selected bot comment.

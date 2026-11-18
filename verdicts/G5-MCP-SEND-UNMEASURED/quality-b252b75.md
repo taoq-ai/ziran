@@ -1,0 +1,24 @@
+Verdict: FIX
+Gate: quality
+Item: G5-MCP-SEND-UNMEASURED
+PR: taoq-ai/ziran#524
+Head: b252b7552d5eee897ae660f575ca4724af2f15df
+Confidence: medium
+
+## Findings
+- [high] ziran/application/agent_scanner/attack_executor.py:269 blocks: yes. Failure: the file is now 403 lines (399 on develop) and tests/unit/application/test_scanner_size.py::TestSubModuleSizes::test_no_module_exceeds_400_lines fails ("attack_executor.py: 403 lines"), so the CI test (3.11/3.12/3.13) jobs, still pending at review time, will fail (requirement: repo size guard, acceptance "touched test files pass"). Trim at least 3 lines (for example fold the two-line `if not answered` into the one-line `review` build, or move the new sentinel comment into the docstring).
+- [low] tests/unit/application/test_attack_executor.py:0 blocks: no. Untested: the tactics rule "unmeasured only when no turn was evaluated". Reversing it to `if prompt_errors` (mutant M3b) or removing `evaluated += 1` (M3d) leaves every touched test green (both were killed only by the scanner-size test, which fails in every mutant copy). Harm is a vector with one errored turn and one evaluated turn read as INCOMPLETE (safe direction). Add a crescendo case mirroring test_a_measured_prompt_keeps_the_vector_measured.
+- [low] ziran/application/attacks/tactics.py:26 blocks: no. tactics imports the private `_is_error_response` from agent_scanner.attack_executor (the reverse of the lazy import in attack_executor.py:138; no import cycle, checked by importing tactics first). A shared public helper would be cleaner. Not blocking.
+- [low] ziran/application/agent_scanner/attack_executor.py:269 blocks: no. Scope note: `not answered` marks any all-failed vector unmeasured (timeouts, connection errors), not only the MCP placeholder; also the multi-turn executor now treats an iteration-limit reply as an error, where before it reached the detectors. Both are coherent with the promise; the PR body should say so.
+
+## Probes
+- Ran in a `git archive b252b75` copy, PYTHONPATH pinned (`ziran.__file__` confirmed inside the copy), each run under `timeout 120`: test_protocol_handlers.py, test_attack_executor.py, test_mcp_no_chat_scan.py: 62 passed, 0 skipped.
+- Neighbours: tests/unit/application, test_reports, test_cicd, test_cli_helpers, test_cicd_suppressions, test_scanner, test_tactics, test_scan_cache, test_mcp_server_surface, test_provenance_probe_parity, test_langchain_crewai_adapters, integration test_incremental_scan, test_mcp_hostile_server, test_campaign, test_http_adapter, test_incremental_scan_cli, test_many_shot_scan, test_partial_phase_resume, test_scanner_incremental_checkpoint, test_campaign_defence_profile: all pass except test_scanner_size (the finding above; passes on develop at 399 lines). No existing test expected an all-failed scan or iteration-limit multi-turn run to read PASSED.
+- ruff check and ruff format --check clean on the touched files; mypy not run.
+- Mutants (fresh copy each, 13): sentinel removed killed by the unit sentinel test, the one-prompt and crescendo tests and the integration test; executor rule removed, killed by the single-1 case and the integration test; executor rule widened to any prompt_errors, killed by test_a_measured_prompt_keeps_the_vector_measured; tactics sentinel check removed, killed by crescendo-2; tactics rule removed, killed by crescendo-2; warn-once guard removed and flag never set, both killed by test_send_fallback_no_completion and the integration test; sampling send restored, killed by the same two; result_builder metadata write removed and its outcome check flipped, both killed by the integration test; success-path content changed, killed by test_send. Survivors: M3b and M3d (tactics), reported above.
+- Integration test: uses the real HttpAgentAdapter (with a MockTransport client and `_create_handler`), real AgentScanner, ScanCache on disk (asserts no files written, executed 10 and cached 0), real ReportGenerator markdown and HTML (INCOMPLETE, no PASSED), and `ziran ci` through CliRunner (exit non-zero, "None of the 10 vector(s) was measured"). DetectorPipeline.evaluate is patched to an AsyncMock and asserted not called. The circuit breaker is asserted closed, but the placeholder is returned content rather than a raised error, so the retry path is not hit either way.
+- `gh pr checks 524` read once: lint, typecheck, dependency-audit, ci command gate, audit command, pentest-eval and detection-accuracy gates pass; test (3.11/3.12/3.13), integration-test, frontend-build and CodeQL pending.
+- Simplicity: none to delete; the one-line sentinel plus the `outcome` marker is the smallest route. The tactics `_is_error_response` import could become a shared public helper (note above).
+
+## Residual risk
+The test jobs will go red on the 400-line guard until the file is trimmed. Past that, the multi-turn unmeasured rule is under-tested on its measured side.

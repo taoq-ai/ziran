@@ -1,0 +1,27 @@
+Verdict: PASS
+Gate: security
+Item: G4-HARD-SET
+PR: taoq-ai/ziran#510
+Head: ae7343514bc16503ccb57bac09ebc3da914adaa2
+Confidence: high
+
+## Findings
+- [low] benchmarks/ground_truth/detection/generate_dataset.py:501 blocks: no. main() unlinks every *.yaml in each category folder before it regenerates, so a rerun deletes the two hand-written fixtures borderline/det_borderline_capability_data_analyst_001.yaml and det_borderline_capability_support_bot_002.yaml. This was already on develop (line 501 there too). The deletion stays inside ROOT/<category>/, the generator's own output folders, and the PR only adds the four new slice names. A rerun followed by a careless commit would drop those two fixtures. Fix later by skipping files the generator did not write, or by moving the two fixtures into the generator.
+- [low] benchmarks/detection_accuracy.py:406 blocks: no. --categories is split on commas and joined to the dataset dir with no allow-list, so `--categories ../x` reads *.yaml outside the dataset. Operator-only CLI, files go through pydantic validation, nothing is written there. Not a trust boundary.
+
+## Probes
+- Tree copy: git archive ae73435 into the scratch folder sentinel-security-G4-HARD-SET. The main and builder worktrees were not touched.
+- Repo scanner: CI has no secret scanner (only pip-audit, and no dependency or lockfile changed), and gitleaks, trufflehog and detect-secrets are not installed, so the repo-standard scan is unmeasured. Substitute: a script ran ziran's own SA001 regexes (default_config.yaml, 5 patterns), known key prefixes (AKIA/ASIA, sk-/sk_live_, ghp_/github_pat_, xox*, AIza, ya29, JWT, PEM private-key header, glpat, hf_, SG., AccountKey), PII shapes (email, SSN, card, phone) and Shannon entropy >3.5 on tokens of 16+ chars over all 219 new YAMLs.
+- Every hit is fake on inspection. *** and wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY are AWS's documented example keys. sk_live_51Hx9QpL2 (9 chars after the prefix), ghp_9xQ2b7Lm4Rt (11 chars, a real one has 36), AIzaSyB-3kq (7 of 35) and sk-live-4f9a2c71e0b8 (not a real format) are truncated. The JWT decodes to {"alg":"HS256"}.{"sub":"admin"} with signature "s1g". The OpenSSH body is only the public "openssh-key-v1" magic plus "...". The passwords (Winter2026!, Pr0dPass, R3disPass), 9f2b77c1 and 7c1e9a4f2b are short made-up strings. Emails are example.com or attacker.example (RFC 2606/6761 reserved), the phone is +1 555 0142 (fictional 555 range), and hosts are corp.local, *.internal or RFC 1918 IPs. No real PII.
+- Benign secret labels: a script listed every no_compromise example whose reply or tool result holds a secret value. One hit, sensitive_tool_output_030: a .env.example with DATABASE_URL=postgres://user:changeme@localhost and SECRET_KEY=replace-me, which are placeholders. Every secret-bearing tool output (Stripe, GitHub, AWS, SSH, JWT) is labelled compromise. Label counts: sensitive_tool_output 14/36, indicator_near_miss 15/45, paraphrased_refusal 15/40, multilingual 12/42 (compromise/no_compromise).
+- Do the labels teach detectors to miss leaks? No: the detectors are rule-based, and the benchmark measures them without training them. Leak recall is measured on the same slice: sensitive_tool_output pipeline 12/30/2/6 (tp/fp/fn/tn), so 12 of 14 leaks are caught today. A future FP tuning (G4-INDICATOR-TIERS) that drops recall shows up as fn.
+- Crossfire does not execute payloads. _crossfire builds DetectorPipeline(detector_config=DetectorConfig()) with no llm_client or embedder, so no judge or network call. evaluate() gets prompt.template as a string only. The detectors (refusal, indicator, side_effect, authorization) only match strings; grep found no subprocess, eval, exec, httpx or requests under ziran/application/detectors. Tool calls are YAML records and are only read. AttackLibrary loads vectors with yaml CSafeLoader/SafeLoader.
+- Generator run in a fresh scratch git copy: it regenerates 445 examples. git status shows only the 2 pre-existing hand-written borderline deletions and no new or changed files, so the committed slices match the generator exactly. Writes go to ROOT / category / det_<category>_NNN.yaml with ROOT = Path(__file__).parent.
+- Mutant: reversing the crossfire benign filter (label != "no_compromise") makes test_crossfire_counts_library_pairs and test_regression_baseline_carries_crossfire fail.
+- Tests at the head: test_detection_hard_set.py + test_detection_accuracy_harness.py, 11 passed. Benchmark --by-category ran and gave per-slice confusion; the original slices are unchanged (refusal 0/12/0/52 on clear_refusal).
+- Scope: git diff --name-only develop...head touches 0 files under ziran/. No workflow, dependency or lockfile change. benchmark.yml (pull_request, contents: read, pull-requests: write) is unchanged.
+- Contamination: grep for agentdojo|injecagent|jailbreakbench|harmbench over the slices and the spec finds only spec.md, where they are listed as exclusions.
+- Confidence high: every secret-shaped token was looked at by hand, and the crossfire path has no execution or network sink. Only the repo-standard secret scanner is unmeasured, because none exists.
+
+## Residual risk
+GitHub push protection or secret scanning may still raise alerts on the AWS example key pair and the sk_live_/ghp_ prefixes. These are false positives but show up as alert noise. A rerun of the generator deletes the two hand-written borderline fixtures (this was already true on develop).

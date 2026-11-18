@@ -1,0 +1,5 @@
+repos = ["taoq-ai/ziran"]
+owner_paths = []
+prioritisation = "wsjf"
+tracker = "github"
+telemetry = true

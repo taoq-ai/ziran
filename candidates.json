@@ -1,0 +1,52 @@
+[
+ {
+  "id": "UI-521-FRONTEND",
+  "title": "chore(ui)!: remove the React frontend and its build (#521)",
+  "goal": "G-6",
+  "repo": "taoq-ai/ziran",
+  "tier": "standard",
+  "framework": "wsjf",
+  "scores": {"value": 13, "time": 8, "risk": 5, "size": 3},
+  "why": "Owner decision 2026-11-18 (#520): remove the UI from the free version. #521 is the frontend half; it also removes the Node.js build from the wheel, Dockerfile, CI, release workflow and Dependabot.",
+  "promise": "Do exactly what #521 lists (`gh issue view 521`): remove ui/ in full, hatch_build.py and its pyproject hook, the Dockerfile frontend stage (keep a CLI image with ENTRYPOINT ziran), the docker-compose ziran-ui and db services, the ci.yml frontend npm audit and Node steps, the release.yml Node setup, the dependabot npm /ui entry and the .gitignore Web UI block. Keep test.yml's Playwright install (browser adapter) and ziran/interfaces/graph_style/. Closes #521. Files: ui/, hatch_build.py, pyproject.toml, Dockerfile, docker-compose.yml, .github/workflows/ci.yml, .github/workflows/release.yml, .github/dependabot.yml, .gitignore, docs/security/risk-acceptances.md (drop the picomatch npm row).",
+  "acceptance": [
+   "given the PR head, when uv build runs with no Node.js installed, then it produces a wheel and sdist with no frontend assets inside",
+   "given the PR head, when docker build . runs, then it produces a CLI image and docker run <image> --help works",
+   "given the workflows, when read, then no job or step runs in ui/ or needs Node.js, and test.yml still installs Playwright for the browser adapter"
+  ]
+ },
+ {
+  "id": "UI-522-BACKEND",
+  "title": "chore(web)!: remove the web backend, the ui extra and ziran ui (#522)",
+  "goal": "G-6",
+  "repo": "taoq-ai/ziran",
+  "tier": "standard",
+  "framework": "wsjf",
+  "scores": {"value": 13, "time": 8, "risk": 8, "size": 5},
+  "why": "Owner decision 2026-11-18 (#520). #522 removes ziran/interfaces/web/, the ui extra and ziran ui (stub for one release). It carries a real fix first: websockets is only declared in the ui extra but ws_handler.py imports it, so a streaming extra must exist before the ui extra goes.",
+  "promise": "Do exactly what #522 lists (`gh issue view 522`), fixes first: add a `streaming` extra (websockets>=12.0,<18) to pyproject and `all`, keep the websockets.* mypy override, and fix the ws_handler docstring; keep the `ziran ci` side of test_cicd_suppressions.py and the graph-state assertions of test_phase_graph_persistence.py; reword the 'lockstep with graphMapping.ts' comments in html_report.py and graph_style/spec.py. Then remove ziran/interfaces/web/ in full, the ui extra and ui from all, the web-only mypy overrides, the web-only tests named in the issue, and replace `ziran ui` with a hidden stub that prints where the UI went (ZIRAN Cloud and Enterprise, info@taoq.ai, v0.42.0 still ships it under Apache-2.0) and exits 2. Relock. Closes #522. Files: ziran/interfaces/web/, ziran/interfaces/cli/main.py, ziran/infrastructure/adapters/protocols/ws_handler.py, ziran/interfaces/cli/html_report.py, ziran/interfaces/graph_style/spec.py, pyproject.toml, uv.lock, tests/ (as listed).",
+  "acceptance": [
+   "given the PR head, when grep -rn 'interfaces.web\\|ziran\\[ui\\]' ziran tests pyproject.toml runs, then it returns nothing",
+   "given pip install ziran[streaming], when a WebSocket target is scanned, then the adapter imports websockets; a test covers the extra's import path",
+   "given the CLI, when ziran ui runs, then it prints the moved notice and exits 2",
+   "given CI, when ruff, ruff format, mypy strict and pytest with coverage run, then all pass with coverage at or above 85%"
+  ]
+ },
+ {
+  "id": "UI-523-DOCS",
+  "title": "docs!: document the web UI move in README, docs, roadmap and licence terms (#523)",
+  "goal": "G-6",
+  "repo": "taoq-ai/ziran",
+  "tier": "standard",
+  "framework": "wsjf",
+  "scores": {"value": 8, "time": 8, "risk": 5, "size": 2},
+  "why": "Owner decision 2026-11-18 (#520). #523 updates README, docs, roadmap, COMMERCIAL-LICENSE.md (to v1.1, because the definition of ziran names the web UI) and archives specs 008, 009 and 052.",
+  "promise": "Do exactly what #523 lists (`gh issue view 523`): README drops pip install ziran[ui] and the Web UI section, adds one line that the UI is in ZIRAN Cloud and Enterprise with v0.42.0 as the last Apache-2.0 release that includes it, and adds the streaming extra; update docs/concepts/knowledge-graph.md, docs/guides/interpreting-results.md, docs/guides/cicd-integration.md, docs/guides/long-running-campaigns.md; docs/community/roadmap.md marks v0.13 Web UI Foundation as moved and lists the UI items under ZIRAN Cloud; COMMERCIAL-LICENSE.md removes 'the web UI' from the definition and is published as version 1.1 with the new date; COMMERCIAL-ORDER-FORM.md points to 1.1; specs 008, 009 and 052 go to Superseded with a one-line note and move to specs/archive/ (add the note to 010 and 026 too); CLAUDE.md drops the web UI Active Technologies entries. The licence-terms wording is an owner-path change: show the diff to the owner before ready. Closes #523. Files: README.md, docs/**, mkdocs.yml, COMMERCIAL-LICENSE.md, COMMERCIAL-ORDER-FORM.md, specs/008*, specs/009*, specs/052*, specs/archive/*, CLAUDE.md.",
+  "acceptance": [
+   "given the PR head, when grep -rn -i 'web ui\\|ziran ui\\|ziran\\[ui\\]' README.md docs mkdocs.yml runs, then it returns only the moved notice and the roadmap entries",
+   "given the docs workflow, when the site builds, then it has no broken links",
+   "given COMMERCIAL-LICENSE.md, when read, then it is version 1.1 and no longer licenses a web UI"
+  ],
+  "after": ["UI-522-BACKEND"]
+ }
+]
