@@ -8,6 +8,7 @@ Usage:
     uv run python benchmarks/detection_regression.py
     uv run python benchmarks/detection_regression.py --update-baseline
     uv run python benchmarks/detection_regression.py --format markdown
+    uv run python benchmarks/detection_regression.py --crossfire   # spec 078, non-blocking
 
 Exit codes:
     0  pass (F1 within tolerance, or baseline updated)
@@ -23,7 +24,12 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from benchmarks.detection_accuracy import DATASET_DIR, DetectorAccuracyResult, run_benchmark
+from benchmarks.detection_accuracy import (
+    DATASET_DIR,
+    CrossfireResult,
+    DetectorAccuracyResult,
+    run_benchmark,
+)
 
 BASELINE_PATH = Path(__file__).parent / "results" / "detection_accuracy_baseline.json"
 DEFAULT_TOLERANCE = 0.02
@@ -37,6 +43,8 @@ class DetectionAccuracyBaseline(BaseModel):
     tolerance: float = DEFAULT_TOLERANCE
     per_detector_f1: dict[str, float]
     dataset_size: int
+    # Spec 078: recorded with --update-baseline --crossfire; reported, never gated.
+    crossfire: CrossfireResult | None = None
 
     @classmethod
     def from_result(
@@ -48,6 +56,7 @@ class DetectionAccuracyBaseline(BaseModel):
             tolerance=tolerance,
             per_detector_f1={name: m.f1 for name, m in result.detectors.items()},
             dataset_size=result.dataset_size,
+            crossfire=result.crossfire,
         )
 
 
@@ -69,6 +78,13 @@ def _render(
         base = baseline.per_detector_f1.get(name)
         d = f"{round(m.f1 - base, 4):+}" if base is not None else "n/a"
         lines.append(f"  {name} F1: {m.f1} (baseline {base}, delta {d}) [non-blocking]")
+    if result.crossfire is not None:
+        cf, base_cf = result.crossfire, baseline.crossfire
+        was = f"{base_cf.flagged} of {base_cf.pairs}" if base_cf else "n/a"
+        lines.append(
+            f"  crossfire: {cf.flagged} of {cf.pairs} pairs flagged (rate {cf.rate}; "
+            f"baseline {was}) [non-blocking]"
+        )
     if fmt == "markdown":
         return "```\n" + "\n".join(lines) + "\n```"
     return "\n".join(lines)
@@ -80,9 +96,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=Path, default=DATASET_DIR)
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--format", choices=("table", "markdown"), default="table")
+    parser.add_argument("--crossfire", action="store_true", help="Also measure crossfire")
     args = parser.parse_args(argv)
 
-    result = run_benchmark(args.dataset)
+    result = run_benchmark(args.dataset, crossfire=args.crossfire)
 
     if args.update_baseline:
         baseline = DetectionAccuracyBaseline.from_result(result)

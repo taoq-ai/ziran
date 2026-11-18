@@ -9,7 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from benchmarks.detection_accuracy import DATASET_DIR, load_examples, run_benchmark
+from benchmarks.detection_accuracy import (
+    DATASET_DIR,
+    ORIGINAL_CATEGORIES,
+    load_examples,
+    run_benchmark,
+)
 from benchmarks.replay_embedder import EmbeddingCassette, text_key
 from benchmarks.semantic_detection import main, needed_texts
 from ziran.application.detectors.semantic import SemanticConfig
@@ -40,7 +45,7 @@ def _write_cassette(path: Path, drop: int = 0) -> None:
 
 
 def test_default_benchmark_unchanged() -> None:
-    result = run_benchmark(DATASET_DIR)
+    result = run_benchmark(DATASET_DIR, categories=ORIGINAL_CATEGORIES)
     assert set(result.detectors) == {"refusal", "indicator", "side_effect", "llm_judge"}
     cm = result.detectors["refusal"].confusion
     assert (cm.tp, cm.fp, cm.fn, cm.tn) == (52, 12, 0, 52)
