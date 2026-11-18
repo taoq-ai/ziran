@@ -6,6 +6,49 @@
 ziran analyze-traces --source otel --input traces.jsonl --out ./reports
 ```
 
+## Live pull from Langfuse
+
+Without `--input`, `--source langfuse` pulls tool calls live from the Langfuse public API. It
+needs no SDK or extra; it calls `GET /api/public/v2/observations` with `httpx`
+([API reference](https://cloud.langfuse.com/generated/api/openapi.yml), `observations_getMany`).
+
+```bash
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+export LANGFUSE_HOST=https://cloud.langfuse.com   # the default; set it for US Cloud or self-hosted
+ziran analyze-traces --source langfuse --since 24h --out ./reports
+```
+
+| Option | Effect |
+|---|---|
+| `--since` | Lower bound on observation start time: `30m`, `24h`, `7d`, or an ISO date such as `2026-01-31`. Default `24h`. |
+| `--session-id` | Pull one Langfuse session only (sent as `sessionId`). |
+| `--project-id` | Drop observations of another project. API keys are already scoped to one project. |
+| `--incremental` | Start where the last `--incremental` run ended. Cannot be combined with `--session-id`. |
+
+- **Auth**: HTTP basic auth, the public key as the user name and the secret key as the password.
+  If either variable is unset, the command exits `2` and names both. Key values are never printed
+  or logged.
+- **Pagination**: every page is read, following `meta.cursor` until it is absent. A cursor the
+  API already sent stops the pull with exit `2`.
+- **Rate limits**: an HTTP 429 waits for `Retry-After` (at most 60 seconds) and retries up to
+  three times. After that the command exits `2` with a rate-limit message. Any other HTTP error
+  also exits `2`.
+- **Traces**: observations are grouped by `traceId`; `TOOL` and `SPAN` observations become tool
+  calls, ordered by start time. A JSON-object `input` becomes the call's arguments. API-mode
+  sessions report agent `unknown`, since observations carry no trace metadata.
+- **Incremental cursor**: stored in `.ziran/trace_cache/langfuse-<12 hex>.json` in the working
+  directory. The name is a hash of the host and public key; the file holds only the newest start
+  time and the ids of the observations at it, never a key. The cursor advances only after the
+  report is written and alerts are sent, so a failed run is retried in full next time. A trace
+  still running during a pull is analysed in parts across runs, so a chain that crosses the
+  boundary is missed. An observation
+  that becomes readable only after a newer one was pulled is skipped.
+- **Alerts**: with `--alert`, the report and the alerts use the same single pull.
+
+See [`examples/28-langfuse-live-analysis/`](https://github.com/taoq-ai/ziran/tree/main/examples/28-langfuse-live-analysis)
+for a runnable script and an hourly schedule.
+
 ## Claude Code span contract (version 1)
 
 A Claude Code `PostToolUse` hook can record each tool call as one line of OTLP JSON. `analyze-traces --source otel` reads that file directly. This is the stable shape, version 1:
@@ -119,7 +162,7 @@ Pass `--predeploy-result scan.json` (a prior `CampaignResult`) to correlate prod
 |---|---|
 | `0` | Input was read and no critical chain matched. |
 | `1` | At least one critical chain matched. The report is written and alerts are sent first. |
-| `2` | Could not run or finish: missing or unreadable input, a directory as input, a file with no valid JSON line, `--source otel` without `--input`, `--alert` without `--config`, invalid config, alert delivery failure, or any unexpected error. One `Error:` line is printed; add `-v` for the traceback. |
+| `2` | Could not run or finish: missing or unreadable input, a directory as input, a file with no valid JSON line, `--source otel` without `--input`, `--alert` without `--config`, invalid config, missing Langfuse keys, a bad `--since`, a Langfuse HTTP error or lasting rate limit, alert delivery failure, or any unexpected error. One `Error:` line is printed; add `-v` for the traceback. |
 
 When several apply, `2` wins over `1`, and `1` wins over `0`.
 

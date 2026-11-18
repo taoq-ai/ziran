@@ -99,7 +99,10 @@ class AnalyzerService:
         Returns:
             A :class:`CampaignResult` with ``source="trace-analysis"``.
         """
-        sessions = await self._ingestor.ingest(source, **kwargs)
+        return self.analyze_sessions(await self._ingestor.ingest(source, **kwargs))
+
+    def analyze_sessions(self, sessions: list[TraceSession]) -> CampaignResult:
+        """Analyze already-ingested *sessions* (see :meth:`analyze`)."""
         all_chains: list[DangerousChain] = []
 
         for session in sessions:
@@ -161,6 +164,24 @@ class AnalyzerService:
         all matches are aggregated into a single digest finding.
         """
         sessions = await self._ingestor.ingest(source, **kwargs)
+        return await self.emit_session_findings(
+            sessions,
+            sinks,
+            digest=digest,
+            predeploy_chains=predeploy_chains,
+            predeploy_ref=predeploy_ref,
+        )
+
+    async def emit_session_findings(
+        self,
+        sessions: list[TraceSession],
+        sinks: list[SinkBinding],
+        *,
+        digest: bool = False,
+        predeploy_chains: list[dict[str, Any]] | None = None,
+        predeploy_ref: str | None = None,
+    ) -> AlertOutcome:
+        """Deliver findings from already-ingested *sessions* (see :meth:`emit_findings`)."""
         findings: list[AlertableFinding] = []
         for session in sessions:
             for chain in self._analyze_session(session):

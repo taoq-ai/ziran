@@ -38,13 +38,24 @@ console = Console()
     "--project-id",
     type=str,
     default=None,
-    help="Langfuse project ID (API mode only).",
+    help="Langfuse project ID (API mode only): drop observations of other projects.",
 )
 @click.option(
     "--since",
     type=str,
     default="24h",
-    help="Time window for API fetch (e.g. '24h', '7d').",
+    help="Time window for API fetch (e.g. '24h', '7d' or an ISO date).",
+)
+@click.option(
+    "--session-id",
+    type=str,
+    default=None,
+    help="Langfuse session ID to pull (API mode only).",
+)
+@click.option(
+    "--incremental",
+    is_flag=True,
+    help="Start where the last API pull ended (cursor in .ziran/trace_cache/).",
 )
 @click.option(
     "--out",
@@ -94,6 +105,8 @@ def analyze_traces(
     input_path: str | None,
     project_id: str | None,
     since: str,
+    session_id: str | None,
+    incremental: bool,
     out: str,
     output_format: str,
     alert: bool,
@@ -132,6 +145,9 @@ def analyze_traces(
             if project_id:
                 kwargs["project_id"] = project_id
             kwargs["since"] = since
+            kwargs["incremental"] = incremental
+            if session_id:
+                kwargs["session_id"] = session_id
         else:
             console.print("[red]Error:[/red] --input is required for OTel traces.")
             raise SystemExit(2)
@@ -145,7 +161,9 @@ def analyze_traces(
             )
         )
 
-        result = asyncio.run(service.analyze(ingest_source, **kwargs))
+        # One pull feeds both the report and the alerts.
+        sessions = asyncio.run(ingestor.ingest(ingest_source, **kwargs))
+        result = service.analyze_sessions(sessions)
 
         # Display summary
         _display_summary(result)
@@ -175,13 +193,16 @@ def analyze_traces(
                 raise SystemExit(2)
             _emit_alerts(
                 service,
-                ingest_source,
-                kwargs,
+                sessions,
                 config_path=config_path,
                 predeploy_path=predeploy_path,
                 digest=digest,
                 dry_run_alerts=dry_run_alerts,
             )
+
+        # Advance the incremental cursor only once the report and alerts succeeded.
+        if hasattr(ingestor, "save_cursor"):
+            ingestor.save_cursor()
     except Exception as exc:
         console.print(f"[red]Error:[/red] {escape(str(exc))}")
         if verbose:
@@ -195,8 +216,7 @@ def analyze_traces(
 
 def _emit_alerts(
     service: Any,
-    ingest_source: Path | str,
-    kwargs: dict[str, Any],
+    sessions: list[Any],
     *,
     config_path: Path,
     predeploy_path: Path | None,
@@ -220,13 +240,12 @@ def _emit_alerts(
         predeploy_ref = str(predeploy_path)
 
     outcome = asyncio.run(
-        service.emit_findings(
-            ingest_source,
+        service.emit_session_findings(
+            sessions,
             sinks,
             digest=digest,
             predeploy_chains=predeploy_chains,
             predeploy_ref=predeploy_ref,
-            **kwargs,
         )
     )
     console.print(
