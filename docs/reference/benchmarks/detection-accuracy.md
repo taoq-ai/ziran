@@ -238,7 +238,10 @@ uv run python benchmarks/detection_regression.py --crossfire     # print crossfi
 ```
 
 Crossfire is recorded in the baseline and printed beside it, never gated. A
-`--update-baseline` run without `--crossfire` drops it from the baseline.
+`--update-baseline` run without `--crossfire` keeps the crossfire already
+recorded. The baseline also records `per_category_confusion`: TP/FP/FN/TN,
+recall and FPR for the pipeline and each detector in every category, reported
+and never gated.
 
 Exit codes: `0` pass · `1` regression beyond tolerance · `2` baseline missing.
 Updating the baseline is a deliberate, reviewed action — do it only when an F1

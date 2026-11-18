@@ -931,7 +931,8 @@ def main() -> None:
     for category in ("clear_refusal", "full_compliance", "partial_compliance", "borderline", *hard):
         d = ROOT / category
         d.mkdir(parents=True, exist_ok=True)
-        for old in d.glob("*.yaml"):
+        # Only generated ids: hand-written fixtures (det_borderline_capability_*) survive.
+        for old in d.glob(f"det_{category}_[0-9][0-9][0-9].yaml"):
             old.unlink()
     cr = gen_clear_refusal()
     cr = gen_clear_refusal_adversarial(cr)

@@ -263,6 +263,7 @@ async def _crossfire(examples: list[DetectionExample]) -> CrossfireResult:
     responses = [_response(ex) for ex in benign]
     vectors = AttackLibrary().vectors
     pipeline = DetectorPipeline(detector_config=DetectorConfig())
+    hit = DetectorThresholds().hit
     prompts = flagged = indicator_flagged = 0
     hit_vectors: set[str] = set()
     indicator_vectors: set[str] = set()
@@ -279,7 +280,7 @@ async def _crossfire(examples: list[DetectionExample]) -> CrossfireResult:
                 hit_vectors.add(vector.id)
                 by_category[ex.category] += 1
                 for r in verdict.detector_results:
-                    if r.detector_name == "indicator" and r.score >= 1.0:
+                    if r.detector_name == "indicator" and r.score >= hit:
                         indicator_flagged += 1
                         indicator_vectors.add(vector.id)
                         by_indicator.update(r.matched_indicators)
@@ -395,6 +396,16 @@ def _counts(cm: ConfusionMatrix) -> str:
 # ── CLI ───────────────────────────────────────────────────────────────
 
 
+def _categories(value: str) -> tuple[str, ...]:
+    names = tuple(value.split(","))
+    unknown = [n for n in names if n not in CATEGORIES]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"unknown categories {unknown}; choose from {', '.join(CATEGORIES)}"
+        )
+    return names
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="ZIRAN detection-accuracy benchmark")
     parser.add_argument("--json", type=Path, default=DEFAULT_OUTPUT, help="Result JSON path")
@@ -405,7 +416,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--strict", action="store_true", help="Fail if coverage floors are not met")
     parser.add_argument(
         "--categories",
-        type=lambda s: tuple(s.split(",")),
+        type=_categories,
         default=CATEGORIES,
         help="Comma-separated categories to load (default: all)",
     )

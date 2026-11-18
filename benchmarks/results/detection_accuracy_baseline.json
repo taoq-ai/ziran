@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-18T08:41:28.776779+00:00",
+  "timestamp": "2026-11-18T09:31:32.437354+00:00",
   "pipeline_f1": 0.6667,
   "tolerance": 0.02,
   "per_detector_f1": {
@@ -91,5 +91,223 @@
         24
       ]
     ]
+  },
+  "per_category_confusion": {
+    "clear_refusal": {
+      "pipeline": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 64,
+        "recall": null,
+        "fpr": 0.0
+      },
+      "refusal": {
+        "tp": 0,
+        "fp": 12,
+        "fn": 0,
+        "tn": 52,
+        "recall": null,
+        "fpr": 0.1875
+      },
+      "indicator": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 64,
+        "recall": null,
+        "fpr": 0.0
+      }
+    },
+    "partial_compliance": {
+      "pipeline": {
+        "tp": 26,
+        "fp": 0,
+        "fn": 0,
+        "tn": 26,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "llm_judge": {
+        "tp": 26,
+        "fp": 0,
+        "fn": 0,
+        "tn": 26,
+        "recall": 1.0,
+        "fpr": 0.0
+      }
+    },
+    "full_compliance": {
+      "pipeline": {
+        "tp": 52,
+        "fp": 0,
+        "fn": 0,
+        "tn": 6,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "refusal": {
+        "tp": 52,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": null
+      },
+      "indicator": {
+        "tp": 52,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": null
+      },
+      "side_effect": {
+        "tp": 36,
+        "fp": 0,
+        "fn": 0,
+        "tn": 22,
+        "recall": 1.0,
+        "fpr": 0.0
+      }
+    },
+    "borderline": {
+      "pipeline": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 54,
+        "recall": null,
+        "fpr": 0.0
+      },
+      "llm_judge": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 52,
+        "recall": null,
+        "fpr": 0.0
+      },
+      "indicator": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 2,
+        "recall": null,
+        "fpr": 0.0
+      }
+    },
+    "indicator_near_miss": {
+      "pipeline": {
+        "tp": 13,
+        "fp": 40,
+        "fn": 2,
+        "tn": 5,
+        "recall": 0.8667,
+        "fpr": 0.8889
+      },
+      "refusal": {
+        "tp": 15,
+        "fp": 11,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": 1.0
+      },
+      "indicator": {
+        "tp": 13,
+        "fp": 40,
+        "fn": 2,
+        "tn": 5,
+        "recall": 0.8667,
+        "fpr": 0.8889
+      }
+    },
+    "sensitive_tool_output": {
+      "pipeline": {
+        "tp": 12,
+        "fp": 30,
+        "fn": 2,
+        "tn": 6,
+        "recall": 0.8571,
+        "fpr": 0.8333
+      },
+      "indicator": {
+        "tp": 7,
+        "fp": 24,
+        "fn": 1,
+        "tn": 12,
+        "recall": 0.875,
+        "fpr": 0.6667
+      },
+      "side_effect": {
+        "tp": 12,
+        "fp": 15,
+        "fn": 2,
+        "tn": 21,
+        "recall": 0.8571,
+        "fpr": 0.4167
+      },
+      "refusal": {
+        "tp": 14,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": null
+      }
+    },
+    "paraphrased_refusal": {
+      "pipeline": {
+        "tp": 4,
+        "fp": 17,
+        "fn": 11,
+        "tn": 23,
+        "recall": 0.2667,
+        "fpr": 0.425
+      },
+      "refusal": {
+        "tp": 14,
+        "fp": 40,
+        "fn": 1,
+        "tn": 0,
+        "recall": 0.9333,
+        "fpr": 1.0
+      },
+      "indicator": {
+        "tp": 4,
+        "fp": 17,
+        "fn": 3,
+        "tn": 23,
+        "recall": 0.5714,
+        "fpr": 0.425
+      }
+    },
+    "multilingual": {
+      "pipeline": {
+        "tp": 8,
+        "fp": 9,
+        "fn": 4,
+        "tn": 33,
+        "recall": 0.6667,
+        "fpr": 0.2143
+      },
+      "refusal": {
+        "tp": 12,
+        "fp": 30,
+        "fn": 0,
+        "tn": 0,
+        "recall": 1.0,
+        "fpr": 1.0
+      },
+      "indicator": {
+        "tp": 8,
+        "fp": 9,
+        "fn": 0,
+        "tn": 33,
+        "recall": 1.0,
+        "fpr": 0.2143
+      }
+    }
   }
 }

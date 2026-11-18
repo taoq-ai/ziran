@@ -26,6 +26,7 @@ from pydantic import BaseModel
 
 from benchmarks.detection_accuracy import (
     DATASET_DIR,
+    ConfusionMatrix,
     CrossfireResult,
     DetectorAccuracyResult,
     run_benchmark,
@@ -33,6 +34,29 @@ from benchmarks.detection_accuracy import (
 
 BASELINE_PATH = Path(__file__).parent / "results" / "detection_accuracy_baseline.json"
 DEFAULT_TOLERANCE = 0.02
+
+
+class SliceSnapshot(BaseModel):
+    """One category's confusion for one row (spec 078); reported, never gated."""
+
+    tp: int
+    fp: int
+    fn: int
+    tn: int
+    recall: float | None
+    fpr: float | None
+
+    @classmethod
+    def of(cls, cm: ConfusionMatrix) -> SliceSnapshot:
+        pos, neg = cm.tp + cm.fn, cm.fp + cm.tn
+        return cls(
+            tp=cm.tp,
+            fp=cm.fp,
+            fn=cm.fn,
+            tn=cm.tn,
+            recall=round(cm.tp / pos, 4) if pos else None,
+            fpr=round(cm.fp / neg, 4) if neg else None,
+        )
 
 
 class DetectionAccuracyBaseline(BaseModel):
@@ -45,6 +69,8 @@ class DetectionAccuracyBaseline(BaseModel):
     dataset_size: int
     # Spec 078: recorded with --update-baseline --crossfire; reported, never gated.
     crossfire: CrossfireResult | None = None
+    #: category -> {"pipeline" or detector name -> snapshot} (spec 078); reported, never gated.
+    per_category_confusion: dict[str, dict[str, SliceSnapshot]] = {}
 
     @classmethod
     def from_result(
@@ -57,6 +83,10 @@ class DetectionAccuracyBaseline(BaseModel):
             per_detector_f1={name: m.f1 for name, m in result.detectors.items()},
             dataset_size=result.dataset_size,
             crossfire=result.crossfire,
+            per_category_confusion={
+                cat: {name: SliceSnapshot.of(cm) for name, cm in rows.items()}
+                for cat, rows in result.per_category_confusion.items()
+            },
         )
 
 
@@ -103,6 +133,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.update_baseline:
         baseline = DetectionAccuracyBaseline.from_result(result)
+        if not args.crossfire and args.baseline.exists():
+            # Keep the recorded crossfire: this run did not measure it.
+            old = DetectionAccuracyBaseline.model_validate_json(
+                args.baseline.read_text(encoding="utf-8")
+            )
+            baseline.crossfire = old.crossfire
         args.baseline.parent.mkdir(parents=True, exist_ok=True)
         args.baseline.write_text(baseline.model_dump_json(indent=2), encoding="utf-8")
         print(f"Updated baseline at {args.baseline} (pipeline F1 {baseline.pipeline_f1})")

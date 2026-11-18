@@ -15,9 +15,9 @@ two small additions to the benchmark scripts. No new dependency, no file under `
    `prompt_injection.yaml` and `tool_manipulation.yaml`, plus two `nm_` sets written from the
    crossfire's top words). Four lists hold `(vector, kind, text, justification, tools)` items;
    `_hard_detectors` derives the per-detector labels from the spec rules and `gen_hard` writes
-   the YAML. Regenerating leaves the 228 spec-021 files byte identical (`git status` clean
-   after a run, once the two hand-written capability fixtures the generator deletes are
-   restored; that deletion predates this spec).
+   the YAML. `main()` now deletes only generated ids (`det_<category>_NNN.yaml`), so the two
+   hand-written `det_borderline_capability_*` fixtures survive a rerun, and regenerating
+   leaves the 228 spec-021 files byte identical (`git status` clean after a run).
 3. `benchmarks/detection_accuracy.py`:
    - `ORIGINAL_CATEGORIES`, `HARD_CATEGORIES`, `CATEGORIES = ORIGINAL + HARD`;
    - `load_examples` and `run_benchmark` take `categories`; the CLI takes `--categories`;

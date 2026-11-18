@@ -18,6 +18,8 @@ from benchmarks.detection_accuracy import (
     load_examples,
     run_benchmark,
 )
+from benchmarks.detection_accuracy import main as accuracy_main
+from benchmarks.detection_regression import BASELINE_PATH, DetectionAccuracyBaseline
 from benchmarks.detection_regression import main as regression_main
 
 if TYPE_CHECKING:
@@ -64,7 +66,7 @@ def test_per_category_confusion_sums_to_pipeline() -> None:
     assert total == result.pipeline.confusion.total == result.dataset_size
 
 
-def _benign(directory: Path, text: str) -> None:
+def _benign(directory: Path, text: str, tool_calls: list[dict[str, str]] | None = None) -> None:
     cat = directory / "borderline"
     cat.mkdir(parents=True, exist_ok=True)
     (cat / "det_borderline_001.yaml").write_text(
@@ -75,6 +77,7 @@ def _benign(directory: Path, text: str) -> None:
                 "label": "no_compromise",
                 "attack": {"vector_id": "x", "category": "jailbreak", "severity": "low"},
                 "response_text": text,
+                "tool_calls": tool_calls or [],
                 "source": {"type": "design_risk", "references": [{"id": "OWASP-LLM01"}]},
             }
         ),
@@ -110,3 +113,55 @@ def test_regression_baseline_carries_crossfire(tmp_path: Path) -> None:
     recorded = json.loads(baseline.read_text(encoding="utf-8"))["crossfire"]
     assert recorded["benign_replies"] == 1
     assert regression_main([*args, "--crossfire"]) == 0
+
+
+def test_crossfire_indicator_count_excludes_tool_flags(tmp_path: Path) -> None:
+    # A risky tool call flags every prompt on side_effect; only indicator hits count there.
+    _benign(tmp_path, "The weekly report is ready.", [{"tool": "execute_shell"}])
+    cf = run_benchmark(tmp_path, crossfire=True).crossfire
+    assert cf is not None
+    assert cf.flagged == cf.pairs
+    assert cf.indicator_flagged < cf.flagged
+
+
+def test_update_without_crossfire_keeps_recorded_crossfire(tmp_path: Path) -> None:
+    _benign(tmp_path / "ds", "The target configuration is in the database.")
+    baseline = tmp_path / "baseline.json"
+    args = ["--dataset", str(tmp_path / "ds"), "--baseline", str(baseline), "--update-baseline"]
+    assert regression_main([*args, "--crossfire"]) == 0
+    assert regression_main(args) == 0
+    assert json.loads(baseline.read_text(encoding="utf-8"))["crossfire"]["benign_replies"] == 1
+
+
+def test_committed_baseline_has_per_slice_numbers() -> None:
+    baseline = DetectionAccuracyBaseline.model_validate_json(
+        BASELINE_PATH.read_text(encoding="utf-8")
+    )
+    assert baseline.crossfire is not None
+    assert set(baseline.per_category_confusion) == set(CATEGORIES)
+    for cat, rows in baseline.per_category_confusion.items():
+        pipe = rows["pipeline"]
+        assert pipe.tp + pipe.fp + pipe.fn + pipe.tn >= MIN_PER_CATEGORY, cat
+    orig = [baseline.per_category_confusion[c]["pipeline"] for c in ORIGINAL_CATEGORIES]
+    assert (sum(s.tp for s in orig), sum(s.fp for s in orig)) == (78, 0)
+
+
+def test_unknown_category_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        accuracy_main(["--categories", "borderline,nope", "--json", str(tmp_path / "r.json")])
+
+
+def test_generator_keeps_hand_written_fixtures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from benchmarks.ground_truth.detection import generate_dataset
+
+    keep = tmp_path / "borderline" / "det_borderline_capability_x_001.yaml"
+    keep.parent.mkdir(parents=True)
+    keep.write_text("hand-written", encoding="utf-8")
+    stale = tmp_path / "borderline" / "det_borderline_999.yaml"
+    stale.write_text("old", encoding="utf-8")
+    monkeypatch.setattr(generate_dataset, "ROOT", tmp_path)
+    generate_dataset.main()
+    assert keep.read_text(encoding="utf-8") == "hand-written"
+    assert not stale.exists()

@@ -95,7 +95,11 @@ Each example states its justification in `notes`; the slice rules:
 - **FR-004**: `--categories` restricts the loaded categories; `--crossfire` adds the crossfire
   result to the result JSON.
 - **FR-005**: `detection_regression.py --update-baseline --crossfire` records crossfire in the
-  baseline; a gate run with `--crossfire` prints it beside the baseline, never blocking.
+  baseline; a gate run with `--crossfire` prints it beside the baseline, never blocking. An
+  update without `--crossfire` keeps the recorded crossfire.
+- **FR-005a**: the baseline records `per_category_confusion` (TP/FP/FN/TN, recall and FPR per
+  category, for the pipeline and each detector), reported and never gated.
+- **FR-004a**: `--categories` rejects an unknown name.
 - **FR-006**: No change under `ziran/`.
 
 ## Baseline (the G-4 measure)
