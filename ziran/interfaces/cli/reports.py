@@ -185,7 +185,17 @@ class ReportGenerator:
         )
         lines.append(f"| Critical Attack Paths | {len(result.critical_paths)} |")
         lines.append(f"| Final Trust Score | {result.final_trust_score:.2f} |")
-        lines.append(f"| Overall Result | {'⚠️ VULNERABLE' if result.success else '✅ PASSED'} |")
+        unmeasured = result.unmeasured_vectors
+        if unmeasured:
+            lines.append(f"| Unmeasured Vectors | {len(unmeasured)} |")
+        overall = (
+            "⚠️ VULNERABLE"
+            if result.success
+            else f"⚠️ INCOMPLETE ({len(unmeasured)} unmeasured)"
+            if unmeasured
+            else "✅ PASSED"
+        )
+        lines.append(f"| Overall Result | {overall} |")
         if result.coverage_level:
             lines.append(f"| Coverage Level | {result.coverage_level} |")
 

@@ -43,6 +43,7 @@ from ziran.domain.entities.attack import (
     OwaspLlmCategory,
     Severity,
 )
+from ziran.domain.entities.mcp_server_surface import McpServerRequest
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import get_logger
 
@@ -181,10 +182,16 @@ class AttackLibrary:
             coverage: Coverage level controlling which severity tiers are included.
 
         Returns:
-            List of vectors targeting this phase within the coverage tier.
+            List of vectors targeting this phase within the coverage tier, without the
+            server-surface vectors that only ``ziran mcp-hostile-server`` sends.
         """
         allowed = _COVERAGE_SEVERITIES[coverage]
-        return [v for v in self._by_phase.get(phase, []) if v.severity in allowed]
+        # Server-surface vectors (spec 071) are requests a hostile MCP server sends, not prompts.
+        return [
+            v
+            for v in self._by_phase.get(phase, [])
+            if v.severity in allowed and v.mcp_server_request is None
+        ]
 
     def get_attacks_by_category(self, category: AttackCategory) -> list[AttackVector]:
         """Get all attack vectors in a specific category.
@@ -419,6 +426,9 @@ class AttackLibrary:
             if data.get("harm_category")
             else None,
             many_shot=ManyShotConfig(**data["many_shot"]) if data.get("many_shot") else None,
+            mcp_server_request=McpServerRequest(**data["mcp_server_request"])
+            if data.get("mcp_server_request")
+            else None,
         )
 
 

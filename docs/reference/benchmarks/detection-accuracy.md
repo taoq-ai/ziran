@@ -225,10 +225,12 @@ traces — keeping the same schema and harness.
 
 ## Regression gate
 
-`benchmarks/detection_regression.py` compares the current pipeline F1 against the
+`benchmarks/detection_regression.py` compares the current pipeline against the
 **regression baseline** (`benchmarks/results/detection_accuracy_baseline.json`)
-and **fails when F1 drops more than 0.02 below baseline** (clarification Q3).
-Per-detector F1 deltas are reported but never block.
+and **fails when F1 drops more than 0.02 below baseline** (clarification Q3),
+**when pipeline recall falls below baseline, or when pipeline false positive rate
+rises above it** (spec 077, no tolerance: one lost detection or one new false
+alarm fails). Per-detector numbers are reported but never block.
 
 ```bash
 uv run python benchmarks/detection_regression.py                 # gate (exit 0/1/2)
@@ -252,6 +254,14 @@ every PR but **only enforces it when the diff touches detector code, the dataset
 or threshold config** — it detects this inside the job and otherwise reports
 success, so the check can be a required status without deadlocking branch
 protection on unrelated PRs.
+
+On a PR that touches those paths, attack vectors, `attack.py`, the modules the
+detectors import, or the dependency set, the workflow also scores the PR base
+commit's code on the PR's dataset. It posts one comment with TP/FP/FN/TN,
+precision, recall, F1 and FPR per detector and for the pipeline, head against
+base, and the number of examples each side scored. Each push edits that comment.
+The comment is posted from a separate job, and a failure to post (a fork PR's
+token is read-only) never changes the gate's result.
 
 ## Re-recording judge verdicts
 
