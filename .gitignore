@@ -78,10 +78,5 @@ ziran-results.sarif
 .ziran/trace_cache/
 .claude/
 
-# Web UI
-ziran/interfaces/web/static/
-ui/node_modules/
-ui/dist/
-
 # Hybrid request files hold rendered benchmark or user text (spec 064)
 *.requests.jsonl
