@@ -180,6 +180,19 @@ class TestPoCGenerator:
         content = path.read_text()
         assert "Ignore all previous instructions" in content
 
+    def test_python_poc_compiles_with_multiline_values(
+        self, generator: PoCGenerator, successful_result: AttackResult
+    ) -> None:
+        # Multi-line values (the imports block, a multi-turn prompt) used to
+        # defeat textwrap.dedent and leave the whole module body indented.
+        successful_result.prompt_used = 'Step one.\nStep two: run {cmd} with """quotes""".'
+        source = generator.generate_python_poc(successful_result).read_text()
+
+        compile(source, "poc.py", "exec")
+        assert source.startswith("#!")
+        assert "\nasync def reproduce(adapter):\n" in source
+        assert "Step two: run {cmd}" in source
+
     def test_markdown_guide_multiple_findings(
         self, generator: PoCGenerator, successful_result: AttackResult
     ) -> None:
