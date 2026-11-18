@@ -381,8 +381,8 @@ no `two_tier` run):
 
 | run | precision | recall | f1 | tp/fp/fn/tn | frontier calls | reduction | f1 delta | tiers |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| single | 1.0 | 1.0 | 1.0 | 78/0/0/144 | 222 | 0.0 | 0.0 | - |
-| deterministic_only | 1.0 | 1.0 | 1.0 | 78/0/0/144 | 118 | 0.4685 | 0.0 | deterministic=104 cheap=0 escalated=118 |
+| single | 0.6425 | 0.8582 | 0.7348 | 115/64/19/249 | 447 | 0.0 | 0.0 | - |
+| deterministic_only | 0.6425 | 0.8582 | 0.7348 | 115/64/19/249 | 241 | 0.4609 | 0.0 | deterministic=206 cheap=0 escalated=241 |
 
 **Unverified:** no cheap-model cassette has been recorded yet, so cheap-tier
 accuracy parity and its extra frontier-call reduction are unproven. They need

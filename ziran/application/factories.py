@@ -2,7 +2,7 @@
 
 This module provides framework-agnostic factory functions for creating
 agent adapters and campaign strategies. It is the single source of truth
-for adapter/strategy instantiation, used by both the CLI and web UI.
+for adapter/strategy instantiation, used by the CLI.
 
 All functions raise standard Python exceptions (``ValueError``,
 ``ImportError``, ``FileNotFoundError``) instead of framework-specific
