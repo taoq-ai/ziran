@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-10-04T11:38:28.714010+00:00",
-  "total_vectors": 661,
+  "timestamp": "2026-11-18T07:54:00.833618+00:00",
+  "total_vectors": 669,
   "categories": 11,
   "owasp_coverage_pct": 100.0,
   "owasp_covered": 10,
@@ -25,9 +25,9 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 63,
+          "implemented": 65,
           "target": 1054,
-          "pct": 6.0
+          "pct": 6.2
         }
       ]
     },
@@ -36,9 +36,9 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 63,
+          "implemented": 65,
           "target": 629,
-          "pct": 10.0
+          "pct": 10.3
         },
         {
           "dimension": "Utility measurement (baseline + post-attack)",
@@ -104,9 +104,9 @@
       "metrics": [
         {
           "dimension": "MCP vectors",
-          "implemented": 101,
+          "implemented": 103,
           "target": 1312,
-          "pct": 7.7
+          "pct": 7.9
         }
       ]
     },
@@ -121,7 +121,7 @@
         },
         {
           "dimension": "Total vectors",
-          "implemented": 661,
+          "implemented": 669,
           "target": 400,
           "pct": 100
         },
@@ -194,7 +194,7 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 63,
+          "implemented": 65,
           "target": null,
           "pct": null
         }
@@ -211,7 +211,7 @@
         },
         {
           "dimension": "Total library overlap",
-          "implemented": 661,
+          "implemented": 669,
           "target": null,
           "pct": null
         }
@@ -222,7 +222,7 @@
       "metrics": [
         {
           "dimension": "Tool manipulation vectors",
-          "implemented": 186,
+          "implemented": 188,
           "target": 144,
           "pct": 100
         },
@@ -302,9 +302,9 @@
         },
         {
           "dimension": "ATLAS techniques mapped",
-          "implemented": 72,
-          "target": 86,
-          "pct": 83.7
+          "implemented": 74,
+          "target": 88,
+          "pct": 84.1
         },
         {
           "dimension": "Agent-specific techniques covered",
