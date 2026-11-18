@@ -25,3 +25,7 @@
   calls ("Received message", "Received exception from stream") and clear args and exc_info;
   raw stdio tests for a pretty-printed, truncated and object-id reply; `ziran ci` warns on a
   partial run in the console and step summary; a shared metadata key constant.
+- [x] T016 Fix round 3 (security at 2736594): add the session's four content-quoting calls and
+  two more the sweep found; install the filter on the root logger, where `shared/session.py`
+  logs, and drop the dead `mcp.shared.session` install; raw stdio tests for a form answer sent
+  as a notification and as a request at default and -v; an SDK log-call sweep test.

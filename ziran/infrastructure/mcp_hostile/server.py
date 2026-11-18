@@ -94,11 +94,21 @@ async def send_request(session: Any, vector: AttackVector, timeout: float) -> Mc
     return reply
 
 
-#: The SDK's log calls that quote what the client sent (mcp 1.30 lowlevel server:
-#: ``logger.debug("Received message: %s", ...)`` and
-#: ``logger.error(f"Received exception from stream: {message}")``). The quoted text may be a
-#: late, malformed or off-schema form reply that holds a typed secret.
-_RECEIVE_LOG_CALLS = ("Received message", "Received exception from stream")
+#: The SDK's log calls that quote what the client sent, by their leading text (mcp 1.30):
+#: ``server/lowlevel/server.py`` logs through ``mcp.server.lowlevel.server``, and
+#: ``shared/session.py`` through the root logger. The quoted text may be a late, malformed,
+#: off-schema or misrouted form answer that holds a typed secret. The integration sweep
+#: fails when the SDK gains a log call that is neither listed here nor explained.
+_RECEIVE_LOG_CALLS = (
+    "Received message",
+    "Received exception from stream",
+    "Uncaught exception in notification handler",
+    "Failed to validate request",
+    "Message that failed validation",
+    "Failed to validate notification",
+    "Unhandled exception in receive loop",
+    "Response ID",
+)
 
 
 class _WithholdReceivedContent(logging.Filter):
@@ -119,8 +129,8 @@ class _WithholdReceivedContent(logging.Filter):
 
 
 def _withhold_received_content() -> None:
-    for name in ("mcp.server.lowlevel.server", "mcp.shared.session"):
-        logger = logging.getLogger(name)
+    # A logger's filters see only its own records, so ziran's named loggers are untouched.
+    for logger in (logging.getLogger("mcp.server.lowlevel.server"), logging.getLogger()):
         if not any(isinstance(f, _WithholdReceivedContent) for f in logger.filters):
             logger.addFilter(_WithholdReceivedContent())
 

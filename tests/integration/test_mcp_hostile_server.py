@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -24,8 +25,6 @@ from ziran.interfaces.cli.main import cli
 from ziran.interfaces.cli.reports import ReportGenerator
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from ziran.domain.entities.attack import AttackVector
 
 pytestmark = pytest.mark.integration
@@ -375,13 +374,16 @@ def _object_id(req_id: Any) -> bytes:
     return (json.dumps(reply) + "\n").encode()
 
 
-async def _raw_session(record_dir: Path, log_file: Path, errlog: Path, bad_reply: Any) -> None:
+async def _raw_session(
+    record_dir: Path, log_file: Path, errlog: Path, bad_reply: Any, *flags: str
+) -> None:
     """Drive the CLI with hand-written JSON-RPC lines; answer the form with ``bad_reply``."""
     with errlog.open("wb") as err:
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
             "ziran.interfaces.cli.main",
+            *flags,
             "--log-file",
             str(log_file),
             "mcp-hostile-server",
@@ -479,3 +481,95 @@ def test_the_filter_withholds_args_and_exc_info_of_receive_logs() -> None:
     _WithholdReceivedContent().filter(other)
     assert other.getMessage() == "Processing request of type CallToolRequest"
     assert other.exc_info is exc_info
+
+
+# ── fix round 3 (security at 2736594): answers that are not responses, and the SDK sweep ──
+
+
+def _as_notification(req_id: Any) -> bytes:
+    params = {"action": "accept", "content": {"api_key": _FAKE_KEY}}
+    message = {"jsonrpc": "2.0", "method": "notifications/elicitation/response", "params": params}
+    return (json.dumps(message) + "\n").encode()
+
+
+def _as_request(req_id: Any) -> bytes:
+    params = {"action": "accept", "content": {"api_key": _FAKE_KEY}}
+    message = {"jsonrpc": "2.0", "id": 99, "method": "elicitation/response", "params": params}
+    return (json.dumps(message) + "\n").encode()
+
+
+@pytest.mark.parametrize("flags", [(), ("-v",)], ids=["default", "verbose"])
+@pytest.mark.parametrize("bad_reply", [_as_notification, _as_request])
+async def test_a_form_answer_sent_as_a_message_never_reaches_the_log(
+    tmp_path: Path, bad_reply: Any, flags: tuple[str, ...]
+) -> None:
+    record_dir, log_file, errlog = tmp_path / "record", tmp_path / "ziran.log", tmp_path / "err"
+    await _raw_session(record_dir, log_file, errlog, bad_reply, *flags)
+    stderr, log = errlog.read_text(), log_file.read_text()
+    assert "withheld" in stderr and "withheld" in log  # the answer did reach the SDK's log
+    assert "attack_library_initialized" in log  # ziran's own lines still print
+    for text in (stderr, log, (record_dir / "mcp_hostile_record.json").read_text()):
+        assert _FAKE_KEY not in text
+        assert _FAKE_KEY[-6:] not in text
+
+
+#: Receive-path log calls in the SDK that quote no client content, each with its reason.
+_SDK_LOG_CALLS_WITHOUT_CONTENT = {
+    "Initializing server": "our own server name",
+    "Registering handler for": "a constant",
+    "Tool cache miss for": "the tool name, which the server lists",
+    "Tool '": "a tool name the client chose, not a form answer",
+    "Warning: ": "a Python warning raised while handling, from our code",
+    "Processing request of type": "the request class name",
+    "Dispatching request of type": "the request class name",
+    "Request ": "the request ID of a cancelled request",
+    "Response for ": "the request ID of a dropped response",
+    "Response sent": "a constant",
+    "Dispatching notification of type": "the notification class name",
+    "Progress callback raised an exception": "the server registers no progress callback",
+    "Read stream closed by client": "a constant",
+}
+
+
+def _log_call_templates(path: Path) -> list[tuple[int, str]]:
+    """(line, leading text) of every logging call in an SDK module."""
+    import ast
+
+    levels = {"debug", "info", "warning", "error", "exception", "critical", "log"}
+    calls: list[tuple[int, str]] = []
+    for node in ast.walk(ast.parse(path.read_text())):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in levels
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in {"logging", "logger"}
+        ):
+            continue
+        first = node.args[0] if node.args else None
+        if isinstance(first, ast.Constant):
+            text = str(first.value)
+        elif isinstance(first, ast.JoinedStr) and isinstance(first.values[0], ast.Constant):
+            text = str(first.values[0].value)
+        else:
+            text = ""  # a template we cannot read is never assumed safe
+        calls.append((node.lineno, text))
+    return calls
+
+
+@pytest.mark.parametrize("module", ["shared/session.py", "server/lowlevel/server.py"])
+def test_every_sdk_receive_path_log_call_is_withheld_or_explained(module: str) -> None:
+    import mcp
+
+    from ziran.infrastructure.mcp_hostile.server import _RECEIVE_LOG_CALLS
+
+    path = Path(mcp.__file__).parent / module
+    calls = _log_call_templates(path)
+    assert calls, f"no logging calls found in {path}; the sweep is broken"
+    unknown = [
+        (line, text)
+        for line, text in calls
+        if not text.startswith(_RECEIVE_LOG_CALLS)
+        and not (text and text.startswith(tuple(_SDK_LOG_CALLS_WITHOUT_CONTENT)))
+    ]
+    assert not unknown, f"mcp log calls neither withheld nor explained in {module}: {unknown}"

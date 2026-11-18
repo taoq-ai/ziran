@@ -93,8 +93,8 @@ input, which is why a canary must never appear literally in the request (FR-004)
   Every report format labels a result with unmeasured vectors and no finding `INCOMPLETE`,
   shows the count, and keeps those vectors out of the OWASP and ATLAS tables. The trust score
   is the share of vectors a reply showed safe. `ziran ci` fails a run with nothing measured.
-  The SDK's receive-path log records (a late, malformed or off-schema reply) keep only the
-  kind of message, never its text, args or traceback; a malformed reply is stored as its error
+  The SDK's receive-path log records (a late, malformed, off-schema or misrouted reply) keep
+  only the kind of message, never its text, args or traceback; a malformed reply is stored as its error
   type only. On a partial run `ziran ci` warns with the unmeasured count.
 - **FR-008**: Every vector in the selection gets one `AttackResult` with the vector's OWASP and
   ATLAS mappings, outcome `finding`, `passed` or `unmeasured`. The record keeps every reply
@@ -106,6 +106,32 @@ input, which is why a canary must never appear literally in the request (FR-004)
   Canary payloads are inert: plain strings, no URL, command or file path to act on.
 - **FR-010**: The CLI refuses an unknown vector ID or a selection with no vectors (exit 2) and
   explains a missing `mcp` extra (exit 1).
+
+## SDK log-call sweep (mcp 1.30.0)
+
+Every logging call in `mcp/shared/session.py` (root logger) and `mcp/server/lowlevel/server.py`
+(`mcp.server.lowlevel.server`). The filter sits on both loggers; ziran's own named loggers are
+untouched. `test_every_sdk_receive_path_log_call_is_withheld_or_explained` re-reads the installed
+SDK and fails on a call in neither column, so an SDK upgrade cannot add one silently.
+
+| Module:line | Leading text | Treatment |
+|---|---|---|
+| session.py:383 | `Failed to validate request` | withheld (quotes the request) |
+| session.py:384 | `Message that failed validation` | withheld (quotes the message) |
+| session.py:422 | `Progress callback raised an exception` | explained: the server sets no progress callback |
+| session.py:430 | `Failed to validate notification` | withheld (quotes the notification) |
+| session.py:440 | `Read stream closed by client` | explained: a constant |
+| session.py:444 | `Unhandled exception in receive loop` | withheld (exception text) |
+| session.py:478 | `Response ID` | withheld (a client-chosen ID) |
+| server.py:682 | `Received message` | withheld (quotes the message) |
+| server.py:713 | `Received exception from stream` | withheld (late, malformed or bad-id replies) |
+| server.py:826 | `Uncaught exception in notification handler` | withheld (its traceback) |
+| server.py:162, 269 to 629, 733, 736, 817, 821 | `Initializing server`, `Registering handler for`, `Processing/Dispatching ... of type`, `Response sent` | explained: our names, constants or class names |
+| server.py:489, 494 | `Tool cache miss for`, `Tool '...' not listed` | explained: a tool name, not a form answer |
+| server.py:723 | `Warning:` | explained: a Python warning raised while handling, from our code |
+| server.py:783, 814 | `Request ... cancelled`, `Response for ... dropped` | explained: a request ID |
+
+`server/session.py` and `server/stdio.py` make no logging calls.
 
 ## Out of scope
 
