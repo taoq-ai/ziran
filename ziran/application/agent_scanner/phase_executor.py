@@ -16,6 +16,7 @@ from ziran.application.agent_scanner.progress import (
     ProgressEvent,
     ProgressEventType,
 )
+from ziran.application.attacks.pair import is_pair, queue_pair_last, run_in_phase
 from ziran.application.usage import TARGET_MODEL
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
@@ -170,6 +171,16 @@ class PhaseExecutor:
             if decision.max_attacks is not None:
                 attacks = attacks[: decision.max_attacks]
 
+        attacks, phase_timeout = queue_pair_last(attacks, self._phase_timeout, max_concurrent)
+        if phase_timeout != self._phase_timeout:
+            pair_count = sum(map(is_pair, attacks))
+            logger.info(
+                "phase_timeout_extended",
+                phase=phase.value,
+                pair_vectors=pair_count,
+                timeout_seconds=phase_timeout,
+            )
+
         logger.info(
             "phase_attacks_loaded",
             phase=phase.value,
@@ -228,8 +239,12 @@ class PhaseExecutor:
                         metrics.attack_started(phase.value)
                         started = perf_counter()
                         try:
-                            async with asyncio.timeout(self._attack_timeout):
-                                result = await self._attack_executor.execute(attack)
+                            if is_pair(attack):  # deadline taken here, after the acquire
+                                executor = self._attack_executor.execute
+                                result = await run_in_phase(executor, attack, phase_deadline)
+                            else:
+                                async with asyncio.timeout(self._attack_timeout):
+                                    result = await self._attack_executor.execute(attack)
                         finally:
                             metrics.attack_finished(phase.value)
                         # Refused = agent responded but the attack did not succeed
@@ -313,14 +328,15 @@ class PhaseExecutor:
 
         # Run attacks concurrently with bounded parallelism
         tasks = [_run_attack(idx, atk) for idx, atk in enumerate(attacks)]
+        phase_deadline = asyncio.get_running_loop().time() + phase_timeout
         try:
-            async with asyncio.timeout(self._phase_timeout):
+            async with asyncio.timeout_at(phase_deadline):
                 await asyncio.gather(*tasks)
         except TimeoutError:
             logger.warning(
                 "phase_timed_out",
                 phase=phase.value,
-                timeout_seconds=self._phase_timeout,
+                timeout_seconds=phase_timeout,
             )
 
         # Calculate trust score
