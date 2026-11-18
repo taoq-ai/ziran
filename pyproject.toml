@@ -58,6 +58,9 @@ anthropic = [
 openai-agents = [
     "openai-agents>=0.20,<1",
 ]
+autogen = [
+    "autogen-agentchat>=0.7,<0.8",
+]
 llm = [
     "litellm>=1.95.0,<2",
 ]
@@ -94,7 +97,7 @@ ui = [
     "alembic>=1.13,<2",
 ]
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,openai-agents,llm,pentest,browser,promptfoo,otel,ui,langfuse,mcp]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,openai-agents,autogen,llm,pentest,browser,promptfoo,otel,ui,langfuse,mcp]",
 ]
 
 [project.scripts]
@@ -206,6 +209,8 @@ module = [
     "a2a_sdk.*",
     "anthropic.*",
     "agents.*",
+    "autogen_agentchat.*",
+    "autogen_core.*",
     "boto3.*",
     "botocore.*",
     "litellm.*",
