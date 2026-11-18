@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
+from ziran.domain.replies import NO_CHAT_REPLY
 from ziran.infrastructure.adapters.protocols import ProtocolError
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -344,25 +345,48 @@ class TestMCPHandler:
         h = MCPProtocolHandler(client, _target_config())
         assert await h.health_check() is False
 
-    async def test_send_fallback_no_completion(self) -> None:
-        """When completion/complete and sampling/createMessage both fail."""
+    async def test_send_fallback_no_completion(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A server with no chat method sees only completion/complete, never the
+        server-to-client sampling/createMessage, and the handler warns once."""
         from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler
+
+        methods: list[str] = []
 
         async def _err(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
+            methods.append(body["method"])
+            if body["method"] == "tools/list":
+                tools = {"tools": [{"name": "search", "description": "Search"}]}
+                return httpx.Response(
+                    200, json={"jsonrpc": "2.0", "id": body["id"], "result": tools}
+                )
             return httpx.Response(
                 200,
                 json={
                     "jsonrpc": "2.0",
                     "id": body["id"],
-                    "error": {"code": -32601, "message": "Method not found"},
+                    "error": {"code": -32601, "message": "Method not found\nFAKE log line"},
                 },
             )
 
         client = _mock_client(_err)
-        h = MCPProtocolHandler(client, _target_config())
-        result = await h.send("hello")
-        assert "does not support direct messaging" in result["content"]
+        url = "https://user:pw-secret@mcp.example.com/rpc?api_key=q-secret"
+        h = MCPProtocolHandler(client, _target_config(url))
+        assert [c["name"] for c in await h.discover()] == ["search"]
+        methods.clear()
+        with caplog.at_level("WARNING"):
+            first = await h.send("hello")
+            second = await h.send("again")
+        assert first["content"] == second["content"] == NO_CHAT_REPLY
+        assert methods == ["completion/complete", "completion/complete"]
+        records = [r for r in caplog.records if "no chat prompt" in r.getMessage()]
+        assert len(records) == 1
+        assert isinstance(records[0].args, tuple)
+        assert records[0].args[0] == "mcp.example.com"  # the host field, exactly
+        warnings = [records[0].getMessage()]
+        assert "completion/complete failed: ProtocolError" in warnings[0]
+        for leaked in ("secret", "\n", "FAKE", "Method not found"):
+            assert leaked not in warnings[0]
 
     async def test_jsonrpc_api_error(self) -> None:
         from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler
