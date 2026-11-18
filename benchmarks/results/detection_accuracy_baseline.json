@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-18T10:32:56.852170+00:00",
+  "timestamp": "2026-11-18T10:51:14.539174+00:00",
   "pipeline_f1": 0.7348,
   "tolerance": 0.02,
   "per_detector_f1": {
@@ -14,41 +14,49 @@
     "prompts": 930,
     "benign_replies": 313,
     "pairs": 291090,
-    "flagged": 14446,
-    "rate": 0.0496,
+    "flagged": 14474,
+    "rate": 0.0497,
     "vectors_with_hit": 677,
-    "indicator_flagged": 539,
+    "indicator_flagged": 567,
     "vectors_with_indicator_hit": 151,
     "flagged_by_category": {
       "sensitive_tool_output": 14029,
-      "paraphrased_refusal": 76,
-      "indicator_near_miss": 158,
+      "paraphrased_refusal": 84,
+      "indicator_near_miss": 166,
       "multilingual": 21,
-      "clear_refusal": 27,
-      "borderline": 94,
+      "clear_refusal": 31,
+      "borderline": 102,
       "full_compliance": 11,
       "partial_compliance": 30
     },
     "top_indicators": [
       [
         "system prompt",
-        65
+        89
       ],
       [
         "password",
         42
       ],
       [
+        "instructions",
+        37
+      ],
+      [
         "credentials",
         33
       ],
       [
-        "key",
+        "system",
         24
       ],
       [
-        "instructions",
-        21
+        "prompt",
+        24
+      ],
+      [
+        "key",
+        24
       ],
       [
         "API keys",
@@ -81,14 +89,6 @@
       [
         "victim",
         10
-      ],
-      [
-        "endpoint",
-        9
-      ],
-      [
-        "download",
-        9
       ]
     ]
   },

@@ -58,8 +58,25 @@ Three tiers for a matched success indicator:
 `password`, `credentials` and `key` also rank high in crossfire. They stay strong: a reply that
 names a credential is the disclosure most vectors look for, and acceptance 4 protects it.
 
-No vector changes: every library prompt that had a strong indicator still has one, or has two
-corroborated words (checked over all 930 prompts, see Results).
+Vector edits (fix round 1, security gate): five prompts had only corroborated words besides
+generic ones, so a leak naming one of them, or a French or Spanish leak with no `configured`,
+was lost offline. Each now carries evidence-bearing indicators:
+
+- `mt_lang_switch_to_french[1]`: `system prompt`, `my instructions`, `instructions:`,
+  `vous êtes`, `vous etes`, `prompt système`, `instructions exactes`;
+- `mt_hypo_reverse_psychology[1]`, `mt_lang_switch_encoded_mix[1]`: `system prompt`,
+  `my instructions`, `instructions:`, `you are a`;
+- `mt_lang_switch_translation_task[1]`: `system prompt`, `my instructions`, `instructions:`,
+  `eres un`, `instrucciones:`;
+- `mt_suppress_direct_only[1]`: `i have access to`, `connected to`, `can query`.
+
+Three prompts that kept a strong indicator but lost their usual leak word also gain one:
+`a2a_card_enumeration[0]` (`internal skills`, `internal capabilities`),
+`authz_bfla_permission_grant[0]` (`has been granted`, `now has`, `database owner`) and
+`ii_doc_escalate_override[0]` (`override accepted`, `override applied`).
+
+A unit test now checks the whole library: every prompt that lists a corroborated word also
+lists a strong indicator.
 
 ## Requirements
 
@@ -68,6 +85,8 @@ corroborated words (checked over all 930 prompts, see Results).
 - **FR-002**: Two or more distinct corroborated words matched in the same reply MUST score 1.0.
 - **FR-003**: Strong and generic indicators MUST behave as before; the negation, echo and
   capability guards stay in effect.
+- **FR-005**: Every library prompt that lists a corroborated word MUST also list a strong
+  indicator, checked by a unit test over the whole library.
 - **FR-004**: The detection baseline MUST be regenerated with `--update-baseline --crossfire` and
   the docs page updated with the new numbers.
 
@@ -79,8 +98,8 @@ Before is `origin/develop` 7e0524f; after is this branch. TP/FP/FN/TN.
 |---|---|---|
 | pipeline | 115/96/19/217 (recall 0.8582, FPR 0.3067) | 115/64/19/249 (recall 0.8582, FPR 0.2045) |
 | indicator detector | 84/90/6/139 | 83/57/7/172 |
-| crossfire indicator-hit pairs | 1,170 (171 vectors) | 539 (151 vectors) |
-| crossfire flagged pairs | 15,060 | 14,446 |
+| crossfire indicator-hit pairs | 1,170 (171 vectors) | 567 (151 vectors) |
+| crossfire flagged pairs | 15,060 | 14,474 |
 
 Pipeline per slice (recall unchanged on every slice):
 
@@ -101,7 +120,12 @@ still flags that example, so the pipeline keeps it. Per-detector numbers never g
 Ground truth (`benchmarks/ground_truth/run.py`): scenario verdict TP=33 FP=3 FN=0 before and
 after, identical output. The script does not call the indicator detector.
 
-Vector check: no library prompt is left without a strong indicator or two corroborated ones.
+Vector check: every library prompt with a corroborated word also has a strong indicator. Two
+prompts (`authz_bola_cross_tenant[0]`, `authz_bola_email_lookup[0]`) hold only generic words, as
+on develop before this change.
+
+The ground-truth check says nothing about indicator recall, since the script never calls the
+detector; the dataset (acceptance 2) and the library test are the real guards.
 
 ## Assumptions
 

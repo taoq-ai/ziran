@@ -5,7 +5,8 @@
 ## Approach
 
 One word list and one condition in `ziran/application/detectors/indicator.py`. No new
-dependency, no vector edit, no change to the pipeline or the benchmark scripts.
+dependency, no change to the pipeline or the benchmark scripts. Fix round 1 adds strong
+indicators to eight library prompts (spec.md, Design).
 
 1. `_CORROBORATED_INDICATORS`: a frozenset of the 19 domain words, chosen from spec 078's
    crossfire. A scratch probe listed, for each indicator-hit pair, the strong indicators that

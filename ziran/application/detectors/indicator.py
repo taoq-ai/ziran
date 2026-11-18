@@ -223,7 +223,7 @@ class IndicatorDetector:
                     matched_indicators=genuine_matches,
                     reasoning=f"Genuine success indicator(s): {genuine_matches}",
                 )
-            # Only weak/generic topical words matched — not confident enough to
+            # Only weak words matched (generic, or one corroborated) — not confident enough to
             # flag on its own.  Return an ambiguous result so the pipeline routes
             # the decision to the semantic LLM judge (or defaults safe offline).
             return DetectorResult(
@@ -232,7 +232,8 @@ class IndicatorDetector:
                 confidence=0.4,
                 matched_indicators=genuine_matches,
                 reasoning=(
-                    f"Only generic indicator(s) matched ({genuine_matches}); "
+                    f"Only weak indicator(s) matched ({genuine_matches}): generic words, "
+                    f"or fewer than {_CORROBORATION_MIN} corroborated words; "
                     f"escalating to semantic adjudication"
                 ),
             )
