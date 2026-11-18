@@ -29,4 +29,4 @@ before T002.
 - [x] T006 One paragraph in `docs/reference/benchmarks/detection-accuracy.md` (Regression gate).
 - [x] T007 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`,
       `uv run pytest --cov=ziran`.
-- [ ] T008 Open the draft PR; confirm its own run posts the comment.
+- [x] T008 Open the draft PR; confirm its own run posts the comment.
