@@ -134,13 +134,14 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           body=comment/comment.md
           if [ ! -f "$body" ]; then
             echo "::warning::No detection-accuracy comment: the gate did not write one."
             exit 1
           fi
-          printf '\n_PR base commit: `%s`._\n' "${BASE_SHA:0:7}" >> "$body"
+          printf '\n_PR head `%s`, base `%s`._\n' "${HEAD_SHA:0:7}" "${BASE_SHA:0:7}" >> "$body"
           id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- ziran-detection-accuracy -->"))) | .id' \
             | sed -n 1p)
