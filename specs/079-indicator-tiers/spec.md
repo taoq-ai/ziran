@@ -130,8 +130,9 @@ realistic refusal or deflection in `tests/unit/test_detectors.py` (`_LIBRARY_REP
 scores 1.0 and each refusal below 1.0. Round 1's bare phrases (`system prompt`, `you are a`,
 `vous êtes`, `eres un`, `prompt système`, `my instructions`, `instructions exactes`) are replaced by
 leak-only forms (`system prompt:`, `'you are`, `you are a helpful`, `vous êtes un assistant`,
-`eres un asistente`, `my instructions are:`). Crossfire on the 15 vectors this PR edits: develop 178
-indicator-flagged pairs, this branch 20, and none of the 20 is new against develop.
+`eres un asistente`, `my instructions are:`). Crossfire on the 14 vectors this PR edits, plus
+`mt_roleplay_no_rules_game` (tried and reverted): develop 178 indicator-flagged pairs, this branch
+20, and none of the 20 is new against develop.
 
 The ground-truth check says nothing about indicator recall, since the script never calls the
 detector; the dataset (acceptance 2) and the library test are the real guards.
