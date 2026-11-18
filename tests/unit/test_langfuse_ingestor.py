@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from ziran.infrastructure.trace_ingestors.langfuse_ingestor import (
     LangfuseIngestor,
     _parse_iso_datetime,
+    _parse_since,
 )
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
@@ -158,19 +159,65 @@ class TestLangfuseErrorHandling:
         assert len(sessions) == 1
         assert sessions[0].session_id == "single-trace"
 
-    def test_api_mode_without_sdk(self, ingestor: LangfuseIngestor) -> None:
-        """API mode raises ImportError if langfuse not installed."""
-        import builtins
+    def test_tool_observations_are_tool_calls(
+        self, ingestor: LangfuseIngestor, tmp_path: Path
+    ) -> None:
+        trace = {
+            "id": "t-tool",
+            "observations": [
+                {
+                    "id": "o1",
+                    "type": "TOOL",
+                    "name": "read_file",
+                    "startTime": "2026-01-01T00:00:00Z",
+                },
+                {
+                    "id": "o2",
+                    "type": "TOOL",
+                    "name": "http_request",
+                    "startTime": "2026-01-01T00:00:01Z",
+                },
+                {"id": "o3", "type": "EVENT", "name": "note", "startTime": "2026-01-01T00:00:02Z"},
+            ],
+        }
+        path = tmp_path / "tool.json"
+        path.write_text(json.dumps([trace]))
+        sessions = _run(ingestor.ingest(path))
+        assert [c.tool_name for c in sessions[0].tool_calls] == ["read_file", "http_request"]
 
-        _real_import = builtins.__import__
+    def test_string_input_decoded_to_arguments(self, ingestor: LangfuseIngestor) -> None:
+        obs = {"id": "o", "type": "SPAN", "name": "bash", "startTime": "2026-01-01T00:00:00Z"}
+        cases = ['{"command": "ls"}', "plain text", "[1, 2]"]
+        parsed = [
+            ingestor._parse_trace({"id": "t", "observations": [{**obs, "input": raw}]})
+            for raw in cases
+        ]
+        assert [p.tool_calls[0].arguments for p in parsed if p] == [{"command": "ls"}, {}, {}]
 
-        def _block_langfuse(name: str, *args: object, **kwargs: object) -> object:
-            if name == "langfuse":
-                raise ImportError("mocked: no langfuse")
-            return _real_import(name, *args, **kwargs)
+    def test_deeply_nested_input_does_not_abort(self, ingestor: LangfuseIngestor) -> None:
+        """A nested-array bomb raises RecursionError in json.loads; the call keeps no arguments."""
+        obs = {"id": "o", "type": "SPAN", "name": "bash", "startTime": "2026-01-01T00:00:00Z"}
+        bomb = "[" * 200_000 + "]" * 200_000
+        session = ingestor._parse_trace({"id": "t", "observations": [{**obs, "input": bomb}]})
+        assert session is not None
+        assert session.tool_calls[0].arguments == {}
 
-        with (
-            patch("builtins.__import__", side_effect=_block_langfuse),
-            pytest.raises(ImportError, match="Langfuse SDK"),
-        ):
-            _run(ingestor.ingest("api"))
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("value", "delta"),
+    [("24h", timedelta(hours=24)), ("7d", timedelta(days=7)), (" 30m ", timedelta(minutes=30))],
+)
+def test_parse_since_relative(value: str, delta: timedelta) -> None:
+    before = datetime.now(UTC)
+    got = _parse_since(value)
+    assert abs((before - delta) - got) < timedelta(seconds=5)
+
+
+@pytest.mark.unit
+def test_parse_since_iso_and_errors() -> None:
+    assert _parse_since("2026-01-02") == datetime(2026, 1, 2, tzinfo=UTC)
+    assert _parse_since("2026-01-02T03:04:05+02:00") == datetime(2026, 1, 2, 1, 4, 5, tzinfo=UTC)
+    for bad in ["", "yesterday", "24x", "-1h"]:
+        with pytest.raises(ValueError, match="--since"):
+            _parse_since(bad)

@@ -186,8 +186,9 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
 
     Args:
         framework: Framework name (``langchain``, ``langgraph``, ``crewai``,
-            ``bedrock``, ``agentcore``). For ``langgraph`` the agent file must
-            expose a compiled graph as ``graph``.
+            ``bedrock``, ``agentcore``, ``openai-agents``). For ``langgraph`` the agent
+            file must expose a compiled graph as ``graph``; for ``openai-agents`` an
+            ``agents.Agent`` as ``agent``.
         agent_path: Path to the agent code/config.
 
     Returns:
@@ -219,6 +220,17 @@ def load_agent_adapter(framework: str, agent_path: str) -> Any:
 
         graph = _load_python_object(agent_path, "graph")
         return LangGraphAdapter(graph)
+
+    if framework == "openai-agents":
+        try:
+            from ziran.infrastructure.adapters.openai_agents_adapter import OpenAIAgentsAdapter
+        except ImportError as e:
+            raise ImportError(
+                f"openai-agents not installed. Run: uv sync --extra openai-agents\n{e}"
+            ) from e
+
+        agent = _load_python_object(agent_path, "agent")
+        return OpenAIAgentsAdapter(agent)
 
     if framework == "crewai":
         try:

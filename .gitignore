@@ -75,6 +75,7 @@ reports/
 ziran_results/
 ziran-results.sarif
 .ziran/scan_cache/
+.ziran/trace_cache/
 .claude/
 
 # Web UI
