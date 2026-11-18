@@ -25,4 +25,4 @@ run red before T004.
 - [x] T007 One line in `docs/guides/remote-agents.md`.
 - [x] T008 `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy ziran/`, the
       touched test files under `timeout 120`; the full suite and coverage come from CI.
-- [ ] T009 Open the draft PR to `develop`.
+- [x] T009 Open the draft PR to `develop`.
