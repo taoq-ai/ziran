@@ -1,5 +1,10 @@
 name: Benchmark Coverage
 
+# Spec 080: on PRs the benchmark job writes one markdown comment to a file (never
+# captured stdout, which carries log lines) and a separate job edits one sticky
+# comment, so the token that can write PR comments never sits in the job that runs
+# PR code. The pattern is the one detection-accuracy.yml uses (spec 077).
+
 on:
   push:
     branches: [main, develop]
@@ -7,16 +12,17 @@ on:
       - "ziran/application/attacks/vectors/**"
       - "ziran/domain/entities/attack.py"
       - "benchmarks/**"
+      - ".github/workflows/benchmark.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "ziran/application/attacks/vectors/**"
       - "ziran/domain/entities/attack.py"
       - "benchmarks/**"
+      - ".github/workflows/benchmark.yml"
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   benchmark:
@@ -39,17 +45,6 @@ jobs:
       - name: Run benchmark generation
         run: uv run python benchmarks/generate_all.py
 
-      - name: Run benchmark regression check
-        run: uv run python benchmarks/regression_check.py
-
-      - name: Upload benchmark results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: benchmark-results
-          path: benchmarks/results/
-          retention-days: 90
-
       - name: Check out PR base for the coverage delta
         id: base_checkout
         if: github.event_name == 'pull_request'
@@ -68,19 +63,81 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/_bench_base
         run: uv run python _bench_base/benchmarks/regression_check.py --update-baseline
 
-      - name: Post benchmark summary as PR comment
-        if: github.event_name == 'pull_request'
+      # On a PR this also writes the comment file, before a regression fails the step.
+      - name: Run benchmark regression check
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
           BASE_OK: ${{ steps.base_metrics.outcome == 'success' }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          DELTA_ARGS=()
-          if [ "$BASE_OK" = "true" ]; then
-            DELTA_ARGS=(--delta-baseline _bench_base/benchmarks/results/baseline.json)
-            NOTE="_Changes are relative to the PR base \`${BASE_SHA:0:7}\`; the regression gate uses \`benchmarks/results/baseline.json\`._"
-          else
-            NOTE=":warning: Could not collect PR base metrics (see the \"Collect PR base benchmark metrics\" step); Changes are relative to the committed \`benchmarks/results/baseline.json\`."
+          args=()
+          if [ "$IS_PR" = "true" ]; then
+            args+=(--comment "$RUNNER_TEMP/benchmark-comment/comment.md")
+            if [ "$BASE_OK" = "true" ]; then
+              args+=(--delta-baseline _bench_base/benchmarks/results/baseline.json)
+            fi
           fi
-          SUMMARY=$(uv run python benchmarks/regression_check.py --format markdown "${DELTA_ARGS[@]}" 2>/dev/null || echo "Benchmark check failed")
-          gh pr comment ${{ github.event.pull_request.number }} --body "$SUMMARY"$'\n\n'"$NOTE" || true
+          uv run python benchmarks/regression_check.py "${args[@]}"
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-results
+          path: benchmarks/results/
+          retention-days: 90
+
+      - name: Upload the PR comment
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-coverage-comment
+          path: ${{ runner.temp }}/benchmark-comment/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # Reporting only: every step may fail (a fork PR's token is read-only) without
+  # changing the benchmark job's result. A Dependabot PR may get the write scope
+  # requested here; the comment is markdown the benchmark job wrote, and nothing
+  # else is written.
+  benchmark-comment:
+    needs: benchmark
+    concurrency:
+      group: benchmark-comment-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download the PR comment
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: benchmark-coverage-comment
+          path: comment
+
+      - name: Post or update the Benchmark Coverage comment
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          body=comment/comment.md
+          if [ ! -f "$body" ]; then
+            echo "::warning::No Benchmark Coverage comment: the benchmark job did not write one."
+            exit 1
+          fi
+          # shellcheck disable=SC2016 # the backticks are markdown, not command substitution
+          printf '\n_PR head `%s`, base `%s`._\n' "${HEAD_SHA:0:7}" "${BASE_SHA:0:7}" >> "$body"
+          id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- ziran-benchmark-coverage -->"))) | .id' \
+            | sed -n 1p)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$body" > /dev/null
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@"$body" > /dev/null
+          fi

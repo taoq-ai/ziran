@@ -8,6 +8,7 @@ Usage:
     uv run python benchmarks/regression_check.py --format markdown
     uv run python benchmarks/regression_check.py --update-baseline
     uv run python benchmarks/regression_check.py --format markdown --delta-baseline base.json
+    uv run python benchmarks/regression_check.py --comment c.md --delta-baseline base.json
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from benchmarks.owasp_coverage import collect_owasp_coverage
 
 BASELINE_PATH = Path(__file__).parent / "results" / "baseline.json"
 RESULTS_DIR = Path(__file__).parent / "results"
+COMMENT_MARKER = "<!-- ziran-benchmark-coverage -->"
 
 
 def _collect_current_metrics() -> dict:
@@ -182,6 +184,25 @@ def _format_markdown(current: dict, baseline: dict | None, delta_base: dict | No
     return "\n".join(lines)
 
 
+def _write_comment(
+    path: Path, current: dict, baseline: dict | None, delta_base: dict | None
+) -> None:
+    """Write the PR comment to a file, so it never picks up log lines printed to stdout."""
+    if delta_base is not None:
+        note = (
+            "_Changes are relative to the PR base; the regression gate uses "
+            "`benchmarks/results/baseline.json`._"
+        )
+    else:
+        note = (
+            ':warning: _Could not collect PR base metrics (see the "Collect PR base benchmark '
+            'metrics" step); Changes are relative to `benchmarks/results/baseline.json`._'
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = _format_markdown(current, baseline, delta_base)
+    path.write_text(f"{COMMENT_MARKER}\n{body}\n\n{note}\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark regression check")
     parser.add_argument(
@@ -205,6 +226,13 @@ def main() -> None:
             "Changes delta against; the regression gate still uses results/baseline.json"
         ),
     )
+    parser.add_argument(
+        "--comment",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Also write the markdown PR comment, behind its marker line, to PATH",
+    )
     args = parser.parse_args()
 
     current = _collect_current_metrics()
@@ -222,6 +250,9 @@ def main() -> None:
             delta_base = json.loads(args.delta_baseline.read_text())
         except (OSError, json.JSONDecodeError) as exc:
             parser.error(f"cannot read --delta-baseline {args.delta_baseline}: {exc}")
+
+    if args.comment is not None:
+        _write_comment(args.comment, current, baseline, delta_base)
 
     if args.format == "markdown":
         print(_format_markdown(current, baseline, delta_base))
