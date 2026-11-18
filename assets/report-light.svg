@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" role="img" aria-label="ZIRAN HTML campaign report mock-up: header with target metadata, four severity counters (3 critical, 7 high, 12 medium, 28 low), a findings table on the left listing the top tool-chain vulnerabilities, and a live knowledge graph on the right with the critical data-exfiltration path read_file to http_request highlighted." preserveAspectRatio="xMidYMid meet">
+  <title>ZIRAN HTML Campaign Report</title>
+  <desc>Animated mock-up of a ZIRAN HTML report. The header strip shows the campaign target, phase count, vector count, and timestamp. A counter row lists 3 critical, 7 high, 12 medium, and 28 low findings — the critical count gently pulses to indicate live updates. The left pane is a findings table where rows fade in sequentially: read_file to http_request flagged as critical data exfiltration, sql_query to exec_code flagged as critical SQL-to-RCE, and additional high and medium findings. The right pane is a live knowledge graph showing the agent and its tools, with a pulsing red edge tracing the critical data-exfiltration path. Keywords: HTML report, security findings, severity counters, knowledge graph, attack path, tool chain.</desc>
+
+  <rect width="1200" height="500" fill="#f8fafc" rx="16"/>
+  <rect x="0.5" y="0.5" width="1199" height="499" fill="none" stroke="#e2e8f0" rx="16"/>
+
+  <!-- HEADER STRIP -->
+  <rect x="0" y="0" width="1200" height="60" fill="#0f172a" rx="16"/>
+  <rect x="0" y="44" width="1200" height="16" fill="#0f172a"/>
+  <text x="40" y="38" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="18" font-weight="700">📊  ZIRAN Campaign Report</text>
+  <text x="600" y="38" text-anchor="middle" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">target: my-agent  ·  8 phases  ·  42 vectors  ·  2026-05-02 14:32 UTC</text>
+  <text x="1160" y="38" text-anchor="end" fill="#64748b" font-family="ui-monospace, SFMono-Regular, monospace" font-size="11">v0.30.0</text>
+
+  <!-- COUNTER ROW -->
+  <g transform="translate(40, 78)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect x="0" y="0" width="270" height="80" rx="12" fill="#ffffff" stroke="#dc2626" stroke-width="1.5">
+      <animate attributeName="stroke-width" values="1.5;3;1.5" dur="2s" repeatCount="indefinite"/>
+    </rect>
+    <text x="20" y="50" fill="#dc2626" font-size="42" font-weight="800">3</text>
+    <text x="20" y="68" fill="#7f1d1d" font-size="11" font-weight="700" letter-spacing="2">CRITICAL</text>
+    <circle cx="246" cy="20" r="6" fill="#dc2626">
+      <animate attributeName="opacity" values="0.4;1;0.4" dur="1.4s" repeatCount="indefinite"/>
+    </circle>
+
+    <rect x="290" y="0" width="270" height="80" rx="12" fill="#ffffff" stroke="#d97706" stroke-width="1.5"/>
+    <text x="310" y="50" fill="#d97706" font-size="42" font-weight="800">7</text>
+    <text x="310" y="68" fill="#78350f" font-size="11" font-weight="700" letter-spacing="2">HIGH</text>
+
+    <rect x="580" y="0" width="270" height="80" rx="12" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+    <text x="600" y="50" fill="#0284c7" font-size="42" font-weight="800">12</text>
+    <text x="600" y="68" fill="#0c4a6e" font-size="11" font-weight="700" letter-spacing="2">MEDIUM</text>
+
+    <rect x="870" y="0" width="270" height="80" rx="12" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+    <text x="890" y="50" fill="#059669" font-size="42" font-weight="800">28</text>
+    <text x="890" y="68" fill="#065f46" font-size="11" font-weight="700" letter-spacing="2">LOW</text>
+  </g>
+
+  <!-- FINDINGS TABLE -->
+  <g transform="translate(40, 180)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="720" height="280" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+    <text x="20" y="28" fill="#0f172a" font-size="13" font-weight="700">Findings  <tspan fill="#94a3b8" font-weight="400">(top 5 of 50)</tspan></text>
+
+    <rect x="12" y="42" width="696" height="26" rx="6" fill="#f1f5f9"/>
+    <text x="28"  y="59" fill="#64748b" font-size="9" font-weight="700" letter-spacing="1.5">SEVERITY</text>
+    <text x="120" y="59" fill="#64748b" font-size="9" font-weight="700" letter-spacing="1.5">TYPE</text>
+    <text x="280" y="59" fill="#64748b" font-size="9" font-weight="700" letter-spacing="1.5">TOOLS</text>
+    <text x="500" y="59" fill="#64748b" font-size="9" font-weight="700" letter-spacing="1.5">DESCRIPTION</text>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.04;0.10;1" dur="6s" repeatCount="indefinite"/>
+      <rect x="12" y="76" width="696" height="34" rx="6" fill="#fef2f2" stroke="#fecaca" stroke-width="1"/>
+      <rect x="24" y="84" width="62" height="18" rx="3" fill="#dc2626"/>
+      <text x="55" y="97" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">CRITICAL</text>
+      <text x="120" y="98" fill="#7f1d1d" font-size="11">data_exfiltration</text>
+      <text x="280" y="98" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">read_file → http_request</text>
+      <text x="500" y="98" fill="#64748b" font-size="10">file contents sent to external server</text>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.14;0.20;1" dur="6s" repeatCount="indefinite"/>
+      <rect x="12" y="118" width="696" height="34" rx="6" fill="#fef2f2" stroke="#fecaca" stroke-width="1"/>
+      <rect x="24" y="126" width="62" height="18" rx="3" fill="#dc2626"/>
+      <text x="55" y="139" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">CRITICAL</text>
+      <text x="120" y="140" fill="#7f1d1d" font-size="11">sql_to_rce</text>
+      <text x="280" y="140" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">sql_query → exec_code</text>
+      <text x="500" y="140" fill="#64748b" font-size="10">SQL results executed as code</text>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.24;0.30;1" dur="6s" repeatCount="indefinite"/>
+      <rect x="12" y="160" width="696" height="34" rx="6" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+      <rect x="24" y="168" width="42" height="18" rx="3" fill="#d97706"/>
+      <text x="45" y="181" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">HIGH</text>
+      <text x="120" y="182" fill="#78350f" font-size="11">pii_leakage</text>
+      <text x="280" y="182" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">get_user_info → external_api</text>
+      <text x="500" y="182" fill="#64748b" font-size="10">user PII to third-party API</text>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.34;0.40;1" dur="6s" repeatCount="indefinite"/>
+      <rect x="12" y="202" width="696" height="34" rx="6" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+      <rect x="24" y="210" width="42" height="18" rx="3" fill="#d97706"/>
+      <text x="45" y="223" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">HIGH</text>
+      <text x="120" y="224" fill="#78350f" font-size="11">prompt_injection</text>
+      <text x="280" y="224" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">memory + system_prompt</text>
+      <text x="500" y="224" fill="#64748b" font-size="10">system prompt extracted via memory</text>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.44;0.50;1" dur="6s" repeatCount="indefinite"/>
+      <rect x="12" y="244" width="696" height="34" rx="6" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1"/>
+      <rect x="24" y="252" width="58" height="18" rx="3" fill="#0284c7"/>
+      <text x="53" y="265" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">MEDIUM</text>
+      <text x="120" y="266" fill="#0c4a6e" font-size="11">trust_boundary</text>
+      <text x="280" y="266" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10">peer_message accepted</text>
+      <text x="500" y="266" fill="#64748b" font-size="10">no validation across multi-agent peers</text>
+    </g>
+  </g>
+
+  <!-- KG VISUALIZATION -->
+  <g transform="translate(780, 180)" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+    <rect width="380" height="280" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+    <text x="20" y="28" fill="#0f172a" font-size="13" font-weight="700">Knowledge Graph  <tspan fill="#059669" font-size="10">● live</tspan></text>
+
+    <g>
+      <circle cx="190" cy="64" r="22" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+      <text x="190" y="68" text-anchor="middle" fill="#0284c7" font-family="ui-monospace, SFMono-Regular, monospace" font-size="10" font-weight="700">agent</text>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.10;0.20;1" dur="6s" repeatCount="indefinite"/>
+      <line x1="172" y1="80" x2="80"  y2="124" stroke="#cbd5e1" stroke-width="1.5"/>
+      <line x1="180" y1="86" x2="140" y2="124" stroke="#cbd5e1" stroke-width="1.5"/>
+      <line x1="200" y1="86" x2="240" y2="124" stroke="#cbd5e1" stroke-width="1.5"/>
+      <line x1="208" y1="80" x2="300" y2="124" stroke="#cbd5e1" stroke-width="1.5"/>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.12;0.22;1" dur="6s" repeatCount="indefinite"/>
+      <circle cx="80"  cy="140" r="22" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="80"  y="144" text-anchor="middle" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9">read_file</text>
+      <circle cx="140" cy="140" r="22" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="140" y="144" text-anchor="middle" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9">http_req</text>
+      <circle cx="240" cy="140" r="22" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="240" y="144" text-anchor="middle" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9">sql_query</text>
+      <circle cx="300" cy="140" r="22" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="300" y="144" text-anchor="middle" fill="#334155" font-family="ui-monospace, SFMono-Regular, monospace" font-size="9">exec_code</text>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.30;0.40;1" dur="6s" repeatCount="indefinite"/>
+      <line x1="102" y1="140" x2="118" y2="140" stroke="#dc2626" stroke-width="3"/>
+      <polygon points="120,140 112,136 112,144" fill="#dc2626"/>
+    </g>
+    <circle cy="140" r="3.5" fill="#dc2626" opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.30;0.40;1" dur="6s" repeatCount="indefinite"/>
+      <animate attributeName="cx" values="102;118;102" dur="1.4s" repeatCount="indefinite"/>
+    </circle>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.42;0.50;1" dur="6s" repeatCount="indefinite"/>
+      <line x1="262" y1="140" x2="278" y2="140" stroke="#d97706" stroke-width="3"/>
+      <polygon points="280,140 272,136 272,144" fill="#d97706"/>
+    </g>
+    <circle cy="140" r="3.5" fill="#d97706" opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.42;0.50;1" dur="6s" repeatCount="indefinite"/>
+      <animate attributeName="cx" values="262;278;262" dur="1.4s" repeatCount="indefinite"/>
+    </circle>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.50;0.60;1" dur="6s" repeatCount="indefinite"/>
+      <rect x="50" y="178" width="120" height="22" rx="4" fill="#dc2626"/>
+      <text x="110" y="192" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">⚠ data_exfil</text>
+      <rect x="210" y="178" width="120" height="22" rx="4" fill="#d97706"/>
+      <text x="270" y="192" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">⚠ sql_to_rce</text>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.60;0.70;1" dur="6s" repeatCount="indefinite"/>
+      <line x1="20" y1="220" x2="360" y2="220" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="20" y="244" fill="#64748b" font-size="10">interactive: click a node to highlight its</text>
+      <text x="20" y="258" fill="#64748b" font-size="10">attack paths and remediation guidance</text>
+      <rect x="240" y="232" width="120" height="28" rx="6" fill="#f0fdf4" stroke="#059669"/>
+      <text x="300" y="250" text-anchor="middle" fill="#059669" font-size="11" font-weight="700">view full report →</text>
+    </g>
+  </g>
+
+  <text x="600" y="486" text-anchor="middle" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-style="italic">HTML  ·  Markdown  ·  JSON  ·  SARIF  —  generated to ./reports/campaign_2026-05-02T14-32_report.html</text>
+</svg>

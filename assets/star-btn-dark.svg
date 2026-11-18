@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 36" role="img" aria-labelledby="star-title" preserveAspectRatio="xMidYMid meet">
+  <title id="star-title">Star ZIRAN on GitHub</title>
+
+  <!-- button body -->
+  <rect x="0.5" y="0.5" width="159" height="35" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+
+  <!-- subtle hover shimmer overlay -->
+  <rect x="0.5" y="0.5" width="159" height="35" rx="8" fill="#fbbf24" opacity="0">
+    <animate attributeName="opacity" values="0;0.08;0" dur="3s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- star icon (fills yellow on a loop) -->
+  <g transform="translate(14, 6)">
+    <path d="M 12 0 L 14.7 8.3 L 23.4 8.3 L 16.4 13.4 L 19.1 21.7 L 12 16.6 L 4.9 21.7 L 7.6 13.4 L 0.6 8.3 L 9.3 8.3 Z"
+          fill="#475569" stroke="#fbbf24" stroke-width="1" stroke-linejoin="round">
+      <animate attributeName="fill"
+               values="#475569;#fbbf24;#fbbf24;#fbbf24;#475569"
+               keyTimes="0;0.25;0.5;0.75;1"
+               dur="3s" repeatCount="indefinite"/>
+    </path>
+    <!-- twinkle sparkle (top-right of star) -->
+    <circle cx="22" cy="2" r="1.2" fill="#fbbf24" opacity="0">
+      <animate attributeName="opacity" values="0;1;0" keyTimes="0;0.3;0.6" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="r" values="0.5;1.6;0.5" keyTimes="0;0.3;0.6" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- label -->
+  <text x="48" y="23" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Star on GitHub</text>
+</svg>
