@@ -81,7 +81,10 @@ and never run the detector pipeline, so a detector change cannot move them.
 
 - **FR-001**: The relevance filter in `.github/workflows/detection-accuracy.yml` also matches
   `ziran/application/attacks/vectors/`, `ziran/domain/entities/attack.py` and the workflow file
-  itself.
+  itself. Fix round 1 adds the modules the detectors import that can move the scored numbers:
+  `ziran/domain/tool_classifier.py`, `ziran/domain/entities/detection.py`,
+  `ziran/domain/interfaces/adapter.py`, `ziran/infrastructure/config/detectors.py`,
+  `ziran/infrastructure/llm/base.py`, plus `pyproject.toml` and `uv.lock`.
 - **FR-002**: On `pull_request`, the workflow extracts the base SHA with `git archive` into the
   runner temp folder and runs that tree's `benchmarks/detection_accuracy.py` on the head dataset,
   with `PYTHONPATH` pointing at the base tree. The step is `continue-on-error`.
@@ -125,9 +128,10 @@ diff.
 
 ## Assumptions
 
-- No comment on PRs the relevance filter skips: they cannot change detection accuracy, and the
-  skipped job reports success as today. Overturned if the owner wants a "no effect" comment on
-  every PR.
+- No comment on PRs the relevance filter skips, and the skipped job reports success as today.
+  The filter is a list of known paths, not an import trace: a change to a module the detectors
+  import that is not on the list would still skip. Overturned if the owner wants the gate on every
+  PR, at about two benchmark runs per PR.
 - The workflow file joins the relevance filter so a change to the workflow exercises itself.
   Overturned if the extra run on workflow-only PRs is unwanted.
 - The comment lives in a separate job so the token that can write PR comments never sits in the

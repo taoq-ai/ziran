@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
 
 import pytest
+import yaml
 
 from benchmarks import detection_regression
 from benchmarks.detection_accuracy import (
@@ -14,6 +19,7 @@ from benchmarks.detection_accuracy import (
     _metrics,
 )
 from benchmarks.detection_regression import (
+    BASELINE_PATH,
     COMMENT_MARKER,
     PIPELINE,
     DetectionAccuracyBaseline,
@@ -21,9 +27,6 @@ from benchmarks.detection_regression import (
     render_comment,
     result_snapshots,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 pytestmark = pytest.mark.unit
 
@@ -100,7 +103,14 @@ def test_baseline_records_new_fields() -> None:
 def test_comment_shows_head_base_and_deltas() -> None:
     head = result_snapshots(_result((77, 0, 1, 150), refusal=(52, 13, 0, 51)))
     base = result_snapshots(_result(BASE_PIPELINE))
-    text = render_comment(head, base, ["pipeline recall 0.9872 is below"], base_note="note")
+    text = render_comment(
+        head,
+        base,
+        ["pipeline recall 0.9872 is below"],
+        base_note="note",
+        head_size=228,
+        base_size=228,
+    )
     assert text.startswith(COMMENT_MARKER)
     assert "**Gate: FAIL**" in text
     assert "| refusal | 52/13/0/51 (base 52/12/0/52) |" in text
@@ -112,10 +122,10 @@ def test_comment_shows_head_base_and_deltas() -> None:
 
 def test_comment_marks_unchanged_and_missing_base() -> None:
     head = result_snapshots(_result(BASE_PIPELINE))
-    text = render_comment(head, {}, [], base_note="")
+    text = render_comment(head, {}, [], base_note="", head_size=228, base_size=None)
     assert "**Gate: pass**" in text
     assert "(base n/a)" in text
-    same = render_comment(head, head, [], base_note="")
+    same = render_comment(head, head, [], base_note="", head_size=228, base_size=228)
     assert "| refusal | 52/12/0/52 (=) | 0.8125 (=) |" in same
 
 
@@ -131,7 +141,7 @@ def test_unreadable_base_result_falls_back_to_baseline(
     argv = ["--baseline", str(baseline), "--base-result", str(bad), "--comment", str(comment)]
     assert detection_regression.main(argv) == 0
     text = comment.read_text(encoding="utf-8")
-    assert "committed baseline" in text
+    assert "baseline file in this PR" in text
     assert "(=)" in text
 
 
@@ -149,3 +159,46 @@ def test_base_result_feeds_comment_and_gate_still_fails(
     text = comment.read_text(encoding="utf-8")
     assert "PR base code" in text
     assert "pipeline recall" in text
+
+
+def test_committed_baseline_records_recall_and_fpr() -> None:
+    """An old-format committed baseline would silently turn the recall and FPR rules off."""
+    b = DetectionAccuracyBaseline.model_validate_json(BASELINE_PATH.read_text(encoding="utf-8"))
+    assert b.pipeline is not None
+    assert b.per_detector
+
+
+def test_comment_shows_dataset_sizes_and_warns_when_they_differ() -> None:
+    head = result_snapshots(_result(BASE_PIPELINE))
+    same = render_comment(head, head, [], base_note="", head_size=228, base_size=228)
+    assert "Examples scored: head 228, base 228." in same
+    assert ":warning:" not in same
+    diff = render_comment(head, head, [], base_note="", head_size=447, base_size=228)
+    assert "Examples scored: head 447, base 228." in diff
+    assert ":warning:" in diff
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq not installed")
+def test_comment_selector_edits_only_the_bot_marker_comment() -> None:
+    """The workflow's jq filter must skip a user's comment that copies the marker."""
+    workflow = Path(__file__).parents[2] / ".github" / "workflows" / "detection-accuracy.yml"
+    steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"][
+        "detection-accuracy-comment"
+    ]["steps"]
+    script = next(s["run"] for s in steps if "run" in s)
+    match = re.search(r"--jq '([^']+)'", script)
+    assert match is not None
+    comments = [
+        {"id": 111, "user": {"login": "someone"}, "body": f"{COMMENT_MARKER} forged"},
+        {"id": 222, "user": {"login": "github-actions[bot]"}, "body": "Benchmark report"},
+        {"id": 333, "user": {"login": "github-actions[bot]"}, "body": f"{COMMENT_MARKER}\nreal"},
+    ]
+    out = subprocess.run(
+        ["jq", match.group(1)],
+        input=json.dumps(comments),
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    )
+    assert out.stdout.split() == ["333"]

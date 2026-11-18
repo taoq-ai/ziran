@@ -47,7 +47,16 @@ jobs:
           if ! files=$(git diff --name-only "$range" 2>/dev/null); then
             echo "relevant=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          if echo "$files" | grep -qE '^(ziran/application/detectors/|ziran/application/attacks/vectors/|ziran/domain/entities/attack\.py|benchmarks/(detection_accuracy|detection_regression|replay_llm_client)\.py|benchmarks/ground_truth/(schema\.py|detection/)|\.ziran/detectors\.yaml|benchmarks/results/detection_accuracy_baseline\.json|\.github/workflows/detection-accuracy\.yml)'; then
+          # Detector code and what it imports (tool classifier, result entities, the
+          # threshold loader, the LLM client base), the dataset, and the dependency set.
+          pattern='^(ziran/application/detectors/|ziran/application/attacks/vectors/'
+          pattern+='|ziran/domain/(entities/(attack|detection)\.py|tool_classifier\.py|interfaces/adapter\.py)'
+          pattern+='|ziran/infrastructure/(config/detectors|llm/base)\.py'
+          pattern+='|benchmarks/(detection_accuracy|detection_regression|replay_llm_client)\.py'
+          pattern+='|benchmarks/ground_truth/(schema\.py|detection/)|\.ziran/detectors\.yaml'
+          pattern+='|benchmarks/results/detection_accuracy_baseline\.json'
+          pattern+='|\.github/workflows/detection-accuracy\.yml|pyproject\.toml|uv\.lock)'
+          if echo "$files" | grep -qE "$pattern"; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
@@ -100,6 +109,7 @@ jobs:
 
       - name: Upload the PR comment
         if: always() && steps.changed.outputs.relevant == 'true' && github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: detection-accuracy-comment
@@ -111,10 +121,14 @@ jobs:
         if: steps.changed.outputs.relevant != 'true'
         run: echo "No detector/dataset/threshold changes — gate skipped, reporting success."
 
-  # Reporting only: every step may fail (fork or dependabot tokens are read-only)
-  # without changing the gate's result.
+  # Reporting only: every step may fail (a fork PR's token is read-only) without
+  # changing the gate's result. A Dependabot PR may get the write scope requested
+  # here; the comment is markdown the gate job wrote, and nothing else is written.
   detection-accuracy-comment:
     needs: detection-accuracy-gate
+    concurrency:
+      group: detection-accuracy-comment-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     if: always() && github.event_name == 'pull_request' && needs.detection-accuracy-gate.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     permissions:

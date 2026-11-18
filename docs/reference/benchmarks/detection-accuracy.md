@@ -179,12 +179,13 @@ or threshold config** — it detects this inside the job and otherwise reports
 success, so the check can be a required status without deadlocking branch
 protection on unrelated PRs.
 
-On a PR that touches those paths, or attack vectors and `attack.py`, the workflow
-also scores the PR base commit's code on the PR's dataset and posts one comment
-with TP/FP/FN/TN, precision, recall, F1 and FPR per detector and for the
-pipeline, head against base. Each push edits that comment. The comment is posted
-from a separate job, and a failure to post (fork or dependabot tokens are
-read-only) never changes the gate's result.
+On a PR that touches those paths, attack vectors, `attack.py`, the modules the
+detectors import, or the dependency set, the workflow also scores the PR base
+commit's code on the PR's dataset. It posts one comment with TP/FP/FN/TN,
+precision, recall, F1 and FPR per detector and for the pipeline, head against
+base, and the number of examples each side scored. Each push edits that comment.
+The comment is posted from a separate job, and a failure to post (a fork PR's
+token is read-only) never changes the gate's result.
 
 ## Re-recording judge verdicts
 

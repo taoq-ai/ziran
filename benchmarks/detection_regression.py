@@ -23,7 +23,7 @@ import argparse
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from benchmarks.detection_accuracy import (
     DATASET_DIR,
@@ -133,6 +133,8 @@ def render_comment(
     failures: list[str],
     *,
     base_note: str,
+    head_size: int,
+    base_size: int | None,
 ) -> str:
     """Markdown PR comment: head vs base per detector and for the pipeline."""
     lines = [COMMENT_MARKER, "### Detection accuracy: head vs base", ""]
@@ -160,9 +162,17 @@ def render_comment(
         "",
         "Each cell is the PR head; `(=)` means the base is the same.",
         base_note,
-        "Gate (against `benchmarks/results/detection_accuracy_baseline.json`): fails on any "
-        "pipeline recall drop, any pipeline FPR rise, or a pipeline F1 drop over the tolerance.",
+        f"Examples scored: head {head_size}, base {base_size if base_size is not None else 'n/a'}.",
     ]
+    if base_size is not None and base_size != head_size:
+        lines.append(
+            ":warning: Head and base scored different example counts, so the deltas mix "
+            "dataset and detector changes."
+        )
+    lines.append(
+        "Gate (against `benchmarks/results/detection_accuracy_baseline.json`): fails on any "
+        "pipeline recall drop, any pipeline FPR rise, or a pipeline F1 drop over the tolerance."
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -237,21 +247,32 @@ def _write_comment(
     failures: list[str],
 ) -> None:
     base, note = baseline.snapshots(), ""
+    base_size: int | None = baseline.dataset_size
     if base_result is not None:
         try:
             raw = base_result.read_text(encoding="utf-8")
-            base = result_snapshots(DetectorAccuracyResult.model_validate_json(raw))
+            base_run = DetectorAccuracyResult.model_validate_json(raw)
+            base, base_size = result_snapshots(base_run), base_run.dataset_size
             note = "_Base: the PR base code scored on this PR's dataset._"
-        except (OSError, ValidationError) as exc:
+        # ValueError covers ValidationError and UnicodeDecodeError.
+        except (OSError, ValueError) as exc:
             print(f"warning: cannot read --base-result {base_result}: {exc}")
     if not note:
         note = (
-            ":warning: _Base: the committed baseline file; the PR base run was unavailable "
+            ":warning: _Base: the baseline file in this PR's tree; the PR base run was unavailable "
             '(see the "Score the PR base" step)._'
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        render_comment(result_snapshots(result), base, failures, base_note=note), encoding="utf-8"
+        render_comment(
+            result_snapshots(result),
+            base,
+            failures,
+            base_note=note,
+            head_size=result.dataset_size,
+            base_size=base_size,
+        ),
+        encoding="utf-8",
     )
 
 
