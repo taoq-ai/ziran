@@ -1,0 +1,75 @@
+{
+  "max_iterations": 50,
+  "static_vector_tokens": 589,
+  "graded_quality_signal": {
+    "runs": 50,
+    "successes": 50,
+    "iterations_to_success": {
+      "median": 13.0,
+      "min": 4,
+      "max": 37
+    },
+    "tokens_per_vector": {
+      "mean": 11906,
+      "max": 29398,
+      "mean_by_stage": {
+        "strategy": 2171,
+        "target": 635,
+        "judge": 9099
+      }
+    },
+    "tokens_per_iteration_by_stage": {
+      "strategy": 140,
+      "target": 41,
+      "judge": 589
+    },
+    "mean_tokens_per_iteration": 770
+  },
+  "binary_verdict_signal": {
+    "runs": 50,
+    "successes": 40,
+    "iterations_to_success": {
+      "median": 15.0,
+      "min": 4,
+      "max": 49
+    },
+    "tokens_per_vector": {
+      "mean": 19738,
+      "max": 38147,
+      "mean_by_stage": {
+        "strategy": 3387,
+        "target": 1004,
+        "judge": 15347
+      }
+    },
+    "tokens_per_iteration_by_stage": {
+      "strategy": 129,
+      "target": 38,
+      "judge": 585
+    },
+    "mean_tokens_per_iteration": 752
+  },
+  "cost_ratio_vs_static": {
+    "graded_mean": 20.2,
+    "binary_mean": 33.5
+  },
+  "determinism": {
+    "seed7_run1": "723bef712db61e80",
+    "seed7_run2": "723bef712db61e80",
+    "seed8": "241261cc7431dfca",
+    "same_seed_equal": true,
+    "other_seed_differs": true
+  },
+  "budget_cap_1500_tokens": {
+    "stop": "budget",
+    "iterations": 3,
+    "total_tokens": 2195
+  },
+  "hybrid_cassette": {
+    "stop": "success",
+    "iterations": 13,
+    "rounds": 14,
+    "target_invocations": 91,
+    "equals_direct_run": true
+  }
+}
