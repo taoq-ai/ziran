@@ -21,3 +21,7 @@
   `ziran ci` fails a run with nothing measured; late replies logged without content; malformed
   replies stored as their error type; roots normalised, case-folded, credential descendants;
   tests for the dry-run count, decline with content, include_context, never-called exit.
+- [x] T015 Fix round 2 (security at 006161d): key the log filter on the SDK's receive-path
+  calls ("Received message", "Received exception from stream") and clear args and exc_info;
+  raw stdio tests for a pretty-printed, truncated and object-id reply; `ziran ci` warns on a
+  partial run in the console and step summary; a shared metadata key constant.

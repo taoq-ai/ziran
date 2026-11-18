@@ -17,6 +17,7 @@ import json
 from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
+from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
 # vis-network CDN version — kept in step with the web UI's ``vis-network``
@@ -202,7 +203,7 @@ def build_html_report(
     total_chains = len(result_data.get("dangerous_tool_chains", []))
     trust_score = result_data.get("final_trust_score", 0)
     success = result_data.get("success", False)
-    unmeasured = (result_data.get("metadata") or {}).get("unmeasured", [])
+    unmeasured = (result_data.get("metadata") or {}).get(UNMEASURED_METADATA_KEY, [])
     phases = result_data.get("phases_executed", [])
     token_usage = result_data.get("token_usage", {})
     coverage_level = result_data.get("coverage_level", "")

@@ -94,20 +94,35 @@ async def send_request(session: Any, vector: AttackVector, timeout: float) -> Mc
     return reply
 
 
-class _WithholdLateReplies(logging.Filter):
-    """The SDK logs a reply to a timed-out request in full; it may carry a typed secret."""
+#: The SDK's log calls that quote what the client sent (mcp 1.30 lowlevel server:
+#: ``logger.debug("Received message: %s", ...)`` and
+#: ``logger.error(f"Received exception from stream: {message}")``). The quoted text may be a
+#: late, malformed or off-schema form reply that holds a typed secret.
+_RECEIVE_LOG_CALLS = ("Received message", "Received exception from stream")
+
+
+class _WithholdReceivedContent(logging.Filter):
+    """Reduce the SDK's receive-path log records to what kind of message arrived."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if "unknown request ID" in record.getMessage():
-            record.msg, record.args = "a reply arrived after its request timed out (withheld)", ()
+        template = str(record.msg)
+        call = next((c for c in _RECEIVE_LOG_CALLS if template.startswith(c)), None)
+        if call is not None:
+            if "unknown request ID" in template:
+                record.msg = "a reply arrived after its request timed out (withheld)"
+            else:
+                quoted = record.args[0] if isinstance(record.args, tuple) and record.args else None
+                kind = type(quoted).__name__ if quoted is not None else "content"
+                record.msg = f"{call}: {kind} (withheld)"
+            record.args, record.exc_info, record.exc_text, record.stack_info = (), None, None, None
         return True
 
 
-def _withhold_late_replies() -> None:
+def _withhold_received_content() -> None:
     for name in ("mcp.server.lowlevel.server", "mcp.shared.session"):
         logger = logging.getLogger(name)
-        if not any(isinstance(f, _WithholdLateReplies) for f in logger.filters):
-            logger.addFilter(_WithholdLateReplies())
+        if not any(isinstance(f, _WithholdReceivedContent) for f in logger.filters):
+            logger.addFilter(_WithholdReceivedContent())
 
 
 def build_server(
@@ -118,7 +133,7 @@ def build_server(
     timeout: float = 120.0,
 ) -> FastMCP:
     """Build the hostile server; ``record`` is updated and passed to ``on_update`` per call."""
-    _withhold_late_replies()
+    _withhold_received_content()
     server = FastMCP("glossary")
     roots_notes = [
         v.prompts[0].template.strip()

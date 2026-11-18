@@ -13,7 +13,12 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlparse
 
 from ziran.domain.entities.attack import AttackResult, AttackVector, get_business_impacts
-from ziran.domain.entities.phase import CampaignResult, PhaseResult, ScanPhase
+from ziran.domain.entities.phase import (
+    UNMEASURED_METADATA_KEY,
+    CampaignResult,
+    PhaseResult,
+    ScanPhase,
+)
 
 if TYPE_CHECKING:
     from ziran.domain.entities.mcp_server_surface import McpHostileRecord, McpServerReply
@@ -177,6 +182,6 @@ def build_campaign_result(
         metadata={
             "client_capabilities": record.client_capabilities,
             "tool_calls": record.tool_calls,
-            "unmeasured": unmeasured,
+            UNMEASURED_METADATA_KEY: unmeasured,
         },
     )

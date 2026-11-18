@@ -1742,6 +1742,8 @@ def ci(
 
     # 4. Console output (always shown)
     _display_gate_result(gate_result)
+    if unmeasured_note := _unmeasured_note(result):
+        console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
 
     # 5. SARIF output
     if sarif_path:
@@ -1784,6 +1786,14 @@ def ci(
 
     # 10. Exit code
     sys.exit(gate_result.exit_code)
+
+
+def _unmeasured_note(result: CampaignResult) -> str:
+    """One line on vectors no reply measured (spec 071), or empty."""
+    unmeasured = result.unmeasured_vectors
+    if not unmeasured:
+        return ""
+    return f"{len(unmeasured)} vector(s) unmeasured; the gate saw no evidence for them"
 
 
 def _display_gate_result(gate: Any) -> None:

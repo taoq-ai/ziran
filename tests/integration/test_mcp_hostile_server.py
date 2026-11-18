@@ -287,7 +287,7 @@ async def test_a_late_form_reply_never_reaches_the_log(tmp_path: Path) -> None:
     secret = "sk-test-late-reply-0042"
 
     async def _late(context: Any, params: Any) -> types.ElicitResult:
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(2)
         return types.ElicitResult(action="accept", content={"api_key": secret})
 
     record_dir = tmp_path / "record"
@@ -345,3 +345,137 @@ async def test_a_host_that_never_calls_the_tool_leaves_all_unmeasured(tmp_path: 
     data = json.loads(next(record_dir.glob("*_report.json")).read_text())
     assert len(data["metadata"]["unmeasured"]) == len(_surface())
     assert data["total_vulnerabilities"] == 0
+
+
+# ── fix round 2 (security at 006161d): malformed replies over a raw stdio client ──
+
+_FAKE_KEY = "sk-test-raw-line-0055"
+
+
+def _pretty(req_id: Any) -> bytes:
+    reply = {"jsonrpc": "2.0", "id": req_id, "result": {"action": "accept", "content": {}}}
+    reply["result"]["content"] = {"api_key": _FAKE_KEY}
+    return (json.dumps(reply, indent=2) + "\n").encode()
+
+
+def _truncated(req_id: Any) -> bytes:
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {"action": "accept", "content": {"api_key": _FAKE_KEY}},
+        }
+    )
+    return (line[:-3] + "\n").encode()
+
+
+def _object_id(req_id: Any) -> bytes:
+    reply = {"jsonrpc": "2.0", "id": {"n": req_id}, "result": {"action": "accept"}}
+    reply["result"]["content"] = {"api_key": _FAKE_KEY}
+    return (json.dumps(reply) + "\n").encode()
+
+
+async def _raw_session(record_dir: Path, log_file: Path, errlog: Path, bad_reply: Any) -> None:
+    """Drive the CLI with hand-written JSON-RPC lines; answer the form with ``bad_reply``."""
+    with errlog.open("wb") as err:
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-m",
+            "ziran.interfaces.cli.main",
+            "--log-file",
+            str(log_file),
+            "mcp-hostile-server",
+            "--record-dir",
+            str(record_dir),
+            "--vector",
+            "mcp_srv_elicit_api_key",
+            "--timeout",
+            "1",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=err,
+        )
+        assert proc.stdin is not None and proc.stdout is not None
+
+        async def send(message: dict[str, Any]) -> None:
+            assert proc.stdin is not None
+            proc.stdin.write((json.dumps(message) + "\n").encode())
+            await proc.stdin.drain()
+
+        async def until(match: Any) -> dict[str, Any]:
+            assert proc.stdout is not None
+            while True:
+                line = await asyncio.wait_for(proc.stdout.readline(), 30)
+                assert line, "server closed stdout"
+                message = json.loads(line)
+                if match(message):
+                    return message
+
+        await send(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {"elicitation": {}},
+                    "clientInfo": {"name": "raw", "version": "0"},
+                },
+            }
+        )
+        await until(lambda m: m.get("id") == 1)
+        await send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        await send(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": TOOL_NAME, "arguments": {"term": "latency"}},
+            }
+        )
+        form = await until(lambda m: m.get("method") == "elicitation/create")
+        proc.stdin.write(bad_reply(form["id"]))
+        await proc.stdin.drain()
+        await until(lambda m: m.get("id") == 2)  # the form timed out, the tool returned
+        proc.stdin.close()
+        await asyncio.wait_for(proc.wait(), 30)
+
+
+@pytest.mark.parametrize("bad_reply", [_pretty, _truncated, _object_id])
+async def test_a_malformed_form_reply_never_reaches_the_log(tmp_path: Path, bad_reply: Any) -> None:
+    record_dir, log_file, errlog = tmp_path / "record", tmp_path / "ziran.log", tmp_path / "err"
+    await _raw_session(record_dir, log_file, errlog, bad_reply)
+    stderr, log = errlog.read_text(), log_file.read_text()
+    assert "withheld" in stderr and "withheld" in log  # the bad line did reach the SDK's log
+    for text in (stderr, log, (record_dir / "mcp_hostile_record.json").read_text()):
+        assert _FAKE_KEY not in text
+        assert _FAKE_KEY[-6:] not in text  # not even the tail the SDK quotes
+
+
+def test_the_filter_withholds_args_and_exc_info_of_receive_logs() -> None:
+    import logging
+
+    from ziran.infrastructure.mcp_hostile.server import _WithholdReceivedContent
+
+    try:
+        raise ValueError(_FAKE_KEY)
+    except ValueError:
+        exc_info = sys.exc_info()
+
+    def record(msg: str, args: tuple[Any, ...] = (), exc: Any = None) -> logging.LogRecord:
+        return logging.LogRecord("mcp.server.lowlevel.server", 40, "x", 1, msg, args, exc)
+
+    handler = logging.Handler()
+    handler.setFormatter(logging.Formatter())
+    received = [
+        record("Received message: %s", (_FAKE_KEY,)),
+        record(f"Received exception from stream: {_FAKE_KEY}", exc=exc_info),
+    ]
+    for r in received:
+        assert _WithholdReceivedContent().filter(r)
+        assert _FAKE_KEY not in handler.format(r)
+        assert "withheld" in r.getMessage()
+    other = record("Processing request of type %s", ("CallToolRequest",), exc_info)
+    _WithholdReceivedContent().filter(other)
+    assert other.getMessage() == "Processing request of type CallToolRequest"
+    assert other.exc_info is exc_info

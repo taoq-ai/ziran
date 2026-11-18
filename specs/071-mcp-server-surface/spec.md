@@ -93,8 +93,9 @@ input, which is why a canary must never appear literally in the request (FR-004)
   Every report format labels a result with unmeasured vectors and no finding `INCOMPLETE`,
   shows the count, and keeps those vectors out of the OWASP and ATLAS tables. The trust score
   is the share of vectors a reply showed safe. `ziran ci` fails a run with nothing measured.
-  A reply after the timeout is logged without its content; a malformed reply is stored as its
-  error type only.
+  The SDK's receive-path log records (a late, malformed or off-schema reply) keep only the
+  kind of message, never its text, args or traceback; a malformed reply is stored as its error
+  type only. On a partial run `ziran ci` warns with the unmeasured count.
 - **FR-008**: Every vector in the selection gets one `AttackResult` with the vector's OWASP and
   ATLAS mappings, outcome `finding`, `passed` or `unmeasured`. The record keeps every reply
   in call order; a finding at any call stands, so a later careful reply never erases an

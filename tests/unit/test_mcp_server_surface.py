@@ -338,3 +338,25 @@ def test_scan_dry_run_counts_no_server_surface_vector(
             protocol=None,
         )
     assert f"{len(sent)} (comprehensive coverage)" in out.getvalue()
+
+
+def test_ci_warns_about_unmeasured_vectors_on_a_partial_run(tmp_path: Path) -> None:
+    import json
+
+    from click.testing import CliRunner
+
+    from ziran.application.cicd.gate import QualityGate
+    from ziran.application.cicd.github_actions import write_step_summary
+    from ziran.interfaces.cli.main import cli
+
+    record = McpHostileRecord(replies={SAMPLING.id: [_reply(SAMPLING, text="no")]})
+    result = build_campaign_result([SAMPLING, ROOTS], record, home=HOME)
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps(result.model_dump(mode="json")))
+    shown = CliRunner().invoke(cli, ["ci", str(path)])
+    assert shown.exit_code == 0  # one vector was measured, and it passed
+    assert "1 vector(s) unmeasured" in shown.output
+    summary = write_step_summary(
+        QualityGate().evaluate(result), result, summary_path=str(tmp_path / "summary.md")
+    )
+    assert "1 vector(s) unmeasured" in summary
