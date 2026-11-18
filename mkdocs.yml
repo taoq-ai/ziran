@@ -77,6 +77,7 @@ nav:
     - OpenTelemetry Tracing: guides/otel-tracing.md
     - Static Analysis: guides/static-analysis.md
     - Claude Code Plugins: guides/claude-code.md
+    - Hostile MCP Server: guides/mcp-hostile-server.md
     - Interpreting Results: guides/interpreting-results.md
     - Long-Running Campaigns: guides/long-running-campaigns.md
     - Incremental Scanning: guides/incremental-scanning.md

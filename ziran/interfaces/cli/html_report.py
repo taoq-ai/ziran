@@ -17,6 +17,7 @@ import json
 from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
+from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
 # vis-network CDN version — kept in step with the web UI's ``vis-network``
@@ -202,6 +203,7 @@ def build_html_report(
     total_chains = len(result_data.get("dangerous_tool_chains", []))
     trust_score = result_data.get("final_trust_score", 0)
     success = result_data.get("success", False)
+    unmeasured = (result_data.get("metadata") or {}).get(UNMEASURED_METADATA_KEY, [])
     phases = result_data.get("phases_executed", [])
     token_usage = result_data.get("token_usage", {})
     coverage_level = result_data.get("coverage_level", "")
@@ -246,8 +248,12 @@ def build_html_report(
         chain_class="danger" if critical_chains else ("orange" if total_chains else "accent"),
         trust_score=f"{trust_score:.2f}",
         trust_pct=int(trust_score * 100),
-        success_label="VULNERABLE" if success else "PASSED",
-        success_class="danger" if success else "safe",
+        success_label="VULNERABLE"
+        if success
+        else f"INCOMPLETE ({len(unmeasured)} unmeasured)"
+        if unmeasured
+        else "PASSED",
+        success_class="danger" if success else "orange" if unmeasured else "safe",
         total_nodes=stats.get("total_nodes", 0),
         total_edges=stats.get("total_edges", 0),
         density=f"{stats.get('density', 0):.3f}",
@@ -413,8 +419,9 @@ def _build_phases_html(phases: list[dict[str, Any]]) -> str:
             f"    <span>Trust: {score:.2f}</span>"
             f"    <span>{duration:.1f}s</span>"
             f"    <span>{len(vulns)} vuln{'s' if len(vulns) != 1 else ''}</span>"
-            f"  </div>"
-            f"</div>"
+            + (f"    <span>{html.escape(p['error'])}</span>" if p.get("error") else "")
+            + "  </div>"
+            "</div>"
         )
     return "\n".join(parts)
 
@@ -516,6 +523,11 @@ _OWASP_DESCRIPTIONS: dict[str, str] = {
 }
 
 
+def _unmeasured(attack_result: dict[str, Any]) -> bool:
+    """An unanswered request (spec 071) tested nothing, so it never counts as a PASS."""
+    return bool((attack_result.get("evidence") or {}).get("outcome") == "unmeasured")
+
+
 def _build_owasp_html(
     attack_results: list[dict[str, Any]],
     phases: list[dict[str, Any]],
@@ -528,6 +540,8 @@ def _build_owasp_html(
 
     # Gather from attack_results
     for ar in attack_results:
+        if _unmeasured(ar):
+            continue
         for cat in ar.get("owasp_mapping", []):
             tested.add(cat)
             if ar.get("successful"):
@@ -642,6 +656,8 @@ def _build_atlas_html(
     tested: set[AtlasTechnique] = set()
 
     for ar in attack_results:
+        if _unmeasured(ar):
+            continue
         for t_val in ar.get("atlas_mapping", []) or []:
             try:
                 tech = AtlasTechnique(t_val)

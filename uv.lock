@@ -5813,6 +5813,7 @@ all = [
     { name = "langfuse" },
     { name = "langgraph" },
     { name = "litellm" },
+    { name = "mcp" },
     { name = "numpy" },
     { name = "openai-agents" },
     { name = "opentelemetry-api" },
@@ -5851,6 +5852,9 @@ langfuse = [
 ]
 llm = [
     { name = "litellm" },
+]
+mcp = [
+    { name = "mcp" },
 ]
 openai-agents = [
     { name = "openai-agents" },
@@ -5939,6 +5943,8 @@ requires-dist = [
     { name = "litellm", marker = "extra == 'all'", specifier = ">=1.95.0,<2" },
     { name = "litellm", marker = "extra == 'llm'", specifier = ">=1.95.0,<2" },
     { name = "litellm", marker = "extra == 'pentest'", specifier = ">=1.95.0,<2" },
+    { name = "mcp", marker = "extra == 'all'", specifier = ">=1.30,<2" },
+    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.30,<2" },
     { name = "mdutils", specifier = ">=1.6,<2" },
     { name = "networkx", specifier = ">=3.2,<4" },
     { name = "numpy", marker = "extra == 'all'", specifier = ">=1.26,<3" },
@@ -5969,7 +5975,7 @@ requires-dist = [
     { name = "websockets", marker = "extra == 'all'", specifier = ">=12.0,<18" },
     { name = "websockets", marker = "extra == 'ui'", specifier = ">=12.0,<18" },
 ]
-provides-extras = ["a2a", "agentcore", "all", "anthropic", "autogen", "bedrock", "browser", "crewai", "langchain", "langfuse", "llm", "openai-agents", "otel", "pentest", "promptfoo", "ui"]
+provides-extras = ["a2a", "agentcore", "all", "anthropic", "autogen", "bedrock", "browser", "crewai", "langchain", "langfuse", "llm", "mcp", "openai-agents", "otel", "pentest", "promptfoo", "ui"]
 
 [package.metadata.requires-dev]
 dev = [

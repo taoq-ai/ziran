@@ -77,6 +77,10 @@ langfuse = [
     "langfuse>=2.0,<6",
 ]
 promptfoo = []
+# Spec 071: the hostile MCP server (ziran mcp-hostile-server); same range as the override.
+mcp = [
+    "mcp>=1.30,<2",
+]
 otel = [
     "opentelemetry-api>=1.45.2,<2",
     "opentelemetry-sdk>=1.45.2,<2",
@@ -93,7 +97,7 @@ ui = [
     "alembic>=1.13,<2",
 ]
 all = [
-    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,openai-agents,autogen,llm,pentest,browser,promptfoo,otel,ui,langfuse]",
+    "ziran[langchain,crewai,a2a,bedrock,agentcore,anthropic,openai-agents,autogen,llm,pentest,browser,promptfoo,otel,ui,langfuse,mcp]",
 ]
 
 [project.scripts]
@@ -224,6 +228,7 @@ module = [
     "asyncpg.*",
     "alembic.*",
     "starlette.*",
+    "mcp.*",
 ]
 ignore_missing_imports = true
 

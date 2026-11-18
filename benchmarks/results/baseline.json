@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-11-18T07:54:00.833618+00:00",
-  "total_vectors": 669,
+  "timestamp": "2026-11-18T08:22:21.673510+00:00",
+  "total_vectors": 677,
   "categories": 11,
   "owasp_coverage_pct": 100.0,
   "owasp_covered": 10,
@@ -59,9 +59,9 @@
         },
         {
           "dimension": "Jailbreak vectors",
-          "implemented": 218,
+          "implemented": 220,
           "target": 510,
-          "pct": 42.7
+          "pct": 43.1
         }
       ]
     },
@@ -76,7 +76,7 @@
         },
         {
           "dimension": "Prompt injection vectors",
-          "implemented": 218,
+          "implemented": 220,
           "target": 100,
           "pct": 100
         }
@@ -104,9 +104,9 @@
       "metrics": [
         {
           "dimension": "MCP vectors",
-          "implemented": 103,
+          "implemented": 111,
           "target": 1312,
-          "pct": 7.9
+          "pct": 8.5
         }
       ]
     },
@@ -121,7 +121,7 @@
         },
         {
           "dimension": "Total vectors",
-          "implemented": 669,
+          "implemented": 677,
           "target": 400,
           "pct": 100
         },
@@ -138,7 +138,7 @@
       "metrics": [
         {
           "dimension": "Prompt injection vectors",
-          "implemented": 218,
+          "implemented": 220,
           "target": 126000,
           "pct": 0.2
         },
@@ -211,7 +211,7 @@
         },
         {
           "dimension": "Total library overlap",
-          "implemented": 669,
+          "implemented": 677,
           "target": null,
           "pct": null
         }
@@ -302,9 +302,9 @@
         },
         {
           "dimension": "ATLAS techniques mapped",
-          "implemented": 74,
+          "implemented": 75,
           "target": 88,
-          "pct": 84.1
+          "pct": 85.2
         },
         {
           "dimension": "Agent-specific techniques covered",

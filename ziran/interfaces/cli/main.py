@@ -1744,6 +1744,8 @@ def ci(
 
     # 4. Console output (always shown)
     _display_gate_result(gate_result)
+    if unmeasured_note := _unmeasured_note(result):
+        console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
 
     # 5. SARIF output
     if sarif_path:
@@ -1786,6 +1788,14 @@ def ci(
 
     # 10. Exit code
     sys.exit(gate_result.exit_code)
+
+
+def _unmeasured_note(result: CampaignResult) -> str:
+    """One line on vectors no reply measured (spec 071), or empty."""
+    unmeasured = result.unmeasured_vectors
+    if not unmeasured:
+        return ""
+    return f"{len(unmeasured)} vector(s) unmeasured; the gate saw no evidence for them"
 
 
 def _display_gate_result(gate: Any) -> None:
@@ -2000,7 +2010,7 @@ def _dry_run_summary(
 
     # Count vectors by coverage
     coverage_level = CoverageLevel(coverage.lower())
-    vectors = attack_library.vectors
+    vectors = [v for v in attack_library.vectors if v.mcp_server_request is None]
     if coverage_level == CoverageLevel.ESSENTIAL:
         vectors = [v for v in vectors if v.severity in ("critical",)]
     elif coverage_level == CoverageLevel.STANDARD:
@@ -2076,10 +2086,15 @@ def _display_results(result: CampaignResult) -> None:
             f"[bold red]{result.critical_chain_count}[/bold red]",
         )
     summary_table.add_row("Final Trust Score", f"{result.final_trust_score:.2f}")
+    unmeasured = result.unmeasured_vectors
+    if unmeasured:
+        summary_table.add_row("Unmeasured Vectors", f"[bold yellow]{len(unmeasured)}[/bold yellow]")
     summary_table.add_row(
         "Result",
         "[bold red]⚠️  VULNERABLE[/bold red]"
         if result.success
+        else f"[bold yellow]⚠️  INCOMPLETE ({len(unmeasured)} unmeasured)[/bold yellow]"
+        if unmeasured
         else "[bold green]✅ PASSED[/bold green]",
     )
 
@@ -2135,7 +2150,11 @@ def _display_results(result: CampaignResult) -> None:
 
         for pr in result.phases_executed:
             status = (
-                "[red]⚠️  FINDINGS[/red]" if pr.vulnerabilities_found else "[green]✅ CLEAR[/green]"
+                "[red]⚠️  FINDINGS[/red]"
+                if pr.vulnerabilities_found
+                else "[yellow]⚠️  INCOMPLETE[/yellow]"
+                if unmeasured
+                else "[green]✅ CLEAR[/green]"
             )
             phase_table.add_row(
                 pr.phase.value.replace("_", " ").title(),
@@ -2852,8 +2871,10 @@ def _register_v08_commands() -> None:
 def _register_extra_commands() -> None:
     """Register additional CLI commands (lazy imports)."""
     from ziran.interfaces.cli.init_command import init
+    from ziran.interfaces.cli.mcp_hostile_server import mcp_hostile_server
 
     cli.add_command(init)
+    cli.add_command(mcp_hostile_server)
 
 
 _register_v08_commands()
