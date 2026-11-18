@@ -75,7 +75,8 @@ the #520 release note. The next release waits for #521, #522 and #523 together.
 - **FR-002**: `ziran/interfaces/web/` MUST be deleted in full, with the `ui` extra and `ui` in
   `all`.
 - **FR-003**: The mypy overrides for `fastapi.*`, `uvicorn.*`, `sqlalchemy.*`, `asyncpg.*`,
-  `alembic.*` and the `ziran.interfaces.web.*` block MUST go; `websockets.*` MUST stay.
+  `alembic.*`, `starlette.*` and the `ziran.interfaces.web.*` block MUST go; `websockets.*` MUST
+  stay.
 - **FR-004**: `ziran ui` MUST be a hidden command that prints the moved notice and exits 2.
 - **FR-005**: The web-only tests named in #522 MUST be deleted; the `ziran ci` and graph-state
   assertions MUST stay.
@@ -88,8 +89,13 @@ the #520 release note. The next release waits for #521, #522 and #523 together.
 
 ## Assumptions
 
-- `starlette.*` stays in the mypy override list: #522 does not name it, and `mcp` (the `mcp`
-  extra) depends on starlette. Overturn: a later cleanup shows nothing imports it.
+- `starlette.*` also leaves the mypy overrides. #522 does not name it, but only
+  `ziran/interfaces/web/app.py` imported starlette, and mypy then reports the section unused.
+  Overturn: ziran code imports starlette again.
+- `fastapi` and `uvicorn` move to the `test` dependency group (same ranges as the old `ui`
+  extra). `tests/integration/test_promptfoo_integration.py` serves `examples/15` with them and
+  would skip silently once the `ui` extra goes. They are dev-only, never installed for users.
+  Overturn: that test gets a server that needs neither.
 - The `.gitignore` line for `ziran/interfaces/web/static/` stays for #521: the frontend build
   writes there until #521 removes it. Overturn: #521 lands first.
 - The stub takes any arguments (`ignore_unknown_options`) so old invocations get the notice.

@@ -14,7 +14,8 @@ replace `ziran ui` with a hidden stub that prints where the UI went and exits 2.
 
 **Language/Version**: Python 3.11+ (CI matrix 3.11, 3.12, 3.13).
 **Primary Dependencies**: Click, stdlib `tomllib`. No new dependencies; `websockets` moves from
-`ui` to the new `streaming` extra with the same range.
+`ui` to the new `streaming` extra with the same range, and `fastapi` and `uvicorn` move to the
+dev-only `test` group for the promptfoo live-server integration test.
 **Storage**: none. The Alembic migrations go with the web package.
 **Testing**: pytest. `tests/unit/test_ws_handler.py` (extra metadata and import path),
 `tests/unit/test_cli_smoke.py` (stub), `tests/unit/test_cicd_suppressions.py` and
