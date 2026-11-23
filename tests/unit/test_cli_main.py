@@ -567,10 +567,14 @@ class TestAuditBaseline:
                 if r["rule"] == "BL003" and r["tools"] == ["Read", "WebFetch"]
             ]
             assert sorted(rw) == [
-                "Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
-                "not in the baseline",
-                "Agent 'builder': new critical chain lethal_trifecta via Read -> WebFetch "
-                "not in the baseline",  # spec 088
+                (
+                    "Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
+                    "not in the baseline"
+                ),
+                (  # spec 088
+                    "Agent 'builder': new critical chain lethal_trifecta via Read -> WebFetch "
+                    "not in the baseline"
+                ),
             ]
             assert all(set(r) == CC_KEYS for r in data["findings"])
         text = runner.invoke(cli, ["audit", str(agents), "--baseline", str(b)])
