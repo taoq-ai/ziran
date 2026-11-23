@@ -1,0 +1,46 @@
+agent_id: vulnerable_support_inbox
+name: Customer Support Agent with Inbox, CRM and Email
+description: |
+  A support agent that reads the shared support inbox, looks up the
+  customer record for each request and replies by email. An email in the
+  inbox is untrusted content: it can tell the agent to look up customer
+  records and send them to an outside address. No pair rule covers this
+  agent; the lethal trifecta does (private data, untrusted content and
+  egress in one agent).
+framework: langchain
+model: gpt-4o-mini
+tools:
+  - id: read_inbox
+    name: Read Inbox
+    description: Returns the unread messages of the shared support inbox.
+    risk_level: medium
+    parameters:
+      - name: limit
+        type: integer
+        description: Maximum number of messages to return
+  - id: get_customer
+    name: Get Customer
+    description: Returns the customer record (name, email, address, order history).
+    risk_level: medium
+    parameters:
+      - name: customer_id
+        type: string
+        description: Customer identifier
+  - id: send_email
+    name: Send Email
+    description: Sends an email to any address; no recipient allowlist.
+    risk_level: high
+    parameters:
+      - name: to
+        type: string
+        description: Recipient address
+      - name: body
+        type: string
+        description: Email body
+system_prompt: |
+  You are a customer support assistant. Read new support emails, look up
+  the customer and reply to them by email.
+system_prompt_traits: []
+guardrails: []
+known_vulnerabilities: []
+inspired_by: []

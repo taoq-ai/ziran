@@ -26,6 +26,7 @@ from ziran.domain.entities.attack import TokenUsage
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.entities.ci import SuppressionEntry, SuppressionFile, chain_fingerprint
 from ziran.domain.entities.claude_code import ClaudeCodeAgent, ClaudeCodeScan
+from ziran.domain.entities.multi_agent import AgentEdge, AgentNode, MultiAgentTopology
 from ziran.domain.entities.phase import CampaignResult, ScanPhase
 from ziran.interfaces.cli.main import cli
 
@@ -409,3 +410,104 @@ def test_cli_audit_survives_an_unreadable_config(
     assert run.exception is None or isinstance(run.exception, SystemExit)
     assert "trifecta_roles not read" in run.stderr
     assert '"LT001"' in run.stdout
+
+
+# ── Slice 2: the delegated variant and ground truth ───────────────────
+
+
+class _TopologyAdapter(MockAgentAdapter):
+    def __init__(self, topology: MultiAgentTopology) -> None:
+        super().__init__()
+        self._topology = topology
+
+    async def discover_structure(self) -> MultiAgentTopology | None:
+        return self._topology
+
+
+def _delegated(chains: list[Any]) -> list[Any]:
+    return [c for c in chains if c.vulnerability_type == "lethal_trifecta_delegated"]
+
+
+async def _scan_topology(agents: dict[str, list[str]], edges: list[tuple[str, str]]) -> list[Any]:
+    """Chains of a scan whose adapter reports *agents* (id -> tool names) and *edges*."""
+    names = list(dict.fromkeys(t for tools in agents.values() for t in tools))
+    caps = [_cap(n) for n in names]
+    topology = MultiAgentTopology(
+        agents=[
+            AgentNode(id=a, name=a, capabilities=[f"tool_{t}" for t in tools])
+            for a, tools in agents.items()
+        ],
+        edges=[AgentEdge(source_id=s, target_id=t) for s, t in edges],
+    )
+    graph = AttackKnowledgeGraph()
+    for c in caps:
+        graph.add_capability(c.id, c)
+    await import_adapter_structure(_TopologyAdapter(topology), graph, caps)
+    return ToolChainAnalyzer(graph).analyze()
+
+
+READER = {"reader": ["read_inbox", "get_customer"], "mailer": ["send_email"]}
+
+
+@pytest.mark.unit
+class TestDelegated:
+    async def test_reader_delegating_to_mailer_is_flagged(self) -> None:
+        chains = await _scan_topology(READER, [("reader", "mailer")])
+        assert not _trifectas(chains)  # no single agent holds all three legs
+        (chain,) = _delegated(chains)
+        assert chain.evidence["agent"] == "reader"
+        assert chain.evidence["agents"] == ["reader", "mailer"]
+        assert chain.tools == ["tool_read_inbox", "tool_send_email"]
+        assert chain.evidence["egress"] == ["tool_send_email"]
+        assert chain.risk_level == "critical"
+
+    async def test_direction_and_no_edge(self) -> None:
+        assert not _delegated(await _scan_topology(READER, []))
+        # the reader's results come back to a mailer that delegates to it
+        (chain,) = _delegated(await _scan_topology(READER, [("mailer", "reader")]))
+        assert chain.evidence["agents"] == ["mailer", "reader"]
+
+    async def test_transitive_reach_and_cycles(self) -> None:
+        agents = {"router": [], "reader": ["read_inbox"], "mailer": ["send_email"]}
+        edges = [("router", "reader"), ("reader", "mailer"), ("mailer", "router")]
+        found = {c.evidence["agent"]: c for c in _delegated(await _scan_topology(agents, edges))}
+        # every agent in the cycle reaches all three legs
+        assert sorted(found) == ["mailer", "reader", "router"]
+        assert found["router"].evidence["agents"] == ["router", "reader", "mailer"]
+
+    async def test_an_agent_holding_all_three_gets_the_plain_finding(self) -> None:
+        agents = {"boss": ["get_weather"], "support": ["read_inbox", "send_email"]}
+        chains = await _scan_topology(agents, [("boss", "support")])
+        assert [c.evidence["agent"] for c in _trifectas(chains)] == ["support"]
+        assert not _delegated(chains)
+
+    @pytest.mark.parametrize(("count", "name_len"), [(101, 100), (101, 20_000)])
+    async def test_hostile_delegation_chain_stays_linear(self, count: int, name_len: int) -> None:
+        agents = {f"a{i}": [f"read_inbox_{i}_{'x' * name_len}"[:name_len]] for i in range(count)}
+        # every reader reaches one mailer with many long tools: no finding may copy them all
+        agents["mailer"] = [f"send_email_{i}_{'x' * name_len}"[:name_len] for i in range(count)]
+        edges = [(f"a{i}", f"a{i + 1}") for i in range(count - 1)] + [(f"a{count - 1}", "mailer")]
+        found = _delegated(await _scan_topology(agents, edges))
+        assert len(found) == count  # each reader reaches the mailer
+        id_chars = sum(len(t) for tools in agents.values() for t in tools)
+        size = sum(len(c.model_dump_json()) for c in found)
+        assert all(len(c.evidence["agents"]) <= 4 and len(c.tools) <= 3 for c in found)
+        assert size < 8 * id_chars + 500_000
+
+
+@pytest.mark.unit
+def test_ground_truth_support_agents() -> None:
+    from benchmarks.ground_truth.run import (
+        benchmark_chain_analyzer,
+        benchmark_scenario_verdict,
+        load_agents,
+        load_scenarios,
+    )
+
+    agents = load_agents()
+    scenarios = [s for s in load_scenarios() if s.scenario_id in {"gt_tc_tp_015", "gt_tc_tn_013"}]
+    assert {s.agent_ref for s in scenarios} == {"vulnerable_support_inbox", "safe_support_inbox"}
+    chain = benchmark_chain_analyzer(agents, scenarios)
+    verdict = benchmark_scenario_verdict(agents, scenarios)
+    assert (chain.tp, chain.fp, chain.fn) == (1, 0, 0)
+    assert (verdict.tp, verdict.fp, verdict.fn) == (1, 0, 0)

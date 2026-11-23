@@ -1,0 +1,42 @@
+agent_id: safe_support_inbox
+name: Customer Support Agent that drafts replies for review
+description: |
+  The same support agent without an egress tool: it reads the support
+  inbox and the customer record, and writes a draft reply that a person
+  reviews and sends. An injected email can still reach the agent, but it
+  has no tool to send data out, so the lethal trifecta is broken.
+framework: langchain
+model: gpt-4o-mini
+tools:
+  - id: read_inbox
+    name: Read Inbox
+    description: Returns the unread messages of the shared support inbox.
+    risk_level: medium
+    parameters:
+      - name: limit
+        type: integer
+        description: Maximum number of messages to return
+  - id: get_customer
+    name: Get Customer
+    description: Returns the customer record (name, email, address, order history).
+    risk_level: medium
+    parameters:
+      - name: customer_id
+        type: string
+        description: Customer identifier
+  - id: create_draft
+    name: Create Draft
+    description: Saves a draft reply in the review queue; it sends nothing.
+    risk_level: low
+    parameters:
+      - name: body
+        type: string
+        description: Draft body
+system_prompt: |
+  You are a customer support assistant. Read new support emails, look up
+  the customer and save a draft reply for a person to review.
+system_prompt_traits:
+  - explicit_limitations
+guardrails: []
+known_vulnerabilities: []
+inspired_by: []
