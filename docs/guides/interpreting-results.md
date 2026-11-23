@@ -56,7 +56,7 @@ Example: `read_file → http_request` (Critical: Data Exfiltration)
 - Sandboxing file system access
 - Requiring confirmation for sensitive operations
 
-**Warnings:** a scan pairs the tools one agent holds, up to 100 tools. Above that it skips the pairing and says so: the result JSON lists the message under `metadata.warnings`, and the Markdown report, the HTML report and `ziran ci` print it. A result with that warning has no chain findings because the chains were not analysed, not because none exist.
+**Warnings:** a scan pairs the tools one agent holds, up to 100 tools and 20,000 characters of tool ids. Above that it skips the pairing and says so: the result JSON lists the message under `metadata.warnings`, and the Markdown report, the HTML report and `ziran ci` print it (in GitHub Actions also as a warning annotation). A remote tool name longer than 100 characters is cut and ends in a short hash. A result with that warning has no chain findings because the chains were not analysed, not because none exist.
 
 ## Acting on Results
 

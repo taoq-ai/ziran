@@ -42,12 +42,21 @@ After this change:
    `ToolChainAnalyzer.analyze(include_cycles=None)` defaults to skipping them when
    `graph.has_co_resident_tools()`. An explicit `include_cycles=True` runs them on the structure
    view.
-6. The target decides how many tools it lists, and n co-resident tools give n^2 edges and about
-   n^2/4 chain findings (CWE-400). `MAX_CO_RESIDENT_TOOLS = 100` in `structure_import.py` caps
-   the tools across all co-resident sets of a scan. Above it no set gets edges. The skip is
-   visible, not only a log line: the scan result carries a warning with the count and the cap
-   (`metadata.warnings`, `CampaignResult.warnings`), and the JSON result, the Markdown report,
-   the HTML report and `ziran ci` (console and step summary) all show it.
+6. The target decides how many tools it lists and what it calls them. n co-resident tools give
+   n^2 edges and about n^2/4 chain findings, and each edge and finding copies both tool ids, so
+   the output grows with n^2 times the id length (CWE-400, CWE-770). Three bounds hold it:
+   - remote structured discovery (`HttpAgentAdapter._raw_to_capability`, the path of an MCP
+     `tools/list`) cuts a tool's name and id to 100 characters, the length probe discovery
+     already uses. A cut name ends in a hash of the whole name, so two long names stay apart;
+   - `MAX_CO_RESIDENT_TOOLS = 100` in `structure_import.py` caps the tools across all
+     co-resident sets of a scan;
+   - `MAX_CO_RESIDENT_ID_CHARS = 20,000` caps the summed length of their ids, for adapters
+     whose names no discovery step cuts.
+
+   Above either cap no set gets edges. The skip is visible, not only a log line: the scan
+   result carries a warning with both counts and both caps (`metadata.warnings`,
+   `CampaignResult.warnings`), and the JSON result, the Markdown report, the HTML report and
+   `ziran ci` (console, step summary and a `::warning` annotation) all show it.
 7. The direct and indirect rules read one pair table (`_candidate_pairs`: each tool matched
    against each pattern role once). The direct rule used to match every pattern against every
    pair, which was the cost left at the cap (100 tools: 1.46 s in `analyze`, now 0.04 s).
@@ -130,8 +139,13 @@ Node-only readers (`get_nodes_by_type`, `enables_links.py`, `pentesting/agent.py
 - An adapter that reports no structure, fails to, or reports a non-topology: the tools are
   treated as co-resident.
 - Fewer than two tools: no edge is added.
-- More than 100 tools across the co-resident sets: no co-resident edge at all, one log warning
-  and one result warning, also when discovery runs twice on the graph.
+- More than 100 tools across the co-resident sets, or more than 20,000 characters of ids: no
+  co-resident edge at all, one log warning and one result warning, also when discovery runs
+  twice on the graph. Exactly 100 tools, or exactly 20,000 characters, still link.
+- An MCP `tools/list` of 100 tools with 20,000-character names: each id is 100 characters, all
+  100 stay distinct, the 2,500 chains are found and the result is 3.9 MB (see Sizing).
+- Two long tool names that differ only after the cut: the hash suffix keeps their ids apart.
+- A tool name of exactly 100 characters, and any resource or skill id: untouched.
 - Non-tool capabilities (skills, data access, CrewAI agent roles, probe lines that are not
   dangerous tools) are not part of the co-resident set.
 - A graph with co-resident sets and a real path between two of their tools (built by hand; the
@@ -156,15 +170,35 @@ Node-only readers (`get_nodes_by_type`, `enables_links.py`, `pentesting/agent.py
 - **FR-006**: `AttackKnowledgeGraph.structure_view()` returns the graph without co-resident
   edges (the graph itself when it holds none). Every walker in the list above marked
   "structure view" reads it; only the direct pair rule reads co-resident edges.
-- **FR-007**: at most `MAX_CO_RESIDENT_TOOLS` (100) tools across all co-resident sets; above it,
-  no co-resident edges. Betweenness centrality in `analyze` is skipped on a co-resident graph
-  over 800 nodes.
-- **FR-008**: above the cap, `graph.warnings` gets one message with the count and the cap.
+- **FR-007**: at most `MAX_CO_RESIDENT_TOOLS` (100) tools and `MAX_CO_RESIDENT_ID_CHARS`
+  (20,000) characters of ids across all co-resident sets; above either, no co-resident edges.
+  Betweenness centrality in `analyze` is skipped on a co-resident graph over 800 nodes.
+- **FR-008**: above a cap, `graph.warnings` gets one message with both counts and both caps.
   `ResultBuilder` copies it to `CampaignResult.metadata["warnings"]` (absent when empty), and
-  the Markdown report, the HTML report, the `ziran ci` console output and its step summary
-  print each warning.
+  the Markdown report, the HTML report, the `ziran ci` console output, its step summary and a
+  `::warning` annotation (with `%`, CR and LF escaped) print each warning.
 - **FR-009**: the direct and indirect rules take their pattern from one pair table that gives
   each ordered tool pair the first pattern it matches, the same answer as `_match_pattern`.
+
+- **FR-010**: `HttpAgentAdapter._raw_to_capability` cuts a tool-type capability's name and id
+  to 100 characters. A cut value keeps its first 91 characters and ends in `_` plus 8 hex
+  digits of the SHA-256 of the whole value. Other capability types are untouched.
+
+## Sizing
+
+An MCP `tools/list` of 100 tools through `run_campaign(phases=[])`, by name length (the security
+gate's `longname.py`; "before" is its reading at 89a527d):
+
+| Name length | Result JSON | Graph export | Peak RSS | Run |
+|-------------|-------------|--------------|----------|-----|
+| 10 | 2.0 MB | 5.1 MB | 118 MB | 0.24 s |
+| 2,000 | 3.9 MB (before 51.9 MB) | 9.3 MB | 124 MB (before 945 MB) | 0.28 s |
+| 20,000 | 3.9 MB (before 503.7 MB) | 9.3 MB (before 1.1 GB) | 128 MB (before 5.8 GB) | 0.28 s (before 14.9 s) |
+
+With one reconnaissance phase, which adds a graph snapshot, the 2,000 and 20,000 rows give a
+7.3 MB result (before 94 MB at 2,000). The 20,000-character id cap is twice what 100 cut names
+can reach, so it never trips on remote discovery; it bounds in-process adapters, where the
+worst case under both caps is 100 tools of 200 characters.
 
 ## Assumptions
 
@@ -184,9 +218,19 @@ Node-only readers (`get_nodes_by_type`, `enables_links.py`, `pentesting/agent.py
   callable tools, and probe discovery files every line it does not classify as a dangerous tool
   as a skill. Overturned by: a chain pattern that needs a resource node as a source.
 - The cap counts all sets together and stays at 100. Why: n tools give n^2 edges and about
-  n^2/4 findings (100 tools: 9,900 edges, 2,500 findings, a 4.5 MB graph export), and the sets
+  n^2/4 findings (100 tools: 9,900 edges, 2,500 findings, a 5.1 MB graph export), and the sets
   add up. The pattern match per pair is no longer the cost. Overturned by: a report that groups
   chain findings, after which the cap can rise.
+- A remote tool name is cut at 100 characters. Why: probe discovery already cuts names there,
+  and the scan only needs the name to match patterns and to label findings. A real tool whose
+  name is longer gets a changed id, and the dynamic attack prompts name it by the cut form.
+  Overturned by: real servers with longer tool names, after which the limit can rise (the id
+  cap leaves room for 200).
+- Only tool names are cut. Why: resource and skill ids form no pairs, so they grow the output
+  only in step with the reply, as at base. Overturned by: a pairing rule over another type.
+- The centrality bound in `analyze` stays. Why: a 100-tool flat graph holds 2,600 nodes once its
+  2,500 chain findings are on it, and betweenness there takes 0.94 s, on every step of the
+  pentest agent; with the bound `analyze` takes 0.02 s. Overturned by: a cheaper centrality.
 - Path, cycle and centrality results leave out co-resident edges. Why: those edges say "could
   chain", which the chain findings already report; walking them multiplies paths and costs
   without adding a finding. Overturned by: a report that needs multi-tool paths to a data
@@ -207,6 +251,8 @@ Node-only readers (`get_nodes_by_type`, `enables_links.py`, `pentesting/agent.py
   when the only gap is the skipped chain analysis.
 - The pair table and `_match_pattern` (which cycle search still calls) drift apart. One test
   compares them pair by pair.
+- Another remote discovery path adds tool capabilities without `_raw_to_capability` and brings
+  long names back. The id cap in `structure_import.py` still skips the pairing and warns.
 
 ## Behaviour change
 

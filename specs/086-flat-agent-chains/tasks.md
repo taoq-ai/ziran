@@ -69,7 +69,24 @@ attribute, in 7 s) before T021.
 - [x] T024 Mutants in a scratch copy (24, all killed), the gates' probes at head, the audit and
       ground-truth benchmark comparisons at base and head.
 
-## Phase 6 - Gates
+## Phase 6 - Name length (round 4)
+
+Test first: T025 ran red (the name-bound and annotation tests failed in 0.1 s, the id-budget
+test on a missing name) before T026. The 20,000-character scan test was not run red: at
+89a527d it allocates 5.8 GB (the security gate's reading).
+
+- [x] T025 Tests: `_raw_to_capability` cuts long tool names to 100 characters, keeps two apart
+      and leaves a resource id alone; an MCP `tools/list` of 100 tools with 20,000-character
+      names builds under one 5 s bound with 100 distinct ids, 2,500 chains and a result under
+      5 MB; the id budget links at exactly 20,000 characters and skips with the warning one
+      character over; `emit_annotations` escapes and emits each warning.
+- [x] T026 `http_adapter.py` `_bounded_tool_name`; `structure_import.py`
+      `MAX_CO_RESIDENT_ID_CHARS`; `github_actions.py` annotation; `MAX_CENTRALITY_NODES` public.
+- [x] T027 spec.md (FR-007, FR-008, FR-010, Sizing, edge cases), plan.md, the results guide.
+- [x] T028 Mutants in a scratch copy (33, all killed), `longname.py` and `longname_phase.py`
+      and the earlier probes at head.
+
+## Phase 7 - Gates
 
 - [x] T010 `ziran audit` on the Claude Code fixtures at base and head: identical output.
 - [x] T011 `uv run ruff check`, `uv run ruff format --check`, `uv run mypy ziran/`, the touched

@@ -70,6 +70,20 @@ so a new walker gets the right view by calling `structure_view()`.
 8. `reports.py`, `html_report.py`, `main.py` (`ziran ci`), `github_actions.py` (step summary):
    print each warning.
 
+## Round 4: name length
+
+The cap counted tools, not the size of their names, and an MCP server names its own tools.
+100 tools with 20,000-character names gave a 504 MB result and 5.8 GB RSS at 89a527d.
+
+9. `http_adapter.py`: `_bounded_tool_name` cuts a tool's name and id to 100 characters with a
+   hash suffix, in `_raw_to_capability`. That is the one mapping every remote structured
+   discovery passes through (MCP and WebSocket handlers return tool-type capabilities).
+10. `structure_import.py`: `MAX_CO_RESIDENT_ID_CHARS` beside the tool cap, one warning with both
+    numbers.
+11. `github_actions.py` `emit_annotations`: one `::warning` per scan warning, escaped.
+12. `graph.py`: `MAX_CENTRALITY_NODES` is public, since `chain_analyzer.py` imports it. The
+    bound itself stays (spec.md, Assumptions).
+
 ## Verification
 
 - Red then green on the touched tests.
@@ -80,4 +94,5 @@ so a new walker gets the right view by calling `structure_view()`.
 - The gates' probes (team shapes, MCP sizes, pentest `analyze_graph`, handoff teams) at head.
 - `ziran audit` on `tests/fixtures/claude_code/*` at base and head, JSON output compared.
 - `benchmarks/ground_truth/run.py` at base and head with a pinned `PYTHONHASHSEED`.
+- The security gate's `longname.py` and `longname_phase.py` at 10, 2,000 and 20,000 characters.
 - `uv run ruff check`, `uv run ruff format --check`, `uv run mypy ziran/`.
