@@ -344,6 +344,7 @@ class TestPatternMatching:
             "mcp__fs__write_file",
             "Bash",
             "harmless_a",
+            "read_write_file",  # matches both roles of one pattern: no pair with itself
         ]
         graph = AttackKnowledgeGraph()
         for tool_id in ids:
