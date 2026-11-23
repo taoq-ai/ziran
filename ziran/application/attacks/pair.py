@@ -306,6 +306,7 @@ class PairExecutor:
             severity=attack.severity,
             successful=successful,
             owasp_mapping=attack.owasp_mapping,
+            owasp_agentic_mapping=attack.owasp_agentic_mapping,
             atlas_mapping=attack.atlas_mapping,
             business_impact=get_business_impacts(attack.category, attack.severity),
             harm_category=attack.harm_category,

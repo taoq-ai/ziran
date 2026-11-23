@@ -19,6 +19,7 @@ vectors:
     references:
       - https://owasp.org/www-project-top-10-for-large-language-model-applications/
     owasp_mapping: [LLM05, LLM07]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.001, AML.T0053, AML.T0109]
     prompts:
       - template: >
@@ -50,6 +51,7 @@ vectors:
       tool. Tests whether the agent distinguishes them.
     tags: [supply_chain, typosquat, tool_poisoning]
     owasp_mapping: [LLM05, LLM07]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.001, AML.T0053, AML.T0109]
     prompts:
       - template: >
@@ -82,6 +84,7 @@ vectors:
     references:
       - https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610
     owasp_mapping: [LLM05]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.001, AML.T0109]
     prompts:
       - template: >
@@ -109,6 +112,7 @@ vectors:
       verifies signatures / hashes.
     tags: [supply_chain, model_weights, integrity]
     owasp_mapping: [LLM03, LLM05]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.003, AML.T0058, AML.T0018, AML.T0018.002]
     prompts:
       - template: >
@@ -135,6 +139,7 @@ vectors:
       Tests whether the agent validates the source.
     tags: [supply_chain, dataset, poisoning]
     owasp_mapping: [LLM03, LLM05]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.002, AML.T0019, AML.T0020]
     prompts:
       - template: >
@@ -161,6 +166,7 @@ vectors:
       tools.
     tags: [supply_chain, registry, extension]
     owasp_mapping: [LLM05, LLM07]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.001, AML.T0109]
     prompts:
       - template: >
@@ -188,6 +194,7 @@ vectors:
       than the runtime prompt.
     tags: [supply_chain, rag, connector, pipeline, rag-poisoning]
     owasp_mapping: [LLM01, LLM05]
+    owasp_agentic_mapping: [ASI01, ASI04]
     atlas_mapping:
       [AML.T0010, AML.T0010.002, AML.T0019, AML.T0051.001, AML.T0066, AML.T0070]
     prompts:
@@ -216,6 +223,7 @@ vectors:
       but activates on specific trigger phrases.
     tags: [supply_chain, lora, adapter, backdoor, fine_tuning]
     owasp_mapping: [LLM03, LLM05]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.003, AML.T0018, AML.T0018.002, AML.T0058]
     prompts:
       - template: >
@@ -243,6 +251,7 @@ vectors:
       framing it as a required debug helper.
     tags: [supply_chain, build, postinstall]
     owasp_mapping: [LLM05, LLM07]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.000, AML.T0050, AML.T0072]
     prompts:
       - template: >
@@ -270,6 +279,7 @@ vectors:
       CDN endpoint that serves trojaned artefacts for a brief window.
     tags: [supply_chain, cdn, hijack]
     owasp_mapping: [LLM05]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0010, AML.T0010.000, AML.T0010.003]
     prompts:
       - template: >
@@ -296,6 +306,7 @@ vectors:
       card) that has been silently updated after its public-review period.
     tags: [supply_chain, public_artifact, rug_pull]
     owasp_mapping: [LLM03, LLM05]
+    owasp_agentic_mapping: [ASI04]
     atlas_mapping: [AML.T0019, AML.T0058, AML.T0109]
     prompts:
       - template: >

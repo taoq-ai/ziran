@@ -99,6 +99,39 @@ OWASP_LLM_DESCRIPTIONS: dict[OwaspLlmCategory, str] = {
 }
 
 
+class OwaspAgenticCategory(StrEnum):
+    """OWASP Top 10 for Agentic Applications (2026), published 2025-12-09.
+
+    See: https://genai.owasp.org/top-10-for-agentic-applications-2026/
+    """
+
+    ASI01 = "ASI01"
+    ASI02 = "ASI02"
+    ASI03 = "ASI03"
+    ASI04 = "ASI04"
+    ASI05 = "ASI05"
+    ASI06 = "ASI06"
+    ASI07 = "ASI07"
+    ASI08 = "ASI08"
+    ASI09 = "ASI09"
+    ASI10 = "ASI10"
+
+
+#: Published names for each OWASP Agentic category.
+OWASP_AGENTIC_DESCRIPTIONS: dict[OwaspAgenticCategory, str] = {
+    OwaspAgenticCategory.ASI01: "Agent Goal Hijack",
+    OwaspAgenticCategory.ASI02: "Tool Misuse and Exploitation",
+    OwaspAgenticCategory.ASI03: "Identity and Privilege Abuse",
+    OwaspAgenticCategory.ASI04: "Agentic Supply Chain Vulnerabilities",
+    OwaspAgenticCategory.ASI05: "Unexpected Code Execution (RCE)",
+    OwaspAgenticCategory.ASI06: "Memory & Context Poisoning",
+    OwaspAgenticCategory.ASI07: "Insecure Inter-Agent Communication",
+    OwaspAgenticCategory.ASI08: "Cascading Failures",
+    OwaspAgenticCategory.ASI09: "Human-Agent Trust Exploitation",
+    OwaspAgenticCategory.ASI10: "Rogue Agents",
+}
+
+
 class AtlasTactic(StrEnum):
     """MITRE ATLAS tactics (adversary goals against AI systems).
 
@@ -763,6 +796,10 @@ class AttackVector(BaseModel):
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories this vector maps to",
     )
+    owasp_agentic_mapping: list[OwaspAgenticCategory] = Field(
+        default_factory=list,
+        description="OWASP Top 10 for Agentic Applications categories this vector maps to",
+    )
     atlas_mapping: list[AtlasTechnique] = Field(
         default_factory=list,
         description="MITRE ATLAS techniques this vector exercises (October 2025 snapshot)",
@@ -852,6 +889,10 @@ class AttackResult(BaseModel):
     owasp_mapping: list[OwaspLlmCategory] = Field(
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories for this finding",
+    )
+    owasp_agentic_mapping: list[OwaspAgenticCategory] = Field(
+        default_factory=list,
+        description="OWASP Top 10 for Agentic Applications categories for this finding",
     )
     atlas_mapping: list[AtlasTechnique] = Field(
         default_factory=list,
