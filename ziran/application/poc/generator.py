@@ -119,7 +119,7 @@ class PoCGenerator:
             Path to the generated Python script.
         """
         tpl = self.config.python_template
-        owasp_str = ", ".join(c.value for c in result.owasp_mapping) or "N/A"
+        owasp_str = _owasp_ids(result)
         prompt_escaped = _escape_python_string(result.prompt_used or "")
         indicators = result.evidence.get("matched_indicators", [])
         indicators_repr = repr(indicators)
@@ -247,7 +247,7 @@ class PoCGenerator:
         tpl = self.config.curl_template
         effective_endpoint = endpoint or tpl.default_endpoint
         prompt_json = json.dumps({"message": result.prompt_used or ""})
-        owasp_str = ", ".join(c.value for c in result.owasp_mapping) or "N/A"
+        owasp_str = _owasp_ids(result)
         indicators = result.evidence.get("matched_indicators", [])
 
         script = textwrap.dedent(f"""\
@@ -337,7 +337,7 @@ class PoCGenerator:
         table_header = ["#", "Finding", "Category", "Severity", "OWASP"]
         table_data: list[str] = []
         for idx, r in enumerate(results, 1):
-            owasp = ", ".join(c.value for c in r.owasp_mapping) or "N/A"
+            owasp = _owasp_ids(r)
             table_data.extend([str(idx), r.vector_name, r.category.value, r.severity, owasp])
         md.new_table(
             columns=len(table_header),
@@ -348,7 +348,7 @@ class PoCGenerator:
 
         # ── Per-finding details ─────────────────────────────────────
         for i, result in enumerate(results, 1):
-            owasp_str = ", ".join(c.value for c in result.owasp_mapping) or "N/A"
+            owasp_str = _owasp_ids(result)
 
             md.new_header(level=2, title=f"{i}. {result.vector_name}", add_table_of_contents="n")
 
@@ -421,6 +421,12 @@ class PoCGenerator:
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
+
+
+def _owasp_ids(result: AttackResult) -> str:
+    """OWASP LLM then Agentic ids of a finding, or ``N/A``."""
+    ids = [*result.owasp_mapping, *result.owasp_agentic_mapping]
+    return ", ".join(c.value for c in ids) or "N/A"
 
 
 def _escape_python_string(s: str) -> str:

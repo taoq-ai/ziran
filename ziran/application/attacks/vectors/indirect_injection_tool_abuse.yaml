@@ -373,6 +373,7 @@ vectors:
       code or system commands.
     tags: [indirect_injection, filesystem, tool_abuse, code_execution]
     owasp_mapping: [LLM01, LLM07, LLM08]
+    owasp_agentic_mapping: [ASI01, ASI05]
     atlas_mapping: [AML.T0040, AML.T0042, AML.T0047, AML.T0051.001, AML.T0065, AML.T0070]
     prompts:
       - template: >

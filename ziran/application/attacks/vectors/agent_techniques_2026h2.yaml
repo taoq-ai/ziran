@@ -24,6 +24,7 @@ vectors:
     references:
       - https://github.com/advisories/GHSA-w794-rj3p-xv45
     owasp_mapping: [LLM07, LLM08]
+    owasp_agentic_mapping: [ASI05]
     atlas_mapping: [AML.T0050, AML.T0053]
     prompts:
       - template: >
@@ -55,6 +56,7 @@ vectors:
       - https://github.com/advisories/GHSA-w794-rj3p-xv45
       - https://github.com/advisories/GHSA-xrxf-jgv3-qmrm
     owasp_mapping: [LLM01, LLM07, LLM08]
+    owasp_agentic_mapping: [ASI01, ASI05]
     atlas_mapping: [AML.T0050, AML.T0051.001, AML.T0053]
     prompts:
       - template: >
@@ -90,6 +92,7 @@ vectors:
     references:
       - https://github.com/advisories/GHSA-2h4w-29cv-2cmv
     owasp_mapping: [LLM07, LLM08]
+    owasp_agentic_mapping: [ASI05]
     atlas_mapping: [AML.T0050, AML.T0051.000, AML.T0053]
     prompts:
       - template: >

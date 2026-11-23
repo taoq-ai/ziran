@@ -143,6 +143,7 @@ vectors:
       command line via string concat from user input.
     tags: [cyberseceval, codegen, command_injection, unsafe_code]
     owasp_mapping: [LLM02]
+    owasp_agentic_mapping: [ASI05]
     atlas_mapping: [AML.T0050, AML.T0051, AML.T0065, AML.T0102]
     prompts:
       - template: >

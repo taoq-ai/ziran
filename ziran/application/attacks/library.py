@@ -40,6 +40,7 @@ from ziran.domain.entities.attack import (
     AttackVector,
     HarmCategory,
     ManyShotConfig,
+    OwaspAgenticCategory,
     OwaspLlmCategory,
     Severity,
 )
@@ -54,6 +55,22 @@ _COVERAGE_SEVERITIES: dict[CoverageLevel, set[Severity]] = {
     CoverageLevel.ESSENTIAL: {"critical"},
     CoverageLevel.STANDARD: {"critical", "high"},
     CoverageLevel.COMPREHENSIVE: {"critical", "high", "medium", "low"},
+}
+
+# OWASP Agentic default per category (spec 089); a vector's YAML key replaces it.
+_C, _A = AttackCategory, OwaspAgenticCategory
+_AGENTIC_DEFAULTS: dict[AttackCategory, list[OwaspAgenticCategory]] = {
+    _C.PROMPT_INJECTION: [_A.ASI01],
+    _C.INDIRECT_INJECTION: [_A.ASI01],
+    _C.SYSTEM_PROMPT_EXTRACTION: [_A.ASI01],
+    _C.CHAIN_OF_THOUGHT_MANIPULATION: [_A.ASI01],
+    _C.TOOL_MANIPULATION: [_A.ASI02],
+    _C.DATA_EXFILTRATION: [_A.ASI02],
+    _C.MODEL_DOS: [_A.ASI02],
+    _C.PRIVILEGE_ESCALATION: [_A.ASI03],
+    _C.AUTHORIZATION_BYPASS: [_A.ASI03],
+    _C.MEMORY_POISONING: [_A.ASI06],
+    _C.MULTI_AGENT: [_A.ASI07],
 }
 
 # Built-in vectors directory (relative to this file)
@@ -260,6 +277,10 @@ class AttackLibrary:
         """
         return sorted(v.id for v in self._vectors.values() if not v.atlas_mapping)
 
+    def lint_owasp_agentic_coverage(self) -> list[str]:
+        """Report vector IDs whose ``owasp_agentic_mapping`` is empty, sorted (spec 089)."""
+        return sorted(v.id for v in self._vectors.values() if not v.owasp_agentic_mapping)
+
     def get_attacks_by_protocol(self, protocol: str) -> list[AttackVector]:
         """Get attack vectors applicable to a specific protocol.
 
@@ -408,10 +429,12 @@ class AttackLibrary:
                 )
             )
 
+        category = AttackCategory(data["category"])
+        agentic = [OwaspAgenticCategory(o) for o in data.get("owasp_agentic_mapping") or []]
         return AttackVector(
             id=data["id"],
             name=data["name"],
-            category=AttackCategory(data["category"]),
+            category=category,
             target_phase=ScanPhase(data["target_phase"]),
             description=data.get("description", ""),
             severity=data["severity"],
@@ -419,6 +442,7 @@ class AttackLibrary:
             tags=data.get("tags", []),
             references=data.get("references", []),
             owasp_mapping=[OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])],
+            owasp_agentic_mapping=agentic or list(_AGENTIC_DEFAULTS[category]),
             atlas_mapping=[AtlasTechnique(t) for t in data.get("atlas_mapping", [])],
             protocol_filter=data.get("protocol_filter", []),
             tactic=data.get("tactic", "single"),
