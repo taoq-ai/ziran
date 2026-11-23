@@ -32,26 +32,31 @@ Audit the directory it lives in ([examples/24-claude-code-agent-audit/](examples
 $ ziran audit agents/
 
 ╭─────── Static Analysis ───────╮
-│ Found 2 issue(s) in 1 file(s) │
-│   Critical: 1  High: 1        │
+│ Found 3 issue(s) in 1 file(s) │
+│   Critical: 2  High: 1        │
 ╰───────────────────────────────╯
 
-┏━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Check  ┃ Severity   ┃ Message                                                    ┃ Location               ┃
-┡━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ SA003  │ high       │ Agent 'researcher' is granted dangerous tool 'WebFetch'    │ agents/researcher.md:4 │
-├────────┼────────────┼────────────────────────────────────────────────────────────┼────────────────────────┤
-│ CC001  │ critical   │ Agent 'researcher': data_exfiltration via Read -> WebFetch │ agents/researcher.md:4 │
-└────────┴────────────┴────────────────────────────────────────────────────────────┴────────────────────────┘
+┏━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Check  ┃ Severity   ┃ Message                                                               ┃ Location               ┃
+┡━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ SA003  │ high       │ Agent 'researcher' is granted dangerous tool 'WebFetch'               │ agents/researcher.md:4 │
+├────────┼────────────┼───────────────────────────────────────────────────────────────────────┼────────────────────────┤
+│ CC001  │ critical   │ Agent 'researcher': data_exfiltration via Read -> WebFetch            │ agents/researcher.md:4 │
+├────────┼────────────┼───────────────────────────────────────────────────────────────────────┼────────────────────────┤
+│ LT001  │ critical   │ Agent 'researcher': lethal_trifecta: private data from Read;          │ agents/researcher.md:4 │
+│        │            │ untrusted content from WebFetch; egress via WebFetch                  │                        │
+└────────┴────────────┴───────────────────────────────────────────────────────────────────────┴────────────────────────┘
 
 Recommendations:
   CC001: Remove one tool of the chain from the agent's 'tools' list, or split the agent.
+  LT001: Remove or restrict one leg: drop the egress tool, scope the private data tool, or keep untrusted content out of
+this agent.
   SA003: Remove the tool or scope it with a permission rule, e.g. Bash(npm test:*).
 
 FAILED — critical issues found
 ```
 
-**What just happened.** ZIRAN mapped each declared tool to a capability (`Read` is `read_file`, `WebFetch` is `http_request`), put them in a graph and walked the edges against its library of dangerous chain patterns. `read_file -> http_request` matches a data exfiltration path: a prompt injection in any file the agent reads can tell it to send that file, or your `.env`, to a URL of the attacker's choosing. Neither tool trips a per-tool check, which is why list-based scanners report this agent as clean. The same analysis runs on LangChain, CrewAI, MCP and A2A agents, and on live agents over HTTPS, where ZIRAN also attacks the chain it found.
+**What just happened.** ZIRAN mapped each declared tool to a capability (`Read` is `read_file`, `WebFetch` is `http_request`), put them in a graph and walked the edges against its library of dangerous chain patterns. `read_file -> http_request` matches a data exfiltration path: a prompt injection in any file the agent reads can tell it to send that file, or your `.env`, to a URL of the attacker's choosing. Neither tool trips a per-tool check, which is why list-based scanners report this agent as clean. `LT001` looks at the agent as a whole: it reads private data (`Read`), sees untrusted content and can send data out (`WebFetch`), the lethal trifecta, whatever order the tools run in. The same analysis runs on LangChain, CrewAI, MCP and A2A agents, and on live agents over HTTPS, where ZIRAN also attacks the chain it found.
 
 Auditing a whole plugin, gating CI on an allowlist baseline, scoring hook traces and checking its MCP servers: see the [Claude Code guide](https://taoq-ai.github.io/ziran/guides/claude-code/) and [examples/25-claude-code-plugin/](examples/25-claude-code-plugin/).
 

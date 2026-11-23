@@ -1344,7 +1344,9 @@ class TestFlatChains:
         assert time.perf_counter() - start < 5.0
         tools = {t for chain in result.dangerous_tool_chains for t in chain["tools"]}
         assert len(tools) == 100 and max(map(len, tools)) == 100
-        assert len(result.dangerous_tool_chains) == 2500 and not result.warnings
+        kinds = [c["vulnerability_type"] for c in result.dangerous_tool_chains]
+        assert kinds.count("data_exfiltration") == 2500 and not result.warnings
+        assert kinds.count("lethal_trifecta") == 1  # spec 088: one per agent, not per pair
         assert len(result.model_dump_json()) < 5_000_000  # 504 MB before the names were cut
 
     async def test_mcp_over_the_cap_warns_in_result_reports_and_ci(
@@ -1366,7 +1368,9 @@ class TestFlatChains:
             result = await scanner.run_campaign(phases=[])
         finally:
             await adapter._client.aclose()
-        assert result.dangerous_tool_chains == []
+        # the pair rule is skipped above the cap; the linear trifecta check is not (spec 088)
+        [chain] = result.dangerous_tool_chains
+        assert chain["vulnerability_type"] == "lethal_trifecta"
         [warning] = result.warnings
         assert "101 tools" in warning and "cap of 100" in warning
 

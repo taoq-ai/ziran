@@ -561,11 +561,17 @@ class TestAuditBaseline:
             [bl001] = [r for r in bl if r["rule"] == "BL001"]
             assert (bl001["tools"], bl001["line"], bl001["agent"]) == (["WebFetch"], 4, "builder")
             assert bl001["severity"] == "critical"
-            [rw] = [r for r in bl if r["rule"] == "BL003" and r["tools"] == ["Read", "WebFetch"]]
-            assert rw["message"] == (
+            rw = [
+                r["message"]
+                for r in bl
+                if r["rule"] == "BL003" and r["tools"] == ["Read", "WebFetch"]
+            ]
+            assert sorted(rw) == [
                 "Agent 'builder': new critical chain data_exfiltration via Read -> WebFetch "
-                "not in the baseline"
-            )
+                "not in the baseline",
+                "Agent 'builder': new critical chain lethal_trifecta via Read -> WebFetch "
+                "not in the baseline",  # spec 088
+            ]
             assert all(set(r) == CC_KEYS for r in data["findings"])
         text = runner.invoke(cli, ["audit", str(agents), "--baseline", str(b)])
         assert text.exit_code == 1

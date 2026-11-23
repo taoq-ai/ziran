@@ -181,7 +181,11 @@ def test_typed_pairs_equal_the_probe_v2_on_seeded_agents() -> None:
         for a, b in permutations(tools, 2):
             graph.add_tool_chain([a, b], risk_score=0.5)
         found = ToolChainAnalyzer(graph, typed=True).analyze(include_cycles=False)
-        table = {tuple(c.tools) for c in found if not c.typed}
+        table = {  # the trifecta step (spec 088) runs after the typed one
+            tuple(c.tools)
+            for c in found
+            if not c.typed and c.vulnerability_type != "lethal_trifecta"
+        }
         got = {tuple(c.tools) for c in found if c.typed}
         want = {
             (a, b)
