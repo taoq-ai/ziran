@@ -133,7 +133,12 @@ def _edges(graph: AttackKnowledgeGraph, edge_type: str) -> list[tuple[str, str, 
 
 
 def _vulns(graph: AttackKnowledgeGraph) -> list[str]:
-    return [n for n, _ in graph.get_nodes_by_type(NodeType.VULNERABILITY)]
+    """Attack findings; chain findings (spec 086 adds them on flat agents) link by EXPLOITS."""
+    return [
+        n
+        for n, d in graph.get_nodes_by_type(NodeType.VULNERABILITY)
+        if d.get("finding_source") != "composition"
+    ]
 
 
 def _phase(vulns: list[str], artifacts: dict[str, Any]) -> PhaseResult:
@@ -180,7 +185,10 @@ class TestScannerLinksImplicatedCapabilities:
         assert {u for u, _, _ in enables} == {"tool_shell_execute"}
         assert len(enables) == len(vulns)
         assert set(vulns) <= {p[-1] for p in campaign.critical_paths}
-        assert len(campaign.critical_paths) == len(vulns) + 3
+        # each two-tool chain finding adds one path per tool; co-resident edges add none
+        chains = len(campaign.dangerous_tool_chains)
+        assert chains
+        assert len(campaign.critical_paths) == len(vulns) + 3 + 2 * chains
 
 
 # ── Path preservation and fan-out (US3, US4.1, kept edge class) ──────────

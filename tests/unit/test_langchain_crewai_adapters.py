@@ -225,3 +225,28 @@ class TestCrewAIAdapter:
         adapter.observe_tool_call("web_search", {"q": "test"}, "results")
         assert len(adapter._observed_tool_calls) == 1
         assert adapter._observed_tool_calls[0]["tool"] == "web_search"
+
+    @pytest.mark.unit
+    async def test_scan_finds_chain_across_crew_agents(self, shared_attack_library) -> None:
+        """A crew shares task context, so tools on different agents chain (spec 086)."""
+        from ziran.application.agent_scanner.scanner import AgentScanner
+        from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+        from ziran.infrastructure.adapters.crewai_adapter import CrewAIAdapter
+
+        crew = MagicMock()
+        crew.agents = []
+        for name in ("read_file", "http_request"):
+            tool = MagicMock()
+            tool.name = name
+            tool.description = name
+            crew.agents.append(MagicMock(role=name, goal="", tools=[tool]))
+        scanner = AgentScanner(adapter=CrewAIAdapter(crew), attack_library=shared_attack_library)
+        await scanner._discover_and_map_capabilities()
+        chains = ToolChainAnalyzer(scanner.graph).analyze(include_cycles=False)
+        assert any(
+            c.vulnerability_type == "data_exfiltration"
+            and c.tools == ["agent_0_tool_read_file", "agent_1_tool_http_request"]
+            for c in chains
+        )
+        # agent roles are skills, never co-resident tools
+        assert not scanner.graph.graph.has_edge("agent_0_role", "agent_1_role")

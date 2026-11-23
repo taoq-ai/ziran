@@ -14,11 +14,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ziran.application.knowledge_graph.graph import EdgeType
+from ziran.domain.entities.capability import CapabilityType
 from ziran.domain.entities.multi_agent import MultiAgentTopology
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+    from ziran.domain.entities.capability import AgentCapability
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = get_logger(__name__)
@@ -27,9 +31,36 @@ STATE_NODE_PREFIX = "state:"  # knowledge-graph node id = STATE_NODE_PREFIX + ch
 
 
 async def import_adapter_structure(
+    adapter: BaseAgentAdapter,
+    graph: AttackKnowledgeGraph,
+    capabilities: Iterable[AgentCapability] = (),
+) -> MultiAgentTopology | None:
+    """Call ``adapter.discover_structure()`` and import the result; never raises.
+
+    When the import linked no two of the tool *capabilities* (a flat agent, or a CrewAI crew,
+    whose agents share task context), they share one context: link them all (spec 086).
+    """
+    topology = await _discover_and_import(adapter, graph)
+    tools = [c.id for c in capabilities if c.type == CapabilityType.TOOL and c.id in graph.graph]
+    if not _links_tools(graph, set(tools)):
+        graph.add_co_resident_tools(tools)
+    return topology
+
+
+def _links_tools(graph: AttackKnowledgeGraph, tools: set[str]) -> bool:
+    """Whether some tool has an edge to another tool, or to a state node another tool reads."""
+    g = graph.graph
+    for tool in tools:
+        for nxt in g.successors(tool):
+            hops = g.successors(nxt) if nxt.startswith(STATE_NODE_PREFIX) else [nxt]
+            if any(n in tools and n != tool for n in hops):
+                return True
+    return False
+
+
+async def _discover_and_import(
     adapter: BaseAgentAdapter, graph: AttackKnowledgeGraph
 ) -> MultiAgentTopology | None:
-    """Call ``adapter.discover_structure()`` and import the result; never raises."""
     try:
         topology = await adapter.discover_structure()
     except Exception as e:

@@ -22,7 +22,6 @@ MCP config may hold secrets. Findings carry only explicit fields.
 from __future__ import annotations
 
 import dataclasses
-import itertools
 from typing import TYPE_CHECKING
 
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
@@ -61,8 +60,7 @@ def agent_chains(
     graph = AttackKnowledgeGraph()
     for cap in agent.capabilities:
         graph.add_capability(cap.id, cap)
-    for a, b in itertools.permutations(agent.effective_tools, 2):
-        graph.add_tool_chain([a, b], risk_score=0.5)
+    graph.add_co_resident_tools(agent.effective_tools)
     # Cycle enumeration is exponential on a complete graph (12 tools never finish).
     analyzer = ToolChainAnalyzer(graph, typed=typed, role_overrides=role_overrides)
     return analyzer.analyze(include_cycles=False)

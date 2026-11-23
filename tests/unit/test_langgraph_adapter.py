@@ -256,15 +256,18 @@ class TestChainFinding:
         await scanner._discover_and_map_capabilities()
         chains = _exfil_chains(ToolChainAnalyzer(scanner.graph).analyze())
         assert any(c.chain_type == "indirect" and c.graph_path == EXFIL_PATH for c in chains)
+        # the state channel links the tools, so they get no co-resident edges (spec 086)
+        assert not scanner.graph.has_co_resident_tools()
 
-    async def test_flat_langchain_adapter_misses_it(
+    async def test_flat_langchain_adapter_finds_it(
         self, shared_attack_library: AttackLibrary
     ) -> None:
         flat = LangChainAdapter(SimpleNamespace(tools=[read_file, http_request]))
         scanner = AgentScanner(adapter=flat, attack_library=shared_attack_library)
         caps = await scanner._discover_and_map_capabilities()
         assert {c.id for c in caps} == {"tool_read_file", "tool_http_request"}
-        assert _exfil_chains(ToolChainAnalyzer(scanner.graph).analyze()) == []
+        chains = _exfil_chains(ToolChainAnalyzer(scanner.graph).analyze(include_cycles=False))
+        assert any(c.tools == ["tool_read_file", "tool_http_request"] for c in chains)
 
     async def test_html_report_mapping(self, shared_attack_library: AttackLibrary) -> None:
         scanner = AgentScanner(

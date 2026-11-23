@@ -1244,3 +1244,59 @@ class TestHttpAdapterStreamAndDiscover:
         adapter.reset_state()
         assert adapter._conversation == []
         assert handler._conversation == []
+
+
+@pytest.mark.unit
+class TestFlatChains:
+    """Tools an HTTP target exposes are co-resident, so the scan finds their chain (spec 086)."""
+
+    @staticmethod
+    async def _exfil_tools(adapter: HttpAgentAdapter, library: AttackLibrary) -> list[list[str]]:
+        from ziran.application.agent_scanner.scanner import AgentScanner
+        from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+
+        scanner = AgentScanner(adapter=adapter, attack_library=library)
+        await scanner._discover_and_map_capabilities()
+        chains = ToolChainAnalyzer(scanner.graph).analyze(include_cycles=False)
+        return [c.tools for c in chains if c.vulnerability_type == "data_exfiltration"]
+
+    async def test_probe_discovery(self, shared_attack_library: AttackLibrary) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com", probe_delay=0))
+        adapter._client = AsyncMock()
+        adapter._handler = AsyncMock()
+        adapter._handler.discover.return_value = []
+        adapter._handler.send.return_value = {
+            "content": "- read_file reads a file\n- http_request sends a request\n"
+        }
+        chains = await self._exfil_tools(adapter, shared_attack_library)
+        assert ["probe_read_file", "probe_http_request"] in chains
+
+    async def test_mcp_tools_list(self, shared_attack_library: AttackLibrary) -> None:
+        import json
+
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+        from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler
+
+        tools = [{"name": "read_file"}, {"name": "http_request"}]
+
+        async def server(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            if body["method"] == "tools/list":
+                result = {"tools": tools}
+                return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": result})
+            error = {"code": -32601, "message": "no such method"}
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "error": error})
+
+        config = TargetConfig(
+            url="https://mcp.example.com", protocol=ProtocolType.MCP, probe_delay=0
+        )
+        adapter = HttpAgentAdapter(config)
+        adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(server))
+        adapter._handler = MCPProtocolHandler(adapter._client, config)
+        try:
+            chains = await self._exfil_tools(adapter, shared_attack_library)
+        finally:
+            await adapter._client.aclose()
+        assert ["read_file", "http_request"] in chains

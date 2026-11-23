@@ -9,12 +9,15 @@ data sources, vulnerabilities) and edges represent relationships
 
 from __future__ import annotations
 
+import itertools
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ziran.domain.entities.capability import AgentCapability, DangerousChain
 
 
@@ -224,6 +227,20 @@ class AttackKnowledgeGraph:
                 timestamp=datetime.now(tz=UTC).isoformat(),
             )
 
+    def add_co_resident_tools(self, tool_ids: Iterable[str]) -> None:
+        """Link every ordered pair of tools that share one context with ``CAN_CHAIN_TO``.
+
+        One tool's output can reach another's input, so each pair is a possible chain. The
+        edges carry ``co_resident=True``: cycle enumeration on the complete graph they form is
+        exponential, so chain analysis skips it (see :meth:`has_co_resident_tools`).
+        """
+        for a, b in itertools.permutations(tool_ids, 2):
+            self.add_edge(a, b, EdgeType.CAN_CHAIN_TO, {"risk_score": 0.5, "co_resident": True})
+
+    def has_co_resident_tools(self) -> bool:
+        """Whether :meth:`add_co_resident_tools` added any edge (survives export and import)."""
+        return any(d.get("co_resident") for _, _, d in self.graph.edges(data=True))
+
     def add_chain_finding(self, chain: DangerousChain) -> str:
         """Surface a dangerous tool-composition as a first-class finding node.
 
@@ -335,13 +352,17 @@ class AttackKnowledgeGraph:
         if not sources or not target_set:
             return []
 
+        # Co-resident edges make the tools a complete graph: every ordering would be a path.
+        graph = nx.subgraph_view(
+            self.graph, filter_edge=lambda u, v, k: not self.graph[u][v][k].get("co_resident")
+        )
         all_paths: list[list[str]] = []
         for source in sources:
             if source not in self.graph:
                 continue
             try:
                 for path in nx.all_simple_paths(
-                    self.graph,
+                    graph,
                     source,
                     target_set,
                     cutoff=max_path_length,

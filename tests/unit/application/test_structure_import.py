@@ -11,6 +11,7 @@ from structlog.testing import capture_logs
 
 from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner import structure_import as si_mod
+from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.agent_scanner.structure_import import (
     STATE_NODE_PREFIX,
@@ -19,6 +20,7 @@ from ziran.application.agent_scanner.structure_import import (
 )
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.domain.entities.attack import TokenUsage
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.entities.multi_agent import (
     AgentEdge,
@@ -265,6 +267,50 @@ class TestImportAdapterStructure:
         assert "state:messages" in graph.graph
         hits = [e for e in logs if e["event"] == "structure_imported"]
         assert hits and (hits[0]["agents"], hits[0]["edges"], hits[0]["channels"]) == (2, 2, 1)
+
+
+class TestCoResidentTools:
+    """Spec 086: tools no structure links are co-resident and get CAN_CHAIN_TO edges."""
+
+    async def test_no_structure_links_every_tool_pair(self) -> None:
+        skill = AgentCapability(id="role", name="role", type=CapabilityType.SKILL)
+        caps = [_cap(READ), _cap(SEND), skill]
+        graph = _graph(*caps)
+        await import_adapter_structure(MockAgentAdapter(), graph, caps)
+        assert graph.has_co_resident_tools()
+        chains = {(e["source"], e["target"]) for e in _edges(graph, "can_chain_to")}
+        assert chains == {(READ, SEND), (SEND, READ)}
+
+    async def test_state_channel_keeps_only_real_edges(self) -> None:
+        graph = _graph()
+        adapter = _StructureAdapter(_topology())
+        await import_adapter_structure(adapter, graph, [_cap(READ), _cap(SEND)])
+        assert not graph.has_co_resident_tools()
+        assert _edges(graph, "can_chain_to") == []
+
+    async def test_topology_without_tool_links_is_co_resident(self) -> None:
+        topo = MultiAgentTopology(agents=[AgentNode(id="n:a", name="a", capabilities=[READ, SEND])])
+        graph = _graph()
+        await import_adapter_structure(_StructureAdapter(topo), graph, [_cap(READ), _cap(SEND)])
+        assert graph.has_co_resident_tools()
+
+    def test_fifteen_flat_tools_skip_cycles(self) -> None:
+        caps = [_cap(f"tool_read_file_{i}") for i in range(14)] + [_cap(SEND)]
+        graph = _graph(*caps)
+        graph.add_co_resident_tools([c.id for c in caps])
+        start = time.perf_counter()
+        _, chains = ResultBuilder(graph, "flat").build(
+            campaign_id="c",
+            phase_results=[],
+            attack_results=[],
+            campaign_tokens=TokenUsage(),
+            coverage_value="essential",
+            max_concurrent_attacks=1,
+            duration=0.0,
+            capabilities_count=len(caps),
+        )
+        assert time.perf_counter() - start < 10.0
+        assert chains and not any(c.chain_type == "cycle" for c in chains)
 
 
 async def test_scanner_imports_adapter_structure(shared_attack_library: AttackLibrary) -> None:
