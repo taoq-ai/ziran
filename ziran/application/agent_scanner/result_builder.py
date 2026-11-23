@@ -14,6 +14,7 @@ from ziran.application.campaign.evasion import compute_evasion_rate
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.domain.entities.phase import (
     UNMEASURED_METADATA_KEY,
+    WARNINGS_METADATA_KEY,
     CampaignResult,
     PhaseResult,
     compute_resilience,
@@ -129,6 +130,8 @@ class ResultBuilder:
         ]
         if unmeasured:  # no reply measured these vectors (spec 082); absent when none
             metadata[UNMEASURED_METADATA_KEY] = unmeasured
+        if self._graph.warnings:  # analysis the scan skipped (spec 086); absent when none
+            metadata[WARNINGS_METADATA_KEY] = list(self._graph.warnings)
 
         if baseline_score is not None and post_score is not None:
             metadata["utility"] = _compute_utility(

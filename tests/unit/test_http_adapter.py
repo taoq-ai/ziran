@@ -17,6 +17,8 @@ from ziran.domain.entities.target import (
 from ziran.infrastructure.adapters.protocols import ProtocolError
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ziran.application.attacks.library import AttackLibrary
     from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 
@@ -1273,18 +1275,17 @@ class TestFlatChains:
         chains = await self._exfil_tools(adapter, shared_attack_library)
         assert ["probe_read_file", "probe_http_request"] in chains
 
-    async def test_mcp_tools_list(self, shared_attack_library: AttackLibrary) -> None:
+    @staticmethod
+    def _mcp_adapter(names: list[str]) -> HttpAgentAdapter:
         import json
 
         from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
         from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler
 
-        tools = [{"name": "read_file"}, {"name": "http_request"}]
-
         async def server(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
             if body["method"] == "tools/list":
-                result = {"tools": tools}
+                result = {"tools": [{"name": n} for n in names]}
                 return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": result})
             error = {"code": -32601, "message": "no such method"}
             return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "error": error})
@@ -1295,8 +1296,47 @@ class TestFlatChains:
         adapter = HttpAgentAdapter(config)
         adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(server))
         adapter._handler = MCPProtocolHandler(adapter._client, config)
+        return adapter
+
+    async def test_mcp_tools_list(self, shared_attack_library: AttackLibrary) -> None:
+        adapter = self._mcp_adapter(["read_file", "http_request"])
         try:
             chains = await self._exfil_tools(adapter, shared_attack_library)
         finally:
             await adapter._client.aclose()
         assert ["read_file", "http_request"] in chains
+
+    async def test_mcp_over_the_cap_warns_in_result_reports_and_ci(
+        self, shared_attack_library: AttackLibrary, tmp_path: Path
+    ) -> None:
+        """101 tools get no co-resident chain, and every output says so (spec 086)."""
+        from click.testing import CliRunner
+
+        from ziran.application.agent_scanner.scanner import AgentScanner
+        from ziran.application.cicd.gate import QualityGate
+        from ziran.application.cicd.github_actions import write_step_summary
+        from ziran.interfaces.cli.main import cli
+        from ziran.interfaces.cli.reports import ReportGenerator
+
+        names = [f"read_file_{i}" for i in range(100)] + ["http_request"]
+        adapter = self._mcp_adapter(names)
+        scanner = AgentScanner(adapter=adapter, attack_library=shared_attack_library)
+        try:
+            result = await scanner.run_campaign(phases=[])
+        finally:
+            await adapter._client.aclose()
+        assert result.dangerous_tool_chains == []
+        [warning] = result.warnings
+        assert "101 tools" in warning and "cap of 100" in warning
+
+        reports = ReportGenerator(tmp_path)
+        json_path = reports.save_json(result)
+        assert warning in json_path.read_text()
+        assert warning in reports.save_markdown(result).read_text()
+        assert warning in reports.save_html(result, scanner.graph.export_state()).read_text()
+        shown = CliRunner().invoke(cli, ["ci", str(json_path)])
+        assert warning in " ".join(shown.output.split())  # the console wraps long lines
+        summary = write_step_summary(
+            QualityGate().evaluate(result), result, summary_path=str(tmp_path / "summary.md")
+        )
+        assert warning in summary

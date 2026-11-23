@@ -41,12 +41,14 @@ async def import_adapter_structure(
     When the import linked no two of the tool *capabilities*, tools that share a context are
     linked as co-resident (spec 086): all of them when no agents were reported (a flat agent,
     or a CrewAI crew, whose agents share task context), else each agent's own tools, plus one
-    set for the tools no agent lists.
+    set for the tools no agent lists. Over the cap no set is linked and ``graph.warnings``
+    says so.
     """
     topology = await _discover_and_import(adapter, graph)
     tools = [c.id for c in capabilities if c.type == CapabilityType.TOOL and c.id in graph.graph]
     tool_set = set(tools)
-    if _links_tools(graph, tool_set):
+    # An earlier discovery on this graph (the pentest agent runs a campaign per step) linked them.
+    if graph.has_co_resident_tools() or _links_tools(graph, tool_set):
         return topology
     agents = topology.agents if topology is not None else []
     listed = {t for agent in agents for t in agent.capabilities}
@@ -56,6 +58,12 @@ async def import_adapter_structure(
     count = sum(len(s) for s in sets if len(s) > 1)
     if count > MAX_CO_RESIDENT_TOOLS:
         logger.warning("co_resident_tools_skipped", tools=count, cap=MAX_CO_RESIDENT_TOOLS)
+        warning = (
+            f"Tool chains between tools of one agent were not analysed: {count} tools "
+            f"is over the cap of {MAX_CO_RESIDENT_TOOLS}"
+        )
+        if warning not in graph.warnings:
+            graph.warnings.append(warning)
         return topology
     for s in sets:
         graph.add_co_resident_tools(s)
@@ -64,7 +72,7 @@ async def import_adapter_structure(
 
 def _links_tools(graph: AttackKnowledgeGraph, tools: set[str]) -> bool:
     """Whether some tool has an edge to another tool, or to a state node another tool reads."""
-    g = graph.graph
+    g = graph.structure_view()
     for tool in tools:
         for nxt in g.successors(tool):
             hops = g.successors(nxt) if nxt.startswith(STATE_NODE_PREFIX) else [nxt]

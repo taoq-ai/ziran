@@ -127,11 +127,11 @@ class ToolChainAnalyzer:
         """Run full chain analysis and return all dangerous chains found.
 
         Steps:
-            1. Discover direct 2-tool chains (A → B).
+            1. Discover direct 2-tool chains (A → B). Only this step reads co-resident
+               edges; steps 2 and 3 and centrality read ``graph.structure_view()`` (spec 086).
             2. Discover indirect chains (A → … → B, up to 3 hops).
             3. Discover cycles (A → B → … → A), unless *include_cycles* is False. It
-               defaults to False on a graph with co-resident tool edges (spec 086): cycle
-               enumeration is exponential on dense, e.g. complete, graphs.
+               defaults to False on a graph with co-resident tool edges.
             4. Flag unscoped shell tools (bare ``Bash``) as single-tool findings.
             5. De-duplicate, score, and sort by risk.
 
@@ -151,13 +151,14 @@ class ToolChainAnalyzer:
         # Compute centrality once for all chains
         centrality: dict[str, float] = {}
         n_nodes = self.graph.graph.number_of_nodes()
-        # O(V*E): on a co-resident (dense) graph, cap it the way export_state does
+        # O(V*E): on a co-resident graph, cap it the way export_state does
         if n_nodes > 1 and not (co_resident and n_nodes > _MAX_CENTRALITY_NODES):
             with contextlib.suppress(nx.NetworkXError):
-                centrality = nx.betweenness_centrality(self.graph.graph)
+                centrality = nx.betweenness_centrality(self.graph.structure_view())
 
-        chains.extend(self._find_direct_chains(tool_nodes, pattern_cache))
-        chains.extend(self._find_indirect_chains(tool_nodes, pattern_cache, max_hops=3))
+        pairs = self._candidate_pairs(tool_nodes)
+        chains.extend(self._find_direct_chains(tool_nodes, pairs))
+        chains.extend(self._find_indirect_chains(pairs, pattern_cache, max_hops=3))
         if include_cycles:
             chains.extend(self._find_chain_cycles(tool_nodes, pattern_cache))
         chains.extend(self._find_unrestricted_execution(tool_nodes))
@@ -197,12 +198,45 @@ class ToolChainAnalyzer:
 
     # ── Direct chains ──────────────────────────────────────────────
 
+    def _candidate_pairs(
+        self, tool_nodes: list[tuple[str, dict[str, Any]]]
+    ) -> dict[tuple[str, str], ChainPatternInfo]:
+        """Map each ordered tool pair to the first pattern it matches.
+
+        Each tool is matched against each pattern role once, so the cost is patterns x tools
+        and not patterns x pairs: a co-resident set of n tools has n^2 pairs (spec 086).
+        """
+        tool_ids = [tid for tid, _ in tool_nodes]
+        tool_lower = {tid: canonical_tool_name(tid).lower() for tid in tool_ids}
+        tool_kw = {tid: self._to_keywords(canonical_tool_name(tid)) for tid in tool_ids}
+
+        candidate_pairs: dict[tuple[str, str], ChainPatternInfo] = {}
+        for (pat_src, pat_tgt), info in self._patterns.items():
+            src_matches = [
+                tid
+                for tid in tool_ids
+                if self._pattern_matches(pat_src, tool_lower[tid], tool_kw[tid])
+            ]
+            tgt_matches = [
+                tid
+                for tid in tool_ids
+                if self._pattern_matches(pat_tgt, tool_lower[tid], tool_kw[tid])
+            ]
+            for s in src_matches:
+                for t in tgt_matches:
+                    if s != t and (s, t) not in candidate_pairs:
+                        candidate_pairs[(s, t)] = info
+        return candidate_pairs
+
     def _find_direct_chains(
         self,
         tool_nodes: list[tuple[str, dict[str, Any]]],
-        pattern_cache: dict[tuple[str, str], ChainPatternInfo | None],
+        pairs: dict[tuple[str, str], ChainPatternInfo],
     ) -> list[DangerousChain]:
-        """Find dangerous 2-tool chains where A → B exists in the graph."""
+        """Find dangerous 2-tool chains where A → B exists in the graph.
+
+        The pair rule: the only reader of co-resident edges (spec 086).
+        """
         chains: list[DangerousChain] = []
 
         for source_id, _source_data in tool_nodes:
@@ -212,7 +246,7 @@ class ToolChainAnalyzer:
                 if not self.graph.graph.has_edge(source_id, target_id):
                     continue
 
-                pattern_info = self._match_pattern(source_id, target_id, pattern_cache)
+                pattern_info = pairs.get((source_id, target_id))
                 if pattern_info is not None:
                     chains.append(
                         DangerousChain(
@@ -233,47 +267,22 @@ class ToolChainAnalyzer:
 
     def _find_indirect_chains(
         self,
-        tool_nodes: list[tuple[str, dict[str, Any]]],
+        pairs: dict[tuple[str, str], ChainPatternInfo],
         pattern_cache: dict[tuple[str, str], ChainPatternInfo | None],
         max_hops: int = 3,
     ) -> list[DangerousChain]:
         """Find dangerous chains A → X → … → B via intermediate nodes."""
         chains: list[DangerousChain] = []
 
-        # Pre-compute keywords and lowercase forms for all tool IDs so
-        # that pattern matching can quickly determine candidate pairs.
-        tool_ids = [tid for tid, _ in tool_nodes]
-        tool_lower = {tid: canonical_tool_name(tid).lower() for tid in tool_ids}
-        tool_kw = {tid: self._to_keywords(canonical_tool_name(tid)) for tid in tool_ids}
-
-        # Build candidate (source, target) pairs by checking which tools
-        # could match each pattern role.  This avoids the full O(T²) loop
-        # for patterns that only apply to a small subset of tools.
-        candidate_pairs: dict[tuple[str, str], ChainPatternInfo] = {}
-        for (pat_src, pat_tgt), info in self._patterns.items():
-            src_matches = [
-                tid
-                for tid in tool_ids
-                if self._pattern_matches(pat_src, tool_lower[tid], tool_kw[tid])
-            ]
-            tgt_matches = [
-                tid
-                for tid in tool_ids
-                if self._pattern_matches(pat_tgt, tool_lower[tid], tool_kw[tid])
-            ]
-            for s in src_matches:
-                for t in tgt_matches:
-                    if s != t and (s, t) not in candidate_pairs:
-                        candidate_pairs[(s, t)] = info
-
-        for (source_id, target_id), pattern_info in candidate_pairs.items():
+        structure = self.graph.structure_view()
+        for (source_id, target_id), pattern_info in pairs.items():
             # Skip if there's already a direct edge (handled above)
             if self.graph.graph.has_edge(source_id, target_id):
                 continue
 
             # Fast reachability check before expensive path enumeration
             try:
-                if not nx.has_path(self.graph.graph, source_id, target_id):
+                if not nx.has_path(structure, source_id, target_id):
                     continue
             except (nx.NetworkXError, nx.NodeNotFound):
                 continue
@@ -285,7 +294,7 @@ class ToolChainAnalyzer:
             try:
                 paths = list(
                     nx.all_simple_paths(
-                        self.graph.graph,
+                        structure,
                         source_id,
                         target_id,
                         cutoff=max_hops,
@@ -338,7 +347,7 @@ class ToolChainAnalyzer:
 
         # A cycle with a tool lies inside that tool's descendants, so enumerate only
         # there: unbounded cycles among agent nodes (spec 050) can never hold a tool.
-        g = self.graph.graph
+        g = self.graph.structure_view()
         scope = set(tool_ids)
         for tid in tool_ids:
             scope |= nx.descendants(g, tid)

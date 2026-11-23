@@ -287,9 +287,45 @@ def _build(graph: AttackKnowledgeGraph) -> tuple[Any, list[Any]]:
     )
 
 
+def _exfil(chains: list[Any]) -> list[Any]:
+    return [c for c in chains if c.vulnerability_type == "data_exfiltration"]
+
+
 def _no_cycle_search(*_: Any) -> list[Any]:
     # fail fast instead of hanging: cycle enumeration is exponential on a complete graph
     raise AssertionError("cycle search ran on a co-resident graph")
+
+
+_WALKERS = (
+    "has_path",
+    "all_simple_paths",
+    "descendants",
+    "simple_cycles",
+    "betweenness_centrality",
+)
+
+
+@pytest.fixture
+def walker_guard(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    """Fail fast when a graph walker is handed a co-resident edge; returns calls per walker."""
+    calls = dict.fromkeys(_WALKERS, 0)
+    clean: dict[int, Any] = {}  # keeps each checked graph alive, so no id is reused
+
+    def guard(name: str) -> None:
+        real = getattr(nx, name)
+
+        def walker(g: Any, *args: Any, **kwargs: Any) -> Any:
+            calls[name] += 1
+            if id(g) not in clean:
+                assert not any(d.get("co_resident") for _, _, d in g.edges(data=True)), name
+                clean[id(g)] = g
+            return real(g, *args, **kwargs)
+
+        monkeypatch.setattr(nx, name, walker)
+
+    for name in _WALKERS:
+        guard(name)
+    return calls
 
 
 class TestCoResidentTools:
@@ -354,9 +390,21 @@ class TestCoResidentTools:
         graph = _graph(*caps)
         with capture_logs() as logs:
             await import_adapter_structure(MockAgentAdapter(), graph, caps)
+            await import_adapter_structure(MockAgentAdapter(), graph, caps)  # a second campaign
         assert _edges(graph, "can_chain_to") == []
         hits = [e for e in logs if e["event"] == "co_resident_tools_skipped"]
         assert hits and (hits[0]["tools"], hits[0]["cap"]) == (101, MAX_CO_RESIDENT_TOOLS)
+        # the result builder carries the skip into the result, once
+        [warning] = _build(graph)[0].warnings
+        assert "101 tools" in warning and f"cap of {MAX_CO_RESIDENT_TOOLS}" in warning
+        assert _build(_graph())[0].model_dump()["metadata"].get("warnings") is None
+
+    async def test_repeated_discovery_adds_the_edges_once(self) -> None:
+        caps = [_cap(READ), _cap(SEND)]
+        graph = _graph(*caps)
+        for _ in range(2):  # the pentest agent runs one campaign per step on the same graph
+            await import_adapter_structure(MockAgentAdapter(), graph, caps)
+        assert len(_edges(graph, "can_chain_to")) == 2
 
     async def test_tool_cap_counts_all_sets(self) -> None:
         # two agents of 60 tools: 120 tools in sets is over the cap, so neither set gets edges
@@ -386,6 +434,78 @@ class TestCoResidentTools:
         graph.add_co_resident_tools(["tool_t0", "tool_t1"])
         monkeypatch.setattr(nx, "betweenness_centrality", no_centrality)
         ToolChainAnalyzer(graph).analyze()
+
+    def test_centrality_still_runs_on_big_plain_graph(self, walker_guard: dict[str, int]) -> None:
+        graph = _graph(*(_cap(f"tool_t{i}", dangerous=False) for i in range(801)))
+        ToolChainAnalyzer(graph).analyze()
+        assert walker_guard["betweenness_centrality"] == 1
+
+    def test_only_the_pair_rule_reads_co_resident_edges(self, walker_guard: dict[str, int]) -> None:
+        """Spec 086 design rule: every walker but the direct pair rule gets the structure view."""
+        shared = "tool_shared"
+        graph = _graph(_cap(READ), _cap(SEND), _cap(shared))
+        graph.add_co_resident_tools([READ, shared])
+        graph.add_co_resident_tools([shared, SEND])
+        # real structure beside the co-resident sets: a channel from read_file to http_request
+        import_structure(
+            graph,
+            MultiAgentTopology(
+                agents=[AgentNode(id="n:a", name="a"), AgentNode(id="n:b", name="b")],
+                edges=[AgentEdge(source_id="n:a", target_id="n:b")],
+                state_channels=[StateChannel(name="m", writers=[READ], readers=[SEND])],
+            ),
+        )
+        real_path = [READ, "state:m", SEND]
+
+        chains = ToolChainAnalyzer(graph).analyze(include_cycles=True)
+        exfil = [c for c in _exfil(chains) if c.tools == [READ, SEND]]
+        assert [c.graph_path for c in exfil] == [real_path]  # never read -> shared -> send
+        assert graph.find_attack_paths(READ, SEND) == [real_path]
+        assert {tuple(p) for p in graph.get_cross_agent_attack_paths()} == {("n:a", "n:b")}
+        assert graph.get_critical_nodes()
+        graph.export_state()
+        _build(graph)
+        assert analyze_graph(graph)["dangerous_chains"]  # it swallows a failed chain analysis
+        assert all(walker_guard.values()), walker_guard
+
+    async def test_two_agents_sharing_a_tool_stay_fast(self, walker_guard: dict[str, int]) -> None:
+        # 50 tools each (the cap, counted per set), joined by one shared tool: indirect search
+        # between the two cliques never finished before it left the co-resident edges out
+        sets = [
+            [
+                *(f"tool_read_file_{a}{i}" for i in range(25)),
+                *(f"tool_http_request_{a}{i}" for i in range(24)),
+                "tool_shared",
+            ]
+            for a in "ab"
+        ]
+        topo = MultiAgentTopology(
+            agents=[AgentNode(id=f"n:{i}", name=str(i), capabilities=s) for i, s in enumerate(sets)]
+        )
+        caps = [_cap(t) for t in dict.fromkeys(t for s in sets for t in s)]
+        graph = _graph(*caps)
+        await import_adapter_structure(_StructureAdapter(topo), graph, caps)
+        assert len(_edges(graph, "can_chain_to")) == 2 * 50 * 49
+        start = time.perf_counter()
+        _, chains = _build(graph)
+        assert time.perf_counter() - start < 5.0
+        assert walker_guard["has_path"]  # the cross-agent pairs were searched, on the view
+        for s in sets:
+            assert any(c.chain_type == "direct" and set(c.tools) <= set(s) for c in _exfil(chains))
+        assert all(any(set(c.tools) <= set(s) for s in sets) for c in chains)  # none crosses
+
+    async def test_hundred_flat_tools_stay_fast(self, walker_guard: dict[str, int]) -> None:
+        caps = [
+            _cap(f"tool_{kind}_{i}") for kind in ("read_file", "http_request") for i in range(50)
+        ]
+        graph = _graph(*caps)
+        await import_adapter_structure(MockAgentAdapter(), graph, caps)
+        assert graph.has_co_resident_tools()
+        start = time.perf_counter()
+        _, chains = _build(graph)
+        assert time.perf_counter() - start < 5.0
+        assert len(_exfil(chains)) == 50 * 50
+        assert walker_guard["betweenness_centrality"] and walker_guard["all_simple_paths"]
 
     async def test_thousand_tool_mcp_scan_stays_bounded(
         self, shared_attack_library: AttackLibrary

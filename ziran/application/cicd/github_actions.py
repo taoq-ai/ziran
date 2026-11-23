@@ -96,6 +96,7 @@ def write_step_summary(
             if result.unmeasured_vectors
             else []
         ),
+        *(f"> **Warning:** {w}" for w in result.warnings),
         "",
         "### Finding Summary",
         "",

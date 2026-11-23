@@ -17,7 +17,7 @@ import json
 from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
-from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY
+from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
 # vis-network CDN version used by the self-contained report.
@@ -203,6 +203,7 @@ def build_html_report(
     trust_score = result_data.get("final_trust_score", 0)
     success = result_data.get("success", False)
     unmeasured = (result_data.get("metadata") or {}).get(UNMEASURED_METADATA_KEY, [])
+    warnings = (result_data.get("metadata") or {}).get(WARNINGS_METADATA_KEY, [])
     phases = result_data.get("phases_executed", [])
     token_usage = result_data.get("token_usage", {})
     coverage_level = result_data.get("coverage_level", "")
@@ -253,6 +254,10 @@ def build_html_report(
         if unmeasured
         else "PASSED",
         success_class="danger" if success else "orange" if unmeasured else "safe",
+        warnings_html="".join(
+            f'\n    <p class="muted" style="color:var(--orange)">Warning: {html.escape(str(w))}</p>'
+            for w in warnings
+        ),
         total_nodes=stats.get("total_nodes", 0),
         total_edges=stats.get("total_edges", 0),
         density=f"{stats.get('density', 0):.3f}",
@@ -1278,7 +1283,7 @@ _HTML_TEMPLATE = """\
 
   <!-- Summary metrics -->
   <div class="section">
-    <div class="section-title">Campaign Summary</div>
+    <div class="section-title">Campaign Summary</div>{warnings_html}
     <div class="metric-grid">
       <div class="metric">
         <div class="metric-value {success_class}">{success_label}</div>
