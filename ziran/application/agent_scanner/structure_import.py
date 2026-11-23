@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 STATE_NODE_PREFIX = "state:"  # knowledge-graph node id = STATE_NODE_PREFIX + channel name
+MAX_CO_RESIDENT_TOOLS = 100  # above this many tools in co-resident sets, none get edges
 
 
 async def import_adapter_structure(
@@ -44,13 +45,20 @@ async def import_adapter_structure(
     """
     topology = await _discover_and_import(adapter, graph)
     tools = [c.id for c in capabilities if c.type == CapabilityType.TOOL and c.id in graph.graph]
-    if _links_tools(graph, set(tools)):
+    tool_set = set(tools)
+    if _links_tools(graph, tool_set):
         return topology
     agents = topology.agents if topology is not None else []
     listed = {t for agent in agents for t in agent.capabilities}
-    for agent in agents:
-        graph.add_co_resident_tools([t for t in agent.capabilities if t in tools])
-    graph.add_co_resident_tools([t for t in tools if t not in listed])
+    sets = [[t for t in agent.capabilities if t in tool_set] for agent in agents]
+    sets.append([t for t in tools if t not in listed])
+    # The target sets the tool count: n tools give n^2 edges and ~n^2/4 chains (CWE-400).
+    count = sum(len(s) for s in sets if len(s) > 1)
+    if count > MAX_CO_RESIDENT_TOOLS:
+        logger.warning("co_resident_tools_skipped", tools=count, cap=MAX_CO_RESIDENT_TOOLS)
+        return topology
+    for s in sets:
+        graph.add_co_resident_tools(s)
     return topology
 
 

@@ -35,7 +35,16 @@ run red before T005.
 - [x] T015 Tests: a self-loop state channel links no two tools; the `co_resident` marker
       survives `export_state`/`import_state`; `capabilities` is required.
 
-## Phase 4 - Gates
+## Phase 4 - Fix round 2 (gate findings)
+
+- [x] T016 `structure_import.py`: `MAX_CO_RESIDENT_TOOLS` cap with one warning;
+      `chain_analyzer.py`: betweenness cap on big co-resident graphs. Tests: cap warns and adds
+      no edge, the cap counts all sets, exactly the cap still links, betweenness patched to
+      raise, a 1,000-tool MCP scan stays bounded.
+- [x] T017 Tests: a linking channel with no agents plus an unrelated tool adds no edge; a graph
+      node with two tools linked by state adds no edge.
+
+## Phase 5 - Gates
 
 - [x] T010 `ziran audit` on the Claude Code fixtures at base and head: identical output.
 - [x] T011 `uv run ruff check`, `uv run ruff format --check`, `uv run mypy ziran/`, the touched

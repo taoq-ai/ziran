@@ -43,7 +43,14 @@ After this change:
    tool graph every ordering of tools is a simple path, so a six-tool mock scan went from 9
    critical paths to 2,678; with the filter it reports 13 (the 9 plus one path from each tool
    to each of the two chain findings).
-6. `ziran audit` findings stay identical.
+6. The target decides how many tools it lists, and n co-resident tools give n^2 edges and about
+   n^2/4 chain findings (CWE-400: before the cap, 400 MCP tools took 23 to 32 s and 620 MB, and
+   1,500 never finished). `MAX_CO_RESIDENT_TOOLS = 100` in `structure_import.py` caps the tools
+   across all co-resident sets of a scan. Above it no set gets edges, and one
+   `co_resident_tools_skipped` warning names the count and the cap. On a graph with
+   co-resident edges and over 800 nodes, `analyze` skips betweenness centrality, the same
+   bound `export_state` uses.
+7. `ziran audit` findings stay identical.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -80,6 +87,8 @@ After this change:
 - An adapter that reports no structure, fails to, or reports a non-topology: the tools are
   treated as co-resident.
 - Fewer than two tools: no edge is added.
+- More than 100 tools across the co-resident sets: no co-resident edge at all, one warning. A
+  1,000-tool MCP `tools/list` scan then builds its result in under a second.
 - Non-tool capabilities (skills, data access, CrewAI agent roles, probe lines that are not
   dangerous tools) are not part of the co-resident set.
 - A resumed scan: the edges carry a `co_resident` marker that survives the checkpoint's graph
@@ -100,6 +109,9 @@ After this change:
 - **FR-005**: `scanner.py` stays at or under 750 lines (net zero change).
 - **FR-006**: `find_all_attack_paths` enumerates over a view of the graph without co-resident
   edges.
+- **FR-007**: at most `MAX_CO_RESIDENT_TOOLS` (100) tools across all co-resident sets; above it,
+  no co-resident edges and one warning. Betweenness centrality is skipped on a co-resident graph
+  over 800 nodes.
 
 ## Assumptions
 
@@ -116,6 +128,9 @@ After this change:
 - Only `CapabilityType.TOOL` capabilities are co-resident. Why: skills and resources are not
   callable tools, and probe discovery files every line it does not classify as a dangerous tool
   as a skill. Overturned by: a chain pattern that needs a resource node as a source.
+- The cap counts all sets together, not each set alone. Why: the cost is the pattern match per
+  edge, so several 100-tool agents cost as much as one big set (4 x 100 tools took 10.6 s in
+  `analyze`). Overturned by: a cheaper pattern match, after which the cap can rise.
 - Critical paths leave out co-resident edges. Why: those edges say "could chain", which the
   chain findings already report; walking them only multiplies paths up to the 10,000 cap.
   Overturned by: a report that needs multi-tool paths to a data source.

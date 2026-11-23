@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
+import networkx as nx
 import pytest
 import structlog
 from structlog.testing import capture_logs
@@ -14,6 +15,7 @@ from ziran.application.agent_scanner import structure_import as si_mod
 from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.agent_scanner.structure_import import (
+    MAX_CO_RESIDENT_TOOLS,
     STATE_NODE_PREFIX,
     import_adapter_structure,
     import_structure,
@@ -272,6 +274,19 @@ class TestImportAdapterStructure:
         assert hits and (hits[0]["agents"], hits[0]["edges"], hits[0]["channels"]) == (2, 2, 1)
 
 
+def _build(graph: AttackKnowledgeGraph) -> tuple[Any, list[Any]]:
+    return ResultBuilder(graph, "flat").build(
+        campaign_id="c",
+        phase_results=[],
+        attack_results=[],
+        campaign_tokens=TokenUsage(),
+        coverage_value="essential",
+        max_concurrent_attacks=1,
+        duration=0.0,
+        capabilities_count=0,
+    )
+
+
 def _no_cycle_search(*_: Any) -> list[Any]:
     # fail fast instead of hanging: cycle enumeration is exponential on a complete graph
     raise AssertionError("cycle search ran on a co-resident graph")
@@ -307,19 +322,106 @@ class TestCoResidentTools:
         caps = [_cap(f"tool_read_file_{i}") for i in range(14)] + [_cap(SEND)]
         graph = _graph(*caps)
         graph.add_co_resident_tools([c.id for c in caps])
-        start = time.perf_counter()
-        _, chains = ResultBuilder(graph, "flat").build(
-            campaign_id="c",
-            phase_results=[],
-            attack_results=[],
-            campaign_tokens=TokenUsage(),
-            coverage_value="essential",
-            max_concurrent_attacks=1,
-            duration=0.0,
-            capabilities_count=len(caps),
-        )
-        assert time.perf_counter() - start < 10.0
+        _, chains = _build(graph)
         assert chains and not any(c.chain_type == "cycle" for c in chains)
+
+    async def test_linking_channel_without_agents_adds_no_edges(self) -> None:
+        # read_file writes, http_request reads: linked, so the unrelated tool gets no set either
+        query = "tool_query_database"
+        topo = MultiAgentTopology(
+            state_channels=[StateChannel(name="messages", writers=[READ], readers=[SEND])]
+        )
+        caps = [_cap(READ), _cap(SEND), _cap(query)]
+        graph = _graph(*caps)
+        await import_adapter_structure(_StructureAdapter(topo), graph, caps)
+        assert not graph.has_co_resident_tools()
+
+    async def test_graph_node_with_two_linked_tools_adds_no_edges(self) -> None:
+        topo = MultiAgentTopology(
+            agents=[AgentNode(id="n:tools", name="tools", capabilities=[READ, SEND])],
+            state_channels=[
+                StateChannel(name="messages", writers=[READ, SEND], readers=[READ, SEND])
+            ],
+        )
+        graph = _graph()
+        await import_adapter_structure(_StructureAdapter(topo), graph, [_cap(READ), _cap(SEND)])
+        assert not graph.has_co_resident_tools()
+
+    async def test_tool_cap_skips_edges_and_warns(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(si_mod, "logger", structlog.get_logger())
+        caps = [_cap(f"tool_read_file_{i}") for i in range(MAX_CO_RESIDENT_TOOLS)]
+        caps.append(_cap(SEND))
+        graph = _graph(*caps)
+        with capture_logs() as logs:
+            await import_adapter_structure(MockAgentAdapter(), graph, caps)
+        assert _edges(graph, "can_chain_to") == []
+        hits = [e for e in logs if e["event"] == "co_resident_tools_skipped"]
+        assert hits and (hits[0]["tools"], hits[0]["cap"]) == (101, MAX_CO_RESIDENT_TOOLS)
+
+    async def test_tool_cap_counts_all_sets(self) -> None:
+        # two agents of 60 tools: 120 tools in sets is over the cap, so neither set gets edges
+        ids = [[f"tool_a{a}_{i}" for i in range(60)] for a in range(2)]
+        topo = MultiAgentTopology(
+            agents=[AgentNode(id=f"n:{a}", name=str(a), capabilities=ids[a]) for a in range(2)]
+        )
+        caps = [_cap(i) for group in ids for i in group]
+        graph = _graph(*caps)
+        await import_adapter_structure(_StructureAdapter(topo), graph, caps)
+        assert not graph.has_co_resident_tools()
+
+    async def test_tool_cap_allows_exactly_the_cap(self) -> None:
+        caps = [_cap(f"tool_t{i}") for i in range(MAX_CO_RESIDENT_TOOLS)]
+        graph = _graph(*caps)
+        await import_adapter_structure(MockAgentAdapter(), graph, caps)
+        n = MAX_CO_RESIDENT_TOOLS
+        assert len(_edges(graph, "can_chain_to")) == n * (n - 1)
+
+    def test_centrality_skipped_on_big_co_resident_graph(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def no_centrality(*_: Any, **__: Any) -> dict[str, float]:
+            raise AssertionError("betweenness ran on a big co-resident graph")
+
+        graph = _graph(*(_cap(f"tool_t{i}", dangerous=False) for i in range(801)))
+        graph.add_co_resident_tools(["tool_t0", "tool_t1"])
+        monkeypatch.setattr(nx, "betweenness_centrality", no_centrality)
+        ToolChainAnalyzer(graph).analyze()
+
+    async def test_thousand_tool_mcp_scan_stays_bounded(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        import json
+
+        import httpx
+
+        from ziran.domain.entities.target import ProtocolType, TargetConfig
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+        from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler
+
+        names = [f"read_file_{i}" for i in range(500)] + [f"http_request_{i}" for i in range(500)]
+
+        async def server(request: httpx.Request) -> httpx.Response:
+            if json.loads(request.content)["method"] == "tools/list":
+                result = {"tools": [{"name": n} for n in names]}
+                return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": result})
+            error = {"code": -32601, "message": "no such method"}
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "error": error})
+
+        config = TargetConfig(
+            url="https://mcp.example.com", protocol=ProtocolType.MCP, probe_delay=0
+        )
+        adapter = HttpAgentAdapter(config)
+        adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(server))
+        adapter._handler = MCPProtocolHandler(adapter._client, config)
+        scanner = AgentScanner(adapter=adapter, attack_library=shared_attack_library)
+        start = time.perf_counter()
+        try:
+            await scanner._discover_and_map_capabilities()
+        finally:
+            await adapter._client.aclose()
+        assert _edges(scanner.graph, "can_chain_to") == []
+        _build(scanner.graph)
+        assert time.perf_counter() - start < 10.0
 
     def test_cycle_search_never_runs_on_co_resident_graph(
         self, monkeypatch: pytest.MonkeyPatch

@@ -51,6 +51,9 @@ enumeration in the result builder when the graph holds those edges.
    edges. Found by `test_enables_links.py::test_end_to_end_mock_scan`, whose six-tool mock scan
    returned 2,678 critical paths instead of 9 before the filter; its counts now leave out chain
    findings and add their two paths each.
+7. `structure_import.py` `MAX_CO_RESIDENT_TOOLS`: skip every set when the sets hold more than
+   100 tools, with one warning; `chain_analyzer.py`: no betweenness on a co-resident graph over
+   `_MAX_CENTRALITY_NODES` (800).
 
 ## Verification
 
