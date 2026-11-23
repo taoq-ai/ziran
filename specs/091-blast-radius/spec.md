@@ -145,6 +145,17 @@ removed nodes instead.
   output linear (measured above). In memory each chain still carries it. Overturned if a
   consumer needs the radius inline in a chain dict and accepts the size.
 - A trifecta chain's last tool is its last witness tool; its radius is that tool's.
+- A demonstrated data source over-claims in today's scans: `scanner.py` links every dangerous
+  capability to one shared `sensitive_data` node, so a call to any dangerous tool (a lone
+  `send_email` included) marks `sensitive_data` demonstrated with no read. It means "a tool that
+  can reach the shared sensitive data ran", not "data was read". Slice 2 words it that way in the
+  reports. Overturned when the scan adds one data source per tool or the calls carry what was read.
+- A call matches a tool by node id, id without `tool_`, or capability name (`probe_<name>` ids from
+  HTTP probe discovery match only by name). A server listing both `http_request` and
+  `tool_http_request` gets both marked by one call: an over-report, never a hidden entry.
+- `ResultBuilder` matches the calls to tools once per build (`called_tools`) and walks once per
+  distinct last tool: a match per walk made 1M calls over 60 last tools 5.7 s against 0.6 s at
+  base.
 
 ## How this fails
 

@@ -137,7 +137,7 @@ class AnalyzerService:
             critical_paths=[c.graph_path for c in aggregated],
             final_trust_score=1.0,
             success=has_critical,
-            dangerous_tool_chains=[c.model_dump() for c in aggregated],
+            dangerous_tool_chains=[c.model_dump(exclude={"blast_radius"}) for c in aggregated],
             critical_chain_count=sum(1 for c in aggregated if c.is_critical),
             source="trace-analysis",
             metadata={

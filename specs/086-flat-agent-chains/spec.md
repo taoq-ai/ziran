@@ -9,8 +9,11 @@
 ## The promise in our own words
 
 **Design rule.** A co-resident `CAN_CHAIN_TO` edge (`co_resident=True`) says "these two tools sit
-in one model's context, so one's output can reach the other's input". It exists for one reader:
-the chain analyzer's direct pair rule, which reports a chain when a dangerous pair has an edge.
+in one model's context, so one's output can reach the other's input". It exists for two readers:
+the chain analyzer's direct pair rule, which reports a chain when a dangerous pair has an edge,
+and the blast radius walk (spec 091), which lists what a chain's last tool reaches. That walk is
+breadth-first, visits each edge once, runs once per distinct last tool and keeps at most 10 ids
+a list.
 Every other walker over graph edges reads `AttackKnowledgeGraph.structure_view()`, the graph
 without co-resident edges. On a graph with no co-resident edge the view is the graph itself, so
 every walker but the pair rule behaves as it did at base. Two fix rounds bounded one walker at a
@@ -36,7 +39,8 @@ After this change:
    tools form one set, and the tools no agent lists form one more. A repeated discovery on the
    same graph (the pentest agent runs one campaign per step) adds the edges once.
 3. A CrewAI crew's tools across all its agents form one co-resident set.
-4. Only the direct pair rule reads co-resident edges. The walker list below names every walker
+4. Only the direct pair rule and the blast radius walk (spec 091, bounded as above) read
+   co-resident edges. The walker list below names every walker
    and its view.
 5. Chain analysis does not enumerate cycles on a graph that holds co-resident edges:
    `ToolChainAnalyzer.analyze(include_cycles=None)` defaults to skipping them when
@@ -70,7 +74,7 @@ and raw `graph.graph` access.
 
 | Walker | Where | View |
 |--------|-------|------|
-| Direct pair rule: `has_edge` per tool pair | `ToolChainAnalyzer._find_direct_chains` | full graph. The one reader of co-resident edges |
+| Direct pair rule: `has_edge` per tool pair | `ToolChainAnalyzer._find_direct_chains` | full graph. One of the two readers of co-resident edges, with the blast radius walk |
 | Indirect search: `has_edge` to skip a pair the pair rule reported | `ToolChainAnalyzer._find_indirect_chains` | full graph (it asks what the pair rule saw) |
 | Indirect search: `nx.has_path`, `nx.all_simple_paths` (3 hops) | `ToolChainAnalyzer._find_indirect_chains` | structure view |
 | Cycle search: `nx.descendants`, `nx.simple_cycles` | `ToolChainAnalyzer._find_chain_cycles` | structure view; off by default on a co-resident graph |
@@ -122,7 +126,7 @@ Node-only readers (`get_nodes_by_type`, `enables_links.py`, `pentesting/agent.py
    **Then** it finishes in under 5 s, direct chains inside each agent are found and no chain
    crosses the agents.
 3. **Given** a flat agent of 100 tools, **When** the result is built, **Then** it finishes in
-   under 5 s and no walker other than the pair rule sees a co-resident edge (the test patches
+   under 5 s and no NetworkX walker sees a co-resident edge (the test patches
    each NetworkX walker to raise on one).
 
 ### User Story 4 - The audit is unchanged (Priority: P1)
@@ -171,7 +175,8 @@ Node-only readers (`get_nodes_by_type`, `enables_links.py`, `pentesting/agent.py
 - **FR-005**: `scanner.py` stays at or under 750 lines (net zero change).
 - **FR-006**: `AttackKnowledgeGraph.structure_view()` returns the graph without co-resident
   edges (the graph itself when it holds none). Every walker in the list above marked
-  "structure view" reads it; only the direct pair rule reads co-resident edges.
+  "structure view" reads it; only the direct pair rule and the blast radius walk (spec 091) read
+  co-resident edges.
 - **FR-007**: at most `MAX_CO_RESIDENT_TOOLS` (100) tools and `MAX_CO_RESIDENT_ID_CHARS`
   (20,000) characters of ids across all co-resident sets; above either, no co-resident edges.
   Betweenness centrality in `analyze` is skipped on a co-resident graph over 800 nodes.

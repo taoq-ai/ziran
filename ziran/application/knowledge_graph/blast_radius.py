@@ -24,10 +24,11 @@ from ziran.domain.entities.capability import BlastRadius, BlastReach
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
+    from collections.abc import Set as AbstractSet
 
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
-__all__ = ["EXTERNAL", "FOLLOWED", "MAX_LISTED", "blast_radius", "is_external"]
+__all__ = ["EXTERNAL", "FOLLOWED", "MAX_LISTED", "blast_radius", "called_tools", "is_external"]
 
 FOLLOWED = frozenset(
     {
@@ -79,8 +80,12 @@ def _call_name(call: Any) -> str:
     return name if isinstance(name, str) else ""
 
 
-def _called(graph: AttackKnowledgeGraph, tool_calls: Iterable[Any]) -> set[str]:
-    """Tool nodes a call named, by node id, id without ``tool_``, or the capability's name."""
+def called_tools(graph: AttackKnowledgeGraph, tool_calls: Iterable[Any]) -> set[str]:
+    """Tool nodes a call named, by node id, id without ``tool_``, or the capability's name.
+
+    One pass over the calls and one over the nodes: a caller that walks many times computes it
+    once and passes it as ``called``.
+    """
     names = {_call_name(c) for c in tool_calls} - {""}
     out: set[str] = set()
     for node, data in graph.graph.nodes(data=True):
@@ -99,12 +104,15 @@ def blast_radius(
     remove: Iterable[str] = (),
     tool_calls: Iterable[Any] = (),
     external: Mapping[str, bool] | None = None,
+    called: AbstractSet[str] | None = None,
 ) -> BlastRadius:
     """What the start tools reach, split into demonstrated and reachable.
 
     *remove* previews a fix: the walk skips those nodes as if they were gone, and the input
     graph is never changed (no copy or filtered view: a view made the walk four times slower).
-    *tool_calls* are the campaign's recorded calls (dicts as adapters return them). *external* overrides :func:`is_external` per tool.
+    *tool_calls* are the campaign's recorded calls (dicts as adapters return them); *called*,
+    when given, is :func:`called_tools` of them computed once, and replaces them. *external*
+    overrides :func:`is_external` per tool.
     """
     g, removed = graph.graph, set(remove)
     seeds = {s for s in start_tool_ids if s in g and s not in removed}
@@ -118,7 +126,8 @@ def blast_radius(
                 seen.add(v)
                 queue.append(v)
 
-    called = _called(graph, tool_calls) - removed
+    touched = called_tools(graph, tool_calls) if called is None else called
+    called = set(touched) - removed
     found: dict[bool, dict[str, list[str]]] = {d: {k: [] for k in KINDS} for d in (True, False)}
     for node in sorted(seen - holders, key=str):
         node_type = g.nodes[node].get("node_type")

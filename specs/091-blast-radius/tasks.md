@@ -24,3 +24,7 @@ before T002.
 - [x] T006 Size and time measured at base and head; ground-truth benchmark at base and head.
 - [x] T007 ruff, ruff format, mypy strict on the touched modules; touched tests and
       `test_scanner_size.py` under `timeout -s KILL 120`.
+- [x] T008 Review round: unhashable call names, a reached high-impact tool, the probe and prefix
+      matches, `MAX_LISTED` pinned, one walk per last tool and one call match per build asserted
+      structurally; spec 086 names the blast radius as the second reader of co-resident edges;
+      trace-analysis chain dicts match the scan shape.

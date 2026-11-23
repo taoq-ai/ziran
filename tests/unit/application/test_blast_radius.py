@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import json
-import time
 from typing import Any
 
 import pytest
 
 from tests.conftest import MockAgentAdapter
+from ziran.application.agent_scanner import result_builder as rb
 from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.structure_import import import_adapter_structure
 from ziran.application.knowledge_graph.blast_radius import (
     MAX_LISTED,
     blast_radius,
+    called_tools,
     is_external,
 )
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
@@ -114,7 +115,17 @@ class TestScanResult:
             category=AttackCategory.DATA_EXFILTRATION,
             severity="high",
             successful=True,
-            evidence={"tool_calls": ["http_request", None, {"function": "x"}, {}]},
+            evidence={
+                "tool_calls": [
+                    "http_request",
+                    None,
+                    {"function": "x"},
+                    {},
+                    {"name": ["read_file"]},  # unhashable names an OpenAI target can send
+                    {"tool": {"a": 1}},
+                    {"function": {"name": {"a": 1}}},
+                ]
+            },
         )
         _, chains = _build(graph, [bad, _attack({"tool": "http_request"})])
         (chain,) = [c for c in chains if c.vulnerability_type == "data_exfiltration"]
@@ -151,11 +162,11 @@ class TestWhatIf:
 
 def _multi_agent() -> AttackKnowledgeGraph:
     graph = AttackKnowledgeGraph()
-    for name in ("search_docs", "send_email", "run_shell", "upload_report"):
+    for name in ("search_docs", "send_email", "run_shell", "upload_report", "delete_records"):
         graph.add_capability(f"tool_{name}", _cap(name))
     for agent, tools in {
         "a": ["tool_search_docs"],
-        "b": ["tool_send_email", "tool_upload_report"],
+        "b": ["tool_send_email", "tool_upload_report", "tool_delete_records"],
         "c": ["tool_run_shell"],
     }.items():
         graph.add_agent_node(agent)
@@ -174,6 +185,7 @@ class TestDelegation:
         assert radius.reachable.egress == ["tool_send_email", "tool_upload_report"]
         assert radius.reachable.external == ["tool_send_email"]  # an upload stays inside
         assert radius.reachable.exec == []  # c is upstream of a
+        assert radius.reachable.high_impact == ["tool_delete_records"]
         assert not any(v for k, v in radius.demonstrated.model_dump().items() if k != "counts")
 
     def test_demonstrated_agent(self) -> None:
@@ -235,13 +247,22 @@ class TestExternal:
 @pytest.mark.unit
 class TestBounds:
     @pytest.mark.parametrize(("count", "id_len"), [(100, 180), (101, 180), (100, 20_000)])
-    async def test_hostile_tool_lists_stay_linear(self, count: int, id_len: int) -> None:
+    async def test_hostile_tool_lists_stay_linear(
+        self, count: int, id_len: int, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         kinds = ["read_file", "http_request", "send_email", "execute_code", "delete_user"]
         names = [f"{kinds[i % 5]}_{i}_{'x' * id_len}"[:id_len] for i in range(count)]
         graph = await _flat(*names)
-        start = time.perf_counter()
+        walks: list[Any] = []
+        lookups: list[Any] = []
+        monkeypatch.setattr(
+            rb, "blast_radius", lambda *a, **k: walks.append(a) or blast_radius(*a, **k)
+        )
+        monkeypatch.setattr(rb, "called_tools", lambda *a: lookups.append(a) or called_tools(*a))
         result, chains = _build(graph, [_attack({"name": names[0]}, {"name": names[1]})])
-        assert time.perf_counter() - start < 20
+        # one walk per distinct last tool, and the calls are matched once per build
+        assert sorted(a[1][0] for a in walks) == sorted({c.tools[-1] for c in chains})
+        assert len(lookups) == 1
         for chain in chains:
             for part in (chain.blast_radius.demonstrated, chain.blast_radius.reachable):
                 assert all(len(v) <= MAX_LISTED for k, v in part if k != "counts")
@@ -250,6 +271,9 @@ class TestBounds:
         id_chars = sum(len(n) + 5 for n in names)
         assert len(result.blast_radius) <= count
         assert len(json.dumps(result.blast_radius)) < 12 * MAX_LISTED * id_chars + 2_000 * count
+
+    def test_list_cap_is_pinned(self) -> None:
+        assert MAX_LISTED == 10
 
     def test_counts_hold_the_full_size(self) -> None:
         graph = AttackKnowledgeGraph()
@@ -262,3 +286,26 @@ class TestBounds:
         assert radius.reachable.egress == ids[:MAX_LISTED]
         assert radius.reachable.counts["egress"] == len(ids)
         assert radius.reachable.counts["external"] == len(ids)
+
+
+@pytest.mark.unit
+class TestCallMatching:
+    @pytest.mark.parametrize(
+        ("node", "cap_name", "call"),
+        [
+            ("probe_http_request", "http_request", "http_request"),  # HTTP probe discovery ids
+            ("tool_send_email", "Send Mail", "send_email"),  # the ``tool_`` prefix strip
+            ("tool_send_email", "Send Mail", "tool_send_email"),  # the id itself
+        ],
+    )
+    def test_a_call_marks_the_tool_demonstrated(self, node: str, cap_name: str, call: str) -> None:
+        graph = AttackKnowledgeGraph()
+        graph.add_capability(
+            node, AgentCapability(id=node, name=cap_name, type=CapabilityType.TOOL)
+        )
+        assert called_tools(graph, [{"name": call}]) == {node}
+        radius = blast_radius(graph, [node], tool_calls=[{"name": call}])
+        assert radius.demonstrated.egress == [node]
+        assert blast_radius(graph, [node], tool_calls=[{"name": "other"}]).reachable.egress == [
+            node
+        ]

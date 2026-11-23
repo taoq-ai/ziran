@@ -460,8 +460,11 @@ class TestCoResidentTools:
         ToolChainAnalyzer(graph).analyze()
         assert walker_guard["betweenness_centrality"] == 1
 
-    def test_only_the_pair_rule_reads_co_resident_edges(self, walker_guard: dict[str, int]) -> None:
-        """Spec 086 design rule: every walker but the direct pair rule gets the structure view."""
+    def test_only_pair_rule_and_blast_radius_read_co_resident_edges(
+        self, walker_guard: dict[str, int]
+    ) -> None:
+        """Spec 086 design rule: every NetworkX walker gets the structure view; the pair rule and
+        the blast radius walk (spec 091, plain ``out_edges``) read the full graph."""
         shared = "tool_shared"
         graph = _graph(_cap(READ), _cap(SEND), _cap(shared))
         graph.add_co_resident_tools([READ, shared])

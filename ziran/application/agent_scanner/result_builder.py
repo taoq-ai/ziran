@@ -11,7 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.campaign.evasion import compute_evasion_rate
-from ziran.application.knowledge_graph.blast_radius import blast_radius
+from ziran.application.knowledge_graph.blast_radius import blast_radius, called_tools
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.domain.entities.phase import (
     UNMEASURED_METADATA_KEY,
@@ -186,11 +186,12 @@ class ResultBuilder:
         """
         evidence = [r.evidence.get("tool_calls") for r in attack_results]
         calls = [c for e in evidence if isinstance(e, list) for c in e]
+        called = called_tools(self._graph, calls)  # once: walks x calls was 10 times slower
         radii: dict[str, BlastRadius] = {}
         for chain in chains:
             if chain.tools:
                 last = chain.tools[-1]
                 if last not in radii:
-                    radii[last] = blast_radius(self._graph, [last], tool_calls=calls)
+                    radii[last] = blast_radius(self._graph, [last], called=called)
                 chain.blast_radius = radii[last]
         return radii
