@@ -15,7 +15,8 @@ red before T002.
 
 - [x] T002 `attack.py`: `OwaspAgenticCategory`, `OWASP_AGENTIC_DESCRIPTIONS`, the two fields.
 - [x] T003 `library.py`: the default table, `_parse_vector`, `lint_owasp_agentic_coverage`.
-- [x] T004 `attack_executor.py`, `tactics.py`, `pair.py`: copy the field.
+- [x] T004 `attack_executor.py`, `tactics.py`, `pair.py`, `mcp_server_surface/scoring.py`: copy
+      the field; `dynamic_vectors/generator.py`: set the category default.
 - [x] T005 `poc/generator.py`: one helper for the OWASP lines.
 - [x] T006 Vector YAML overrides: `supply_chain.yaml`, `mcp_attacks_expanded.yaml`,
       `agent_techniques_2026h2.yaml`, `cyberseceval_codegen.yaml`,

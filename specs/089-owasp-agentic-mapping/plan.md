@@ -32,9 +32,14 @@ docs table.
 
 ## Design
 
-- Default table `_AGENTIC_DEFAULTS: dict[AttackCategory, list[OwaspAgenticCategory]]` in
-  `library.py`, covering all eleven categories. A missing category would raise `KeyError` at
-  load, which the loader already records as a load error, and the coverage test would fail.
+- Default table `AGENTIC_DEFAULTS: dict[AttackCategory, list[OwaspAgenticCategory]]` in
+  `library.py`, covering all eleven categories. `test_every_category_has_a_default` fails when a
+  new category has no entry; at load the vector would raise `KeyError`, which the loader records
+  as a load error and skips the vector.
+- `dynamic_vectors/generator.py`: `generate` sets the category default on each vector it
+  returns.
+- `mcp_server_surface/scoring.py`: `score_reply` copies the field, and the
+  `build_campaign_result` artifacts list it beside `owasp_mapping`.
 - `_parse_vector`: `[OwaspAgenticCategory(o) for o in data.get("owasp_agentic_mapping") or []]
   or list(_AGENTIC_DEFAULTS[category])`.
 - `attack_executor.py` (384 lines): four one-line additions, 388 after.

@@ -8,8 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
-from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.library import AGENTIC_DEFAULTS, AttackLibrary
 from ziran.application.attacks.pair import PairExecutor
+from ziran.application.attacks.tactics import TacticExecutor
+from ziran.application.dynamic_vectors.generator import DynamicVectorGenerator
 from ziran.application.poc.generator import PoCGenerator
 from ziran.domain.entities.attack import (
     OWASP_AGENTIC_DESCRIPTIONS,
@@ -17,9 +19,11 @@ from ziran.domain.entities.attack import (
     AttackPrompt,
     AttackResult,
     AttackVector,
+    ManyShotConfig,
     OwaspAgenticCategory,
     OwaspLlmCategory,
 )
+from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.entities.detection import DetectionVerdict
 
 if TYPE_CHECKING:
@@ -84,6 +88,18 @@ class TestLibrary:
         assert mapped["cse_path_injection_shell"] == [ASI.ASI05]
         assert mapped["ii_fs_tool_execute"] == [ASI.ASI01, ASI.ASI05]
 
+    def test_every_category_has_a_default(self) -> None:
+        assert set(AGENTIC_DEFAULTS) == set(AttackCategory)
+        assert all(AGENTIC_DEFAULTS.values())
+
+    def test_dynamic_vectors_take_the_category_default(self) -> None:
+        shell = AgentCapability(
+            id="shell", name="shell", type=CapabilityType.TOOL, description="", dangerous=True
+        )
+        vectors = DynamicVectorGenerator().generate([shell])
+        assert vectors
+        assert all(v.owasp_agentic_mapping == AGENTIC_DEFAULTS[v.category] for v in vectors)
+
     def test_category_default(self) -> None:
         assert AttackLibrary._parse_vector(_YAML).owasp_agentic_mapping == [ASI.ASI02]
 
@@ -134,6 +150,25 @@ class TestResults:
         result = await executor.execute(_vector(prompts=0))
 
         assert result.error
+        assert result.owasp_agentic_mapping == [ASI.ASI01, ASI.ASI05]
+
+    async def test_tactic_no_prompt_result_carries_the_mapping(self) -> None:
+        from tests.conftest import MockAgentAdapter
+
+        executor = TacticExecutor(MockAgentAdapter())
+        result = await executor.execute(_vector("crescendo", 0), _pipeline(False), lambda p: "")
+
+        assert result.error
+        assert result.owasp_agentic_mapping == [ASI.ASI01, ASI.ASI05]
+
+    async def test_many_shot_skip_carries_the_mapping(self) -> None:
+        from tests.conftest import MockAgentAdapter
+
+        vector = _vector().model_copy(update={"many_shot": ManyShotConfig(corpus="fraud")})
+        executor = AttackExecutor(MockAgentAdapter(), _pipeline(False), context_window=1)
+        result = await executor.execute(vector)
+
+        assert "skipped" in result.evidence
         assert result.owasp_agentic_mapping == [ASI.ASI01, ASI.ASI05]
 
     def test_pair_result_carries_the_mapping(self) -> None:

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 
+from ziran.application.attacks.library import AGENTIC_DEFAULTS
 from ziran.application.dynamic_vectors.config import (
     DynamicVectorConfig,
     PromptTemplate,
@@ -83,6 +84,8 @@ class DynamicVectorGenerator:
         # 4. Universal prompt-injection probes (always generated)
         vectors.extend(self._universal_probes(capabilities))
 
+        for v in vectors:  # the library's category default (spec 089)
+            v.owasp_agentic_mapping = list(AGENTIC_DEFAULTS[v.category])
         return vectors
 
     # ── Tool-specific generators ─────────────────────────────────────

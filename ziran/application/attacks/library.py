@@ -59,7 +59,7 @@ _COVERAGE_SEVERITIES: dict[CoverageLevel, set[Severity]] = {
 
 # OWASP Agentic default per category (spec 089); a vector's YAML key replaces it.
 _C, _A = AttackCategory, OwaspAgenticCategory
-_AGENTIC_DEFAULTS: dict[AttackCategory, list[OwaspAgenticCategory]] = {
+AGENTIC_DEFAULTS: dict[AttackCategory, list[OwaspAgenticCategory]] = {
     _C.PROMPT_INJECTION: [_A.ASI01],
     _C.INDIRECT_INJECTION: [_A.ASI01],
     _C.SYSTEM_PROMPT_EXTRACTION: [_A.ASI01],
@@ -442,7 +442,7 @@ class AttackLibrary:
             tags=data.get("tags", []),
             references=data.get("references", []),
             owasp_mapping=[OwaspLlmCategory(o) for o in data.get("owasp_mapping", [])],
-            owasp_agentic_mapping=agentic or list(_AGENTIC_DEFAULTS[category]),
+            owasp_agentic_mapping=agentic or list(AGENTIC_DEFAULTS[category]),
             atlas_mapping=[AtlasTechnique(t) for t in data.get("atlas_mapping", [])],
             protocol_filter=data.get("protocol_filter", []),
             tactic=data.get("tactic", "single"),

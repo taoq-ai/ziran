@@ -25,13 +25,15 @@ After this change:
 4. `AttackLibrary.lint_owasp_agentic_coverage()` lists vectors with no Agentic mapping, like
    `lint_atlas_coverage`. A unit test fails when the built-in library has any.
 5. Every place that copies `owasp_mapping` from a vector to a result also copies the new field:
-   `AttackExecutor`, `TacticExecutor` and `PairExecutor`. The scan JSON carries it, since
-   results are serialized with `model_dump`.
+   `AttackExecutor`, `TacticExecutor`, `PairExecutor` and the MCP server-surface scorer
+   (`score_reply` and the `build_campaign_result` artifacts, which `ziran mcp-hostile-server`
+   fills from the library's vectors). The scan JSON carries it, since results are serialized
+   with `model_dump`. The dynamic vector generator sets the same category default on the
+   vectors it builds.
 6. The PoC generator's OWASP lines list the Agentic ids after the LLM ids.
 7. The docs table uses `ASI01..ASI10` with the published names.
 
-Out of scope: SARIF properties, new vectors, the dynamic vector generator and the MCP
-server-surface scorer (neither loads through the library).
+Out of scope: SARIF properties, new vectors.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -64,7 +66,8 @@ A security engineer filters or reports findings by the OWASP Agentic list.
 
 - **FR-001**: `OwaspAgenticCategory` with ten members and a description for each.
 - **FR-002**: `owasp_agentic_mapping` on `AttackVector` and `AttackResult`, default empty.
-- **FR-003**: a default per `AttackCategory`, applied by `_parse_vector` when YAML sets none.
+- **FR-003**: a default per `AttackCategory` (`AGENTIC_DEFAULTS`, one entry for every
+  category), applied by `_parse_vector` when YAML sets none and by the dynamic vector generator.
 - **FR-004**: `lint_owasp_agentic_coverage()` returns sorted ids with an empty mapping.
 - **FR-005**: all result builders that copy `owasp_mapping` copy the new field.
 - **FR-006**: the PoC OWASP lines include the Agentic ids.
