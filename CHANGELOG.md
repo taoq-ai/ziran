@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.44.0](https://github.com/taoq-ai/ziran/compare/v0.43.0...v0.44.0) (2026-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ui:** the Docker image no longer serves the web UI and docker-compose.yml is gone. The image is a CLI: docker run <image> --help. The web UI continues in ZIRAN Cloud and ZIRAN Enterprise (info@taoq.ai); ziran v0.42.0 and earlier still include it under Apache-2.0.
+* **web:** the ui extra and the ziran ui command are removed. The web UI continues in ZIRAN Cloud and ZIRAN Enterprise (info@taoq.ai). ziran v0.42.0 and earlier still include it under Apache-2.0. WebSocket targets now install with pip install ziran[streaming].
+
+### Bug Fixes
+
+* **deps:** add a streaming extra for WebSocket targets ([4db994b](https://github.com/taoq-ai/ziran/commit/4db994bc7e6c28aafbf5297ec92f163becd9660a))
+* **detectors:** demote the success indicators that fire on benign replies ([6f7ccd7](https://github.com/taoq-ai/ziran/commit/6f7ccd76272e784ac8f9033b39f1e91df190d1a4))
+* **detectors:** demote the success indicators that fire on benign replies ([fea1eaa](https://github.com/taoq-ai/ziran/commit/fea1eaa7aa8832eb5f31d7fbdac986e7638abf03))
+* **mcp:** count the no-chat placeholder as unmeasured, not resisted ([c7da589](https://github.com/taoq-ai/ziran/commit/c7da5898d30e988865785a5deae56601165a6b77))
+* **mcp:** count the no-chat placeholder as unmeasured, not resisted ([03e3b6c](https://github.com/taoq-ai/ziran/commit/03e3b6cc9edccbd7a9ce82ce694d444782b28579))
+* **mcp:** match the no-chat placeholder exactly, never as a substring ([7f0bec4](https://github.com/taoq-ai/ziran/commit/7f0bec4b86f6b2816de96a62ae57721eceed90f8))
+* **vectors:** give corroborated-only prompts a strong indicator ([6036725](https://github.com/taoq-ai/ziran/commit/6036725c9e76b25214f641a3897360dd91790ee6))
+* **vectors:** use leak-only indicator forms on thinned prompts ([824aab1](https://github.com/taoq-ai/ziran/commit/824aab1b98e00e8c1dcf30493e6b23e872d58e8b))
+
+
+### Miscellaneous
+
+* **ui:** remove the React frontend and its build ([b993da9](https://github.com/taoq-ai/ziran/commit/b993da94e9acfe83fb874454cc73c2343ca0cc46))
+* **web:** remove the web backend, the ui extra and ziran ui ([28f42d8](https://github.com/taoq-ai/ziran/commit/28f42d8c5b368d69b3547fcb8820a4897f299fa9))
+
 ## [0.43.0](https://github.com/taoq-ai/ziran/compare/v0.42.0...v0.43.0) (2026-11-18)
 
 
