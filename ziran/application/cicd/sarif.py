@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID
 from ziran.application.knowledge_graph.trifecta import DELEGATED_RULE_ID as LT002
 from ziran.application.knowledge_graph.trifecta import DELEGATED_TYPE, LEGS
 from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
@@ -53,7 +54,6 @@ _SEVERITY_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 
 
 _ZIRAN_VERSION = "0.1.0"
 
-CHAIN_RULE_ID = "CC001"  # the audit's chain rule id, for every non-trifecta chain type
 _TRIFECTA_RULES: dict[str, str] = {TRIFECTA: LT001, DELEGATED_TYPE: LT002}
 
 
@@ -139,7 +139,8 @@ def _chain_result(chain: dict[str, Any], rules: dict[str, dict[str, Any]]) -> di
     for key in ("agent", "agents"):
         if key in evidence:
             properties[key] = evidence[key]
-    # code scanning merges results of one rule at one location unless their fingerprints differ
+    # code scanning merges results of one rule at one location unless their fingerprints differ;
+    # tools keep their order: a chain is a path, so a -> b and b -> a are two chains
     key = json.dumps([vt, evidence.get("agent"), tools], default=str)
     return {
         "ruleId": rule_id,
@@ -175,16 +176,17 @@ def _chain_rule() -> dict[str, Any]:
 
 def _trifecta_rule(rule_id: str = LT001, name: str = TRIFECTA) -> dict[str, Any]:
     """The LT001 rule, shared with ``ziran audit`` (spec 088), or the delegated LT002."""
-    joined = " or across the agents it delegates to" if rule_id == LT002 else ""
+    text = (
+        "An agent and the agents it delegates to read private data, see untrusted content and "
+        "can send data out"
+        if rule_id == LT002
+        else "One agent reads private data, sees untrusted content and can send data out"
+    )
     return {
         "id": rule_id,
         "name": name,
         "shortDescription": {"text": name},
-        "fullDescription": {
-            "text": "One agent"
-            + joined
-            + " reads private data, sees untrusted content and can send data out"
-        },
+        "fullDescription": {"text": text},
         "help": {"text": "Remove or restrict one leg of the trifecta."},
         "defaultConfiguration": {"level": "error"},
         "properties": {"tags": ["tool_composition"], "security-severity": "9.0"},

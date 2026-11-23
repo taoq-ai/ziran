@@ -60,7 +60,7 @@ After this change `generate_sarif` writes one SARIF result for every chain:
 - **FR-001**: `generate_sarif` emits one result per entry of `dangerous_tool_chains`, after the
   attack results, in chain order.
 - **FR-002**: Rule ids: `LT001` for `lethal_trifecta`, `LT002` (`trifecta.DELEGATED_RULE_ID`)
-  for `lethal_trifecta_delegated`, `CC001` (`sarif.CHAIN_RULE_ID`) for every other type. Each rule
+  for `lethal_trifecta_delegated`, `CC001` (`chain_analyzer.CHAIN_RULE_ID`, also used by `ziran audit` and its baseline) for every other type. Each rule
   appears once, in first-seen order, after the attack rules. `CC001`'s default level and
   `security-severity` are those of the highest risk seen; `LT001` and `LT002` stay at `error`,
   9.0.

@@ -25,7 +25,7 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING
 
-from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID, ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
 from ziran.application.knowledge_graph.trifecta import VULNERABILITY_TYPE as TRIFECTA
@@ -152,7 +152,7 @@ def _audit_agent(
     chains = agent_chains(agent, typed=typed, trifecta_roles=trifecta_roles)
     findings += [
         finding(
-            "CC001",
+            CHAIN_RULE_ID,
             c.risk_level,
             f"Agent '{agent.name}': {c.vulnerability_type} via {' -> '.join(c.tools)}",
             _REC_CC001,

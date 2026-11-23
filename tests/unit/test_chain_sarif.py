@@ -14,8 +14,8 @@ from tests.unit.test_cicd_suppressions import _attack, _campaign, _chain, _entry
 from tests.unit.test_trifecta import READER, _cap, _result, _scan_topology
 from ziran.application.agent_scanner.structure_import import import_adapter_structure
 from ziran.application.cicd.gate import QualityGate
-from ziran.application.cicd.sarif import CHAIN_RULE_ID, generate_sarif
-from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.cicd.sarif import generate_sarif
+from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID, ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 from ziran.application.knowledge_graph.trifecta import DELEGATED_RULE_ID, RULE_ID
 from ziran.domain.entities.ci import SuppressionFile
@@ -51,6 +51,10 @@ class TestChainRules:
         assert "tool_send_email" in row["message"]["text"]
         rule = _rules(doc)[DELEGATED_RULE_ID]
         assert rule["properties"]["security-severity"] == "9.0"
+        assert rule["fullDescription"]["text"] == (
+            "An agent and the agents it delegates to read private data, "
+            "see untrusted content and can send data out"
+        )
         assert not [r for r in _rows(doc) if r["ruleId"] == RULE_ID]
         assert "suppressions" not in row
 
@@ -76,6 +80,21 @@ class TestChainRules:
         rule = _rules(doc)[CHAIN_RULE_ID]
         assert rule["defaultConfiguration"] == {"level": "error"}
         assert rule["properties"]["security-severity"] == "9.0"
+
+    def test_a_lower_risk_after_a_higher_one_does_not_lower_the_rule(self) -> None:
+        chains = [_chain(risk_level="critical"), _chain(("a", "b"), risk_level="low")]
+        rule = _rules(generate_sarif(_campaign(chains=chains)))[CHAIN_RULE_ID]
+        assert rule["defaultConfiguration"] == {"level": "error"}
+        assert rule["properties"]["security-severity"] == "9.0"
+
+    @pytest.mark.parametrize("risk", ["info", "", "severe"])
+    def test_unknown_risk_is_a_warning(self, risk: str) -> None:
+        doc = generate_sarif(_campaign(chains=[_chain(risk_level=risk)]))
+        (row,) = _rows(doc)
+        assert row["level"] == "warning"
+        rule = _rules(doc)[CHAIN_RULE_ID]
+        assert rule["defaultConfiguration"] == {"level": "warning"}
+        assert rule["properties"]["security-severity"] == "5.0"
 
     def test_every_chain_has_its_own_fingerprint(self) -> None:
         trifecta = {

@@ -35,6 +35,8 @@ from ziran.domain.entities.capability import DangerousChain
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
+CHAIN_RULE_ID = "CC001"  # one SARIF rule id for every non-trifecta chain, in audit and scan
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
     from pathlib import Path

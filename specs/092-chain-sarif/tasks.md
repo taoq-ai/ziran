@@ -20,3 +20,11 @@ before T002.
       pass.
 - [x] T005 `docs/guides/cicd-integration.md`, `docs/reference/cli.md`: the chain rules in SARIF.
 - [x] T006 Measure 100 flat tools (sizing table in the spec).
+
+## Phase 4 - Fix round 1 (quality gate)
+
+- [x] T007 Tests: an unknown risk (`info`, `""`, `severe`) gives `warning`; a low chain after a
+      critical one leaves `CC001` at 9.0; the `LT002` rule description.
+- [x] T008 One `CHAIN_RULE_ID` in `chain_analyzer.py`, imported by `sarif.py`,
+      `claude_code_audit.py` and `claude_code_baseline.py`; the fingerprint keeps tool order.
+- [x] T009 Spec 088 points forward to this spec for the delegated chain in SARIF.
