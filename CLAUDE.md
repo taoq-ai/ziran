@@ -150,4 +150,13 @@ uv run pytest --cov=ziran        # Tests — all pass, coverage >= 85%
 - If any check fails, investigate and fix before proceeding to next work.
 - Do NOT leave a PR with failing CI — fix it immediately.
 
+## Testing in an archive copy
+
+In a `git archive` copy (no `.git`):
+
+- Set `SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0` before `uv sync` or `uv build`.
+- Pin `PYTHONPATH` to the copy and check `ziran.__file__` points inside it.
+- Run ruff on named folders (`ziran tests benchmarks scripts`), not `.`.
+- Read git-dependent tests (`test_external_eval_*`, the hybrid prompt base) from CI.
+
 <!-- MANUAL ADDITIONS END -->
