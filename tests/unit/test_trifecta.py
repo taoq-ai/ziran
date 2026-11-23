@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -12,6 +11,7 @@ from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.agent_scanner.structure_import import import_adapter_structure
+from ziran.application.cicd.gate import QualityGate
 from ziran.application.cicd.sarif import generate_audit_sarif, generate_sarif
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
@@ -23,6 +23,7 @@ from ziran.application.static_analysis.claude_code_baseline import (
 )
 from ziran.domain.entities.attack import TokenUsage
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
+from ziran.domain.entities.ci import SuppressionEntry, SuppressionFile
 from ziran.domain.entities.claude_code import ClaudeCodeAgent, ClaudeCodeScan
 from ziran.domain.entities.phase import CampaignResult, ScanPhase
 from ziran.interfaces.cli.main import cli
@@ -85,6 +86,7 @@ class TestToolLegs:
             ("mcp__slack__slack_send_message", {"egress"}),
             ("Bash", set()),
             ("get_weather", set()),
+            ("get_secret", {"private_data"}),
         ],
     )
     def test_name_rules(self, tool: str, legs: set[str]) -> None:
@@ -115,6 +117,23 @@ class TestAudit:
     def test_support_agent_and_its_fix(self) -> None:
         assert len(_lt(audit_claude_code(_scan(_agent(", ".join(SUPPORT)))).findings)) == 1
         assert not _lt(audit_claude_code(_scan(_agent("read_inbox, get_customer"))).findings)
+
+    @pytest.mark.parametrize(
+        ("tools", "flagged"),
+        [
+            ("get_secret, WebFetch", True),
+            ("WebFetch", False),  # no private data
+            ("get_customer, send_email", False),  # no untrusted content
+        ],
+    )
+    def test_each_leg_is_needed(self, tools: str, flagged: bool) -> None:
+        assert bool(_lt(audit_claude_code(_scan(_agent(tools))).findings)) is flagged
+
+    def test_string_override_raises(self) -> None:
+        with pytest.raises(ValueError, match="trifecta override"):
+            audit_claude_code(
+                _scan(_agent("Read, WebFetch")), trifecta_roles={"WebFetch": "egress"}
+            )
 
     def test_override_clears_it(self) -> None:
         report = audit_claude_code(
@@ -163,8 +182,26 @@ class TestScan:
             "egress": ["tool_send_email"],
         }
         sarif = generate_sarif(result)
-        assert [r["ruleId"] for r in sarif["runs"][0]["results"]] == [RULE_ID]
+        (row,) = sarif["runs"][0]["results"]
+        assert (row["ruleId"], row["level"]) == (RULE_ID, "error")
+        assert "agent" not in row["properties"] and "suppressions" not in row
         assert {r["id"] for r in sarif["runs"][0]["tool"]["driver"]["rules"]} == {RULE_ID}
+
+    async def test_suppressed_trifecta_is_suppressed_in_sarif(self) -> None:
+        result = await self._campaign(SUPPORT)
+        entries = [
+            SuppressionEntry(
+                fingerprint=f.fingerprint,
+                content_hash=f.content_hash,
+                reason="accepted risk",
+                added_by="sec-team",
+            )
+            for f in QualityGate._findings(result)
+        ]
+        gate = QualityGate().evaluate(result, SuppressionFile(version=1, entries=entries))
+        assert gate.passed
+        (row,) = generate_sarif(result, gate)["runs"][0]["results"]
+        assert row["suppressions"] == [{"kind": "external", "justification": "accepted risk"}]
 
     async def test_without_send_email(self) -> None:
         assert not _trifectas_dicts(await self._campaign(SUPPORT[:2]))
@@ -172,6 +209,14 @@ class TestScan:
     async def test_override_removes_egress(self) -> None:
         result = await self._campaign(SUPPORT, {"send_email": frozenset()})
         assert not _trifectas_dicts(result)
+
+
+def _result(chains: list[dict[str, Any]]) -> CampaignResult:
+    from tests.unit.test_cli_main import _minimal_campaign_result
+
+    return CampaignResult.model_validate(
+        _minimal_campaign_result() | {"dangerous_tool_chains": chains}
+    )
 
 
 def _trifectas_dicts(result: CampaignResult) -> list[dict[str, Any]]:
@@ -192,8 +237,11 @@ class TestScopes:
             graph.add_agent_node(agent, role="worker")
             for t in tools:
                 graph.add_edge(agent, t, EdgeType.USES_TOOL)
+        graph.add_edge("a3", "tool_send_email", EdgeType.TRUSTS)  # not a tool the agent uses
         found = _trifectas(ToolChainAnalyzer(graph).analyze())
         assert sorted(c.evidence["agent"] for c in found) == ["a1", "a2"]
+        sarif = generate_sarif(_result([c.model_dump(mode="json") for c in found]))
+        assert sorted(r["properties"]["agent"] for r in sarif["runs"][0]["results"]) == ["a1", "a2"]
 
     def test_override_by_id_or_name(self) -> None:
         ids = [f"tool_{t}" for t in SUPPORT]
@@ -209,7 +257,6 @@ class TestScopes:
         for c in caps:
             graph.add_capability(c.id, c)
         await import_adapter_structure(MockAgentAdapter(), graph, caps)
-        start = time.monotonic()
         result, chains = ResultBuilder(graph, "flat").build(
             campaign_id="c",
             phase_results=[],
@@ -220,7 +267,6 @@ class TestScopes:
             duration=0.0,
             capabilities_count=len(caps),
         )
-        assert time.monotonic() - start < 5
         (chain,) = _trifectas(chains)
         assert chain.tools == [caps[0].id, caps[-1].id]
         assert len(chain.evidence["private_data"]) == count
@@ -244,5 +290,75 @@ def test_cli_audit_reads_detectors_yaml(tmp_path: Path, monkeypatch: pytest.Monk
     assert '"LT001"' not in run.output
     (tmp_path / ".ziran" / "detectors.yaml").write_text("trifecta_roles:\n  send_email: [exec]\n")
     run = CliRunner().invoke(cli, ["audit", str(agents), "--format", "json"])
+    assert "trifecta_roles not read" in run.stderr
+    assert '"LT001"' in run.stdout
+
+
+AUDIT_AGENT = (
+    "---\nname: support\ndescription: d\ntools: read_inbox, get_customer, send_email\n---\nx\n"
+)
+
+
+@pytest.mark.unit
+def test_cli_baseline_uses_the_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    agents = tmp_path / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "support.md").write_text(AUDIT_AGENT)
+    (tmp_path / ".ziran").mkdir()
+    (tmp_path / ".ziran" / "detectors.yaml").write_text("trifecta_roles:\n  send_email: []\n")
+    monkeypatch.chdir(tmp_path)
+    b = tmp_path / "baseline.json"
+    run = CliRunner().invoke(cli, ["audit", str(agents), "--write-baseline", str(b)])
+    assert run.exit_code == 0, run.output
+    assert "lethal_trifecta" not in b.read_text()
+    run = CliRunner().invoke(cli, ["audit", str(agents), "--baseline", str(b), "--format", "json"])
+    assert run.exit_code == 0, run.output
+    assert '"BL003"' not in run.stdout and '"narrowed": []' in run.stdout
+
+
+@pytest.mark.unit
+def test_cli_scan_hands_the_override_to_the_graph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from unittest.mock import MagicMock
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "agent.py").write_text("agent_executor = None\n")
+    (tmp_path / ".ziran").mkdir()
+    (tmp_path / ".ziran" / "detectors.yaml").write_text(
+        "trifecta_roles:\n  send_email: []\n  lookup_order: [private_data, private_data]\n"
+    )
+    monkeypatch.setattr("ziran.interfaces.cli.main.load_agent_adapter", MagicMock())
+    run = MagicMock()
+    run.run.return_value = _result([])
+    monkeypatch.setattr("ziran.interfaces.cli.main.asyncio", run)
+    scanner_cls = MagicMock()
+    monkeypatch.setattr("ziran.interfaces.cli.main.AgentScanner", scanner_cls)
+    args = ["scan", "--framework", "langchain", "--agent-path", "agent.py", "--output", "out"]
+    result = CliRunner().invoke(cli, args)
+    assert result.exit_code == 0, result.output
+    assert scanner_cls.return_value.graph.trifecta_roles == {
+        "send_email": frozenset(),
+        "lookup_order": frozenset({"private_data"}),
+    }
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("kind", ["utf16", "directory"])
+def test_cli_audit_survives_an_unreadable_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    agents = tmp_path / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "support.md").write_text(AUDIT_AGENT)
+    detectors = tmp_path / ".ziran" / "detectors.yaml"
+    detectors.parent.mkdir()
+    if kind == "directory":
+        detectors.mkdir()
+    else:
+        detectors.write_text("trifecta_roles:\n  send_email: []\n", encoding="utf-16")
+    monkeypatch.chdir(tmp_path)
+    run = CliRunner().invoke(cli, ["audit", str(agents), "--format", "json"])
+    assert run.exception is None or isinstance(run.exception, SystemExit)
     assert "trifecta_roles not read" in run.stderr
     assert '"LT001"' in run.stdout

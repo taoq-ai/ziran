@@ -358,8 +358,13 @@ trifecta_roles:
   lookup_order: [private_data]
 ```
 
-`ziran audit` and `ziran scan` read the file from the working directory. When it is invalid, a
-warning goes to stderr and the name rules apply to every tool.
+`ziran audit` and `ziran scan` read the file from the working directory. When it is invalid or
+unreadable, a warning goes to stderr and the name rules apply to every tool. A `trifecta_roles`
+entry can turn `LT001` off for a tool, so review a change to it like a change to the baseline.
+
+Upgrading to the release that adds `LT001` gives a `BL003` row for every agent that holds the
+trifecta against an older baseline: review it and record the baseline again with
+`--write-baseline`.
 
 #### Allowlist baseline
 

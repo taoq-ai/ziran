@@ -391,11 +391,13 @@ _GUARDRAIL_MITIGATIONS: dict[str, set[str]] = {
         "repl_exfiltration",
         "ssrf",
         "session_exfiltration",
+        "lethal_trifecta",  # no egress leg over the network (spec 088)
     },
     "url_allowlist": {
         "ssrf",
         "data_exfiltration",
         "code_exfiltration",
+        "lethal_trifecta",  # the egress leg is restricted (spec 088)
     },
     # Filesystem restrictions
     "read_only_filesystem": {

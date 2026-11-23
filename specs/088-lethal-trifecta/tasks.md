@@ -31,3 +31,17 @@ before T002.
 
 - [x] T009 `docs/reference/cli.md`, `docs/guides/claude-code.md`, `README.md`,
       `examples/24-claude-code-agent-audit/README.md`.
+
+## Phase 5 - Fix round 1 (gate findings)
+
+- [x] T010 `sarif.py`, `ci.py`: a trifecta the gate suppresses carries a SARIF `suppressions`
+      entry (`GateResult.suppressed_chains`).
+- [x] T011 `infrastructure/config/detectors.py`: an unreadable or non-UTF-8 file is a
+      `DetectorConfigError`.
+- [x] T012 `benchmarks/ground_truth/run.py`: `url_allowlist` and `no_network_access` mitigate
+      `lethal_trifecta`.
+- [x] T013 CLI tests: `ziran scan` hands `trifecta_roles` to the graph; `--write-baseline` and
+      `--baseline` use it; audit survives a UTF-16 or directory config.
+- [x] T014 `trifecta.py`: overrides go through `tool_legs` (a string override raises); the
+      agent's tool set is intersected once. Tests for each leg, the secret words, the
+      `USES_TOOL` filter and the SARIF level and agent property; no wall-clock assert.

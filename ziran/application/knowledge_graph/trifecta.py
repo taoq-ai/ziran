@@ -91,7 +91,8 @@ def _scopes(graph: AttackKnowledgeGraph, tool_ids: list[str]) -> list[tuple[str 
         if data.get("node_type") != NodeType.AGENT:
             continue
         own = {v for _, v, et in g.out_edges(node, data="edge_type") if et == EdgeType.USES_TOOL}
-        tools = [t for t in tool_ids if t in own & known]
+        own &= known
+        tools = [t for t in tool_ids if t in own]
         listed.update(tools)
         scopes.append((node, tools))
     scopes.append((None, [t for t in tool_ids if t not in listed]))
@@ -101,7 +102,7 @@ def _scopes(graph: AttackKnowledgeGraph, tool_ids: list[str]) -> list[tuple[str 
 def find_trifectas(
     graph: AttackKnowledgeGraph,
     tool_ids: list[str],
-    overrides: Mapping[str, frozenset[str]] | None = None,
+    overrides: Mapping[str, Iterable[str]] | None = None,
 ) -> list[DangerousChain]:
     """One ``lethal_trifecta`` chain per agent whose tools cover all three legs.
 
@@ -113,7 +114,7 @@ def find_trifectas(
     legs: dict[str, frozenset[str]] = {}
     for tid in tool_ids:
         override = overrides.get(tid, overrides.get(tid.removeprefix("tool_")))
-        legs[tid] = tool_legs(tid) if override is None else override
+        legs[tid] = tool_legs(tid, override)  # validates a caller's override too
     chains: list[DangerousChain] = []
     for agent, tools in _scopes(graph, tool_ids):
         by_leg = {leg: [t for t in tools if leg in legs[t]] for leg in LEGS}

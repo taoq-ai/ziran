@@ -141,6 +141,22 @@ table: `trifecta._scopes`, `out_edges` of agent nodes, structure view.
 - `trifecta_roles` reaches `ziran scan` and `ziran audit`. The multi-agent scan, the pentest
   agent, the promptfoo provider and `analyze-traces` use the name rules only. Overturn: an
   operator needs the override there.
+- `ziran scan` now reads `.ziran/detectors.yaml` for `trifecta_roles` even with no LLM
+  backbone, which overturns spec 041's "a scan with no backbone does not use the file". An
+  invalid or unreadable file warns on stderr. Overturn: you want such a scan file-free.
+- An unreadable or non-UTF-8 `.ziran/detectors.yaml` (a directory, UTF-16) is a
+  `DetectorConfigError` in `load_detector_thresholds`, so audit and scan warn instead of crashing.
+- Above spec 086's co-resident cap the scan warning still says tool chains "were not analysed",
+  though the trifecta step runs there. The text lives in `agent_scanner/structure_import.py`,
+  outside this item's files; a follow-up can reword it.
+- Two graph agents with the same witness tools give two chains but share one composition node
+  (`add_chain_finding` keys by type and tools). Overturn: the node must be per agent.
+- In the ground-truth benchmark, `url_allowlist` and `no_network_access` mitigate
+  `lethal_trifecta`: both restrict the egress leg. Without that the true negative
+  `gt_tc_tn_012` is flagged (scenario verdict FP 3 to 4, precision 91.7% to 89.2%); with it the
+  results equal base.
+- Existing audit baselines report a `BL003` for each agent that holds the trifecta until they
+  are recorded again with `--write-baseline`.
 - `DetectorThresholds` gains a field, so the incremental scan cache key changes once for scans
   with a detector config. Overturn: none expected.
 - A trace alert is fingerprinted by tools and session, so a trifecta over the same tools as a

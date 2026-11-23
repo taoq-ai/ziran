@@ -92,33 +92,41 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
             sarif_result["suppressions"] = [{"kind": "external", "justification": suppressed[i]}]
         results.append(sarif_result)
 
-    trifectas = [c for c in result.dangerous_tool_chains if c.get("vulnerability_type") == TRIFECTA]
+    trifectas = [
+        (i, c)
+        for i, c in enumerate(result.dangerous_tool_chains)
+        if c.get("vulnerability_type") == TRIFECTA
+    ]
     if trifectas:
         rules.append(_trifecta_rule())
-    for chain in trifectas:
+    suppressed_chains = gate.suppressed_chains() if gate else {}
+    for i, chain in trifectas:
         legs = chain.get("evidence", {})
-        results.append(
-            {
-                "ruleId": LT001,
-                "level": "error",
-                "message": {
-                    "text": "lethal_trifecta: "
-                    + "; ".join(f"{leg} from {', '.join(legs.get(leg, []))}" for leg in LEGS)
-                },
-                "locations": [
-                    {
-                        "physicalLocation": {
-                            "artifactLocation": {
-                                "uri": "agent-under-test",
-                                "uriBaseId": "%SRCROOT%",
-                            }
+        chain_result: dict[str, Any] = {
+            "ruleId": LT001,
+            "level": "error",
+            "message": {
+                "text": "lethal_trifecta: "
+                + "; ".join(f"{leg} from {', '.join(legs.get(leg, []))}" for leg in LEGS)
+            },
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {
+                            "uri": "agent-under-test",
+                            "uriBaseId": "%SRCROOT%",
                         }
                     }
-                ],
-                "properties": {"tools": list(chain.get("tools", []))}
-                | ({"agent": legs["agent"]} if "agent" in legs else {}),
-            }
-        )
+                }
+            ],
+            "properties": {"tools": list(chain.get("tools", []))}
+            | ({"agent": legs["agent"]} if "agent" in legs else {}),
+        }
+        if i in suppressed_chains:
+            chain_result["suppressions"] = [
+                {"kind": "external", "justification": suppressed_chains[i]}
+            ]
+        results.append(chain_result)
 
     return _sarif_document(rules, results)
 
