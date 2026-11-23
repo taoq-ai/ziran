@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -23,7 +24,7 @@ from ziran.application.static_analysis.claude_code_baseline import (
 )
 from ziran.domain.entities.attack import TokenUsage
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
-from ziran.domain.entities.ci import SuppressionEntry, SuppressionFile
+from ziran.domain.entities.ci import SuppressionEntry, SuppressionFile, chain_fingerprint
 from ziran.domain.entities.claude_code import ClaudeCodeAgent, ClaudeCodeScan
 from ziran.domain.entities.phase import CampaignResult, ScanPhase
 from ziran.interfaces.cli.main import cli
@@ -202,6 +203,52 @@ class TestScan:
         assert gate.passed
         (row,) = generate_sarif(result, gate)["runs"][0]["results"]
         assert row["suppressions"] == [{"kind": "external", "justification": "accepted risk"}]
+
+    async def test_unmatched_or_expired_entry_leaves_it_unsuppressed(self) -> None:
+        result = await self._campaign(SUPPORT)
+        (finding,) = QualityGate._findings(result)
+        entries = [
+            SuppressionEntry(  # a pair chain over the same tools: another fingerprint
+                fingerprint=chain_fingerprint(result.target_agent, "data_exfiltration"),
+                content_hash=finding.content_hash,
+                reason="pair only",
+                added_by="sec-team",
+            ),
+            SuppressionEntry(
+                fingerprint=finding.fingerprint,
+                content_hash=finding.content_hash,
+                reason="expired",
+                added_by="sec-team",
+                expires=date(2000, 1, 1),
+            ),
+        ]
+        gate = QualityGate().evaluate(result, SuppressionFile(version=1, entries=entries))
+        assert not gate.passed
+        (row,) = generate_sarif(result, gate)["runs"][0]["results"]
+        assert row["ruleId"] == RULE_ID and "suppressions" not in row
+
+    async def test_suppressed_attack_does_not_suppress_the_trifecta(self) -> None:
+        chains = (await self._campaign(SUPPORT)).dangerous_tool_chains
+        attack = {
+            "vector_id": "v1",
+            "vector_name": "v1",
+            "category": "prompt_injection",
+            "severity": "low",
+            "successful": True,
+        }
+        result = _result(chains).model_copy(update={"attack_results": [attack]})
+        (attack_finding, _) = QualityGate._findings(result)
+        entry = SuppressionEntry(
+            fingerprint=attack_finding.fingerprint,
+            content_hash=attack_finding.content_hash,
+            reason="accepted risk",
+            added_by="sec-team",
+        )
+        gate = QualityGate().evaluate(result, SuppressionFile(version=1, entries=[entry]))
+        assert gate.suppressed_attacks() == {0: "accepted risk"}
+        rows = generate_sarif(result, gate)["runs"][0]["results"]
+        (lt,) = [r for r in rows if r["ruleId"] == RULE_ID]
+        assert "suppressions" not in lt
 
     async def test_without_send_email(self) -> None:
         assert not _trifectas_dicts(await self._campaign(SUPPORT[:2]))
