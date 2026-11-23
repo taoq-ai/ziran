@@ -30,3 +30,17 @@ T003 run red before T004.
 ## Phase 3 - Checks
 
 - [x] T011 Touched tests and `test_scanner_size.py` green; ruff, ruff format, mypy clean.
+
+## Phase 4 - Fix round 1 (gate findings)
+
+- [x] T012 `_resource`: guard an empty `examples` list (IndexError aborted the campaign); a
+      campaign test with `"examples": []`. Target text (resource, tool names) is used only when
+      one line, at most 100 characters and brace-free; a brace-heavy default stays bounded.
+      A `steer` test pins that only vectors in the phase list come back.
+- [x] T013 Secret check on normalised text with the chain's tool and resource names removed;
+      payloads naming a secret are skipped, not rewritten; the spellings the gates listed.
+- [x] T014 Library test over every family (six-tool agent, five exfil chains into
+      `http_request`, `read_config` + `update_permissions`) that fails with the guard off.
+- [x] T015 Tests: a cap keeps the chain vectors and `ran` leaves out the cut one; the strategy
+      context in a real campaign carries the chains and the boost picks the execution phase.
+- [x] T016 URL hosts and mail domains rewritten to `reports.example.invalid`.

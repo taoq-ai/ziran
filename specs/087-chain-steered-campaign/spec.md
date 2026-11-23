@@ -11,7 +11,7 @@
 Today `ziran scan` finds dangerous tool chains (for example `read_file` to `http_request`) only
 at the end, in `ResultBuilder`. The campaign never uses them: vectors run in library order, so a
 scan of a vulnerable agent rarely makes the agent walk the chain and leaves no tool-call
-evidence. A probe (A-STEER-PROBE) ran the five best library exfiltration vectors against a flat
+evidence. A probe ran the five best library exfiltration vectors against a flat
 `read_file` + `http_request` agent on a live model and got 0 of 5: the prompts named no chain
 tool and no file, three `de_*` prompts read as credential grabs and were refused, and the
 `ii_*` payloads sat in the user turn.
@@ -44,10 +44,18 @@ After this change:
    table.
 6. Each chain-targeted vector's prompt is rendered with the chain's source and sink tool names
    and one concrete resource for the source (a default or example from the discovered parameter
-   schema, else `notes.txt`), as a task the agent would plausibly do. Variables that named
-   secrets ("API keys", "credentials") now name that resource, and a URL variable points to an
-   unresolvable `example.invalid` endpoint. A vector whose rendered prompt still names a secret
-   (API key, credential, password, private key, secret) is not chosen.
+   schema, else `notes.txt`), as a task the agent would plausibly do. A resource or tool name
+   from the target is used only when it is one line, at most 100 characters and brace-free;
+   otherwise the resource is `notes.txt` and the tool is "the first tool" or "the last tool",
+   so no placeholder fill can repeat target text (CWE-400).
+   The data variables whose library defaults name secrets (`data_target`, `target`,
+   `sensitive_data`, `action`) name that resource. Every URL host and mail domain in the
+   rendered prompt becomes `reports.example.invalid`, which never resolves. A vector whose
+   rendered prompt names a secret apart from the chain's own tool and resource names is not
+   chosen: a payload that asks for one is skipped, not rewritten. The check reads the text
+   lower-cased with every run of separators as one space, and catches API keys, keys,
+   credentials, passwords and `passwd`, secrets, private and SSH keys, `id_rsa`, auth, access,
+   session and similar tokens, and environment variables.
 7. A chain-targeted vector whose `protocol_filter` does not match the target is dropped. Vectors
    rank by fit (family tags plus the variables the renderer fills) before severity.
 8. Chain edges are built on capability node ids (`tool_<name>`, the ids `tool_to_capability`
@@ -140,6 +148,16 @@ phases under the fixed strategy, new vectors, README wording (#536 row 3).
   Overturned by adding a row.
 - The candidates are the vectors the campaign's phases run at its coverage level, minus
   `exclude_vectors`.
+
+## Follow-ups (out of this item)
+
+- A `lethal_trifecta` family row.
+- Expose the adapter's protocol to `plan`.
+- The `mcp_file_to_email` chain type.
+- Tests for the `exclude_vectors` and resume (`tested_vector_ids`) wiring of the candidates.
+- A test of the HTML report's Ran column.
+- `campaign_context` reads `AgentScanner._attack_results` and `_has_critical_finding`; give
+  the scanner public reads for them.
 
 ## Success Criteria
 

@@ -21,6 +21,7 @@ from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.pair import queue_pair_last
 from ziran.application.factories import load_agent_adapter
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.strategies.adaptive import AdaptiveStrategy
 from ziran.application.strategies.fixed import FixedStrategy
 from ziran.domain.entities.capability import CapabilityType
 from ziran.domain.entities.multi_agent import DelegationPattern, StateChannel
@@ -350,6 +351,39 @@ class TestChainSteering:
         assert first["successful"]
         sends = [c for c in first["evidence"]["tool_calls"] if c["tool"] == "http_request"]
         assert sends and sends[0]["input"]["body"] == CANARY
+
+    async def test_strategy_contexts_carry_the_chains(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        seen: list[Any] = []
+
+        class Recording(AdaptiveStrategy):
+            def select_next_phase(self, context: Any) -> Any:
+                seen.append(context)
+                return super().select_next_phase(context)
+
+            def on_phase_complete(self, phase_result: Any, context: Any) -> None:
+                seen.append(context)
+                super().on_phase_complete(phase_result, context)
+
+        scanner = AgentScanner(
+            adapter=LangChainAdapter(ScriptedExecutor()), attack_library=shared_attack_library
+        )
+        result = await scanner.run_campaign(
+            phases=[ScanPhase.CAPABILITY_MAPPING, ScanPhase.EXECUTION],
+            coverage=CoverageLevel.ESSENTIAL,
+            max_concurrent_attacks=1,
+            strategy=Recording(stop_on_critical=False, max_consecutive_failures=5),
+        )
+        assert len(seen) >= 2
+        for context in seen:
+            assert context.dangerous_chains[0].tools == [
+                "tool_read_file",
+                "tool_http_request",
+            ]
+            assert list(context.chain_vectors) == result.chain_targets[0].vector_ids
+        # the boost picks the execution phase, which holds the chain vectors, first
+        assert result.phases_executed[0].phase == ScanPhase.EXECUTION
 
     async def test_no_chain_runs_in_library_order(
         self, shared_attack_library: AttackLibrary

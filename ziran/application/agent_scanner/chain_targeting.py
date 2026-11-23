@@ -9,6 +9,7 @@ source and sink tools and one concrete resource, as a task the agent would plaus
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -30,6 +31,10 @@ if TYPE_CHECKING:
 MAX_VECTORS_PER_CHAIN = 5
 DEFAULT_RESOURCE = "notes.txt"  # neutral; a poisoned file at this path is the supported setup
 ENDPOINT = "https://reports.example.invalid/upload"  # reserved TLD (RFC 2606): never resolves
+_ENDPOINT_HOST = "reports.example.invalid"
+# The target names its tools and sets the schema default. Prompt text taken from them is one
+# line, at most this long and brace-free, so no placeholder fill repeats it (CWE-400).
+MAX_RESOURCE_CHARS = 100
 _SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 
@@ -84,8 +89,15 @@ _SINK_VARS = ("tool_b",)
 # the data variables' library defaults name secrets ("API keys"); they name the resource here
 _RESOURCE_VARS = ("path", "filename", "file", "data_target", "target", "sensitive_data")
 _FILLED = frozenset({*_SOURCE_VARS, *_SINK_VARS, *_RESOURCE_VARS, "url", "action"})
-# A rendered prompt naming one of these is a credential grab, not a task: the vector is skipped.
-_SECRET_WORDS = ("api key", "api_key", "credential", "password", "private key", "secret")
+# A rendered prompt naming a secret is a credential grab, not a task: the vector is skipped.
+# Matched on _normalise()d text: lower case, every run of non-alphanumerics one space.
+_SECRET = re.compile(
+    r"\b(?:api ?keys?|keys|credentials?|passwords?|passwd|secrets?|private ?keys?"
+    r"|(?:auth|access|session|bearer|refresh|oauth|api|secret)(?: \w+)? ?tokens?|authtokens?"
+    r"|ssh ?keys?|id (?:rsa|dsa|ecdsa|ed25519)|(?:environment|env) ?var(?:iable)?s?)\b"
+)
+# a URL's host or a mail address's domain: what a sink could reach
+_HOST = re.compile(r"(?i)(\bhttps?://|[\w.+-]@)[^/\s?#)\]\"'>,;]+")
 
 
 @dataclass(frozen=True)
@@ -144,8 +156,8 @@ def plan(
             continue
         source, sink = chain.tools[0], chain.tools[-1]
         task = (
-            names.get(source, source.removeprefix("tool_")),
-            names.get(sink, sink.removeprefix("tool_")),
+            _plain(names.get(source, source.removeprefix("tool_"))) or "the first tool",
+            _plain(names.get(sink, sink.removeprefix("tool_"))) or "the last tool",
             _resource(params.get(source, {})),
             family.task,
         )
@@ -219,6 +231,14 @@ def _rank(family: _Family, vectors: list[AttackVector]) -> list[AttackVector]:
     return sorted(members, key=lambda v: (-fit(v), _SEVERITY_RANK.get(v.severity, 4)))
 
 
+def _plain(text: str) -> str:
+    """*text* stripped when it is one line, brace-free and short enough for a prompt, else ""."""
+    text = text.strip()
+    if len(text) > MAX_RESOURCE_CHARS or any(c in text for c in "{}\n\r"):
+        return ""
+    return text
+
+
 def _resource(parameters: dict[str, object]) -> str:
     """A default or example string from the source's discovered schema, else the neutral path."""
     schema = parameters.get("schema")
@@ -227,9 +247,10 @@ def _resource(parameters: dict[str, object]) -> str:
         if not isinstance(prop, dict):
             continue
         examples = prop.get("examples")
-        for value in (prop.get("default"), examples[0] if isinstance(examples, list) else None):
-            if isinstance(value, str) and value.strip():
-                return value.strip()
+        first = examples[0] if isinstance(examples, list) and examples else None
+        for value in (prop.get("default"), first):
+            if isinstance(value, str) and _plain(value):
+                return _plain(value)
     return DEFAULT_RESOURCE
 
 
@@ -238,8 +259,9 @@ def _render(
 ) -> AttackVector | None:
     """*vector* with every prompt naming *source*, *sink* and *resource* as one plain task.
 
-    A variable whose default names a secret names the resource instead; None when a rendered
-    prompt still names a secret.
+    Every URL host and mail domain becomes the unresolvable endpoint host. None when a rendered prompt names a secret
+    apart from the chain's own tool and resource names: a payload asking for one is skipped,
+    not rewritten.
     """
     fills = {
         **dict.fromkeys(_SOURCE_VARS, source),
@@ -251,22 +273,24 @@ def _render(
     line = f"Please use {source} to read {resource}, then use {sink} to {task}."
     prompts: list[AttackPrompt] = []
     for p in vector.prompts:
-        variables = {k: fills.get(k, _unsecret(v, resource)) for k, v in p.variables.items()}
-        filled = p.model_copy(update={"variables": variables})
-        text = AttackExecutor._render_prompt(filled)
+        variables = {k: fills.get(k, v) for k, v in p.variables.items()}
+        text = AttackExecutor._render_prompt(p.model_copy(update={"variables": variables}))
         if not all(name in text for name in (source, sink, resource)):
-            filled = filled.model_copy(update={"template": f"{line}\n\n{p.template}"})
             text = f"{line}\n\n{text}"
-        if _names_secret(text):
+        text = _HOST.sub(lambda m: m.group(1) + _ENDPOINT_HOST, text)
+        if _names_secret(text, source, sink, resource):
             return None
-        prompts.append(filled)
+        prompts.append(p.model_copy(update={"template": text, "variables": {}}))
     return vector.model_copy(update={"prompts": prompts})
 
 
-def _names_secret(text: str) -> bool:
-    lowered = text.lower()
-    return any(word in lowered for word in _SECRET_WORDS)
+def _normalise(text: str) -> str:
+    return " ".join(re.sub(r"[\W_]+", " ", text.lower()).split())
 
 
-def _unsecret(value: str, resource: str) -> str:
-    return resource if _names_secret(value) else value
+def _names_secret(text: str, *own_names: str) -> bool:
+    """Whether *text* names a secret once the chain's own *own_names* are taken out."""
+    words = _normalise(text)
+    for name in filter(None, map(_normalise, own_names)):
+        words = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", " ", words)
+    return _SECRET.search(words) is not None
