@@ -44,3 +44,14 @@ T003 run red before T004.
 - [x] T015 Tests: a cap keeps the chain vectors and `ran` leaves out the cut one; the strategy
       context in a real campaign carries the chains and the boost picks the execution phase.
 - [x] T016 URL hosts and mail domains rewritten to `reports.example.invalid`.
+
+## Phase 5 - Fix round 2 (gate findings)
+
+- [x] T017 A schema default naming a secret is not the resource; only tool names are left out
+      of the check. Tests: `~/.aws/credentials`, `config/secrets.yaml`, a direct `_render`.
+- [x] T018 The host map applies to success and failure indicators and the description; an
+      end-to-end test where an agent renders the rewritten `de_markdown_link` link and it scores.
+- [x] T019 Header family (authorization and auth headers, cookies, bearer) in the pattern; the
+      library test pins the reviewed chosen ids per agent and coverage.
+- [x] T020 Tests for the source name's `_plain` check and the "the first tool" / "the last
+      tool" fallback wording.

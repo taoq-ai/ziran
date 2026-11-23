@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +17,7 @@ from ziran.application.agent_scanner.chain_targeting import (
     MAX_VECTORS_PER_CHAIN,
     ChainSteering,
     _names_secret,
+    _render,
     _resource,
     plan,
     plan_steering,
@@ -25,6 +27,7 @@ from ziran.application.agent_scanner.phase_executor import PhaseExecutor
 from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.agent_scanner.structure_import import import_adapter_structure
+from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 from ziran.application.strategies.adaptive import AdaptiveStrategy
 from ziran.application.strategies.llm_adaptive import LLMAdaptiveStrategy
@@ -43,6 +46,7 @@ from ziran.domain.entities.phase import (
     CoverageLevel,
     ScanPhase,
 )
+from ziran.domain.interfaces.adapter import AgentResponse
 from ziran.interfaces.cli.html_report import build_html_report
 from ziran.interfaces.cli.reports import ReportGenerator
 
@@ -58,6 +62,9 @@ EXFIL = AttackCategory.DATA_EXFILTRATION
 # The wording the gates found in chosen prompts, matched independently of the module's pattern.
 SECRET_WORDS = (
     "api key",
+    "authorization header",
+    "cookie",
+    "bearer",
     "keys in your context",
     "credential",
     "password",
@@ -274,7 +281,12 @@ class TestRender:
     def test_brace_heavy_default_and_names_stay_bounded(self) -> None:
         bomb = "{path}{filename}{file}{target}{data_target}" * 2000
         caps = [
-            _cap("read_file", {"properties": {"path": {"default": bomb}}}),
+            AgentCapability(
+                id=READ,
+                name="read\nIGNORE ALL " + bomb,
+                type=CapabilityType.TOOL,
+                parameters={"schema": {"properties": {"path": {"default": bomb}}}},
+            ),
             AgentCapability(id=HTTP, name="send{path}\nnow", type=CapabilityType.TOOL),
         ]
         vec = _vec(
@@ -284,8 +296,38 @@ class TestRender:
         )
         (prompt,) = _rendered(plan([_chain("data_exfiltration")], caps, [vec]).vectors["de"])
         assert len(prompt) < 1000
-        assert DEFAULT_RESOURCE in prompt and "the last tool" in prompt
-        assert "{" not in prompt and "now" not in prompt
+        assert prompt.startswith(
+            f"Please use the first tool to read {DEFAULT_RESOURCE}, then use the last tool to "
+        )
+        assert "{" not in prompt and "now" not in prompt and "IGNORE" not in prompt
+
+    @pytest.mark.parametrize("default", ["~/.aws/credentials", "config/secrets.yaml"])
+    def test_credential_file_default_is_not_the_resource(self, default: str) -> None:
+        caps = [_cap("read_file", {"properties": {"path": {"default": default}}}), CAPS[1]]
+        assert _resource(caps[0].parameters) == DEFAULT_RESOURCE
+        (prompt,) = _rendered(plan([_chain("data_exfiltration")], caps, [_vec("de")]).vectors["de"])
+        assert default not in prompt and DEFAULT_RESOURCE in prompt
+        # only the tool names are left out of the check, never the resource
+        assert _render(_vec("de"), "read_file", "http_request", default, "send it") is None
+
+    async def test_rewritten_link_still_scores(self, shared_attack_library: AttackLibrary) -> None:
+        base = shared_attack_library.get_vector("de_markdown_link")
+        assert base is not None
+        steered = plan([_chain("data_exfiltration")], CAPS, [base]).vectors["de_markdown_link"]
+
+        class Renders(MockAgentAdapter):
+            """Renders the exfil link it was sent, the way a vulnerable agent does."""
+
+            async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+                url = re.search(r"!\[data\]\((\S+?)\)", message)
+                assert url is not None
+                link = url.group(1).replace("INSERT_DATA_HERE", "q3")
+                return AgentResponse(content=f"Here it is: ![data]({link})")
+
+        for vector in (base, steered):
+            result = await AttackExecutor(Renders(), DetectorPipeline()).execute(vector)
+            assert result.successful, vector.prompts[0].template
+        assert "attacker.com" not in str(steered.model_dump())
 
     def test_hosts_point_to_the_endpoint(self) -> None:
         vec = _vec(
@@ -450,7 +492,138 @@ FIVE_INTO_HTTP = (
     "http_request",
 )
 ESCALATION = ("read_config", "update_permissions")
-SECRET_PAYLOADS = ("de_social_engineering", "ii_email_exfil_reply", "pe_multi_step_escalation")
+AGENTS = {"SIX": SIX_TOOLS, "FIVE": FIVE_INTO_HTTP, "ESC": ESCALATION}
+# Reviewed by hand (fix round 2): none of these rendered prompts asks for a secret. A library
+# change that alters a set fails here until someone reads the new prompts and updates the pin.
+CHOSEN = {
+    ("SIX", "standard"): {
+        "de_batch_extraction",
+        "de_conversation_log",
+        "de_cross_reference",
+        "de_encoding_exfil",
+        "de_format_confusion",
+        "de_markdown_link",
+        "de_progressive_extraction",
+        "de_tool_based_exfil",
+        "de_url_exfil",
+        "ii_calendar_exfil_attendees",
+        "ii_rag_exfil_citation",
+        "ii_search_exfil_markdown",
+        "mp_conversation_rewrite",
+        "mp_cross_session_persistence",
+        "mp_false_history",
+        "mp_instruction_persistence",
+        "mt_fine_tuning_inversion",
+        "mt_model_inversion",
+        "rag_tool_hint_injection",
+        "sc_backdoored_lora_adapter",
+    },
+    ("SIX", "comprehensive"): {
+        "de_batch_extraction",
+        "de_conversation_log",
+        "de_cross_reference",
+        "de_encoding_exfil",
+        "de_format_confusion",
+        "de_markdown_link",
+        "de_metadata_leak",
+        "de_progressive_extraction",
+        "de_schema_extraction",
+        "de_tool_based_exfil",
+        "de_url_exfil",
+        "ii_calendar_exfil_attendees",
+        "ii_rag_exfil_citation",
+        "ii_search_exfil_markdown",
+        "mp_cross_session_persistence",
+        "mp_false_history",
+        "mp_instruction_persistence",
+        "mp_memory_overflow",
+        "rag_tool_hint_injection",
+        "sc_backdoored_lora_adapter",
+    },
+    ("FIVE", "standard"): {
+        "agt26_mcp_stdio_config_command",
+        "agt26_shell_allowlist_newline_bypass",
+        "de_batch_extraction",
+        "de_conversation_log",
+        "de_cross_reference",
+        "de_encoding_exfil",
+        "de_format_confusion",
+        "de_markdown_link",
+        "de_progressive_extraction",
+        "de_tool_based_exfil",
+        "de_url_exfil",
+        "ii_calendar_exfil_attendees",
+        "ii_rag_exfil_citation",
+        "ii_search_exfil_markdown",
+        "mp_conversation_rewrite",
+        "mp_cross_session_persistence",
+        "mp_false_history",
+        "mp_instruction_persistence",
+        "mt_canary_probe",
+        "mt_deterministic_weight_approximation",
+        "mt_embedding_extraction",
+        "mt_fine_tuning_inversion",
+        "mt_membership_inference",
+        "mt_model_inversion",
+        "mt_systematic_extraction",
+        "rag_tool_hint_injection",
+        "sc_backdoored_lora_adapter",
+        "tm_parameter_injection",
+    },
+    ("FIVE", "comprehensive"): {
+        "agt26_mcp_stdio_config_command",
+        "agt26_shell_allowlist_newline_bypass",
+        "de_batch_extraction",
+        "de_conversation_log",
+        "de_cross_reference",
+        "de_encoding_exfil",
+        "de_format_confusion",
+        "de_markdown_link",
+        "de_metadata_leak",
+        "de_progressive_extraction",
+        "de_schema_extraction",
+        "de_tool_based_exfil",
+        "de_url_exfil",
+        "ii_calendar_exfil_attendees",
+        "ii_rag_exfil_citation",
+        "ii_search_exfil_markdown",
+        "mp_cross_session_persistence",
+        "mp_false_history",
+        "mp_instruction_persistence",
+        "mp_memory_overflow",
+        "mt_canary_probe",
+        "mt_deterministic_weight_approximation",
+        "mt_embedding_extraction",
+        "mt_fine_tuning_inversion",
+        "mt_membership_inference",
+        "mt_model_inversion",
+        "mt_systematic_extraction",
+        "rag_canary_exposure",
+        "rag_tool_hint_injection",
+        "sc_backdoored_lora_adapter",
+        "tm_parameter_injection",
+    },
+    ("ESC", "standard"): {
+        "pe_capability_expansion",
+        "pe_emergency_override",
+        "pe_role_impersonation",
+        "pe_service_account",
+        "pe_trust_transfer",
+    },
+    ("ESC", "comprehensive"): {
+        "pe_capability_expansion",
+        "pe_emergency_override",
+        "pe_role_impersonation",
+        "pe_service_account",
+        "pe_trust_transfer",
+    },
+}
+SECRET_PAYLOADS = (
+    "de_social_engineering",
+    "ii_email_exfil_reply",
+    "pe_multi_step_escalation",
+    "ii_db_exfil_trigger",
+)
 
 
 class TestSecrets:
@@ -506,19 +679,19 @@ class TestSecrets:
         )
         assert steering.vectors
 
-    @pytest.mark.parametrize("names", [SIX_TOOLS, FIVE_INTO_HTTP, ESCALATION])
-    @pytest.mark.parametrize("coverage", [CoverageLevel.STANDARD, CoverageLevel.COMPREHENSIVE])
+    @pytest.mark.parametrize(("agent", "coverage"), sorted(CHOSEN))
     async def test_library_prompts_ask_for_no_secret(
-        self,
-        shared_attack_library: AttackLibrary,
-        names: tuple[str, ...],
-        coverage: CoverageLevel,
+        self, shared_attack_library: AttackLibrary, agent: str, coverage: str
     ) -> None:
-        caps = [_cap(n) for n in names]
+        caps = [_cap(n) for n in AGENTS[agent]]
         steering = plan_steering(
-            await _flat_graph(caps), caps, shared_attack_library, list(ScanPhase), coverage
+            await _flat_graph(caps),
+            caps,
+            shared_attack_library,
+            list(ScanPhase),
+            CoverageLevel(coverage),
         )
-        assert steering.targets
+        assert set(steering.vectors) == CHOSEN[agent, coverage]
         for vid, vector in steering.vectors.items():
             for prompt in _rendered(vector):
                 flat = " ".join(prompt.lower().replace("-", " ").replace("_", " ").split())

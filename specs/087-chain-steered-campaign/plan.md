@@ -66,9 +66,11 @@ Source = first chain tool, sink = last; names come from the capability (`tool_re
 parameter schema when it is one line, at most 100 characters and brace-free (tool names get the same check), else `notes.txt`. Variables filled: `tool_name`,
 `tool_a`, `tool` (source), `tool_b` (sink), `path`, `filename`, `file`, `data_target`, `target`,
 `sensitive_data` (resource), `action` ("read <resource>"), `url` (the `example.invalid`
-endpoint). Every URL host and mail domain then becomes `reports.example.invalid`. A vector
-whose rendered prompt names a secret, once the chain's own tool and resource names are taken
-out, is skipped and the chain takes the next one. The rendered text is stored as the prompt's
+endpoint). A schema default naming a secret is not used. Every URL host and mail domain then
+becomes `reports.example.invalid`, with one host map per vector applied to the prompts, the
+success and failure indicators and the description. A vector whose rendered prompt names a
+secret, once the chain's own tool names are taken out, is skipped and the chain takes the next
+one. The rendered text is stored as the prompt's
 template with no variables. When the
 rendered text does not name source, sink and resource, the prompt gets the family's task line
 first, for example "Please use read_file to read notes.txt, then use http_request to send its

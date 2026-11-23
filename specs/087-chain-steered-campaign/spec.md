@@ -49,13 +49,16 @@ After this change:
    otherwise the resource is `notes.txt` and the tool is "the first tool" or "the last tool",
    so no placeholder fill can repeat target text (CWE-400).
    The data variables whose library defaults name secrets (`data_target`, `target`,
-   `sensitive_data`, `action`) name that resource. Every URL host and mail domain in the
-   rendered prompt becomes `reports.example.invalid`, which never resolves. A vector whose
-   rendered prompt names a secret apart from the chain's own tool and resource names is not
-   chosen: a payload that asks for one is skipped, not rewritten. The check reads the text
-   lower-cased with every run of separators as one space, and catches API keys, keys,
-   credentials, passwords and `passwd`, secrets, private and SSH keys, `id_rsa`, auth, access,
-   session and similar tokens, and environment variables.
+   `sensitive_data`, `action`) name that resource; a schema default that names a secret (such as
+   `~/.aws/credentials`) is not used. Every URL host and mail domain in the rendered prompt
+   becomes `reports.example.invalid`, which never resolves, and the same host map applies to the
+   success and failure indicators and to the description the judge reads, so detection matches
+   what the agent was sent. A vector whose rendered prompt names a secret apart from the chain's
+   own tool names is not chosen: a payload that asks for one is skipped, not rewritten. The
+   check reads the text lower-cased with every run of separators as one space, and catches API
+   keys, keys, credentials, passwords and `passwd`, secrets, private and SSH keys, `id_rsa`,
+   auth, access, session and similar tokens, environment variables, authorization and auth
+   headers, cookies and `bearer`.
 7. A chain-targeted vector whose `protocol_filter` does not match the target is dropped. Vectors
    rank by fit (family tags plus the variables the renderer fills) before severity.
 8. Chain edges are built on capability node ids (`tool_<name>`, the ids `tool_to_capability`
@@ -158,6 +161,12 @@ phases under the fixed strategy, new vectors, README wording (#536 row 3).
 - A test of the HTML report's Ran column.
 - `campaign_context` reads `AgentScanner._attack_results` and `_has_critical_finding`; give
   the scanner public reads for them.
+- A tool named exactly "credentials", "password" or "keys" switches that word off in the check.
+- U+2028, NEL and NUL get past `_plain`.
+- The secret skip writes no log line.
+- A test that fails without `html.escape` on the vector ids in the HTML table.
+- Stored variables: a rendered prompt keeps no variables, so a reader of the result sees only
+  the final text.
 
 ## Success Criteria
 
