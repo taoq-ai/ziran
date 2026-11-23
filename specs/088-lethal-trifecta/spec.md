@@ -231,7 +231,26 @@ order rule is one pass over the session's calls.
 
 ## Sizing (slice 2, measured on head)
 
-SIZING_TABLE
+`ToolChainAnalyzer.analyze` after `import_adapter_structure` for delegation, and
+`AnalyzerService.analyze_sessions` for traces, on `git archive` copies of base (7006a23) and
+head. Delegation: agents `a0 -> a1 -> ... -> mailer`, each reader holding one
+`read_inbox_<i>_x...` tool and the mailer 101 `send_email_<i>_x...` tools, so every reader
+reaches the mailer. The bound is held by
+`test_hostile_delegation_chain_stays_linear` and `test_long_trace_stays_linear`.
+
+| Input | Base | Head |
+|-------|------|------|
+| 101 agents, ids of 100 chars | 0.06 s, 0 chains | 0.07 s, 101 delegated, 0.15 MB |
+| 101 agents, ids of 20,000 chars (ids: 4.04 MB) | 1.18 s, 0 chains | 1.19 s, 101 delegated, 14.22 MB |
+| 1,000 agents, ids of 100 chars | 1.22 s, 0 chains | 1.74 s, 1,000 delegated, 1.52 MB |
+| trace, 10,001 calls over 3 tools, ids of 100 chars | 0.04 s, 1 trifecta, 1.03 MB | 0.05 s, 1 trifecta, 1.03 MB |
+| trace, 10,001 calls over 3 tools, ids of 20,000 chars | 3.89 s, 200.17 MB | 3.87 s, 200.17 MB |
+| trace, 201 calls over 201 tools | 0.06 s, 1 trifecta | 0.06 s, 1 trifecta |
+
+Each delegated chain holds at most seven ids (three tools, the path, one per leg in the
+evidence) and four agent ids, so the output grows with the agents, never with the tools a
+shared delegate holds. The 200 MB trace output is the base's `discovered_capabilities`, which
+copies every call's tool name; it is unchanged here.
 
 ## How this fails (slice 2)
 
@@ -267,6 +286,11 @@ SIZING_TABLE
   shows in `dangerous_tool_chains`. A follow-up can add it to the SARIF `LT001` results.
   Overturn: the owner wants it in SARIF now.
 - The two scenarios sit beside the two agents because `run.py` reads an agent only through a
-  scenario. The new vulnerable agent carries no OWASP reference, so the pentest-eval target set
-  (which reads `vulnerable_*` agents with OWASP ground truth) is unchanged.
+  scenario.
+- The vulnerable agent lists `CVE-2025-32711` (prompt injection through a read email), which
+  the skill CVE matcher finds on it; without it the matcher scores that match as a false
+  positive on an agent with no known vulnerability. The `prompt_injection` type makes it a
+  pentest-eval target (LLM01) in `--targets all`, with no cassette (a coverage gap, not a
+  failure). The pentest-eval CI gate runs the fixed subset, so its result does not change.
+  Overturn: the owner wants a recorded cassette for it.
 - `analyze-traces` reads no `trifecta_roles` override (unchanged from slice 1).

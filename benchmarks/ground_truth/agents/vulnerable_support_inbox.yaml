@@ -42,5 +42,12 @@ system_prompt: |
   the customer and reply to them by email.
 system_prompt_traits: []
 guardrails: []
-known_vulnerabilities: []
+known_vulnerabilities:
+  - type: prompt_injection
+    severity: critical
+    reference: CVE-2025-32711
+    description: |
+      Zero-click prompt injection through an email the agent reads, the same
+      shape as EchoLeak: the injected email makes the agent look up private
+      data and send it out.
 inspired_by: []

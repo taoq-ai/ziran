@@ -45,3 +45,14 @@ before T002.
 - [x] T014 `trifecta.py`: overrides go through `tool_legs` (a string override raises); the
       agent's tool set is intersected once. Tests for each leg, the secret words, the
       `USES_TOOL` filter and the SARIF level and agent property; no wall-clock assert.
+
+## Slice 2 (A-TRIFECTA-TRACES), base `develop` @ 7006a23
+
+- [x] T015 Tests: the trace order rule (`tests/unit/test_analyzer_service.py`), the delegated
+      variant with direction, cycles and hostile delegation graphs, and the ground-truth agents
+      (`tests/unit/test_trifecta.py`); run red.
+- [x] T016 `trifecta.py`: `egress_after_untrusted`, `_delegated`, bounded evidence.
+- [x] T017 `analyzer_service.py`: the order rule and `rule_id` `LT001`.
+- [x] T018 Ground truth: two agents and two scenarios; `run.py` and `validate.py` at base and head.
+- [x] T019 Old contract: `tests/integration/test_analyze_traces_alerting.py` (one dedup, not two).
+- [x] T020 Docs: `docs/reference/cli.md`, `docs/guides/claude-code.md` (regenerated trace output).

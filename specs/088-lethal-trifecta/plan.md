@@ -52,3 +52,35 @@ reports, and a two-tool trifecta must not hide a typed pair.
 - Green: the new file and the touched tests of the old contract, under `timeout -s KILL 120`.
 - `benchmarks/generate_all.py` on base and head: only timing fields of
   `performance_metrics.json` differ; `regression_check.py` reports no change from baseline.
+
+# Slice 2 plan (A-TRIFECTA-TRACES)
+
+**Base**: `develop` @ 7006a23.
+
+## Design
+
+| File | Change |
+|------|--------|
+| `ziran/application/knowledge_graph/trifecta.py` | `_legs` (override lookup, shared), `egress_after_untrusted`, `_delegated`, `DELEGATED_TYPE` |
+| `ziran/application/trace_analysis/analyzer_service.py` | drop a session's `lethal_trifecta` without the order; `rule_id` `LT001` on the kept one |
+| `benchmarks/ground_truth/agents/` | `vulnerable_support_inbox.yaml`, `safe_support_inbox.yaml` |
+| `benchmarks/ground_truth/scenarios/tool_chain/` | `tp_015`, `tn_013` |
+| `docs/reference/cli.md`, `docs/guides/claude-code.md` | the order rule, the delegated variant, the regenerated trace output |
+
+The delegated step runs inside `find_trifectas`, so `ToolChainAnalyzer.analyze` and every
+caller reach it with no new call site; `chain_analyzer.py` and `scanner.py` gain no line. The
+order rule stays in the trace service: only a trace has a call order.
+
+## Constitution Check
+
+- Hexagonal: both changes sit in the application layer; no new import across layers.
+- Type safety: annotated, mypy strict clean.
+- Simplicity: one pass over the calls; one breadth-first walk per agent on the structure view.
+
+## Verification
+
+- Red: the new tests in `tests/unit/test_trifecta.py` and `tests/unit/test_analyzer_service.py`
+  fail before the implementation commit (9 failures, `egress_after_untrusted` missing).
+- Green: the touched tests and their neighbours under `timeout -s KILL 120`.
+- `benchmarks/ground_truth/run.py` on `git archive` copies of base and head: every component
+  equal or better (counts in the PR body).
