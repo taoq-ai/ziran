@@ -265,6 +265,24 @@ def build_html_report(
         else ""
     )
 
+    targets = result_data.get("chain_targets") or []
+    targets_html_section = (  # vectors aimed at the chains found at discovery (spec 087)
+        '  <div class="section">\n'
+        '    <div class="section-title">Chain-targeted vectors</div>\n'
+        '    <table class="owasp-table">\n'
+        "    <tr><th>Chain</th><th>Vulnerability type</th><th>Chosen vectors</th><th>Ran</th></tr>\n"
+        + "".join(
+            f"    <tr><td><code>{html.escape(' → '.join(t['tools']))}</code></td>"
+            f"<td>{html.escape(t['vulnerability_type'])}</td>"
+            f"<td>{html.escape(', '.join(t['vector_ids']))}</td>"
+            f"<td>{html.escape(', '.join(t['ran'])) or 'none'}</td></tr>\n"
+            for t in targets
+        )
+        + "    </table>\n  </div>\n"
+        if targets
+        else ""
+    )
+
     return _HTML_TEMPLATE.format(
         vis_version=_VIS_NETWORK_VERSION,
         campaign_id=html.escape(campaign_id),
@@ -306,7 +324,7 @@ def build_html_report(
         owasp_html=owasp_html,
         atlas_html=atlas_html,
         defence_html_section=defence_html_section,
-        blast_html_section=blast_html_section,
+        blast_html_section=blast_html_section + targets_html_section,
         vis_nodes_json=_script_json(vis_data["nodes"]),
         vis_edges_json=_script_json(vis_data["edges"]),
         critical_paths_json=_script_json(shown_paths),

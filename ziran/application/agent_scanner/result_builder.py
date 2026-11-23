@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackResult, TokenUsage
     from ziran.domain.entities.capability import BlastRadius
     from ziran.domain.entities.defence import DefenceProfile
+    from ziran.domain.entities.phase import ChainTarget
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,7 @@ class ResultBuilder:
         judge_tiers: dict[str, int] | None = None,
         usage: CampaignBudget | None = None,
         scan_cache: ScanCache | None = None,
+        chain_targets: list[ChainTarget] | None = None,
     ) -> tuple[CampaignResult, list[Any]]:
         """Build the final campaign result.
 
@@ -103,6 +105,7 @@ class ResultBuilder:
         critical_paths = self._graph.find_all_attack_paths()
 
         serialized_results = [r.model_dump(mode="json") for r in attack_results]
+        ran = {r.vector_id for r in attack_results}
         total_vulnerabilities = sum(len(p.vulnerabilities_found) for p in phase_results)
         critical_chain_count = len([c for c in dangerous_chains if c.risk_level == "critical"])
 
@@ -162,6 +165,10 @@ class ResultBuilder:
                 c.model_dump(mode="json", exclude={"blast_radius"}) for c in dangerous_chains
             ],
             blast_radius={t: r.model_dump(mode="json") for t, r in radii.items()},
+            chain_targets=[  # a chosen vector ran when it has a result (spec 087)
+                t.model_copy(update={"ran": [v for v in t.vector_ids if v in ran]})
+                for t in chain_targets or []
+            ],
             critical_chain_count=critical_chain_count,
             token_usage={
                 "prompt_tokens": campaign_tokens.prompt_tokens,

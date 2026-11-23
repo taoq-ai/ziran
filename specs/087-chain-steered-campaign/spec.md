@@ -46,7 +46,8 @@ After this change:
    and one concrete resource for the source (a default or example from the discovered parameter
    schema, else `notes.txt`), as a task the agent would plausibly do. Variables that named
    secrets ("API keys", "credentials") now name that resource, and a URL variable points to an
-   unresolvable `example.invalid` endpoint.
+   unresolvable `example.invalid` endpoint. A vector whose rendered prompt still names a secret
+   (API key, credential, password, private key, secret) is not chosen.
 7. A chain-targeted vector whose `protocol_filter` does not match the target is dropped. Vectors
    rank by fit (family tags plus the variables the renderer fills) before severity.
 8. Chain edges are built on capability node ids (`tool_<name>`, the ids `tool_to_capability`

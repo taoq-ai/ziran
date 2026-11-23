@@ -5,28 +5,28 @@ T003 run red before T004.
 
 ## Phase 1 - Tests
 
-- [ ] T001 `tests/unit/application/test_chain_targeting.py`: family table, plan (harmful_task,
+- [x] T001 `tests/unit/application/test_chain_targeting.py`: family table, plan (harmful_task,
       protocol, fit order, one chain per vector, cap), rendering (tool names, path, no secret
       words), `steer` (front, stable, unchanged with no chains), `AdaptiveStrategy` boost,
       `LLMAdaptiveStrategy` prompt line, context fields at the phase executor, report tables,
       100-tool timing.
-- [ ] T002 `tests/unit/test_langgraph_adapter.py`: flat LangChain agent with a scripted model,
+- [x] T002 `tests/unit/test_langgraph_adapter.py`: flat LangChain agent with a scripted model,
       execution phase, fixed strategy, concurrency 1: chain vectors first, marked as run, the
       first carries the `http_request` call; chain ids are `tool_<name>`; an agent with no chain
       runs in library order.
-- [ ] T003 Run T001 and T002 red.
+- [x] T003 Run T001 and T002 red.
 
 ## Phase 2 - Implementation
 
-- [ ] T004 `ziran/domain/entities/phase.py`: `ChainTarget`, `CampaignResult.chain_targets`.
-- [ ] T005 `ziran/application/strategies/protocol.py`: `dangerous_chains`, `chain_vectors`.
-- [ ] T006 `ziran/application/agent_scanner/chain_targeting.py`: table, `plan_steering`,
+- [x] T004 `ziran/domain/entities/phase.py`: `ChainTarget`, `CampaignResult.chain_targets`.
+- [x] T005 `ziran/application/strategies/protocol.py`: `dangerous_chains`, `chain_vectors`.
+- [x] T006 `ziran/application/agent_scanner/chain_targeting.py`: table, `plan_steering`,
       rendering, `steer`, `campaign_context`.
-- [ ] T007 `scanner.py`: helper for the two context blocks first, then the steering wiring.
-- [ ] T008 `phase_executor.py`, `result_builder.py`.
-- [ ] T009 `adaptive.py`, `llm_adaptive.py`.
-- [ ] T010 `reports.py`, `html_report.py`.
+- [x] T007 `scanner.py`: helper for the two context blocks first, then the steering wiring.
+- [x] T008 `phase_executor.py`, `result_builder.py`.
+- [x] T009 `adaptive.py`, `llm_adaptive.py`.
+- [x] T010 `reports.py`, `html_report.py`.
 
 ## Phase 3 - Checks
 
-- [ ] T011 Touched tests and `test_scanner_size.py` green; ruff, ruff format, mypy clean.
+- [x] T011 Touched tests and `test_scanner_size.py` green; ruff, ruff format, mypy clean.

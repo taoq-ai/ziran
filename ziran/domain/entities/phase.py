@@ -187,6 +187,15 @@ UNMEASURED_METADATA_KEY = "unmeasured"
 WARNINGS_METADATA_KEY = "warnings"
 
 
+class ChainTarget(BaseModel):
+    """The vectors a campaign aimed at one dangerous tool chain (spec 087)."""
+
+    tools: list[str] = Field(description="The chain's tools, source first")
+    vulnerability_type: str
+    vector_ids: list[str] = Field(description="Vectors chosen for the chain, in run order")
+    ran: list[str] = Field(default_factory=list, description="Chosen vectors that have a result")
+
+
 class CampaignResult(BaseModel):
     """Complete campaign result.
 
@@ -221,6 +230,9 @@ class CampaignResult(BaseModel):
         default_factory=dict,
         description="Blast radius per last tool of a chain (spec 091): a chain's radius is "
         "blast_radius[chain['tools'][-1]], kept once per tool so the output stays linear",
+    )
+    chain_targets: list[ChainTarget] = Field(
+        default_factory=list, description="Vectors aimed at each chain found at discovery"
     )
     critical_chain_count: int = Field(
         default=0, description="Number of critical-severity tool chains found"
