@@ -21,4 +21,4 @@ Add `--format json` for machine-readable output, or `--sarif audit.sarif` for Gi
 
 ## Expected output
 
-Two findings: `SA003` (high, `WebFetch` is a dangerous tool) and `CC001` (critical, `data_exfiltration via Read -> WebFetch`). The command exits non-zero.
+Three findings: `SA003` (high, `WebFetch` is a dangerous tool), `CC001` (critical, `data_exfiltration via Read -> WebFetch`) and `LT001` (critical, the lethal trifecta: `Read` reads private data, `WebFetch` brings in untrusted content and sends data out). The command exits non-zero.

@@ -685,6 +685,7 @@ def scan(
             )
 
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
+    scanner.graph.trifecta_roles = _trifecta_roles()
     coverage_level = CoverageLevel(coverage.lower())
 
     # Build campaign strategy
@@ -1362,8 +1363,11 @@ def audit(
     else:
         report = analyzer.analyze_directory(target)
 
+    trifecta_roles = _trifecta_roles() if scan.detected else {}
     if scan.detected:
-        cc = audit_claude_code(scan, analyzer.config, typed=typed_chains)
+        cc = audit_claude_code(
+            scan, analyzer.config, typed=typed_chains, trifecta_roles=trifecta_roles
+        )
         report.files_analyzed += cc.files_analyzed
         report.findings.extend(cc.findings)
 
@@ -1372,7 +1376,7 @@ def audit(
         if not scan.detected:
             raise click.UsageError("no Claude Code agent definitions found under PATH")
         if write_baseline_path:
-            baseline = build_baseline(scan)
+            baseline = build_baseline(scan, trifecta_roles)
             try:
                 Path(write_baseline_path).write_text(
                     baseline.model_dump_json(indent=2) + "\n", encoding="utf-8"
@@ -1401,7 +1405,7 @@ def audit(
                 raise click.BadParameter(
                     f"invalid baseline at {loc}: {err['msg']}", param_hint="--baseline"
                 ) from None
-        report.findings, narrowed = apply_baseline(report.findings, scan, baseline)
+        report.findings, narrowed = apply_baseline(report.findings, scan, baseline, trifecta_roles)
 
     # Filter by severity if requested
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -1872,6 +1876,22 @@ def _no_hybrid_client() -> None:
         "hybrid_route_share above 0.0 needs a model client; ziran sends no hybrid call, "
         "so a scan runs at 0.0 (deterministic mode)"
     )
+
+
+def _trifecta_roles() -> dict[str, frozenset[str]]:
+    """``trifecta_roles`` of ``.ziran/detectors.yaml`` (spec 088). An invalid file warns and
+    gives no override, so every trifecta the name rules see is still reported."""
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+
+    try:
+        roles = load_detector_thresholds().trifecta_roles
+    except DetectorConfigError as exc:
+        click.echo(f"Warning: trifecta_roles not read: {exc}", err=True)
+        return {}
+    return {tool: frozenset(legs) for tool, legs in roles.items()}
 
 
 def _config_share() -> float:

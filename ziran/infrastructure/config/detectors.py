@@ -9,7 +9,7 @@ Behaviour:
   * Missing file → documented defaults (``DetectorThresholds()``).
   * Empty file → defaults.
   * Partial mapping → provided keys override defaults; the rest default.
-  * Invalid / out-of-range value, unknown key, or ``hit <= safe`` →
+  * Unreadable or non-UTF-8 file, invalid / out-of-range value, unknown key, or ``hit <= safe`` →
     :class:`DetectorConfigError` naming the offending field.
 
 ``!env VAR`` tags and ``${VAR}`` interpolation are supported via the shared
@@ -47,7 +47,10 @@ def load_detector_thresholds(
     if not config_path.exists():
         return DetectorThresholds()
 
-    text = config_path.read_text(encoding="utf-8")
+    try:
+        text = config_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:  # a directory, unreadable, or not UTF-8
+        raise DetectorConfigError(f"{config_path}: cannot read file ({exc})") from exc
 
     try:
         data = load_yaml_with_env(text)

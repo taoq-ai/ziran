@@ -76,6 +76,7 @@ and raw `graph.graph` access.
 | Cycle search: `nx.descendants`, `nx.simple_cycles` | `ToolChainAnalyzer._find_chain_cycles` | structure view; off by default on a co-resident graph |
 | Risk-score centrality: `nx.betweenness_centrality` | `ToolChainAnalyzer.analyze` | structure view; skipped on a co-resident graph over 800 nodes |
 | Typed chains, unscoped shell tools | `_find_typed_chains`, `_find_unrestricted_execution` | read no edge |
+| Lethal trifecta scopes: `out_edges` of agent nodes (added by spec 088) | `trifecta._scopes` | structure view |
 | `nx.all_simple_paths` between two nodes | `AttackKnowledgeGraph.find_attack_paths` | structure view |
 | `nx.all_simple_paths` from tools to findings and data | `AttackKnowledgeGraph.find_all_attack_paths` | structure view |
 | `nx.all_simple_paths` between agents, `get_edge_data` | `AttackKnowledgeGraph.get_cross_agent_attack_paths` | structure view |

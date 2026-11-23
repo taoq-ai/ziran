@@ -84,7 +84,8 @@ async def test_dangerous_chain_files_one_issue_then_dedups() -> None:
 
     # Re-run on the same trace → dedup, zero new issues.
     outcome2 = await service.emit_findings(Path("dummy"), _github_sinks())
-    assert outcome2.deduped == 1
+    # the pair chain and the lethal trifecta (spec 088) share tools and session: one issue
+    assert outcome2.deduped == 2
     assert len(created) == 1
 
 

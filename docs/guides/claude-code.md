@@ -15,8 +15,8 @@ out of the output shown here; `...` marks trimmed output.
 `ziran audit PATH` accepts a plugin root (`.claude-plugin/plugin.json`), a directory containing
 `.claude/agents/`, a directory named `agents`, or a single agent `.md` file. Each agent's declared
 `tools` are mapped to capabilities ([Claude Code tool names](../concepts/tool-chains.md#claude-code-tool-names))
-and walked for dangerous chains. The rules (`CC000`, `SA001`, `SA003`, `SA004`, `SA007`, `CC001`)
-are listed in the [CLI reference](../reference/cli.md#claude-code-plugins).
+and walked for dangerous chains. The rules (`CC000`, `SA001`, `SA003`, `SA004`, `SA007`, `CC001`,
+`LT001`) are listed in the [CLI reference](../reference/cli.md#claude-code-plugins).
 
 The safe plugin's agent declares `tools: Read, Grep, Glob`:
 
@@ -30,14 +30,17 @@ Files analysed: 3
 ```
 
 The vulnerable plugin's agent declares `tools: Read, Grep, WebFetch`. Each tool is harmless
-alone; reading local files plus fetching URLs is a data exfiltration path:
+alone; reading local files plus fetching URLs is a data exfiltration path. The agent also holds
+the *lethal trifecta* (`LT001`): it reads private data (`Read`, `Grep`), sees untrusted content
+(`WebFetch`) and can send data out (`WebFetch`), so a prompt injection in a fetched page can make
+it send your files away, whatever order the tools run in:
 
 ```console
 $ ziran audit vulnerable-plugin
 
 ╭─────── Static Analysis ───────╮
-│ Found 3 issue(s) in 3 file(s) │
-│   Critical: 2  High: 1        │
+│ Found 4 issue(s) in 3 file(s) │
+│   Critical: 3  High: 1        │
 ╰───────────────────────────────╯
 
 ┏━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -54,6 +57,13 @@ $ ziran audit vulnerable-plugin
 │ CC001  │ critical   │ Agent 'researcher':        │ vulnerable-plugin/agents… │
 │        │            │ data_exfiltration via Grep │                           │
 │        │            │ -> WebFetch                │                           │
+├────────┼────────────┼────────────────────────────┼───────────────────────────┤
+│ LT001  │ critical   │ Agent 'researcher':        │ vulnerable-plugin/agents… │
+│        │            │ lethal_trifecta: private   │                           │
+│        │            │ data from Read, Grep;      │                           │
+│        │            │ untrusted content from     │                           │
+│        │            │ WebFetch; egress via       │                           │
+│        │            │ WebFetch                   │                           │
 └────────┴────────────┴────────────────────────────┴───────────────────────────┘
 ...
 FAILED — critical issues found
@@ -114,8 +124,8 @@ against the baseline:
 $ ziran audit /tmp/my-plugin --baseline /tmp/my-plugin/ziran-baseline.json
 
 ╭─────── Static Analysis ───────╮
-│ Found 5 issue(s) in 3 file(s) │
-│   Critical: 4  High: 1        │
+│ Found 6 issue(s) in 3 file(s) │
+│   Critical: 5  High: 1        │
 ╰───────────────────────────────╯
 
 ┏━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -195,15 +205,16 @@ Report saved to reports/trace_analysis.json
 $ ziran analyze-traces --source otel --input traces/vulnerable.jsonl --out reports
 ...
 │ Sessions Analyzed     │ 1                  │
-│ Dangerous Chains      │ 1                  │
-│ Critical Chains       │ 1                  │
-│ Total Vulnerabilities │ 1                  │
+│ Dangerous Chains      │ 2                  │
+│ Critical Chains       │ 2                  │
+│ Total Vulnerabilities │ 2                  │
 └───────────────────────┴────────────────────┘
                    Dangerous Tool Chains
 ┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Tools            ┃ Risk     ┃ Type              ┃ Score ┃
 ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
 │ Read -> WebFetch │ critical │ data_exfiltration │ 1.000 │
+│ Read -> WebFetch │ critical │ lethal_trifecta   │ 1.000 │
 └──────────────────┴──────────┴───────────────────┴───────┘
 
 Report saved to reports/trace_analysis.json

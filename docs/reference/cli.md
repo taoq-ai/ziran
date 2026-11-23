@@ -308,11 +308,13 @@ In a directory, Python files are still analysed as before and the Claude Code fi
 | `SA004` | medium | A declared tool is a wildcard (`Bash(*)`, `mcp__server`, `mcp__server__*`) | `tools:` line |
 | `SA007` | high | No `tools` key: the agent inherits every tool | `1` |
 | `CC001` | the chain's risk | A dangerous tool chain over the agent's tools (e.g. `Read -> WebFetch`) | `tools:` line (`1` when absent) |
+| `LT001` | critical | The lethal trifecta: the agent's tools read private data, see untrusted content and can send data out (e.g. `Read, WebFetch`) | `tools:` line (`1` when absent) |
 
 When Claude Code definitions are detected, every JSON row (Python rows included) gains two keys:
 `agent` (the agent name, `null` for Python rows and `CC000`) and `tools` (the tool strings, in
-chain order for `CC001`; `[]` when not applicable). Otherwise rows keep exactly the five keys
-above. Each `CC001` row is unique per `(agent, tools)`.
+chain order for `CC001`, the first tool of each leg for `LT001`; `[]` when not applicable).
+Otherwise rows keep exactly the five keys above. Each `CC001` row is unique per `(agent, tools)`,
+and an agent has at most one `LT001` row.
 
 ```json
 {
@@ -326,8 +328,43 @@ above. Each `CC001` row is unique per `(agent, tools)`.
 }
 ```
 
-Exit codes are unchanged and apply to the merged report. SARIF output for `audit` is not
-provided yet.
+Exit codes are unchanged and apply to the merged report.
+
+##### Lethal trifecta (`LT001`)
+
+An agent holds the lethal trifecta when its tools cover three legs: **private data**, **untrusted
+content** and **egress**. A prompt injection in the untrusted content can then make it send the
+private data out, whatever order the tools run in. One tool can hold several legs. The legs come
+from the tool's name (after the [Claude Code alias map](../concepts/tool-chains.md#claude-code-tool-names)):
+
+| Leg | A tool holds it when its name has |
+|-----|-----------------------------------|
+| `private_data` | a secret word (`secret`, `credential`, `password`), or a read word and a data word (`file`, `inbox`, `email`, `message`, `customer`, `user`, `contact`, `account`, `record`, `database`, `sql`, `document`, `drive`, `calendar`, `note`, `ticket`, `order`, `memory`, ...) |
+| `untrusted_content` | a web word (`http`, `url`, `web`, `browse`, `scrape`, `crawl`, `download`, `rss`, `feed`), or a read word and an inbound word (`inbox`, `email`, `message`, `comment`, `issue`, `chat`, `review`) |
+| `egress` | a send word (`send`, `post`, `publish`, `upload`, `share`, `forward`, `reply`, `notify`, `webhook`, `push`, `export`, `request`, `http`, `curl`, ...), `email` or `message` without a read word, or `fetch` with a page word (`url`, `web`, `page`) |
+
+So `Read` is private data, `WebFetch` untrusted content and egress, `read_inbox` private data and
+untrusted content, and `send_email` egress. `Bash` holds no leg here: an unscoped `Bash` is
+already reported on its own. `ziran scan` and `ziran analyze-traces` run the same check: one
+`lethal_trifecta` chain per agent (a flat agent is all its tools; a graph-shaped agent is each
+agent node's tools), and the scan's SARIF from `ziran ci` carries the same `LT001` rule id.
+
+To correct a tool's legs, list them under `trifecta_roles` in `.ziran/detectors.yaml`. The key is
+the tool id or its name; the list replaces the name rules for that tool, and `[]` gives it no leg:
+
+```yaml
+trifecta_roles:
+  send_email: []                 # only sends to fixed internal addresses
+  lookup_order: [private_data]
+```
+
+`ziran audit` and `ziran scan` read the file from the working directory. When it is invalid or
+unreadable, a warning goes to stderr and the name rules apply to every tool. A `trifecta_roles`
+entry can turn `LT001` off for a tool, so review a change to it like a change to the baseline.
+
+Upgrading to the release that adds `LT001` gives a `BL003` row for every agent that holds the
+trifecta against an older baseline: review it and record the baseline again with
+`--write-baseline`.
 
 #### Allowlist baseline
 
@@ -370,11 +407,12 @@ descriptions, hook commands or MCP config.
 }
 ```
 
-Comparison uses agent names, `tools` and chain `tools`, verbatim and case-sensitive
-(`vulnerability_type` and `severity` are for reviewers). Scoping `Bash` to `Bash(npm test:*)` is
+Comparison uses agent names, `tools`, and each chain's `tools` and `vulnerability_type`,
+verbatim and case-sensitive (`severity` is for reviewers), so a recorded `data_exfiltration` chain
+over `Read, WebFetch` does not accept a `lethal_trifecta` over the same tools. Scoping `Bash` to `Bash(npm test:*)` is
 therefore reported as a new tool.
 
-With a baseline, recorded grants are accepted: `CC001` rows for recorded chains and `SA003` /
+With a baseline, recorded grants are accepted: `CC001` and `LT001` rows for recorded chains and `SA003` /
 `SA004` / `SA007` rows for recorded grants are dropped. `SA001` secrets and Python findings are
 never accepted, and `CC000` parse issues become `critical`, so a broken agent file cannot pass as
 a removed agent. Each widening is appended as a `critical` row:
