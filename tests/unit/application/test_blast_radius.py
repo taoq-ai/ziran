@@ -11,6 +11,7 @@ from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner import result_builder as rb
 from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.structure_import import import_adapter_structure
+from ziran.application.knowledge_graph import blast_radius as br
 from ziran.application.knowledge_graph.blast_radius import (
     MAX_LISTED,
     blast_radius,
@@ -259,6 +260,8 @@ class TestBounds:
             rb, "blast_radius", lambda *a, **k: walks.append(a) or blast_radius(*a, **k)
         )
         monkeypatch.setattr(rb, "called_tools", lambda *a: lookups.append(a) or called_tools(*a))
+        # a walk handed tool_calls instead of called matches them again, inside the module
+        monkeypatch.setattr(br, "called_tools", lambda *a: lookups.append(a) or called_tools(*a))
         result, chains = _build(graph, [_attack({"name": names[0]}, {"name": names[1]})])
         # one walk per distinct last tool, and the calls are matched once per build
         assert sorted(a[1][0] for a in walks) == sorted({c.tools[-1] for c in chains})
