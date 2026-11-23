@@ -481,6 +481,26 @@ class TestDelegated:
         assert [c.evidence["agent"] for c in _trifectas(chains)] == ["support"]
         assert not _delegated(chains)
 
+    async def test_gate_counts_it_and_suppresses_it_only_by_its_own_fingerprint(self) -> None:
+        chains = await _scan_topology(READER, [("reader", "mailer")])
+        result = _result([c.model_dump(mode="json") for c in chains])
+        (finding,) = QualityGate._findings(result)
+        assert finding.label == "lethal_trifecta_delegated" and finding.severity == "critical"
+
+        def gate(vulnerability_type: str) -> bool:
+            entry = SuppressionEntry(
+                fingerprint=chain_fingerprint(result.target_agent, vulnerability_type),
+                content_hash=finding.content_hash,
+                reason="accepted",
+                added_by="sec-team",
+            )
+            return (
+                QualityGate().evaluate(result, SuppressionFile(version=1, entries=[entry])).passed
+            )
+
+        assert not gate("lethal_trifecta")  # the plain trifecta's entry does not cover it
+        assert gate("lethal_trifecta_delegated")
+
     @pytest.mark.parametrize(("count", "name_len"), [(101, 100), (101, 20_000)])
     async def test_hostile_delegation_chain_stays_linear(self, count: int, name_len: int) -> None:
         agents = {f"a{i}": [f"read_inbox_{i}_{'x' * name_len}"[:name_len]] for i in range(count)}
