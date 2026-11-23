@@ -217,6 +217,11 @@ class CampaignResult(BaseModel):
         default_factory=list,
         description="Dangerous tool chain combinations discovered by the chain analyzer",
     )
+    blast_radius: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Blast radius per last tool of a chain (spec 091): a chain's radius is "
+        "blast_radius[chain['tools'][-1]], kept once per tool so the output stays linear",
+    )
     critical_chain_count: int = Field(
         default=0, description="Number of critical-severity tool chains found"
     )
