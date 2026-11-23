@@ -205,16 +205,15 @@ Report saved to reports/trace_analysis.json
 $ ziran analyze-traces --source otel --input traces/vulnerable.jsonl --out reports
 ...
 │ Sessions Analyzed     │ 1                  │
-│ Dangerous Chains      │ 2                  │
-│ Critical Chains       │ 2                  │
-│ Total Vulnerabilities │ 2                  │
+│ Dangerous Chains      │ 1                  │
+│ Critical Chains       │ 1                  │
+│ Total Vulnerabilities │ 1                  │
 └───────────────────────┴────────────────────┘
                    Dangerous Tool Chains
 ┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
 ┃ Tools            ┃ Risk     ┃ Type              ┃ Score ┃
 ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
 │ Read -> WebFetch │ critical │ data_exfiltration │ 1.000 │
-│ Read -> WebFetch │ critical │ lethal_trifecta   │ 1.000 │
 └──────────────────┴──────────┴───────────────────┴───────┘
 
 Report saved to reports/trace_analysis.json

@@ -5,7 +5,8 @@ Each tool gets its *legs* from name rules over :func:`canonical_tool_name` and
 :func:`tokens`, or from a caller's override (``trifecta_roles`` in ``.ziran/detectors.yaml``).
 A tool can hold several legs: ``WebFetch`` is untrusted content and egress, ``read_inbox``
 untrusted content and private data. An agent whose tools cover all three legs gets one
-``lethal_trifecta`` chain, whatever order the tools run in.
+``lethal_trifecta`` chain, whatever order the tools run in. An agent that covers them only with
+the agents it delegates to gets one ``lethal_trifecta_delegated`` chain (slice 2).
 """
 
 from __future__ import annotations
@@ -22,11 +23,24 @@ if TYPE_CHECKING:
 
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
-__all__ = ["LEGS", "RULE_ID", "VULNERABILITY_TYPE", "find_trifectas", "tool_legs"]
+__all__ = [
+    "DELEGATED_TYPE",
+    "LEGS",
+    "RULE_ID",
+    "VULNERABILITY_TYPE",
+    "egress_after_untrusted",
+    "find_trifectas",
+    "tool_legs",
+]
 
 LEGS: tuple[str, ...] = ("private_data", "untrusted_content", "egress")
 RULE_ID = "LT001"  # one SARIF rule id for audit, scan and CI
 VULNERABILITY_TYPE = "lethal_trifecta"
+DELEGATED_TYPE = "lethal_trifecta_delegated"
+_REMEDIATION = (
+    "Remove or restrict one leg: drop the egress tool, scope the private data "
+    "tool, or keep untrusted content out of this agent"
+)
 
 
 def _words(text: str) -> frozenset[str]:
@@ -78,6 +92,31 @@ def tool_legs(tool_id: str, override: Iterable[str] | None = None) -> frozenset[
     return frozenset(out)
 
 
+def _legs(tool_id: str, overrides: Mapping[str, Iterable[str]] | None) -> frozenset[str]:
+    """The legs of *tool_id*, with an override by id or by name without the ``tool_`` prefix."""
+    overrides = overrides or {}
+    return tool_legs(tool_id, overrides.get(tool_id, overrides.get(tool_id.removeprefix("tool_"))))
+
+
+def egress_after_untrusted(
+    calls: Iterable[str], overrides: Mapping[str, Iterable[str]] | None = None
+) -> bool:
+    """Whether an egress call comes after an untrusted content call, in call order.
+
+    "After" is a later call: one call holding both legs (``WebFetch``) sends its request
+    before its content arrives. One pass, legs looked up once per tool name.
+    """
+    legs: dict[str, frozenset[str]] = {}
+    seen_untrusted = False
+    for call in calls:
+        if call not in legs:
+            legs[call] = _legs(call, overrides)
+        if seen_untrusted and "egress" in legs[call]:
+            return True
+        seen_untrusted = seen_untrusted or "untrusted_content" in legs[call]
+    return False
+
+
 def _scopes(graph: AttackKnowledgeGraph, tool_ids: list[str]) -> list[tuple[str | None, list[str]]]:
     """Each agent node's ``USES_TOOL`` tools, then one scope for the tools no agent lists.
 
@@ -110,14 +149,13 @@ def find_trifectas(
     legs. The cost and the output are linear in the tools: no pair or path is walked, and
     ``tools`` holds at most three ids.
     """
-    overrides = overrides or {}
-    legs: dict[str, frozenset[str]] = {}
-    for tid in tool_ids:
-        override = overrides.get(tid, overrides.get(tid.removeprefix("tool_")))
-        legs[tid] = tool_legs(tid, override)  # validates a caller's override too
+    legs = {tid: _legs(tid, overrides) for tid in tool_ids}  # validates an override too
     chains: list[DangerousChain] = []
+    by_agent: dict[str, dict[str, list[str]]] = {}
     for agent, tools in _scopes(graph, tool_ids):
         by_leg = {leg: [t for t in tools if leg in legs[t]] for leg in LEGS}
+        if agent is not None:
+            by_agent[agent] = by_leg
         if not all(by_leg.values()):
             continue
         # tools: the first tool of each leg, so the finding node id and its attack paths stay
@@ -137,13 +175,64 @@ def find_trifectas(
                     "out: a prompt injection in the untrusted content can make it send the "
                     "private data to an attacker"
                 ),
-                remediation=(
-                    "Remove or restrict one leg: drop the egress tool, scope the private data "
-                    "tool, or keep untrusted content out of this agent"
-                ),
+                remediation=_REMEDIATION,
                 graph_path=members,
                 chain_type="trifecta",
                 evidence=evidence,
+            )
+        )
+    chains.extend(_delegated(graph, by_agent))
+    return chains
+
+
+def _delegated(
+    graph: AttackKnowledgeGraph, by_agent: dict[str, dict[str, list[str]]]
+) -> list[DangerousChain]:
+    """One ``lethal_trifecta_delegated`` chain per agent that covers the legs only with the
+    agents it reaches along ``DELEGATES_TO`` edges.
+
+    An agent that holds all three legs, or reaches one that does, has the plain finding. Each
+    walk is breadth first on the structure view; a chain names at most four agents (the
+    delegating one, then the first holder of each leg) and three tools, and its evidence the
+    first tool of each leg: many agents reaching one large agent must not copy its tools each.
+    """
+    g = graph.structure_view()
+    full = {a for a, own in by_agent.items() if all(own.values())}
+    chains: list[DangerousChain] = []
+    for agent in by_agent:
+        reach, seen = [agent], {agent}
+        for a in reach:
+            for _, b, et in g.out_edges(a, data="edge_type"):
+                if et == EdgeType.DELEGATES_TO and b in by_agent and b not in seen:
+                    seen.add(b)
+                    reach.append(b)
+        if seen & full:
+            continue
+        holder = {
+            leg: next(a for a in reach if by_agent[a][leg])
+            for leg in LEGS
+            if any(by_agent[a][leg] for a in reach)
+        }
+        if len(holder) < len(LEGS):
+            continue
+        names = list(dict.fromkeys([agent, *holder.values()]))
+        first = {leg: by_agent[holder[leg]][leg][0] for leg in LEGS}
+        members = list(dict.fromkeys(first.values()))
+        evidence: dict[str, object] = {leg: [tool] for leg, tool in first.items()}
+        chains.append(
+            DangerousChain(
+                tools=members,
+                risk_level="critical",
+                vulnerability_type=DELEGATED_TYPE,
+                exploit_description=(
+                    f"Agent {agent!r} and the agents it delegates to read private data, see "
+                    "untrusted content and can send data out: a prompt injection can move the "
+                    "private data to the egress tool through the delegation"
+                ),
+                remediation=_REMEDIATION + ", or stop the delegation that joins the legs",
+                graph_path=members,
+                chain_type="trifecta",
+                evidence=evidence | {"agent": agent, "agents": names},
             )
         )
     return chains

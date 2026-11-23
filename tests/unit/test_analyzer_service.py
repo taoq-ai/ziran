@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -330,3 +330,62 @@ class TestSessionEvidence:
         chain = next(c for c in chains if c["tools"] == ["Read", "WebFetch"])
         assert [e["session_id"] for e in _session_evidence(chain)] == ["s1", "s2"]
         assert chain["occurrence_count"] == 2
+
+
+# ── Unit: the lethal trifecta order rule (spec 088 slice 2) ──────────
+
+
+def _trifecta_chains(tools: list[str]) -> list[dict[str, Any]]:
+    chains = _chains([_make_session("s1", tools)])
+    return [c for c in chains if c["vulnerability_type"] == "lethal_trifecta"]
+
+
+@pytest.mark.unit
+class TestTrifectaOrder:
+    def test_egress_after_untrusted_is_flagged_with_lt001(self) -> None:
+        (chain,) = _trifecta_chains(["read_inbox", "get_customer", "send_email"])
+        assert chain["evidence"]["rule_id"] == "LT001"
+        assert chain["evidence"]["sessions"][0]["session_id"] == "s1"
+
+    @pytest.mark.parametrize(
+        "tools",
+        [
+            ["send_email", "read_inbox", "get_customer"],  # sends before any untrusted content
+            ["get_customer", "WebFetch"],  # one call: its request leaves before content arrives
+        ],
+    )
+    def test_egress_before_untrusted_is_clear(self, tools: list[str]) -> None:
+        assert not _trifecta_chains(tools)
+
+    def test_a_second_fetch_after_untrusted_content_is_flagged(self) -> None:
+        assert len(_trifecta_chains(["get_customer", "WebFetch", "WebFetch"])) == 1
+
+    def test_long_trace_stays_linear(self) -> None:
+        tools = ["send_email"] + ["read_inbox", "get_customer"] * 5_000
+        base = datetime(2023, 11, 14, 22, 0, 0, tzinfo=UTC)
+
+        def session(names: list[str]) -> TraceSession:
+            calls = [
+                ToolCallEvent(tool_name=n, timestamp=base + timedelta(milliseconds=i))
+                for i, n in enumerate(names)
+            ]
+            return TraceSession(
+                session_id="s1", tool_calls=calls, start_time=base, end_time=base, source="otel"
+            )
+
+        for names, found in ((tools, 0), ([*tools, "send_email"], 1)):
+            chains = _run(AnalyzerService(MockIngestor([session(names)])).analyze(Path("x")))
+            types = [c["vulnerability_type"] for c in chains.dangerous_tool_chains]
+            assert types.count("lethal_trifecta") == found
+
+
+@pytest.mark.unit
+def test_egress_after_untrusted() -> None:
+    from ziran.application.knowledge_graph.trifecta import egress_after_untrusted
+
+    assert egress_after_untrusted(["read_inbox", "send_email"])
+    assert not egress_after_untrusted(["send_email", "read_inbox"])
+    assert not egress_after_untrusted([])
+    assert not egress_after_untrusted(["WebFetch"])
+    assert egress_after_untrusted(["WebFetch", "WebFetch"])
+    assert not egress_after_untrusted(["read_inbox", "send_email"], {"send_email": []})

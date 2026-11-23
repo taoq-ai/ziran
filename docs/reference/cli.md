@@ -345,9 +345,17 @@ from the tool's name (after the [Claude Code alias map](../concepts/tool-chains.
 
 So `Read` is private data, `WebFetch` untrusted content and egress, `read_inbox` private data and
 untrusted content, and `send_email` egress. `Bash` holds no leg here: an unscoped `Bash` is
-already reported on its own. `ziran scan` and `ziran analyze-traces` run the same check: one
-`lethal_trifecta` chain per agent (a flat agent is all its tools; a graph-shaped agent is each
-agent node's tools), and the scan's SARIF from `ziran ci` carries the same `LT001` rule id.
+already reported on its own. `ziran scan` runs the same check: one `lethal_trifecta` chain per
+agent (a flat agent is all its tools; a graph-shaped agent is each agent node's tools), and the
+scan's SARIF from `ziran ci` carries the same `LT001` rule id. On a graph-shaped agent, an agent
+that covers the three legs only together with the agents it delegates to (along delegation
+edges, transitively) gets a `lethal_trifecta_delegated` chain; its evidence names the agents
+(`agent`, `agents`).
+
+`ziran analyze-traces` adds the order: a session gets a `lethal_trifecta` (with `rule_id`
+`LT001` in its evidence) only when its calls cover the three legs and an egress call comes after
+an untrusted content call. A session that sends before it reads anything untrusted gets none,
+and so does one `WebFetch` call on its own: its request leaves before the content arrives.
 
 To correct a tool's legs, list them under `trifecta_roles` in `.ziran/detectors.yaml`. The key is
 the tool id or its name; the list replaces the name rules for that tool, and `[]` gives it no leg:
