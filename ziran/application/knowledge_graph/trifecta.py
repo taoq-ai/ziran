@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
 __all__ = [
+    "DELEGATED_RULE_ID",
     "DELEGATED_TYPE",
     "LEGS",
     "RULE_ID",
@@ -37,6 +38,7 @@ LEGS: tuple[str, ...] = ("private_data", "untrusted_content", "egress")
 RULE_ID = "LT001"  # one SARIF rule id for audit, scan and CI
 VULNERABILITY_TYPE = "lethal_trifecta"
 DELEGATED_TYPE = "lethal_trifecta_delegated"
+DELEGATED_RULE_ID = "LT002"  # scan SARIF only: audit agents have no delegation edges
 _REMEDIATION = (
     "Remove or restrict one leg: drop the egress tool, scope the private data "
     "tool, or keep untrusted content out of this agent"
