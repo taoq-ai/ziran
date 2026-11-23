@@ -1376,7 +1376,9 @@ class TestFlatChains:
         assert warning in reports.save_markdown(result).read_text()
         assert warning in reports.save_html(result, scanner.graph.export_state()).read_text()
         shown = CliRunner().invoke(cli, ["ci", str(json_path)])
-        assert warning in " ".join(shown.output.split())  # the console wraps long lines
+        console = " ".join(shown.output.split())  # the console wraps long lines
+        assert f"Warning: {warning}" in console
+        assert f"::warning title=ZIRAN scan warning::{warning}" in shown.output
         summary = write_step_summary(
             QualityGate().evaluate(result), result, summary_path=str(tmp_path / "summary.md")
         )
