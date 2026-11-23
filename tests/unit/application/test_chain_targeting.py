@@ -10,8 +10,10 @@ import pytest
 from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.agent_scanner.chain_targeting import (
+    DEFAULT_RESOURCE,
     MAX_VECTORS_PER_CHAIN,
     ChainSteering,
+    _resource,
     plan,
     plan_steering,
     steer,
@@ -199,6 +201,27 @@ class TestRender:
         (prompt,) = _rendered(plan([_chain("data_exfiltration")], caps, [_vec("de")]).vectors["de"])
         assert "reports/q3.txt" in prompt
 
+    @pytest.mark.parametrize(
+        ("parameters", "expected"),
+        [
+            ({}, DEFAULT_RESOURCE),
+            ({"schema": "x"}, DEFAULT_RESOURCE),
+            ({"schema": {"properties": ["path"]}}, DEFAULT_RESOURCE),
+            ({"schema": {"properties": {"path": "string"}}}, DEFAULT_RESOURCE),
+            ({"schema": {"properties": {"path": {"default": "  "}}}}, DEFAULT_RESOURCE),
+            (
+                {"schema": {"properties": {"path": {"default": 3, "examples": "a"}}}},
+                DEFAULT_RESOURCE,
+            ),
+            ({"schema": {"properties": {"path": {"examples": [" a.txt "]}}}}, "a.txt"),
+            ({"schema": {"properties": {"p": {"default": "d.txt", "examples": ["e"]}}}}, "d.txt"),
+        ],
+    )
+    def test_resource_on_blank_and_malformed_schemas(
+        self, parameters: dict[str, Any], expected: str
+    ) -> None:
+        assert _resource(parameters) == expected
+
     async def test_library_vectors_for_the_flat_chain(
         self, shared_attack_library: AttackLibrary
     ) -> None:
@@ -369,6 +392,15 @@ class TestReports:
         assert "<th>Chain</th><th>Vulnerability type</th><th>Chosen vectors</th>" in page
         assert "de_markdown_link" in page
         assert f"{READ} → {HTTP}" in page
+
+    def test_target_named_tools_are_escaped(self, tmp_path: Path) -> None:
+        target = ChainTarget(tools=["a|b", "<c>"], vulnerability_type="x", vector_ids=["v"])
+        result = self._result().model_copy(update={"chain_targets": [target]})
+        assert "| `a\\|b → <c>` | x | `v` | none |" in ReportGenerator(tmp_path)._format_markdown(
+            result
+        )
+        page = build_html_report(result.model_dump(mode="json"), {})
+        assert "a|b → &lt;c&gt;" in page and "<c>" not in page
 
     def test_no_targets_no_table(self, tmp_path: Path) -> None:
         result = self._result().model_copy(update={"chain_targets": []})
