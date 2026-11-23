@@ -124,7 +124,7 @@ class LangChainAdapter(BaseAgentAdapter):
             self._observed_tool_calls.append(tool_call)
 
         # Update conversation history
-        output_text: str = result["output"]
+        output_text = _output_text(result["output"])
         self._conversation_history.append({"role": "user", "content": message})
         self._conversation_history.append({"role": "assistant", "content": output_text})
 
@@ -218,6 +218,24 @@ class LangChainAdapter(BaseAgentAdapter):
                 "output": str(outputs),
             }
         )
+
+
+def _output_text(output: Any) -> str:
+    """Return the agent's reply text; chat models such as Anthropic's give a list of blocks."""
+    if not isinstance(output, list):
+        return str(output)
+    parts: list[str] = []
+    for block in output:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict):
+            if block.get("type") == "text" and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        elif getattr(block, "type", None) == "text" and isinstance(
+            getattr(block, "text", None), str
+        ):
+            parts.append(block.text)
+    return "".join(parts)
 
 
 def _get_token_callback() -> Any:
