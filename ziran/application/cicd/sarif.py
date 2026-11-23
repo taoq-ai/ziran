@@ -28,6 +28,7 @@ from ziran.domain.entities.attack import (
     OWASP_LLM_DESCRIPTIONS,
     OwaspLlmCategory,
 )
+from ziran.domain.entities.capability import BlastRadius
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -100,7 +101,9 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
     suppressed_chains = gate.suppressed_chains() if gate else {}
     chain_rules: dict[str, dict[str, Any]] = {}
     for i, chain in enumerate(result.dangerous_tool_chains):
-        chain_result = _chain_result(chain, chain_rules)
+        tools = chain.get("tools") or []
+        radius = result.blast_radius.get(str(tools[-1])) if tools else None
+        chain_result = _chain_result(chain, chain_rules, radius)
         if i in suppressed_chains:
             chain_result["suppressions"] = [
                 {"kind": "external", "justification": suppressed_chains[i]}
@@ -111,11 +114,15 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
     return _sarif_document(rules, results)
 
 
-def _chain_result(chain: dict[str, Any], rules: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def _chain_result(
+    chain: dict[str, Any], rules: dict[str, dict[str, Any]], radius: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """One SARIF result for a dangerous chain; registers (or raises) its rule in *rules*.
 
     ``LT001`` and ``LT002`` take the two trifecta types; every other type shares ``CC001``, the
-    audit's chain rule, with the type in ``properties.vulnerability_type`` (spec 092).
+    audit's chain rule, with the type in ``properties.vulnerability_type`` (spec 092). *radius*,
+    the chain's last tool's entry in ``CampaignResult.blast_radius``, adds a fixed-size summary
+    in ``properties.blast_radius`` (spec 091).
     """
     vt: str = chain.get("vulnerability_type", "unknown")
     tools = [str(t) for t in chain.get("tools", [])]
@@ -139,6 +146,15 @@ def _chain_result(chain: dict[str, Any], rules: dict[str, dict[str, Any]]) -> di
     for key in ("agent", "agents"):
         if key in evidence:
             properties[key] = evidence[key]
+    if radius is not None:
+        parts = BlastRadius.model_validate(radius)
+        both = (parts.demonstrated, parts.reachable)
+        properties["blast_radius"] = {
+            "demonstrated": parts.demonstrated.counts,
+            "reachable": parts.reachable.counts,
+            "external": any(p.external for p in both),
+            "data_classes": sorted({t.data_class for p in both for t in p.tags.values()}),
+        }
     # code scanning merges results of one rule at one location unless their fingerprints differ;
     # tools keep their order: a chain is a path, so a -> b and b -> a are two chains
     key = json.dumps([vt, evidence.get("agent"), tools], default=str)

@@ -48,6 +48,27 @@ ziran scan [OPTIONS]
 
 \* Either `--framework` + `--agent-path` (local) or `--target` (remote) is required.
 
+**Blast radius.** Each dangerous chain gets a blast radius: what its last tool reaches, split
+into demonstrated (the campaign's tool calls touched it) and reachable (the graph reaches it, no
+call touched it). The JSON result keeps one radius per last tool in `blast_radius`; the Markdown
+and HTML reports show a "Blast radius" section, and each chain's SARIF result carries the counts,
+an `external` flag and the data classes in `properties.blast_radius`. To say what a tool or data
+source holds, tag it in `.ziran/detectors.yaml`; the key is the node id or the tool name, and the
+id wins when both are given. `external` corrects whether a tool reaches parties outside the
+organisation:
+
+```yaml
+blast_radius:
+  tags:
+    read_file: {data_class: pii, records: 1200, owner: crm-team}  # secret, pii, financial, source_code
+  external:
+    upload_report: true
+```
+
+Tags are reported exactly as given; without tags the radius lists nodes only. A flat scan links
+every dangerous tool to one shared `sensitive_data` node, so tag the tool rather than that node.
+When the file is invalid, a warning goes to stderr and the radius has no tags.
+
 **Examples:**
 
 ```bash

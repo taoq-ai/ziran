@@ -28,3 +28,17 @@ before T002.
       matches, `MAX_LISTED` pinned, one walk per last tool and one call match per build asserted
       structurally; spec 086 names the blast radius as the second reader of co-resident edges;
       trace-analysis chain dicts match the scan shape.
+
+## Slice 2 (A-BLAST-RADIUS-REPORT)
+
+- [x] T009 `tests/unit/application/test_blast_radius_report.py`: tags as given, none without tags,
+      reachable and demonstrated tags apart, id over name, unreached, removed and holder nodes
+      untagged, the config's external override, the loader's errors, the scan wiring and its
+      warning, the Markdown and HTML sections (parts apart, external, tags, wording, escaping, one
+      block per last tool, absent without radii) and the SARIF summary (counts, external from
+      either part, sorted classes, no tools, attack results unchanged, a malformed radius).
+- [x] T010 `DataTag`, `BlastRadiusConfig`, `BlastReach.tags`, `DetectorThresholds.blast_radius`.
+- [x] T011 `blast_radius(tags=)`, `ResultBuilder` and `ziran scan` wiring.
+- [x] T012 Markdown and HTML sections; SARIF properties.
+- [x] T013 Docs; byte-identity against the base; mutation probes; ruff, ruff format, mypy strict;
+      touched tests and `test_scanner_size.py` under `timeout -s KILL 120`.

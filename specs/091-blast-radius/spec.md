@@ -4,7 +4,8 @@
 **Created**: 2026-11-23
 **Status**: Active
 **Plan item**: A-BLAST-RADIUS (goal G-a), issue #541, slice 1 of 2. Slice 2
-(A-BLAST-RADIUS-REPORT) adds data tags, the Markdown and HTML sections and SARIF properties.
+(A-BLAST-RADIUS-REPORT) adds data tags, the Markdown and HTML sections and SARIF properties; it
+is specified in [Slice 2](#slice-2-data-tags-reports-and-sarif) below.
 **Base**: `develop` @ 7006a23 (specs 086 and 088 merged).
 
 ## The promise in our own words
@@ -166,3 +167,89 @@ removed nodes instead.
    `reachable` versus `demonstrated` split is unaffected.
 3. A target listing thousands of tools without co-resident edges: the walk is linear in edges
    and the output fixed per last tool, so the cost follows the graph the scan already built.
+
+## Slice 2: data tags, reports and SARIF
+
+**Plan item**: A-BLAST-RADIUS-REPORT (goal G-a), issue #541, slice 2 of 2.
+**Base**: `develop` @ eee3b53 (slice 1 #544 and chain SARIF #546, spec 092, merged).
+
+### The promise in our own words
+
+Slice 1 lists the nodes a chain reaches. A reader still cannot tell what those nodes hold, and
+the radius shows up only in the result JSON. After slice 2:
+
+1. An operator tags tools and data sources in a `blast_radius` section of
+   `.ziran/detectors.yaml`, read by the existing loader (`load_yaml_with_env`) into a Pydantic
+   model. A tag has a data class (`secret`, `pii`, `financial` or `source_code`), an optional
+   record count and an optional owner. The key is a node id or a tool name without `tool_`, the
+   way the trifecta and external overrides match; the id wins when both are given. The same
+   section takes the `external` override of slice 1 (`tool: true | false`).
+2. `BlastReach.tags` maps each reached node that has a tag to the tag exactly as given. A tagged
+   node the walk does not reach, or that `remove` skips, is not listed. Without tags `tags` is
+   empty: the radius lists nodes only. Tags are keyed by every reached node, a source tool such
+   as `read_file` included, since a tool can hold data no data source node stands for.
+3. The Markdown and HTML reports gain a "Blast radius" section: one block per distinct last tool
+   (each finding's radius is its last tool's), with the chain count, demonstrated and reachable
+   listed apart, external egress flagged yes or no, and the tags beside their nodes. A
+   demonstrated data source is worded as "a tool that can reach it ran", not "data was read"
+   (slice 1 assumption). Every id is escaped. A result without radii renders as before.
+4. Each chain's SARIF result gains `properties.blast_radius`: the counts of each part, `external`
+   (true when either part lists an external channel) and the sorted data classes of both parts'
+   tags. A chain with no tools, or whose last tool has no radius, keeps its properties as before.
+   The attack results stay byte-identical (spec 046 FR-010).
+
+### Acceptance scenarios (slice 2)
+
+1. **Given** a `detectors.yaml` tagging `read_file`'s source as `pii` with 1200 records, **When**
+   the flat-agent scan result is built, **Then** the radius entry carries data class `pii` and
+   count 1200 exactly as given.
+2. **Given** no tags, **When** the result is built, **Then** entries carry no data class and no
+   count.
+3. **Given** a scan result with a blast radius, **When** the Markdown and HTML reports render,
+   **Then** each finding's last tool has a Blast radius section with demonstrated and reachable
+   listed apart and external egress flagged.
+4. **Given** the same result, **When** SARIF is generated, **Then** the chain result's
+   properties carry the counts and the external flag, and the existing SARIF structure tests
+   still pass.
+
+### Requirements (slice 2)
+
+- **FR-007**: `BlastRadiusConfig` (`tags`, `external`) under `blast_radius` in
+  `DetectorThresholds`; unknown keys, an unknown data class, a negative or non-integer count and
+  a non-bool override are a `DetectorConfigError`. `ziran scan` hands the section to the graph;
+  an invalid file warns and gives no tags.
+- **FR-008**: `BlastReach.tags`, filled from the config for reached nodes only, id before name.
+- **FR-009**: one report block per distinct last tool, Markdown and HTML, escaped; absent when
+  the result has no radius.
+- **FR-010**: `properties.blast_radius` on chain SARIF results only.
+
+### Bound (slice 2)
+
+Tags come from the operator's file, not the target, and a key matches at most two nodes (the id
+and the `tool_` form), so each part holds at most twice the configured tags. The reports render
+one block per distinct last tool, each at most 12 lists of `MAX_LISTED` ids plus the tags, so
+report size stays linear in the tool count and does not grow with the chain count. The SARIF
+summary is a fixed set of counts plus at most four data classes per chain.
+
+### Assumptions (slice 2)
+
+- "Per finding" is read as per chain finding, rendered once per last tool: every chain with the
+  same last tool has the same radius, and a block per chain grew output with the chain count
+  (slice 1 bound). Overturned if a reader needs the radius repeated inline in each chain row.
+- Attack findings (`attack_results`) carry no radius: slice 1 computes it for chains only.
+- No SARIF JSON schema validator runs in the tests today; "validates against the existing schema
+  test" is read as the existing SARIF structure tests (`tests/unit/test_cicd.py`,
+  `tests/unit/test_chain_sarif.py`) passing unchanged. Overturned if a schema validator is added.
+- The SARIF summary and reports parse each stored radius with `BlastRadius.model_validate`, so a
+  hand-edited result with a malformed radius raises a `ValidationError` naming the field instead
+  of rendering a guess.
+- `external` overrides from the file land here, as slice 1's assumption said.
+
+### How this fails (slice 2)
+
+1. An operator tags `sensitive_data` in a flat scan: every dangerous tool reaches that one shared
+   node, so the tag shows on every chain. That is the graph the scan builds (slice 1 assumption);
+   tagging the tool itself is the precise form, and the docs say so.
+2. A tool id carrying Markdown or HTML: escaped in both reports, tested with a hostile id.
+3. A result with thousands of chains on a few last tools: one block per last tool keeps the
+   report size flat in the chain count.

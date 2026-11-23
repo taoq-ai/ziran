@@ -18,6 +18,7 @@ from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
 from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY
+from ziran.interfaces.cli.reports import BLAST_RADIUS_INTRO, blast_radius_blocks
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
 # vis-network CDN version used by the self-contained report.
@@ -239,6 +240,31 @@ def build_html_report(
         else ""
     )
 
+    blocks = blast_radius_blocks(
+        result_data.get("dangerous_tool_chains", []),
+        result_data.get("blast_radius") or {},
+        html.escape,
+    )
+    blast_html_section = (
+        "  <!-- Blast radius (spec 091) -->\n"
+        '  <div class="section">\n'
+        '    <div class="section-title">Blast radius</div>\n'
+        f'    <p class="muted">{BLAST_RADIUS_INTRO}</p>\n'
+        + "".join(
+            f"    <h4>{heading}</h4>\n"
+            + "".join(
+                f"    <strong>{title}</strong>\n    <ul>"
+                + "".join(f"<li>{x}</li>" for x in part_lines)
+                + "</ul>\n"
+                for title, part_lines in parts
+            )
+            for heading, parts in blocks
+        )
+        + "  </div>\n"
+        if blocks
+        else ""
+    )
+
     return _HTML_TEMPLATE.format(
         vis_version=_VIS_NETWORK_VERSION,
         campaign_id=html.escape(campaign_id),
@@ -280,6 +306,7 @@ def build_html_report(
         owasp_html=owasp_html,
         atlas_html=atlas_html,
         defence_html_section=defence_html_section,
+        blast_html_section=blast_html_section,
         vis_nodes_json=_script_json(vis_data["nodes"]),
         vis_edges_json=_script_json(vis_data["edges"]),
         critical_paths_json=_script_json(shown_paths),
@@ -1375,7 +1402,7 @@ _HTML_TEMPLATE = """\
     {atlas_html}
   </div>
 
-  {defence_html_section}
+  {defence_html_section}{blast_html_section}
 
   <!-- Attack Paths -->
   <div class="section">

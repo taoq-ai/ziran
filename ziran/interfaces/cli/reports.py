@@ -7,6 +7,7 @@ machine-parseable JSON output.
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -27,11 +28,83 @@ from ziran.domain.entities.attack import (
     OwaspLlmCategory,
     get_business_impacts,
 )
+from ziran.domain.entities.capability import BlastRadius, BlastReach, DataTag
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from ziran.domain.entities.phase import CampaignResult
+
+BLAST_RADIUS_INTRO = (
+    "Each chain's radius is its last tool's. Demonstrated: the campaign's tool calls touched it. "
+    "Reachable: the graph reaches it, but no call touched it."
+)
+_BLAST_KINDS = (
+    ("data_sources", "Data sources"),
+    ("egress", "Egress tools"),
+    ("exec", "Exec tools"),
+    ("high_impact", "High-impact tools"),
+    ("agents", "Downstream agents"),
+)
+
+
+def _md_code(text: str) -> str:
+    """*text* as one Markdown code span: newlines become spaces, the fence outruns its backticks."""
+    text = " ".join(text.splitlines())
+    fence = "`" * (max(map(len, re.findall("`+", text)), default=0) + 1)
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def _blast_part(part: BlastReach, demonstrated: bool, esc: Callable[[str], str]) -> list[str]:
+    """The lines of one part of a radius; every id and owner goes through *esc*."""
+
+    def ids(kind: str) -> str:
+        listed: list[str] = getattr(part, kind)
+        more = part.counts.get(kind, 0) - len(listed)
+        return ", ".join(map(esc, listed)) + (f" and {more} more" if more > 0 else "")
+
+    def tag(t: DataTag) -> str:
+        words: list[str] = [t.data_class]
+        if t.records is not None:
+            words.append(f"{t.records} records")
+        if t.owner is not None:
+            words.append(f"owner {esc(t.owner)}")
+        return ", ".join(words)
+
+    lines = [f"External egress: yes: {ids('external')}" if part.external else "External egress: no"]
+    for kind, label in _BLAST_KINDS:
+        if getattr(part, kind):
+            if demonstrated and kind == "data_sources":
+                label += " (a tool that can reach it ran, not proof that data was read)"
+            lines.append(f"{label}: {ids(kind)}")
+    if part.tags:
+        lines.append("Tags: " + "; ".join(f"{esc(n)} ({tag(t)})" for n, t in part.tags.items()))
+    return lines
+
+
+def blast_radius_blocks(
+    chains: list[dict[str, Any]], radii: dict[str, Any], esc: Callable[[str], str]
+) -> list[tuple[str, list[tuple[str, list[str]]]]]:
+    """One block per distinct last tool with a radius (spec 091), in first-chain order.
+
+    Each block is its escaped heading and its two parts' lines; the report size grows with the
+    tool count, not the chain count.
+    """
+    lasts = Counter(
+        str(c["tools"][-1]) for c in chains if c.get("tools") and str(c["tools"][-1]) in radii
+    )
+    blocks = []
+    for last, n in lasts.items():
+        radius = BlastRadius.model_validate(radii[last])
+        heading = f"Chains ending at {esc(last)} ({n} chain{'' if n == 1 else 's'})"
+        parts = [
+            ("Demonstrated", _blast_part(radius.demonstrated, True, esc)),
+            ("Reachable", _blast_part(radius.reachable, False, esc)),
+        ]
+        blocks.append((heading, parts))
+    return blocks
 
 
 def _dump_campaign_result(result: CampaignResult) -> dict[str, Any]:
@@ -481,6 +554,16 @@ class ReportGenerator:
                     tools = " → ".join(chain.get("tools", []))
                     lines.append(f"- **{tools}**: {chain['remediation']}")
                 lines.append("")
+
+            blocks = blast_radius_blocks(
+                result.dangerous_tool_chains, result.blast_radius, _md_code
+            )
+            if blocks:
+                lines += ["### Blast radius", "", BLAST_RADIUS_INTRO, ""]
+                for heading, parts in blocks:
+                    lines += [f"#### {heading}", ""]
+                    for title, part_lines in parts:
+                        lines += [f"**{title}**", "", *(f"- {x}" for x in part_lines), ""]
 
         # Harm Category Breakdown (harmful task scenarios only)
         harm_counts: Counter[str] = Counter()
