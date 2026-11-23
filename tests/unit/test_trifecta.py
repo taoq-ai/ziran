@@ -9,7 +9,9 @@ import pytest
 from click.testing import CliRunner
 
 from tests.conftest import MockAgentAdapter
+from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.scanner import AgentScanner
+from ziran.application.agent_scanner.structure_import import import_adapter_structure
 from ziran.application.cicd.sarif import generate_audit_sarif, generate_sarif
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
@@ -19,6 +21,7 @@ from ziran.application.static_analysis.claude_code_baseline import (
     apply_baseline,
     build_baseline,
 )
+from ziran.domain.entities.attack import TokenUsage
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.entities.claude_code import ClaudeCodeAgent, ClaudeCodeScan
 from ziran.domain.entities.phase import CampaignResult, ScanPhase
@@ -199,16 +202,30 @@ class TestScopes:
         assert not _flat(*ids, roles={"tool_send_email": frozenset()})
 
     @pytest.mark.parametrize(("count", "name_len"), [(100, 100), (101, 100), (101, 20_000)])
-    def test_hostile_tool_lists_stay_linear(self, count: int, name_len: int) -> None:
-        ids = [f"tool_read_inbox_{i}_{'x' * name_len}"[:name_len] for i in range(count)]
-        ids += ["tool_send_email"]
+    async def test_hostile_tool_lists_stay_linear(self, count: int, name_len: int) -> None:
+        names = [f"read_inbox_{i}_{'x' * name_len}"[:name_len] for i in range(count)]
+        caps = [_cap(n) for n in [*names, "send_email"]]
         graph = AttackKnowledgeGraph()
-        for t in ids:
-            graph.add_capability(t, _cap(t))
+        for c in caps:
+            graph.add_capability(c.id, c)
+        await import_adapter_structure(MockAgentAdapter(), graph, caps)
         start = time.monotonic()
-        (chain,) = _trifectas(ToolChainAnalyzer(graph).analyze())
+        result, chains = ResultBuilder(graph, "flat").build(
+            campaign_id="c",
+            phase_results=[],
+            attack_results=[],
+            campaign_tokens=TokenUsage(),
+            coverage_value="essential",
+            max_concurrent_attacks=1,
+            duration=0.0,
+            capabilities_count=len(caps),
+        )
         assert time.monotonic() - start < 5
-        assert len(chain.tools) == len(set(ids))
+        (chain,) = _trifectas(chains)
+        assert chain.tools == [caps[0].id, caps[-1].id]
+        assert len(chain.evidence["private_data"]) == count
+        id_chars = sum(len(c.id) for c in caps)
+        assert len(result.model_dump_json()) < 8 * id_chars + 500_000
 
 
 @pytest.mark.unit

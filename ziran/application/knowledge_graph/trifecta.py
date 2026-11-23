@@ -106,7 +106,8 @@ def find_trifectas(
     """One ``lethal_trifecta`` chain per agent whose tools cover all three legs.
 
     *overrides* maps a tool id, or its name without the adapters' ``tool_`` prefix, to its
-    legs. The cost and the output are linear in the tools: no pair or path is walked.
+    legs. The cost and the output are linear in the tools: no pair or path is walked, and
+    ``tools`` holds at most three ids.
     """
     overrides = overrides or {}
     legs: dict[str, frozenset[str]] = {}
@@ -118,7 +119,10 @@ def find_trifectas(
         by_leg = {leg: [t for t in tools if leg in legs[t]] for leg in LEGS}
         if not all(by_leg.values()):
             continue
-        members = [t for t in tools if legs[t]]
+        # tools: the first tool of each leg, so the finding node id and its attack paths stay
+        # at three ids whatever the tool count; the evidence lists every leg tool once
+        witness = {by_leg[leg][0] for leg in LEGS}
+        members = [t for t in tools if t in witness]
         evidence: dict[str, object] = dict(by_leg)
         if agent is not None:
             evidence["agent"] = agent
