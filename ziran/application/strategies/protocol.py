@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from ziran.domain.entities.attack import AttackVector
+    from ziran.domain.entities.capability import DangerousChain
     from ziran.domain.entities.phase import PhaseResult, ScanPhase
 
 
@@ -70,6 +71,12 @@ class CampaignContext:
 
     graph_state: dict[str, Any] = field(default_factory=dict)
     """Current knowledge graph state summary."""
+
+    dangerous_chains: list[DangerousChain] = field(default_factory=list)
+    """Tool chains found right after discovery (spec 087)."""
+
+    chain_vectors: dict[str, AttackVector] = field(default_factory=dict)
+    """Chain-targeted vectors by id, rendered for their chain, in run order (spec 087)."""
 
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional context from the scanner."""

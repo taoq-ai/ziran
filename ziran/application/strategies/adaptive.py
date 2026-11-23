@@ -257,6 +257,14 @@ class AdaptiveStrategy:
             score -= 0.3
             reasons.append("no vulns yet — late phases unlikely to succeed")
 
+        # Boost a phase holding chain-targeted vectors not yet run (spec 087)
+        if any(
+            v.target_phase == phase and vid not in context.attack_results_summary
+            for vid, v in context.chain_vectors.items()
+        ):
+            score += 0.3
+            reasons.append("holds vectors aimed at a dangerous tool chain")
+
         # Boost recon/trust if early in the campaign
         if not context.completed_phases and phase in (
             ScanPhase.RECONNAISSANCE,

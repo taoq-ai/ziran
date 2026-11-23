@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.agent_scanner.chain_targeting import steer
 from ziran.application.agent_scanner.progress import (
     ProgressEmitter,
     ProgressEvent,
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from ziran.application.agent_scanner.attack_executor import AttackExecutor
+    from ziran.application.agent_scanner.chain_targeting import ChainSteering
     from ziran.application.agent_scanner.scan_cache import ScanCache
     from ziran.application.attacks.library import AttackLibrary
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
@@ -101,6 +103,7 @@ class PhaseExecutor:
         calculate_trust_score: Any = None,
         on_vector_complete: Callable[[], None] | None = None,
         capabilities: Sequence[AgentCapability] = (),
+        steering: ChainSteering | None = None,
     ) -> PhaseResult:
         """Execute a single scan phase.
 
@@ -122,6 +125,7 @@ class PhaseExecutor:
                 Used for incremental checkpointing; ``None`` preserves the
                 original between-phase-only behaviour.
             capabilities: Discovered capability set, part of the cache keys (spec 049).
+            steering: Chains found at discovery; their vectors run first (spec 087).
 
         Returns:
             Phase result with all findings.
@@ -161,8 +165,12 @@ class PhaseExecutor:
             strategy_context = CampaignContext(
                 graph_state=self._graph.export_state(),
                 attack_results_summary={r.vector_id: r.successful for r in attack_results},
+                dangerous_chains=steering.chains if steering else [],
+                chain_vectors=steering.vectors if steering else {},
             )
             attacks = strategy.prioritize_attacks(attacks, strategy_context)
+        if steering is not None:  # after the strategy, for every strategy, before the cap
+            attacks = steer(attacks, steering.vectors)
 
         if decision is not None:
             if decision.attack_filter is not None:

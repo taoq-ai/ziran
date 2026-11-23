@@ -565,6 +565,19 @@ class ReportGenerator:
                     for title, part_lines in parts:
                         lines += [f"**{title}**", "", *(f"- {x}" for x in part_lines), ""]
 
+        if result.chain_targets:  # vectors aimed at the chains found at discovery (spec 087)
+            lines += ["## Chain-targeted vectors", ""]
+            lines += ["| Chain | Vulnerability type | Chosen vectors | Ran |", "|---|---|---|---|"]
+            for t in result.chain_targets:
+                cells = (
+                    _md_code(" → ".join(t.tools)),
+                    t.vulnerability_type,
+                    ", ".join(map(_md_code, t.vector_ids)),
+                    ", ".join(map(_md_code, t.ran)) or "none",
+                )
+                lines.append("| " + " | ".join(c.replace("|", "\\|") for c in cells) + " |")
+            lines.append("")
+
         # Harm Category Breakdown (harmful task scenarios only)
         harm_counts: Counter[str] = Counter()
         for ar in result.attack_results:

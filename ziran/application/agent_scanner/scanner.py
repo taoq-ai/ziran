@@ -25,6 +25,7 @@ from ziran.application.agent_scanner.attack_executor import (
 from ziran.application.agent_scanner.attack_executor import (
     _is_error_response as _is_error_response,
 )
+from ziran.application.agent_scanner.chain_targeting import campaign_context, plan_steering
 from ziran.application.agent_scanner.checkpoint import (
     DEFAULT_FLUSH_INTERVAL_SECONDS,
     IncrementalCheckpointer,
@@ -56,10 +57,6 @@ from ziran.application.knowledge_graph.graph import (
     NodeType,
 )
 from ziran.application.strategies.fixed import FixedStrategy
-from ziran.application.strategies.protocol import (
-    CampaignContext,
-    CampaignStrategy,
-)
 from ziran.application.usage import CampaignBudget
 from ziran.domain.entities.attack import (
     AttackResult,
@@ -82,6 +79,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.application.agent_scanner.checkpoint import CheckpointManager
+    from ziran.application.strategies.protocol import CampaignStrategy
     from ziran.domain.entities.capability import AgentCapability
     from ziran.domain.entities.utility import UtilityTask
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
@@ -310,6 +308,10 @@ class AgentScanner:
 
         # Initial reconnaissance: discover capabilities
         capabilities = await self._discover_and_map_capabilities()
+        # Chains found now steer every phase (spec 087).
+        steering = plan_steering(
+            self.graph, capabilities, self.attack_library, phases, coverage, self._exclude_vectors
+        )
 
         # ── Baseline utility measurement (pre-attack) ─────────────
         _baseline_score: float | None = None
@@ -350,15 +352,8 @@ class AgentScanner:
             )
 
         while True:
-            # Build context for strategy decision-making
-            context = CampaignContext(
-                completed_phases=list(phase_results),
-                available_phases=list(remaining_phases),
-                total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
-                critical_found=any(self._has_critical_finding(p) for p in phase_results),
-                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
-                discovered_capabilities=[c.id for c in capabilities],
-                graph_state=self.graph.export_state(),
+            context = campaign_context(
+                self, phase_results, remaining_phases, capabilities, steering
             )
 
             if strategy.should_stop(context):
@@ -407,6 +402,7 @@ class AgentScanner:
                 calculate_trust_score=self._calculate_trust_score,
                 on_vector_complete=_checkpointer.flush if _checkpointer is not None else None,
                 capabilities=capabilities,
+                steering=steering,
             )
             phase_results.append(result)
 
@@ -417,16 +413,10 @@ class AgentScanner:
 
             self._update_graph_from_phase(result)
 
-            updated_context = CampaignContext(
-                completed_phases=list(phase_results),
-                available_phases=list(remaining_phases),
-                total_vulnerabilities=sum(len(p.vulnerabilities_found) for p in phase_results),
-                critical_found=any(self._has_critical_finding(p) for p in phase_results),
-                attack_results_summary={r.vector_id: r.successful for r in self._attack_results},
-                discovered_capabilities=[c.id for c in capabilities],
-                graph_state=self.graph.export_state(),
+            updated = campaign_context(
+                self, phase_results, remaining_phases, capabilities, steering
             )
-            strategy.on_phase_complete(result, updated_context)
+            strategy.on_phase_complete(result, updated)
 
             emitter.emit(
                 ProgressEvent(
@@ -482,6 +472,7 @@ class AgentScanner:
             judge_tiers=self._detector_pipeline.tier_counts,
             usage=self._budget,
             scan_cache=self.config.get("scan_cache"),
+            chain_targets=steering.targets,
         )
         self._discovered_chains = dangerous_chains
 
