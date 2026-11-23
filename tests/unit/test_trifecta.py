@@ -481,6 +481,17 @@ class TestDelegated:
         assert [c.evidence["agent"] for c in _trifectas(chains)] == ["support"]
         assert not _delegated(chains)
 
+    def test_dangling_delegation_edge_is_ignored(self) -> None:
+        graph = AttackKnowledgeGraph()
+        for t in ["tool_read_inbox", "tool_send_email"]:
+            graph.add_capability(t, _cap(t.removeprefix("tool_")))
+        graph.add_agent_node("reader", role="worker")
+        graph.add_edge("reader", "tool_read_inbox", EdgeType.USES_TOOL)
+        # to a node that is no declared agent, and to a tool: neither joins the reader's reach
+        graph.add_edge("reader", "ghost", EdgeType.DELEGATES_TO)
+        graph.add_edge("reader", "tool_send_email", EdgeType.DELEGATES_TO)
+        assert not _delegated(ToolChainAnalyzer(graph).analyze())
+
     async def test_gate_counts_it_and_suppresses_it_only_by_its_own_fingerprint(self) -> None:
         chains = await _scan_topology(READER, [("reader", "mailer")])
         result = _result([c.model_dump(mode="json") for c in chains])

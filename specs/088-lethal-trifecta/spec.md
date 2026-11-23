@@ -229,6 +229,14 @@ table: `trifecta._scopes`, `out_edges` of agent nodes, structure view.
 `graph.structure_view()`, one breadth-first walk per agent, no tool pair or path. The trace
 order rule is one pass over the session's calls.
 
+The delegated walk costs O(agents x reachable agents): each agent walks its own reach. Measured
+in the security gate on `analyze`, base to head: a ring of 2,000 agents 8.11 to 13.59 s, a chain
+of 2,000 4.82 to 7.45 s, a star of 3,000 leaves with back edges 15.45 to 32.65 s, a complete
+digraph of 300 agents (89,700 edges) 0.77 to 4.59 s. The base is already super-linear there
+(centrality). With 101 agents of 20,000-character ids (4.04 MB), a ring gives 24.34 MB and a
+star 22.52 MB of chains: the output stays linear. Topologies come only from in-process adapters
+running the operator's own code, so a remote target cannot set this size.
+
 ## Sizing (slice 2, measured on head)
 
 `ToolChainAnalyzer.analyze` after `import_adapter_structure` for delegation, and
