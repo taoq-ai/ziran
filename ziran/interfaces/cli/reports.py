@@ -51,7 +51,7 @@ _BLAST_KINDS = (
 
 def _md_code(text: str) -> str:
     """*text* as one Markdown code span: newlines become spaces, the fence outruns its backticks."""
-    text = " ".join(text.splitlines())
+    text = " ".join(text.splitlines()) or " "  # an empty span would fuse with the next one
     fence = "`" * (max(map(len, re.findall("`+", text)), default=0) + 1)
     pad = " " if text.startswith("`") or text.endswith("`") else ""
     return f"{fence}{pad}{text}{pad}{fence}"
@@ -69,7 +69,7 @@ def _blast_part(part: BlastReach, demonstrated: bool, esc: Callable[[str], str])
         words: list[str] = [t.data_class]
         if t.records is not None:
             words.append(f"{t.records} records")
-        if t.owner is not None:
+        if t.owner:
             words.append(f"owner {esc(t.owner)}")
         return ", ".join(words)
 

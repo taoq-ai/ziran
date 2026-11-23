@@ -261,6 +261,11 @@ class TestMarkdown:
         radius = _radius(reachable={"exec": ["t0"]})  # no counts: nothing more claimed
         assert "- Exec tools: `t0`\n" in _markdown(_result([_chain("a", "t0")], {"t0": radius}))
 
+    def test_empty_owner_is_not_rendered(self) -> None:
+        radius = _radius(reachable={"tags": {"db": {"data_class": "pii", "owner": ""}}})
+        text = _markdown(_result([_chain("a", "b")], {"b": radius}))
+        assert "- Tags: `db` (pii)\n" in text
+
     def test_zero_records_and_no_owner(self) -> None:
         radius = _radius(reachable={"tags": {"db": {"data_class": "financial", "records": 0}}})
         text = _markdown(_result([_chain("a", "b")], {"b": radius}))
@@ -276,10 +281,26 @@ class TestMarkdown:
 
     @pytest.mark.parametrize(
         ("raw", "span"),
-        [("`a", "`` `a ``"), ("a`", "`` a` ``"), ("a``b", "```a``b```"), ("a", "`a`")],
+        [
+            ("`a", "`` `a ``"),
+            ("a`", "`` a` ``"),
+            ("a``b", "```a``b```"),
+            ("a`b``c", "```a`b``c```"),  # the longest run sets the fence, not the shortest
+            ("a``b`c", "```a``b`c```"),
+            ("a", "`a`"),
+            ("", "` `"),  # an empty span would fuse with a later backtick run
+            ("\n", "` `"),
+        ],
     )
     def test_code_span_fences(self, raw: str, span: str) -> None:
         assert _md_code(raw) == span
+
+    def test_mixed_runs_stay_inside_the_span(self) -> None:
+        raw = "a`b``[click](http://evil.example)<img src=x>`c"
+        radius = _radius(reachable={"exec": [raw], "counts": {"exec": 1}})
+        text = _markdown(_result([_chain("a", raw)], {raw: radius}))
+        assert f"- Exec tools: ```{raw}```\n" in text
+        assert f"#### Chains ending at ```{raw}``` (1 chain)\n" in text
 
     def test_one_block_per_last_tool(self) -> None:
         chains = [_chain(f"s{i}", HTTP) for i in range(50)] + [_chain("a", "t0")]
@@ -366,13 +387,14 @@ class TestSarif:
         assert _chain_rows(doc)[0]["properties"]["blast_radius"]["external"] is external
 
     def test_classes_sorted_and_unique(self) -> None:
-        tag = {"x": {"data_class": "source_code"}, "y": {"data_class": "financial"}}
+        classes = ["source_code", "secret", "pii", "financial"]
+        tag = {f"n{i}": {"data_class": c} for i, c in enumerate(classes)}
         radius = _radius(
             demonstrated={"tags": tag}, reachable={"tags": {"z": {"data_class": "financial"}}}
         )
         doc = generate_sarif(_result([_chain(READ, HTTP)], {HTTP: radius}))
         summary = _chain_rows(doc)[0]["properties"]["blast_radius"]
-        assert summary["data_classes"] == ["financial", "source_code"]
+        assert summary["data_classes"] == ["financial", "pii", "secret", "source_code"]
 
     def test_no_radius_or_no_tools_keeps_properties(self) -> None:
         doc = generate_sarif(_result([_chain(), _chain("a", "b")], {HTTP: SHOWN}))
@@ -401,3 +423,15 @@ class TestSarif:
         bad = {HTTP: {"demonstrated": {"tags": {"x": {"data_class": "medical"}}}}}
         with pytest.raises(ValidationError, match="data_class"):
             generate_sarif(_result([_chain(READ, HTTP)], bad))
+
+
+@pytest.mark.unit
+def test_report_command_rejects_a_bad_radius(tmp_path: Path) -> None:
+    bad = {HTTP: {"demonstrated": {"tags": {"x": {"data_class": "medical"}}}}}
+    saved = tmp_path / "result.json"
+    saved.write_text(_result([_chain(READ, HTTP)], bad).model_dump_json())
+    run = CliRunner().invoke(cli, ["report", str(saved), "--format", "markdown"])
+    assert run.exit_code == 1
+    assert isinstance(run.exception, SystemExit)
+    assert "data_class" in run.output
+    assert not list(tmp_path.glob("*.md"))

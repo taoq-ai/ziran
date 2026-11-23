@@ -216,8 +216,10 @@ the radius shows up only in the result JSON. After slice 2:
 
 - **FR-007**: `BlastRadiusConfig` (`tags`, `external`) under `blast_radius` in
   `DetectorThresholds`; unknown keys, an unknown data class, a negative or non-integer count and
-  a non-bool override are a `DetectorConfigError`. `ziran scan` hands the section to the graph;
-  an invalid file warns and gives no tags.
+  a non-bool override are a `DetectorConfigError`. `ziran scan` hands the section to the graph.
+  Without an LLM backbone an invalid file warns and gives no tags; with one, the existing
+  detector config load stops the scan on the same file, as for every section. `ziran report`
+  exits with a message on a saved result whose radius does not validate.
 - **FR-008**: `BlastReach.tags`, filled from the config for reached nodes only, id before name.
 - **FR-009**: one report block per distinct last tool, Markdown and HTML, escaped; absent when
   the result has no radius.

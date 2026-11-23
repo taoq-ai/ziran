@@ -24,7 +24,7 @@ from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorConfig
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
-from ziran.domain.entities.capability import BlastRadiusConfig
+from ziran.domain.entities.capability import BlastRadius, BlastRadiusConfig
 from ziran.domain.entities.defence import DefenceProfile
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
@@ -1035,6 +1035,8 @@ def report(result_file: str, fmt: str) -> None:
         with filepath.open() as f:
             data = json.load(f)
         result = CampaignResult.model_validate(data)
+        for radius in result.blast_radius.values():  # reports parse each; fail here, not mid-render
+            BlastRadius.model_validate(radius)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
         sys.exit(1)
