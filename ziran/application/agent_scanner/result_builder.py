@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.campaign.evasion import compute_evasion_rate
+from ziran.application.knowledge_graph.blast_radius import blast_radius
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.domain.entities.phase import (
     UNMEASURED_METADATA_KEY,
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
     from ziran.application.usage import CampaignBudget
     from ziran.domain.entities.attack import AttackResult, TokenUsage
+    from ziran.domain.entities.capability import BlastRadius
     from ziran.domain.entities.defence import DefenceProfile
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,7 @@ class ResultBuilder:
         dangerous_chains = chain_analyzer.analyze()
         for chain in dangerous_chains:
             self._graph.add_chain_finding(chain)
+        radii = self._fill_blast_radius(dangerous_chains, attack_results)
 
         # Analyze graph for attack paths (now includes the composition findings).
         critical_paths = self._graph.find_all_attack_paths()
@@ -155,7 +158,10 @@ class ResultBuilder:
                 or critical_chain_count > 0
             ),
             attack_results=serialized_results,
-            dangerous_tool_chains=[c.model_dump(mode="json") for c in dangerous_chains],
+            dangerous_tool_chains=[
+                c.model_dump(mode="json", exclude={"blast_radius"}) for c in dangerous_chains
+            ],
+            blast_radius={t: r.model_dump(mode="json") for t, r in radii.items()},
             critical_chain_count=critical_chain_count,
             token_usage={
                 "prompt_tokens": campaign_tokens.prompt_tokens,
@@ -170,3 +176,21 @@ class ResultBuilder:
         )
 
         return campaign_result, dangerous_chains
+
+    def _fill_blast_radius(
+        self, chains: list[Any], attack_results: list[AttackResult]
+    ) -> dict[str, BlastRadius]:
+        """Set each chain's blast radius from its last tool (spec 091), one walk per last tool.
+
+        Returns the radii by last tool: the result JSON keeps each once, not once per chain.
+        """
+        evidence = [r.evidence.get("tool_calls") for r in attack_results]
+        calls = [c for e in evidence if isinstance(e, list) for c in e]
+        radii: dict[str, BlastRadius] = {}
+        for chain in chains:
+            if chain.tools:
+                last = chain.tools[-1]
+                if last not in radii:
+                    radii[last] = blast_radius(self._graph, [last], tool_calls=calls)
+                chain.blast_radius = radii[last]
+        return radii

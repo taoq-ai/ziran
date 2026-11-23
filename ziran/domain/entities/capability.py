@@ -83,6 +83,38 @@ class ToolChain(BaseModel):
         return len(self.tools)
 
 
+class BlastReach(BaseModel):
+    """Nodes of one kind of reach (demonstrated or reachable) in a blast radius (spec 091).
+
+    Each list is sorted and holds at most ``MAX_LISTED`` ids; ``counts`` holds each list's full
+    size, so a large agent stays a constant size per chain.
+    """
+
+    data_sources: list[str] = Field(default_factory=list, description="Data sources reached")
+    exec: list[str] = Field(default_factory=list, description="Tools with the exec role")
+    egress: list[str] = Field(default_factory=list, description="Tools with the egress role")
+    high_impact: list[str] = Field(
+        default_factory=list, description="Tools with the high_impact role"
+    )
+    agents: list[str] = Field(default_factory=list, description="Agents reached downstream")
+    external: list[str] = Field(
+        default_factory=list,
+        description="Outbound channels: egress tools that reach parties outside the organisation",
+    )
+    counts: dict[str, int] = Field(default_factory=dict, description="Full size of each list")
+
+
+class BlastRadius(BaseModel):
+    """What an attacker reaches from a chain's last tool (spec 091).
+
+    ``demonstrated`` holds the nodes the campaign's recorded tool calls touched, ``reachable``
+    the ones the graph reaches but no call touched. A node is in one of the two, never both.
+    """
+
+    demonstrated: BlastReach = Field(default_factory=BlastReach)
+    reachable: BlastReach = Field(default_factory=BlastReach)
+
+
 class DangerousChain(BaseModel):
     """A dangerous tool combination found in an agent.
 
@@ -126,6 +158,9 @@ class DangerousChain(BaseModel):
         default=0, ge=0, description="Number of times observed in production traces"
     )
     trace_source: str | None = Field(default=None, description="Trace source: 'otel' or 'langfuse'")
+    blast_radius: BlastRadius | None = Field(
+        default=None, description="What the chain's last tool reaches, filled after a scan"
+    )
 
     @property
     def is_critical(self) -> bool:
