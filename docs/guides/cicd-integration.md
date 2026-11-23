@@ -273,6 +273,13 @@ Findings appear as security alerts with:
 - Remediation guidance
 - Link to attack vector documentation
 
+Each dangerous tool chain in the result is a SARIF result too, at the level of its risk. A
+`lethal_trifecta` chain uses rule `LT001` and a `lethal_trifecta_delegated` chain rule `LT002`;
+every other chain type (`data_exfiltration`, `rce` and the rest) shares rule `CC001`, with the
+type in `properties.vulnerability_type`. Each chain result lists its `tools`, and its `agent`
+(plus `agents` for a delegated trifecta) when known. A chain the suppressions file suppresses
+carries a SARIF `suppressions` entry, so code scanning shows it as dismissed.
+
 ## GitHub Actions Features
 
 ### Annotations

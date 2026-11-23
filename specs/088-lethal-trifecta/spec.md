@@ -292,7 +292,8 @@ copies every call's tool name; it is unchanged here.
 - The delegated chain does not reach the scan SARIF, the audit or the baseline in this slice:
   `sarif.py` keys `LT001` on `lethal_trifecta`, and audit agents have no delegation edges. It
   shows in `dangerous_tool_chains`. A follow-up can add it to the SARIF `LT001` results.
-  Overturn: the owner wants it in SARIF now.
+  Overturn: the owner wants it in SARIF now. Superseded by spec 092: the scan SARIF carries it
+  under `LT002`.
 - The two scenarios sit beside the two agents because `run.py` reads an agent only through a
   scenario.
 - The vulnerable agent lists `CVE-2025-32711` (prompt injection through a read email), which

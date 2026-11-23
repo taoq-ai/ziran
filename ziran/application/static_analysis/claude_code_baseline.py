@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID
 from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
 from ziran.application.static_analysis.analyzer import StaticFinding
 from ziran.application.static_analysis.claude_code_audit import agent_chains
@@ -136,7 +137,7 @@ def apply_baseline(
     kept = [
         dataclasses.replace(f, severity="critical") if f.check_id == "CC000" else f
         for f in findings
-        if f.check_id not in ("CC001", LT001) and not _accepted(f, baseline)
+        if f.check_id not in (CHAIN_RULE_ID, LT001) and not _accepted(f, baseline)
     ]
     violations: list[StaticFinding] = []
     narrowed: list[BaselineNarrowing] = []

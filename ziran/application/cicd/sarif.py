@@ -14,11 +14,14 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ziran.application.knowledge_graph.trifecta import LEGS
+from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID
+from ziran.application.knowledge_graph.trifecta import DELEGATED_RULE_ID as LT002
+from ziran.application.knowledge_graph.trifecta import DELEGATED_TYPE, LEGS
 from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
 from ziran.application.knowledge_graph.trifecta import VULNERABILITY_TYPE as TRIFECTA
 from ziran.domain.entities.attack import (
@@ -50,6 +53,8 @@ _SECURITY_SEVERITY: dict[str, str] = {
 _SEVERITY_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
 _ZIRAN_VERSION = "0.1.0"
+
+_TRIFECTA_RULES: dict[str, str] = {TRIFECTA: LT001, DELEGATED_TYPE: LT002}
 
 
 def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> dict[str, Any]:
@@ -92,54 +97,96 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
             sarif_result["suppressions"] = [{"kind": "external", "justification": suppressed[i]}]
         results.append(sarif_result)
 
-    trifectas = [
-        (i, c)
-        for i, c in enumerate(result.dangerous_tool_chains)
-        if c.get("vulnerability_type") == TRIFECTA
-    ]
-    if trifectas:
-        rules.append(_trifecta_rule())
     suppressed_chains = gate.suppressed_chains() if gate else {}
-    for i, chain in trifectas:
-        legs = chain.get("evidence", {})
-        chain_result: dict[str, Any] = {
-            "ruleId": LT001,
-            "level": "error",
-            "message": {
-                "text": "lethal_trifecta: "
-                + "; ".join(f"{leg} from {', '.join(legs.get(leg, []))}" for leg in LEGS)
-            },
-            "locations": [
-                {
-                    "physicalLocation": {
-                        "artifactLocation": {
-                            "uri": "agent-under-test",
-                            "uriBaseId": "%SRCROOT%",
-                        }
-                    }
-                }
-            ],
-            "properties": {"tools": list(chain.get("tools", []))}
-            | ({"agent": legs["agent"]} if "agent" in legs else {}),
-        }
+    chain_rules: dict[str, dict[str, Any]] = {}
+    for i, chain in enumerate(result.dangerous_tool_chains):
+        chain_result = _chain_result(chain, chain_rules)
         if i in suppressed_chains:
             chain_result["suppressions"] = [
                 {"kind": "external", "justification": suppressed_chains[i]}
             ]
         results.append(chain_result)
+    rules.extend(chain_rules.values())
 
     return _sarif_document(rules, results)
 
 
-def _trifecta_rule() -> dict[str, Any]:
-    """The LT001 rule, shared with ``ziran audit`` (spec 088)."""
+def _chain_result(chain: dict[str, Any], rules: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """One SARIF result for a dangerous chain; registers (or raises) its rule in *rules*.
+
+    ``LT001`` and ``LT002`` take the two trifecta types; every other type shares ``CC001``, the
+    audit's chain rule, with the type in ``properties.vulnerability_type`` (spec 092).
+    """
+    vt: str = chain.get("vulnerability_type", "unknown")
+    tools = [str(t) for t in chain.get("tools", [])]
+    risk: str = chain.get("risk_level", "medium")
+    if risk not in _SEVERITY_RANK:
+        risk = "medium"
+    evidence: dict[str, Any] = chain.get("evidence") or {}
+    rule_id = _TRIFECTA_RULES.get(vt, CHAIN_RULE_ID)
+    if rule_id == CHAIN_RULE_ID:
+        text = f"{vt}: {' -> '.join(tools)}"
+        rule = rules.setdefault(rule_id, _chain_rule())
+        if float(_SECURITY_SEVERITY[risk]) > float(rule["properties"]["security-severity"]):
+            rule["defaultConfiguration"]["level"] = _SEVERITY_TO_SARIF[risk]
+            rule["properties"]["security-severity"] = _SECURITY_SEVERITY[risk]
+    else:
+        text = f"{vt}: " + "; ".join(
+            f"{leg} from {', '.join(map(str, evidence.get(leg, [])))}" for leg in LEGS
+        )
+        rules.setdefault(rule_id, _trifecta_rule(rule_id, vt))
+    properties: dict[str, Any] = {"tools": tools, "vulnerability_type": vt}
+    for key in ("agent", "agents"):
+        if key in evidence:
+            properties[key] = evidence[key]
+    # code scanning merges results of one rule at one location unless their fingerprints differ;
+    # tools keep their order: a chain is a path, so a -> b and b -> a are two chains
+    key = json.dumps([vt, evidence.get("agent"), tools], default=str)
     return {
-        "id": LT001,
-        "name": "lethal_trifecta",
-        "shortDescription": {"text": "lethal_trifecta"},
+        "ruleId": rule_id,
+        "level": _SEVERITY_TO_SARIF[risk],
+        "message": {"text": text},
+        "locations": [
+            {
+                "physicalLocation": {
+                    "artifactLocation": {"uri": "agent-under-test", "uriBaseId": "%SRCROOT%"}
+                }
+            }
+        ],
+        "partialFingerprints": {"ziranChain/v1": hashlib.sha256(key.encode()).hexdigest()},
+        "properties": properties,
+    }
+
+
+def _chain_rule() -> dict[str, Any]:
+    """The shared ``CC001`` rule; ``_chain_result`` raises it to the highest risk seen."""
+    return {
+        "id": CHAIN_RULE_ID,
+        "name": "dangerous_tool_chain",
+        "shortDescription": {"text": "dangerous_tool_chain"},
         "fullDescription": {
-            "text": "One agent reads private data, sees untrusted content and can send data out"
+            "text": "The agent's tools combine into a dangerous chain; "
+            "properties.vulnerability_type names it"
         },
+        "help": {"text": "Remove one tool of the chain from the agent, or split the agent."},
+        "defaultConfiguration": {"level": "note"},
+        "properties": {"tags": ["tool_composition"], "security-severity": "3.0"},
+    }
+
+
+def _trifecta_rule(rule_id: str = LT001, name: str = TRIFECTA) -> dict[str, Any]:
+    """The LT001 rule, shared with ``ziran audit`` (spec 088), or the delegated LT002."""
+    text = (
+        "An agent and the agents it delegates to read private data, see untrusted content and "
+        "can send data out"
+        if rule_id == LT002
+        else "One agent reads private data, sees untrusted content and can send data out"
+    )
+    return {
+        "id": rule_id,
+        "name": name,
+        "shortDescription": {"text": name},
+        "fullDescription": {"text": text},
         "help": {"text": "Remove or restrict one leg of the trifecta."},
         "defaultConfiguration": {"level": "error"},
         "properties": {"tags": ["tool_composition"], "security-severity": "9.0"},

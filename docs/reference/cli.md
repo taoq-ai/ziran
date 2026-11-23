@@ -350,7 +350,7 @@ agent (a flat agent is all its tools; a graph-shaped agent is each agent node's 
 scan's SARIF from `ziran ci` carries the same `LT001` rule id. On a graph-shaped agent, an agent
 that covers the three legs only together with the agents it delegates to (along delegation
 edges, transitively) gets a `lethal_trifecta_delegated` chain; its evidence names the agents
-(`agent`, `agents`).
+(`agent`, `agents`), and the scan's SARIF carries it under rule `LT002`.
 
 `ziran analyze-traces` adds the order: a session gets a `lethal_trifecta` (with `rule_id`
 `LT001` in its evidence) only when its calls cover the three legs and an egress call comes after
