@@ -82,6 +82,8 @@ class AttackKnowledgeGraph:
         self.campaign_start: datetime = datetime.now(tz=UTC)
         self._cached_state: dict[str, Any] | None = None
         self.warnings: list[str] = []  # analysis a scan skipped; the result and reports show it
+        # tool id -> lethal trifecta legs, from .ziran/detectors.yaml (spec 088)
+        self.trifecta_roles: dict[str, frozenset[str]] = {}
 
     def _invalidate_cache(self) -> None:
         """Mark the cached export state as stale."""

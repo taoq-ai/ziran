@@ -18,6 +18,9 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.knowledge_graph.trifecta import LEGS
+from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
+from ziran.application.knowledge_graph.trifecta import VULNERABILITY_TYPE as TRIFECTA
 from ziran.domain.entities.attack import (
     OWASP_LLM_DESCRIPTIONS,
     OwaspLlmCategory,
@@ -89,7 +92,50 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
             sarif_result["suppressions"] = [{"kind": "external", "justification": suppressed[i]}]
         results.append(sarif_result)
 
+    trifectas = [c for c in result.dangerous_tool_chains if c.get("vulnerability_type") == TRIFECTA]
+    if trifectas:
+        rules.append(_trifecta_rule())
+    for chain in trifectas:
+        legs = chain.get("evidence", {})
+        results.append(
+            {
+                "ruleId": LT001,
+                "level": "error",
+                "message": {
+                    "text": "lethal_trifecta: "
+                    + "; ".join(f"{leg} from {', '.join(legs.get(leg, []))}" for leg in LEGS)
+                },
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": "agent-under-test",
+                                "uriBaseId": "%SRCROOT%",
+                            }
+                        }
+                    }
+                ],
+                "properties": {"tools": list(chain.get("tools", []))}
+                | ({"agent": legs["agent"]} if "agent" in legs else {}),
+            }
+        )
+
     return _sarif_document(rules, results)
+
+
+def _trifecta_rule() -> dict[str, Any]:
+    """The LT001 rule, shared with ``ziran audit`` (spec 088)."""
+    return {
+        "id": LT001,
+        "name": "lethal_trifecta",
+        "shortDescription": {"text": "lethal_trifecta"},
+        "fullDescription": {
+            "text": "One agent reads private data, sees untrusted content and can send data out"
+        },
+        "help": {"text": "Remove or restrict one leg of the trifecta."},
+        "defaultConfiguration": {"level": "error"},
+        "properties": {"tags": ["tool_composition"], "security-severity": "9.0"},
+    }
 
 
 def generate_audit_sarif(findings: Sequence[StaticFinding]) -> dict[str, Any]:

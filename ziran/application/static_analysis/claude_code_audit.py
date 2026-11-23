@@ -13,6 +13,7 @@ SA003  high      a declared tool is dangerous                               T
 SA004  medium    a declared tool is a wildcard grant                        T
 SA007  high      no ``tools`` key: the agent inherits every tool            T
 CC001  chain     a dangerous tool chain over the agent's (effective) tools  T
+LT001  critical  the agent's tools cover the lethal trifecta (spec 088)     T
 =====  ========  =========================================================  ======
 
 Never serialise a scan or agent wholesale (``model_dump``): the system prompt and
@@ -26,6 +27,8 @@ from typing import TYPE_CHECKING
 
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
+from ziran.application.knowledge_graph.trifecta import VULNERABILITY_TYPE as TRIFECTA
 from ziran.application.static_analysis.analyzer import AnalysisReport, StaticFinding, _run_check
 from ziran.application.static_analysis.config import StaticAnalysisConfig
 from ziran.domain.entities.claude_code import (
@@ -44,6 +47,10 @@ _REC_SA003 = "Remove the tool or scope it with a permission rule, e.g. Bash(npm 
 _REC_SA004 = "Replace the wildcard with the specific tools the agent needs."
 _REC_SA007 = "Add a 'tools' list with only the tools the agent needs."
 _REC_CC001 = "Remove one tool of the chain from the agent's 'tools' list, or split the agent."
+_REC_LT001 = (
+    "Remove or restrict one leg: drop the egress tool, scope the private data tool, "
+    "or keep untrusted content out of this agent."
+)
 
 
 def agent_chains(
@@ -51,13 +58,16 @@ def agent_chains(
     *,
     typed: bool = False,
     role_overrides: Mapping[str, Iterable[str]] | None = None,
+    trifecta_roles: Mapping[str, Iterable[str]] | None = None,
 ) -> list[DangerousChain]:
     """Dangerous chains over the agent's declared (or inherited) tool set. No execution.
 
     ``typed`` adds the typed chains of spec 066; ``role_overrides`` (typed only) are roles a
-    caller knows, such as the capability job's (spec 067).
+    caller knows, such as the capability job's (spec 067). ``trifecta_roles`` gives a tool's
+    lethal trifecta legs in place of the name rules (spec 088).
     """
     graph = AttackKnowledgeGraph()
+    graph.trifecta_roles = {t: frozenset(legs) for t, legs in (trifecta_roles or {}).items()}
     for cap in agent.capabilities:
         graph.add_capability(cap.id, cap)
     graph.add_co_resident_tools(agent.effective_tools)
@@ -73,7 +83,10 @@ def _is_wildcard(tool: str) -> bool:
 
 
 def _audit_agent(
-    agent: ClaudeCodeAgent, config: StaticAnalysisConfig, typed: bool = False
+    agent: ClaudeCodeAgent,
+    config: StaticAnalysisConfig,
+    typed: bool = False,
+    trifecta_roles: Mapping[str, Iterable[str]] | None = None,
 ) -> list[StaticFinding]:
     t_line = agent.line_of("tools")
 
@@ -136,6 +149,7 @@ def _audit_agent(
                 _REC_SA007,
             )
         )
+    chains = agent_chains(agent, typed=typed, trifecta_roles=trifecta_roles)
     findings += [
         finding(
             "CC001",
@@ -144,17 +158,37 @@ def _audit_agent(
             _REC_CC001,
             tuple(c.tools),
         )
-        for c in agent_chains(agent, typed=typed)
+        for c in chains
+        if c.vulnerability_type != TRIFECTA
+    ]
+    findings += [
+        finding(
+            LT001,
+            c.risk_level,
+            f"Agent '{agent.name}': lethal_trifecta: private data from "
+            f"{', '.join(c.evidence['private_data'])}; untrusted content from "
+            f"{', '.join(c.evidence['untrusted_content'])}; egress via "
+            f"{', '.join(c.evidence['egress'])}",
+            _REC_LT001,
+            tuple(c.tools),
+        )
+        for c in chains
+        if c.vulnerability_type == TRIFECTA
     ]
     return findings
 
 
 def audit_claude_code(
-    scan: ClaudeCodeScan, config: StaticAnalysisConfig | None = None, *, typed: bool = False
+    scan: ClaudeCodeScan,
+    config: StaticAnalysisConfig | None = None,
+    *,
+    typed: bool = False,
+    trifecta_roles: Mapping[str, Iterable[str]] | None = None,
 ) -> AnalysisReport:
     """Static findings for every agent in *scan*; files_analyzed = scan.files_analyzed.
 
-    ``typed`` adds typed chains (spec 066) to CC001; off by default.
+    ``typed`` adds typed chains (spec 066) to CC001; off by default. ``trifecta_roles`` are
+    the LT001 leg overrides (spec 088).
     """
     config = config or StaticAnalysisConfig.default()
     findings = [
@@ -169,5 +203,5 @@ def audit_claude_code(
         for issue in scan.issues
     ]
     for agent in scan.agents:
-        findings += _audit_agent(agent, config, typed)
+        findings += _audit_agent(agent, config, typed, trifecta_roles)
     return AnalysisReport(files_analyzed=scan.files_analyzed, findings=findings)

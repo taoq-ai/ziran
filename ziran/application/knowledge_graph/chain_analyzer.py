@@ -30,6 +30,7 @@ from ziran.application.knowledge_graph.tool_aliases import (
     UNRESTRICTED_EXEC_TOOLS,
     canonical_tool_name,
 )
+from ziran.application.knowledge_graph.trifecta import find_trifectas
 from ziran.domain.entities.capability import DangerousChain
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
@@ -132,8 +133,11 @@ class ToolChainAnalyzer:
             2. Discover indirect chains (A → … → B, up to 3 hops).
             3. Discover cycles (A → B → … → A), unless *include_cycles* is False. It
                defaults to False on a graph with co-resident tool edges.
-            4. Flag unscoped shell tools (bare ``Bash``) as single-tool findings.
-            5. De-duplicate, score, and sort by risk.
+            4. Flag unscoped shell tools (bare ``Bash``) as single-tool findings, and add
+               typed chains when ``typed``.
+            5. Flag each agent whose tools cover the lethal trifecta (spec 088), with the
+               legs in ``graph.trifecta_roles`` over the name rules.
+            6. De-duplicate, score, and sort by risk.
 
         Returns:
             Sorted list of :class:`DangerousChain` objects (highest risk first).
@@ -164,12 +168,15 @@ class ToolChainAnalyzer:
         chains.extend(self._find_unrestricted_execution(tool_nodes))
         if self._typed:
             chains.extend(self._find_typed_chains(tool_nodes, chains))
+        tool_ids = [tid for tid, _ in tool_nodes]
+        chains.extend(find_trifectas(self.graph, tool_ids, self.graph.trifecta_roles))
 
-        # Deduplicate by (tools tuple, vulnerability_type)
-        seen: set[tuple[tuple[str, ...], str]] = set()
+        # Deduplicate by (tools tuple, vulnerability_type, agent): two agents with one
+        # trifecta keep a finding each
+        seen: set[tuple[tuple[str, ...], str, Any]] = set()
         unique: list[DangerousChain] = []
         for chain in chains:
-            key = (tuple(chain.tools), chain.vulnerability_type)
+            key = (tuple(chain.tools), chain.vulnerability_type, chain.evidence.get("agent"))
             if key not in seen:
                 seen.add(key)
                 chain.risk_score = self._calculate_risk_score(chain, centrality)

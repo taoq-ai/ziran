@@ -29,7 +29,11 @@ KEEP = {"tools", "risk_level", "vulnerability_type", "chain_type", "graph_path",
 def _chains(tools: list[str], *, typed: bool = True) -> tuple[list[dict[str, Any]], list[Any]]:
     graph = _build_graph_for_agent([SimpleNamespace(id=t) for t in tools])
     found = ToolChainAnalyzer(graph, typed=typed).analyze(include_cycles=False)
-    table = [c.model_dump(mode="json", include=KEEP) for c in found if not c.typed]
+    table = [  # the lethal trifecta (spec 088) is new beside them, like typed chains
+        c.model_dump(mode="json", include=KEEP)
+        for c in found
+        if not c.typed and c.vulnerability_type != "lethal_trifecta"
+    ]
     return table, [c for c in found if c.typed]
 
 
