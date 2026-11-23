@@ -48,6 +48,7 @@ def _vector(method: str, **request: Any) -> AttackVector:
         severity="critical",
         prompts=[AttackPrompt(template=template, success_indicators=indicators)],
         owasp_mapping=["LLM01"],
+        owasp_agentic_mapping=["ASI01"],
         atlas_mapping=["AML.T0051.001"],
         mcp_server_request=McpServerRequest(method=method, **request),
     )
@@ -296,6 +297,10 @@ def test_campaign_result_counts_findings_and_unmeasured() -> None:
     assert "unmeasured" in (result.phases_executed[0].error or "")
     # Unmeasured vectors stay out of the artifacts the OWASP and ATLAS tables count as tested.
     assert set(result.phases_executed[0].artifacts) == {SAMPLING.id}
+    assert result.phases_executed[0].artifacts[SAMPLING.id]["owasp_agentic_mapping"] == ["ASI01"]
+    assert {r["vector_id"]: r["owasp_agentic_mapping"] for r in result.attack_results} == {
+        v.id: ["ASI01"] for v in (SAMPLING, ELICIT, ROOTS)
+    }
 
 
 # ── CLI ─────────────────────────────────────────────────────────────

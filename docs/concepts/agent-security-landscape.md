@@ -52,18 +52,20 @@ Two OWASP lists address AI security. The LLM Top 10 targets model-level risks. T
 
 | OWASP LLM Top 10 | OWASP Agentic Top 10 | Relationship |
 |---|---|---|
-| LLM01: Prompt Injection | AGT01: Excessive Agency | Prompt injection becomes dangerous when the agent has excessive tool access |
-| LLM02: Insecure Output Handling | AGT02: Insufficient Access Control | Unvalidated LLM output passed to tools bypasses access controls |
-| LLM03: Training Data Poisoning | AGT07: Knowledge Poisoning | Poisoned training data and poisoned knowledge bases share attack patterns |
-| LLM04: Model Denial of Service | AGT10: Unmonitored Agentic Behavior | Resource exhaustion attacks exploit lack of monitoring |
-| LLM05: Supply Chain Vulnerabilities | AGT08: Supply Chain Vulnerabilities | Both lists recognize third-party dependency risks |
-| LLM06: Sensitive Information Disclosure | AGT04: Insufficient Sandboxing | Data leaks through tools in unsandboxed environments |
-| LLM07: Insecure Plugin Design | AGT03: Insecure Tool Integration | Insecure plugins are the LLM equivalent of insecure tool integrations |
-| LLM08: Excessive Agency | AGT01: Excessive Agency | Direct overlap -- agents amplify excessive agency risk |
-| LLM09: Overreliance | AGT09: Human Oversight Bypass | Overreliance leads to reduced human oversight |
-| LLM10: Model Theft | AGT05: Improper Multi-Agent Trust | Model theft combined with multi-agent trust enables lateral movement |
+| LLM01: Prompt Injection | ASI01: Agent Goal Hijack | Injected instructions, direct or in retrieved content, redirect the agent's goal |
+| LLM02: Insecure Output Handling | ASI05: Unexpected Code Execution (RCE) | Unvalidated model output that reaches a shell or interpreter becomes code execution |
+| LLM03: Training Data Poisoning | ASI06: Memory & Context Poisoning | Poisoned training data and poisoned agent memory or knowledge bases share attack patterns |
+| LLM04: Model Denial of Service | ASI08: Cascading Failures | Resource exhaustion in one step can spread through downstream agents and tools |
+| LLM05: Supply Chain Vulnerabilities | ASI04: Agentic Supply Chain Vulnerabilities | Both lists cover third-party risk; agents add tools, MCP servers and plugins loaded at runtime |
+| LLM06: Sensitive Information Disclosure | ASI03: Identity and Privilege Abuse | Data leaks when an agent acts with inherited or over-broad credentials |
+| LLM07: Insecure Plugin Design | ASI02: Tool Misuse and Exploitation | Insecure plugins are the LLM-era form of tools an agent can be steered to misuse |
+| LLM08: Excessive Agency | ASI10: Rogue Agents | An agent with too much autonomy can drift or be turned to act outside its scope |
+| LLM09: Overreliance | ASI09: Human-Agent Trust Exploitation | An agent that a human trusts can persuade them to approve a harmful action |
+| LLM10: Model Theft | ASI07: Insecure Inter-Agent Communication | No direct counterpart; ASI07 covers spoofed or tampered messages between agents |
 
-ZIRAN covers both lists through its tool chain graph analysis (AGT01, AGT03), side-effect detection (AGT02, AGT04), multi-agent scanning (AGT05), and knowledge graph tracking (AGT07).
+The Agentic ids are those of the OWASP Top 10 for Agentic Applications 2026, published by the OWASP GenAI Security Project on 2025-12-09 ([genai.owasp.org](https://genai.owasp.org/top-10-for-agentic-applications-2026/)).
+
+Every attack vector carries an `owasp_agentic_mapping` list beside its `owasp_mapping`, and every finding in the scan JSON copies it. The library sets one default per attack category; a vector's YAML sets `owasp_agentic_mapping` itself where the default is wrong, as the supply-chain (ASI04) and code-execution (ASI05) vectors do. The built-in vectors cover ASI01 to ASI07; no vector targets ASI08, ASI09 or ASI10 yet.
 
 ---
 

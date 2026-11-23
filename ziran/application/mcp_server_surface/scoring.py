@@ -114,6 +114,7 @@ def score_reply(
         prompt_used=vector.prompts[0].template if vector.prompts else None,
         error=error,
         owasp_mapping=vector.owasp_mapping,
+        owasp_agentic_mapping=vector.owasp_agentic_mapping,
         atlas_mapping=vector.atlas_mapping,
         business_impact=get_business_impacts(vector.category, vector.severity),
     )
@@ -158,6 +159,7 @@ def build_campaign_result(
                 "severity": r.severity,
                 "outcome": r.evidence["outcome"],
                 "owasp_mapping": [o.value for o in r.owasp_mapping],
+                "owasp_agentic_mapping": [o.value for o in r.owasp_agentic_mapping],
                 "atlas_mapping": [t.value for t in r.atlas_mapping],
             }
             for r in results
