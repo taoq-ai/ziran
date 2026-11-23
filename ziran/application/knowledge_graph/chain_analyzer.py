@@ -20,7 +20,7 @@ from ziran.application.knowledge_graph.chain_patterns import (
     ChainPatternInfo,
     ChainPatternRegistry,
 )
-from ziran.application.knowledge_graph.graph import _MAX_CENTRALITY_NODES, NodeType
+from ziran.application.knowledge_graph.graph import MAX_CENTRALITY_NODES, NodeType
 from ziran.application.knowledge_graph.role_typing import (
     SINKS,
     TYPED_VULNERABILITY_TYPES,
@@ -152,7 +152,7 @@ class ToolChainAnalyzer:
         centrality: dict[str, float] = {}
         n_nodes = self.graph.graph.number_of_nodes()
         # O(V*E): on a co-resident graph, cap it the way export_state does
-        if n_nodes > 1 and not (co_resident and n_nodes > _MAX_CENTRALITY_NODES):
+        if n_nodes > 1 and not (co_resident and n_nodes > MAX_CENTRALITY_NODES):
             with contextlib.suppress(nx.NetworkXError):
                 centrality = nx.betweenness_centrality(self.graph.structure_view())
 

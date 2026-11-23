@@ -56,7 +56,7 @@ _PHASE_EDGE_TYPES = frozenset({EdgeType.DISCOVERED_IN, "executed_in"})
 
 # Above this node count, skip betweenness centrality (O(V*E)) to keep
 # ``export_state`` responsive on very large graphs; centrality defaults to 0.0.
-_MAX_CENTRALITY_NODES = 800
+MAX_CENTRALITY_NODES = 800
 
 
 class AttackKnowledgeGraph:
@@ -482,7 +482,7 @@ class AttackKnowledgeGraph:
         or large enough that the O(V*E) computation would be costly.
         """
         n_nodes = self.graph.number_of_nodes()
-        if n_nodes < 3 or n_nodes > _MAX_CENTRALITY_NODES:
+        if n_nodes < 3 or n_nodes > MAX_CENTRALITY_NODES:
             return {}
 
         raw: dict[str, float] = nx.betweenness_centrality(self.structure_view())

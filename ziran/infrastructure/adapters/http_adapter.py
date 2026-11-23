@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import enum
+import hashlib
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -106,6 +107,21 @@ class CircuitBreaker:
                 "circuit_breaker_opened",
                 failure_count=self._failure_count,
             )
+
+
+_MAX_TOOL_NAME = 100  # probe discovery cuts names at the same length
+
+
+def _bounded_tool_name(name: str) -> str:
+    """Cut a target-chosen tool name to ``_MAX_TOOL_NAME`` characters (CWE-400, spec 086).
+
+    The scan copies a tool id into every pair it forms, so a long name multiplies. A cut
+    name ends in a hash of the whole name, which keeps two long names apart.
+    """
+    if len(name) <= _MAX_TOOL_NAME:
+        return name
+    digest = hashlib.sha256(name.encode("utf-8", "surrogatepass")).hexdigest()[:8]
+    return f"{name[: _MAX_TOOL_NAME - 9]}_{digest}"
 
 
 class CircuitOpenError(Exception):
@@ -603,10 +619,13 @@ class HttpAgentAdapter(BaseAgentAdapter):
             cap_type = CapabilityType.SKILL
 
         name = raw.get("name", raw.get("id", "unknown"))
+        cap_id = raw.get("id", name)
+        if cap_type == CapabilityType.TOOL:
+            name, cap_id = _bounded_tool_name(name), _bounded_tool_name(cap_id)
         is_dangerous = _is_dangerous_tool(name)
 
         return AgentCapability(
-            id=raw.get("id", name),
+            id=cap_id,
             name=name,
             type=cap_type,
             description=raw.get("description", ""),

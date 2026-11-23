@@ -15,6 +15,7 @@ from ziran.application.agent_scanner import structure_import as si_mod
 from ziran.application.agent_scanner.result_builder import ResultBuilder
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.agent_scanner.structure_import import (
+    MAX_CO_RESIDENT_ID_CHARS,
     MAX_CO_RESIDENT_TOOLS,
     STATE_NODE_PREFIX,
     import_adapter_structure,
@@ -398,6 +399,25 @@ class TestCoResidentTools:
         [warning] = _build(graph)[0].warnings
         assert "101 tools" in warning and f"cap of {MAX_CO_RESIDENT_TOOLS}" in warning
         assert _build(_graph())[0].model_dump()["metadata"].get("warnings") is None
+
+    async def test_id_budget_skips_edges_and_warns(self) -> None:
+        # each edge and finding copies both ids, so output grows with tools^2 x id length
+        half = MAX_CO_RESIDENT_ID_CHARS // 2
+        at_budget = [
+            _cap("tool_read_file_".ljust(half, "x")),
+            _cap("tool_http_request_".ljust(half, "x")),
+        ]
+        graph = _graph(*at_budget)
+        await import_adapter_structure(MockAgentAdapter(), graph, at_budget)
+        assert len(_edges(graph, "can_chain_to")) == 2 and not graph.warnings
+
+        over = [at_budget[0], _cap(at_budget[1].id + "y")]
+        graph = _graph(*over)
+        await import_adapter_structure(MockAgentAdapter(), graph, over)
+        assert _edges(graph, "can_chain_to") == []
+        [warning] = graph.warnings
+        assert f"2 tools with {MAX_CO_RESIDENT_ID_CHARS + 1} characters" in warning
+        assert f"{MAX_CO_RESIDENT_ID_CHARS} characters of ids" in warning
 
     async def test_repeated_discovery_adds_the_edges_once(self) -> None:
         caps = [_cap(READ), _cap(SEND)]

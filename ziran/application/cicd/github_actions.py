@@ -60,6 +60,11 @@ def emit_annotations(
         annotation = f"::{level} title={title}::{msg}"
         annotations.append(annotation)
 
+    for warning in result.warnings:  # analysis the scan skipped (spec 086)
+        # the text comes from a result file: escape what would start another command
+        text = warning.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        annotations.append(f"::warning title=ZIRAN scan warning::{text}")
+
     return annotations
 
 

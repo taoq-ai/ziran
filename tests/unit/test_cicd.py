@@ -301,6 +301,12 @@ class TestGitHubActions:
         annotations = emit_annotations(risky_campaign)
         assert any("::error" in a for a in annotations)
 
+    def test_scan_warnings_are_annotated(self, clean_campaign: CampaignResult) -> None:
+        clean_campaign.metadata["warnings"] = ["chains not analysed\n::error::50% injected"]
+        assert emit_annotations(clean_campaign) == [
+            "::warning title=ZIRAN scan warning::chains not analysed%0A::error::50%25 injected"
+        ]
+
     def test_no_annotations_for_clean(self, clean_campaign: CampaignResult) -> None:
         annotations = emit_annotations(clean_campaign)
         assert len(annotations) == 0
