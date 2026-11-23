@@ -171,6 +171,8 @@ class ReportGenerator:
         lines.append(f"**Target Agent:** `{result.target_agent}`")
         lines.append(f"**Generated:** {datetime.now(tz=UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
         lines.append("")
+        for warning in result.warnings:  # analysis the scan skipped (spec 086)
+            lines.extend([f"> **Warning:** {warning}", ""])
 
         # Summary
         lines.append("## Summary")

@@ -17,6 +17,8 @@ from ziran.domain.entities.target import (
 from ziran.infrastructure.adapters.protocols import ProtocolError
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ziran.application.attacks.library import AttackLibrary
     from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 
@@ -1222,6 +1224,24 @@ class TestHttpAdapterStreamAndDiscover:
         assert cap.dangerous is True  # execute_code is flagged
         assert cap.type.value == "tool"
 
+    def test_raw_to_capability_bounds_long_tool_names(self) -> None:
+        """The target picks its tool names: a long one is cut, and stays unique (spec 086)."""
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        long_a, long_b = "read_file_" + "x" * 500 + "a", "read_file_" + "x" * 500 + "b"
+        caps = [
+            HttpAgentAdapter._raw_to_capability({"id": n, "name": n, "type": "tool"})
+            for n in (long_a, long_b, "t" * 100, "\ud800" * 101)
+        ]
+        assert [len(c.id) for c in caps] == [100, 100, 100, 100]
+        assert all(c.name == c.id for c in caps)
+        assert caps[0].id != caps[1].id and caps[0].id.startswith("read_file_xxx")
+        assert caps[0].dangerous  # the kept prefix still classifies the tool
+        assert caps[2].id == "t" * 100  # at the limit: untouched
+        uri = "file:///" + "d" * 300
+        resource = HttpAgentAdapter._raw_to_capability({"id": uri, "type": "data_access"})
+        assert resource.id == uri  # only tool names feed the co-resident pairs
+
     def test_raw_to_capability_unknown_type(self) -> None:
         from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 
@@ -1244,3 +1264,122 @@ class TestHttpAdapterStreamAndDiscover:
         adapter.reset_state()
         assert adapter._conversation == []
         assert handler._conversation == []
+
+
+@pytest.mark.unit
+class TestFlatChains:
+    """Tools an HTTP target exposes are co-resident, so the scan finds their chain (spec 086)."""
+
+    @staticmethod
+    async def _exfil_tools(adapter: HttpAgentAdapter, library: AttackLibrary) -> list[list[str]]:
+        from ziran.application.agent_scanner.scanner import AgentScanner
+        from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+
+        scanner = AgentScanner(adapter=adapter, attack_library=library)
+        await scanner._discover_and_map_capabilities()
+        chains = ToolChainAnalyzer(scanner.graph).analyze(include_cycles=False)
+        return [c.tools for c in chains if c.vulnerability_type == "data_exfiltration"]
+
+    async def test_probe_discovery(self, shared_attack_library: AttackLibrary) -> None:
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        adapter = HttpAgentAdapter(TargetConfig(url="https://x.com", probe_delay=0))
+        adapter._client = AsyncMock()
+        adapter._handler = AsyncMock()
+        adapter._handler.discover.return_value = []
+        adapter._handler.send.return_value = {
+            "content": "- read_file reads a file\n- http_request sends a request\n"
+        }
+        chains = await self._exfil_tools(adapter, shared_attack_library)
+        assert ["probe_read_file", "probe_http_request"] in chains
+
+    @staticmethod
+    def _mcp_adapter(names: list[str]) -> HttpAgentAdapter:
+        import json
+
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+        from ziran.infrastructure.adapters.protocols.mcp_handler import MCPProtocolHandler
+
+        async def server(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            if body["method"] == "tools/list":
+                result = {"tools": [{"name": n} for n in names]}
+                return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": result})
+            error = {"code": -32601, "message": "no such method"}
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "error": error})
+
+        config = TargetConfig(
+            url="https://mcp.example.com", protocol=ProtocolType.MCP, probe_delay=0
+        )
+        adapter = HttpAgentAdapter(config)
+        adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(server))
+        adapter._handler = MCPProtocolHandler(adapter._client, config)
+        return adapter
+
+    async def test_mcp_tools_list(self, shared_attack_library: AttackLibrary) -> None:
+        adapter = self._mcp_adapter(["read_file", "http_request"])
+        try:
+            chains = await self._exfil_tools(adapter, shared_attack_library)
+        finally:
+            await adapter._client.aclose()
+        assert ["read_file", "http_request"] in chains
+
+    async def test_mcp_long_tool_names_stay_bounded(
+        self, shared_attack_library: AttackLibrary
+    ) -> None:
+        """100 tools named with 20,000 characters each: the result does not grow with them."""
+        import time
+
+        from ziran.application.agent_scanner.scanner import AgentScanner
+
+        pad = "x" * 20_000  # the names differ only after the cut, so ids rely on the hash
+        names = [f"{kind}_{pad}{i}" for kind in ("read_file", "http_request") for i in range(50)]
+        adapter = self._mcp_adapter(names)
+        scanner = AgentScanner(adapter=adapter, attack_library=shared_attack_library)
+        start = time.perf_counter()
+        try:
+            result = await scanner.run_campaign(phases=[])
+        finally:
+            await adapter._client.aclose()
+        assert time.perf_counter() - start < 5.0
+        tools = {t for chain in result.dangerous_tool_chains for t in chain["tools"]}
+        assert len(tools) == 100 and max(map(len, tools)) == 100
+        assert len(result.dangerous_tool_chains) == 2500 and not result.warnings
+        assert len(result.model_dump_json()) < 5_000_000  # 504 MB before the names were cut
+
+    async def test_mcp_over_the_cap_warns_in_result_reports_and_ci(
+        self, shared_attack_library: AttackLibrary, tmp_path: Path
+    ) -> None:
+        """101 tools get no co-resident chain, and every output says so (spec 086)."""
+        from click.testing import CliRunner
+
+        from ziran.application.agent_scanner.scanner import AgentScanner
+        from ziran.application.cicd.gate import QualityGate
+        from ziran.application.cicd.github_actions import write_step_summary
+        from ziran.interfaces.cli.main import cli
+        from ziran.interfaces.cli.reports import ReportGenerator
+
+        names = [f"read_file_{i}" for i in range(100)] + ["http_request"]
+        adapter = self._mcp_adapter(names)
+        scanner = AgentScanner(adapter=adapter, attack_library=shared_attack_library)
+        try:
+            result = await scanner.run_campaign(phases=[])
+        finally:
+            await adapter._client.aclose()
+        assert result.dangerous_tool_chains == []
+        [warning] = result.warnings
+        assert "101 tools" in warning and "cap of 100" in warning
+
+        reports = ReportGenerator(tmp_path)
+        json_path = reports.save_json(result)
+        assert warning in json_path.read_text()
+        assert warning in reports.save_markdown(result).read_text()
+        assert warning in reports.save_html(result, scanner.graph.export_state()).read_text()
+        shown = CliRunner().invoke(cli, ["ci", str(json_path)])
+        console = " ".join(shown.output.split())  # the console wraps long lines
+        assert f"Warning: {warning}" in console
+        assert f"::warning title=ZIRAN scan warning::{warning}" in shown.output
+        summary = write_step_summary(
+            QualityGate().evaluate(result), result, summary_path=str(tmp_path / "summary.md")
+        )
+        assert warning in summary

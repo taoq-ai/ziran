@@ -563,7 +563,7 @@ class AgentScanner:
                     EdgeType.ACCESSES_DATA,
                     {"risk": "high", "capability_type": cap.type.value},
                 )
-        await import_adapter_structure(self.adapter, self.graph)
+        await import_adapter_structure(self.adapter, self.graph, capabilities)
 
         logger.info(
             "capabilities_discovered",

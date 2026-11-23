@@ -1746,6 +1746,8 @@ def ci(
     _display_gate_result(gate_result)
     if unmeasured_note := _unmeasured_note(result):
         console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
+    for warning in result.warnings:  # analysis the scan skipped (spec 086)
+        console.print(f"Warning: {warning}", style="yellow", markup=False)
 
     # 5. SARIF output
     if sarif_path:

@@ -183,6 +183,8 @@ def compute_resilience(
 
 #: ``CampaignResult.metadata`` key listing vectors no reply measured (specs 071, 082).
 UNMEASURED_METADATA_KEY = "unmeasured"
+#: ``CampaignResult.metadata`` key listing analysis the scan skipped (spec 086).
+WARNINGS_METADATA_KEY = "warnings"
 
 
 class CampaignResult(BaseModel):
@@ -257,6 +259,11 @@ class CampaignResult(BaseModel):
         A result with any is never a plain pass: the reports label it INCOMPLETE.
         """
         return [str(v) for v in self.metadata.get(UNMEASURED_METADATA_KEY, [])]
+
+    @property
+    def warnings(self) -> list[str]:
+        """Analysis the scan skipped, such as tool chains over the co-resident cap (spec 086)."""
+        return [str(w) for w in self.metadata.get(WARNINGS_METADATA_KEY, [])]
 
     @property
     def phases_with_findings(self) -> list[PhaseResult]:
