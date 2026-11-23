@@ -46,3 +46,26 @@ report and CI tests that read `dangerous_tool_chains`.
   `timeout -s KILL 120`.
 - Size and time at 10, 100 and 101 tools and 20,000-character ids, base against head (spec).
 - `benchmarks/ground_truth/run.py` on base and head: every component unchanged.
+
+## Slice 2 (A-BLAST-RADIUS-REPORT)
+
+**Base**: `develop` @ eee3b53.
+
+| File | Change |
+|------|--------|
+| `ziran/domain/entities/capability.py` | `DataTag`, `BlastRadiusConfig`; `BlastReach.tags` |
+| `ziran/application/detectors/thresholds.py` | `DetectorThresholds.blast_radius` |
+| `ziran/application/knowledge_graph/graph.py` | `blast_radius_config`, set by `ziran scan` |
+| `ziran/application/knowledge_graph/blast_radius.py` | `tags=`: reached nodes keep their tag, id before name |
+| `ziran/application/agent_scanner/result_builder.py` | passes the config's tags and external overrides |
+| `ziran/interfaces/cli/main.py` | `_blast_radius_config`: an invalid file warns, no tags |
+| `ziran/interfaces/cli/reports.py` | `blast_radius_blocks` (one block per last tool), `_md_code`, the Markdown section |
+| `ziran/interfaces/cli/html_report.py` | the HTML section, beside the defence section, escaped |
+| `ziran/application/cicd/sarif.py` | `_chain_result(..., radius)`: `properties.blast_radius` |
+| `docs/reference/cli.md` | the config section and the outputs |
+
+Constitution: the models stay in the domain; file reading stays in infrastructure (the existing
+`load_detector_thresholds`); no new dependency, no flag. Verification: the new test file ran red
+at collection on the base, then green; mutation probes on a scratch copy (all killed); Markdown,
+HTML and SARIF of a result without radii byte-identical to the base, and the attack SARIF result
+and driver byte-identical with a radius.

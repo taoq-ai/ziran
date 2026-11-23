@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
+from ziran.domain.entities.capability import BlastRadiusConfig
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -84,6 +86,8 @@ class AttackKnowledgeGraph:
         self.warnings: list[str] = []  # analysis a scan skipped; the result and reports show it
         # tool id -> lethal trifecta legs, from .ziran/detectors.yaml (spec 088)
         self.trifecta_roles: dict[str, frozenset[str]] = {}
+        # data tags and external overrides, from .ziran/detectors.yaml (spec 091)
+        self.blast_radius_config = BlastRadiusConfig()
 
     def _invalidate_cache(self) -> None:
         """Mark the cached export state as stale."""

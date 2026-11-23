@@ -187,11 +187,18 @@ class ResultBuilder:
         evidence = [r.evidence.get("tool_calls") for r in attack_results]
         calls = [c for e in evidence if isinstance(e, list) for c in e]
         called = called_tools(self._graph, calls)  # once: walks x calls was 10 times slower
+        config = self._graph.blast_radius_config
         radii: dict[str, BlastRadius] = {}
         for chain in chains:
             if chain.tools:
                 last = chain.tools[-1]
                 if last not in radii:
-                    radii[last] = blast_radius(self._graph, [last], called=called)
+                    radii[last] = blast_radius(
+                        self._graph,
+                        [last],
+                        called=called,
+                        external=config.external,
+                        tags=config.tags,
+                    )
                 chain.blast_radius = radii[last]
         return radii

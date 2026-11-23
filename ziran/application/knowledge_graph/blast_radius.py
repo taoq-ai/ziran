@@ -8,7 +8,7 @@ each list keeps at most :data:`MAX_LISTED` ids, so the output per chain has a fi
 
 A node is *demonstrated* when the campaign's recorded tool calls touched it: the tool ran, a tool
 that ran accesses the data source, or the agent holds a tool that ran. Every other node reached is
-*reachable*.
+*reachable*. A reached node the operator tagged carries its tag in that part (slice 2).
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from ziran.application.knowledge_graph.graph import EdgeType, NodeType
 from ziran.application.knowledge_graph.role_typing import SINKS, tokens, tool_roles
 from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
 from ziran.application.knowledge_graph.trifecta import tool_legs
-from ziran.domain.entities.capability import BlastRadius, BlastReach
+from ziran.domain.entities.capability import BlastRadius, BlastReach, DataTag
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -105,6 +105,7 @@ def blast_radius(
     tool_calls: Iterable[Any] = (),
     external: Mapping[str, bool] | None = None,
     called: AbstractSet[str] | None = None,
+    tags: Mapping[str, DataTag] | None = None,
 ) -> BlastRadius:
     """What the start tools reach, split into demonstrated and reachable.
 
@@ -112,7 +113,8 @@ def blast_radius(
     graph is never changed (no copy or filtered view: a view made the walk four times slower).
     *tool_calls* are the campaign's recorded calls (dicts as adapters return them); *called*,
     when given, is :func:`called_tools` of them computed once, and replaces them. *external*
-    overrides :func:`is_external` per tool.
+    overrides :func:`is_external` per tool. *tags* maps a node id, or a name without ``tool_``,
+    to its data tag; the id wins.
     """
     g, removed = graph.graph, set(remove)
     seeds = {s for s in start_tool_ids if s in g and s not in removed}
@@ -128,9 +130,12 @@ def blast_radius(
 
     touched = called_tools(graph, tool_calls) if called is None else called
     called = set(touched) - removed
+    tags = tags or {}
     found: dict[bool, dict[str, list[str]]] = {d: {k: [] for k in KINDS} for d in (True, False)}
+    tagged: dict[bool, dict[str, DataTag]] = {True: {}, False: {}}
     for node in sorted(seen - holders, key=str):
         node_type = g.nodes[node].get("node_type")
+        tag = tags.get(node) or tags.get(str(node).removeprefix("tool_"))
         if node_type == NodeType.DATA_SOURCE:
             kinds = ["data_sources"]
             ins = g.in_edges(node, data="edge_type")
@@ -147,11 +152,15 @@ def blast_radius(
             continue  # state channels and findings are walked through, not listed
         for kind in kinds:
             found[shown][kind].append(node)
+        if tag is not None:
+            tagged[shown][node] = tag
 
-    def reach(lists: dict[str, list[str]]) -> BlastReach:
+    def reach(shown: bool) -> BlastReach:
+        lists = found[shown]
         return BlastReach(
             **{k: v[:MAX_LISTED] for k, v in lists.items()},
             counts={k: len(v) for k, v in lists.items()},
+            tags=tagged[shown],
         )
 
-    return BlastRadius(demonstrated=reach(found[True]), reachable=reach(found[False]))
+    return BlastRadius(demonstrated=reach(True), reachable=reach(False))

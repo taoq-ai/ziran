@@ -24,6 +24,7 @@ from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorConfig
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
+from ziran.domain.entities.capability import BlastRadius, BlastRadiusConfig
 from ziran.domain.entities.defence import DefenceProfile
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
@@ -686,6 +687,7 @@ def scan(
 
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
     scanner.graph.trifecta_roles = _trifecta_roles()
+    scanner.graph.blast_radius_config = _blast_radius_config()
     coverage_level = CoverageLevel(coverage.lower())
 
     # Build campaign strategy
@@ -1033,6 +1035,8 @@ def report(result_file: str, fmt: str) -> None:
         with filepath.open() as f:
             data = json.load(f)
         result = CampaignResult.model_validate(data)
+        for radius in result.blast_radius.values():  # reports parse each; fail here, not mid-render
+            BlastRadius.model_validate(radius)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
         sys.exit(1)
@@ -1892,6 +1896,21 @@ def _trifecta_roles() -> dict[str, frozenset[str]]:
         click.echo(f"Warning: trifecta_roles not read: {exc}", err=True)
         return {}
     return {tool: frozenset(legs) for tool, legs in roles.items()}
+
+
+def _blast_radius_config() -> BlastRadiusConfig:
+    """``blast_radius`` of ``.ziran/detectors.yaml`` (spec 091). An invalid file warns and gives
+    no tags, so the radius lists nodes only."""
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+
+    try:
+        return load_detector_thresholds().blast_radius
+    except DetectorConfigError as exc:
+        click.echo(f"Warning: blast_radius not read: {exc}", err=True)
+        return BlastRadiusConfig()
 
 
 def _config_share() -> float:
