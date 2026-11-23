@@ -123,20 +123,23 @@ class ToolChainAnalyzer:
 
     # ── Public API ─────────────────────────────────────────────────
 
-    def analyze(self, *, include_cycles: bool = True) -> list[DangerousChain]:
+    def analyze(self, *, include_cycles: bool | None = None) -> list[DangerousChain]:
         """Run full chain analysis and return all dangerous chains found.
 
         Steps:
             1. Discover direct 2-tool chains (A → B).
             2. Discover indirect chains (A → … → B, up to 3 hops).
-            3. Discover cycles (A → B → … → A), unless *include_cycles* is False
-               (cycle enumeration is exponential on dense, e.g. complete, graphs).
+            3. Discover cycles (A → B → … → A), unless *include_cycles* is False. It
+               defaults to False on a graph with co-resident tool edges (spec 086): cycle
+               enumeration is exponential on dense, e.g. complete, graphs.
             4. Flag unscoped shell tools (bare ``Bash``) as single-tool findings.
             5. De-duplicate, score, and sort by risk.
 
         Returns:
             Sorted list of :class:`DangerousChain` objects (highest risk first).
         """
+        if include_cycles is None:
+            include_cycles = not self.graph.has_co_resident_tools()
         chains: list[DangerousChain] = []
         _chain_span = _tracer.start_span("ziran.chain_analysis")
 

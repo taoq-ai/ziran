@@ -20,13 +20,25 @@ After this change:
 
 1. One knowledge-graph helper adds the co-resident edges. `agent_chains` and the scan's capability
    discovery both use it.
-2. The scan adds those edges between every pair of discovered tools only when the adapter's
-   structure import linked no two tools, directly or through a state node. A LangGraph agent
-   whose tools share a state channel keeps only its real edges.
+2. The scan adds those edges only when the adapter's structure import linked no two tools,
+   directly or through a state node (a tool reading its own channel links nothing). A LangGraph
+   agent whose tools share a state channel keeps only its real edges. When the import reported
+   no agents (LangChain, CrewAI, HTTP, MCP), all discovered tools form one co-resident set. When
+   it reported agents (AutoGen, OpenAI Agents, other multi-agent topologies), each agent's own
+   tools form one set, and the tools no agent lists form one more.
 3. A CrewAI crew's tools across all its agents form one co-resident set.
-4. Chain analysis never enumerates cycles on a graph that holds co-resident edges: the scan's
-   result builder and the audit both skip it, since cycle enumeration is exponential on the
-   complete graph those edges form.
+4. Chain analysis never enumerates cycles on a graph that holds co-resident edges.
+   `ToolChainAnalyzer.analyze(include_cycles=None)` defaults to skipping cycles when
+   `graph.has_co_resident_tools()`, since cycle enumeration is exponential on the complete
+   graph those edges form. Callers of `analyze`, all covered by that default:
+   - `ziran/application/agent_scanner/result_builder.py` (`ResultBuilder.build`, the scan);
+   - `ziran/application/pentesting/tools/graph.py` (`analyze_graph`, which the pentest agent
+     calls on every step from `pentesting/agent.py`; with co-resident edges and cycles on, 11
+     tools took over 90 s);
+   - `ziran/application/static_analysis/claude_code_audit.py` (`agent_chains`, explicit False);
+   - `ziran/application/trace_analysis/analyzer_service.py` and the docstring example in
+     `chain_analyzer.py` (graphs with no co-resident edges, so cycles stay on);
+   - `benchmarks/ground_truth/run.py` (its own graphs, unchanged).
 5. Attack-path enumeration (`find_all_attack_paths`) ignores co-resident edges. On a complete
    tool graph every ordering of tools is a simple path, so a six-tool mock scan went from 9
    critical paths to 2,678; with the filter it reports 13 (the 9 plus one path from each tool
@@ -81,9 +93,10 @@ After this change:
 - **FR-002**: `agent_chains` builds its graph with that helper and keeps `include_cycles=False`.
 - **FR-003**: `import_adapter_structure(adapter, graph, capabilities)` adds the co-resident edges
   over the tool-type capabilities when, after the import, no tool has an edge to another tool or
-  to a state node another tool reads.
-- **FR-004**: `ResultBuilder.build` runs `analyze(include_cycles=False)` when the graph holds
-  co-resident edges, and with cycles otherwise.
+  to a state node another tool reads: one set for all tools when no agents were reported, else
+  one set per agent plus one for the tools no agent lists.
+- **FR-004**: `ToolChainAnalyzer.analyze` skips cycles by default when the graph holds
+  co-resident edges, and runs them otherwise; an explicit `include_cycles` wins.
 - **FR-005**: `scanner.py` stays at or under 750 lines (net zero change).
 - **FR-006**: `find_all_attack_paths` enumerates over a view of the graph without co-resident
   edges.
@@ -94,17 +107,24 @@ After this change:
   all its agents' tools form one co-resident set. Why: the adapter has no per-agent structure and
   the crew runs as one unit. Overturned by: a CrewAI adapter that reports per-agent structure
   through `discover_structure`, which then takes the graph-shaped path.
-- AutoGen and OpenAI Agents topologies carry no state channels, so their import links no two
-  tools and their tools become co-resident. Why: the rule in the plan item is "linked no two
-  tools"; a group chat shares its whole thread and a handoff passes full context, so data does
-  flow between those tools. Overturned by: the owner wanting those adapters to keep only their
-  real edges, which is a one-line check on the topology in `import_adapter_structure`.
+- In a topology with agents, only one agent's own tools are co-resident; a handoff (triage to
+  billing with `query_database`, triage to mailer with `send_email`) yields no cross-agent
+  chain. Why: chains across agents would over-report every team. Known gap, on the safe side:
+  an AutoGen group chat shares its whole thread, so data can flow between its members' tools,
+  and those cross-agent chains are not reported. Overturned by: a topology field that says the
+  agents share context.
 - Only `CapabilityType.TOOL` capabilities are co-resident. Why: skills and resources are not
   callable tools, and probe discovery files every line it does not classify as a dangerous tool
   as a skill. Overturned by: a chain pattern that needs a resource node as a source.
 - Critical paths leave out co-resident edges. Why: those edges say "could chain", which the
   chain findings already report; walking them only multiplies paths up to the 10,000 cap.
   Overturned by: a report that needs multi-tool paths to a data source.
+
+## Behaviour change
+
+A flat-agent scan now reports chain findings it did not report before. The CI gate counts each
+tool-composition chain as a finding (`ziran/application/cicd/gate.py`, the loop over
+`dangerous_tool_chains`), so `ziran ci` on a flat agent with a dangerous tool pair can newly fail.
 
 ## Out of scope
 

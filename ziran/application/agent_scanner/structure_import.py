@@ -33,17 +33,24 @@ STATE_NODE_PREFIX = "state:"  # knowledge-graph node id = STATE_NODE_PREFIX + ch
 async def import_adapter_structure(
     adapter: BaseAgentAdapter,
     graph: AttackKnowledgeGraph,
-    capabilities: Iterable[AgentCapability] = (),
+    capabilities: Iterable[AgentCapability],
 ) -> MultiAgentTopology | None:
     """Call ``adapter.discover_structure()`` and import the result; never raises.
 
-    When the import linked no two of the tool *capabilities* (a flat agent, or a CrewAI crew,
-    whose agents share task context), they share one context: link them all (spec 086).
+    When the import linked no two of the tool *capabilities*, tools that share a context are
+    linked as co-resident (spec 086): all of them when no agents were reported (a flat agent,
+    or a CrewAI crew, whose agents share task context), else each agent's own tools, plus one
+    set for the tools no agent lists.
     """
     topology = await _discover_and_import(adapter, graph)
     tools = [c.id for c in capabilities if c.type == CapabilityType.TOOL and c.id in graph.graph]
-    if not _links_tools(graph, set(tools)):
-        graph.add_co_resident_tools(tools)
+    if _links_tools(graph, set(tools)):
+        return topology
+    agents = topology.agents if topology is not None else []
+    listed = {t for agent in agents for t in agent.capabilities}
+    for agent in agents:
+        graph.add_co_resident_tools([t for t in agent.capabilities if t in tools])
+    graph.add_co_resident_tools([t for t in tools if t not in listed])
     return topology
 
 

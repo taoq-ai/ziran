@@ -20,6 +20,7 @@ from ziran.application.agent_scanner.structure_import import (
 )
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.pentesting.tools.graph import analyze_graph
 from ziran.domain.entities.attack import TokenUsage
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
 from ziran.domain.entities.multi_agent import (
@@ -238,13 +239,15 @@ class TestImportAdapterStructure:
     async def test_default_adapter_leaves_graph_unchanged(self) -> None:
         graph = _graph()
         before = (graph.node_count, graph.edge_count)
-        assert await import_adapter_structure(MockAgentAdapter(), graph) is None
+        assert await import_adapter_structure(MockAgentAdapter(), graph, []) is None
         assert (graph.node_count, graph.edge_count) == before
 
     async def test_failure_is_logged_not_raised(self) -> None:
         graph = _graph()
         with capture_logs() as logs:
-            result = await import_adapter_structure(_StructureAdapter(RuntimeError("boom")), graph)
+            result = await import_adapter_structure(
+                _StructureAdapter(RuntimeError("boom")), graph, []
+            )
         assert result is None
         hits = [e for e in logs if e["event"] == "structure_discovery_failed"]
         assert hits and hits[0]["error"] == "RuntimeError: boom"
@@ -253,7 +256,7 @@ class TestImportAdapterStructure:
         graph = _graph()
         before = graph.node_count
         with capture_logs() as logs:
-            result = await import_adapter_structure(_StructureAdapter({"agents": []}), graph)
+            result = await import_adapter_structure(_StructureAdapter({"agents": []}), graph, [])
         assert result is None
         assert graph.node_count == before
         hits = [e for e in logs if e["event"] == "structure_discovery_ignored"]
@@ -263,10 +266,15 @@ class TestImportAdapterStructure:
         graph = _graph()
         topo = _topology()
         with capture_logs() as logs:
-            assert await import_adapter_structure(_StructureAdapter(topo), graph) is topo
+            assert await import_adapter_structure(_StructureAdapter(topo), graph, []) is topo
         assert "state:messages" in graph.graph
         hits = [e for e in logs if e["event"] == "structure_imported"]
         assert hits and (hits[0]["agents"], hits[0]["edges"], hits[0]["channels"]) == (2, 2, 1)
+
+
+def _no_cycle_search(*_: Any) -> list[Any]:
+    # fail fast instead of hanging: cycle enumeration is exponential on a complete graph
+    raise AssertionError("cycle search ran on a co-resident graph")
 
 
 class TestCoResidentTools:
@@ -294,7 +302,8 @@ class TestCoResidentTools:
         await import_adapter_structure(_StructureAdapter(topo), graph, [_cap(READ), _cap(SEND)])
         assert graph.has_co_resident_tools()
 
-    def test_fifteen_flat_tools_skip_cycles(self) -> None:
+    def test_fifteen_flat_tools_skip_cycles(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ToolChainAnalyzer, "_find_chain_cycles", _no_cycle_search)
         caps = [_cap(f"tool_read_file_{i}") for i in range(14)] + [_cap(SEND)]
         graph = _graph(*caps)
         graph.add_co_resident_tools([c.id for c in caps])
@@ -311,6 +320,72 @@ class TestCoResidentTools:
         )
         assert time.perf_counter() - start < 10.0
         assert chains and not any(c.chain_type == "cycle" for c in chains)
+
+    def test_cycle_search_never_runs_on_co_resident_graph(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(ToolChainAnalyzer, "_find_chain_cycles", _no_cycle_search)
+        caps = [_cap(f"tool_read_file_{i}") for i in range(11)] + [_cap(SEND)]
+        graph = _graph(*caps)
+        graph.add_co_resident_tools([c.id for c in caps])
+        assert ToolChainAnalyzer(graph).analyze()
+        # the pentest agent's graph tool runs the same analysis on every step
+        assert analyze_graph(graph)["dangerous_chains"]
+
+    def test_marker_survives_export_and_import(self) -> None:
+        graph = _graph()
+        graph.add_co_resident_tools([READ, SEND])
+        restored = AttackKnowledgeGraph()
+        restored.import_state(graph.export_state())
+        assert restored.has_co_resident_tools()
+
+    async def test_self_loop_channel_is_no_tool_link(self) -> None:
+        # one tool writes and reads its own channel: that links no two tools
+        topo = MultiAgentTopology(
+            state_channels=[StateChannel(name="own", writers=[READ], readers=[READ])]
+        )
+        graph = _graph()
+        await import_adapter_structure(_StructureAdapter(topo), graph, [_cap(READ), _cap(SEND)])
+        assert graph.has_co_resident_tools()
+        assert any(
+            c.vulnerability_type == "data_exfiltration" and c.tools == [READ, SEND]
+            for c in ToolChainAnalyzer(graph).analyze()
+        )
+
+    async def test_handoff_team_links_tools_per_agent(self) -> None:
+        query, mail = "tool_query_database", "tool_send_email"
+        topo = MultiAgentTopology(
+            agents=[
+                AgentNode(id="n:triage", name="triage", is_entry_point=True),
+                AgentNode(id="n:billing", name="billing", capabilities=[query]),
+                AgentNode(id="n:mailer", name="mailer", capabilities=[mail]),
+            ],
+            edges=[
+                AgentEdge(source_id="n:triage", target_id="n:billing"),
+                AgentEdge(source_id="n:triage", target_id="n:mailer"),
+            ],
+        )
+        caps = [_cap(query), _cap(mail)]
+        graph = _graph(*caps)
+        await import_adapter_structure(_StructureAdapter(topo), graph, caps)
+        assert not any(
+            c.vulnerability_type == "data_exfiltration" and set(c.tools) == {query, mail}
+            for c in ToolChainAnalyzer(graph).analyze()
+        )
+        # the same two tools on one agent do chain
+        flat = _graph(*caps)
+        await import_adapter_structure(MockAgentAdapter(), flat, caps)
+        assert any(
+            c.vulnerability_type == "data_exfiltration" and c.tools == [query, mail]
+            for c in ToolChainAnalyzer(flat).analyze()
+        )
+
+    async def test_unlisted_tools_form_one_set(self) -> None:
+        topo = MultiAgentTopology(agents=[AgentNode(id="n:a", name="a")])
+        graph = _graph()
+        await import_adapter_structure(_StructureAdapter(topo), graph, [_cap(READ), _cap(SEND)])
+        chains = {(e["source"], e["target"]) for e in _edges(graph, "can_chain_to")}
+        assert chains == {(READ, SEND), (SEND, READ)}
 
 
 async def test_scanner_imports_adapter_structure(shared_attack_library: AttackLibrary) -> None:

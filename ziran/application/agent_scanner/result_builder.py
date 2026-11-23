@@ -91,9 +91,7 @@ class ResultBuilder:
         # edges) BEFORE attack-path enumeration, so a composition is reachable
         # as a finding — not just a side-list entry.
         chain_analyzer = ToolChainAnalyzer(self._graph)
-        dangerous_chains = chain_analyzer.analyze(
-            include_cycles=not self._graph.has_co_resident_tools()
-        )
+        dangerous_chains = chain_analyzer.analyze()
         for chain in dangerous_chains:
             self._graph.add_chain_finding(chain)
 

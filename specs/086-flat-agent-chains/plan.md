@@ -40,10 +40,13 @@ enumeration in the result builder when the graph holds those edges.
 
 1. `graph.py`: `add_co_resident_tools` and `has_co_resident_tools`.
 2. `claude_code_audit.py`: `agent_chains` calls `add_co_resident_tools`.
-3. `structure_import.py`: `import_adapter_structure` takes the capabilities; after the import, if
-   `_links_tools` is false, it adds the co-resident edges over the tool ids.
+3. `structure_import.py`: `import_adapter_structure` takes the capabilities (required); after the
+   import, if `_links_tools` is false, it adds the co-resident edges over the tool ids, per
+   agent when the topology lists agents.
 4. `scanner.py`: pass `capabilities` to `import_adapter_structure` (same line count).
-5. `result_builder.py`: `analyze(include_cycles=not self._graph.has_co_resident_tools())`.
+5. `chain_analyzer.py`: `analyze(include_cycles: bool | None = None)`; `None` means
+   `not graph.has_co_resident_tools()`. `result_builder.py` keeps a bare `analyze()`, and the
+   pentest `analyze_graph` tool gets the same default.
 6. `graph.py` `find_all_attack_paths`: enumerate over `nx.subgraph_view` without co-resident
    edges. Found by `test_enables_links.py::test_end_to_end_mock_scan`, whose six-tool mock scan
    returned 2,678 critical paths instead of 9 before the filter; its counts now leave out chain

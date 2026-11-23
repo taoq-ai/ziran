@@ -25,7 +25,17 @@ run red before T005.
 - [x] T009 `graph.py` `find_all_attack_paths` skips co-resident edges;
       `tests/unit/application/test_enables_links.py` counts chain findings apart.
 
-## Phase 3 - Gates
+## Phase 3 - Fix round 1 (gate findings)
+
+- [x] T013 `chain_analyzer.py`: cycles default off on co-resident graphs (pentest
+      `analyze_graph` hang); `result_builder.py` back to a bare `analyze()`; a test patches
+      `_find_chain_cycles` to raise.
+- [x] T014 `structure_import.py`: per-agent co-resident sets when the topology lists agents;
+      handoff test (no cross-agent chain) and unlisted-tools test.
+- [x] T015 Tests: a self-loop state channel links no two tools; the `co_resident` marker
+      survives `export_state`/`import_state`; `capabilities` is required.
+
+## Phase 4 - Gates
 
 - [x] T010 `ziran audit` on the Claude Code fixtures at base and head: identical output.
 - [x] T011 `uv run ruff check`, `uv run ruff format --check`, `uv run mypy ziran/`, the touched
