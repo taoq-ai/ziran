@@ -214,7 +214,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "--phase-timeout",
     type=float,
     default=300.0,
-    help="Per-phase timeout in seconds (default: 300).",
+    help="Per-phase timeout in seconds (default: 300); extended for tactic: pair vectors.",
 )
 @click.option(
     "--strategy",
@@ -1689,8 +1689,9 @@ def ci(
 ) -> None:
     """Evaluate campaign results for CI/CD quality gating.
 
-    Runs quality-gate checks against a scan result JSON file
-    and emits outputs suitable for CI/CD environments:
+    Runs quality-gate checks against a scan result JSON file, or the
+    SARIF ziran wrote from one, and emits outputs suitable for CI/CD
+    environments:
 
     \b
       - GitHub Actions annotations (::error / ::warning)
@@ -1704,6 +1705,7 @@ def ci(
         ziran ci results.json --gate-config gate.yaml --sarif results.sarif
         ziran ci results.json --no-github-annotations --sarif results.sarif
         ziran ci results.json --suppressions .ziran/suppressions.yaml
+        ziran ci results.sarif --gate-config gate.yaml
     """
     from ziran.application.cicd.gate import QualityGate, load_suppressions
     from ziran.application.cicd.github_actions import (
@@ -1711,16 +1713,17 @@ def ci(
         set_output,
         write_step_summary,
     )
-    from ziran.application.cicd.sarif import write_sarif
+    from ziran.application.cicd.sarif import campaign_from_sarif, write_sarif
 
     filepath = Path(result_file)
 
-    # 1. Load campaign result
+    # 1. Load campaign result, or the SARIF generate_sarif wrote from one (spec 093)
     try:
         with filepath.open() as f:
             data = json.load(f)
-        result = CampaignResult.model_validate(data)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+        from_sarif = isinstance(data, dict) and "runs" in data
+        result = campaign_from_sarif(data) if from_sarif else CampaignResult.model_validate(data)
+    except (OSError, ValueError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
         sys.exit(1)
     except Exception as e:
@@ -1757,8 +1760,12 @@ def ci(
     for warning in result.warnings:  # analysis the scan skipped (spec 086)
         console.print(f"Warning: {warning}", style="yellow", markup=False)
 
-    # 5. SARIF output
-    if sarif_path:
+    # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
+    if sarif_path and from_sarif:
+        console.print(
+            f"--sarif skipped: {filepath} is already a SARIF", style="yellow", markup=False
+        )
+    elif sarif_path:
         try:
             written = write_sarif(result, Path(sarif_path), gate_result)
             console.print(f"[dim]SARIF report: {written}[/dim]")
@@ -1785,8 +1792,14 @@ def ci(
         set_output("suppressed_findings", str(gate_result.suppressed_findings))
         set_output("regressed_findings", str(gate_result.regressed_findings))
 
-    # 9. Policy evaluation (optional overlay)
-    if policy_path:
+    # 9. Policy evaluation (optional overlay); a SARIF lists successful attacks only
+    if policy_path and from_sarif:
+        console.print(
+            f"--policy skipped: {filepath} is a SARIF; run it on the scan result JSON",
+            style="yellow",
+            markup=False,
+        )
+    elif policy_path:
         try:
             from ziran.application.policy.engine import PolicyEngine
 

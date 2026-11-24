@@ -811,7 +811,8 @@ class AttackVector(BaseModel):
     tactic: str = Field(
         default="single",
         description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, "
-        "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode.",
+        "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode, "
+        "pair (attacker-LLM refinement; needs an attacker client, spec 081).",
     )
     harm_category: HarmCategory | None = Field(
         default=None,
