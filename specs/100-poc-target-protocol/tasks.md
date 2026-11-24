@@ -10,3 +10,6 @@ Base: `origin/develop`. Branch `fix/poc-target-protocol`. Test first.
 - [x] T006 Docs: `docs/reference/cli.md`, default run instructions.
 - [x] T007 Touched tests green; ruff, format and strict mypy clean.
 - [x] T008 Mutants in a `git archive` copy under `timeout -s KILL 120`: 29 of 30 killed; the survivor (scan dropping the detected protocol) got a scan wiring test and is now killed, 30 of 30.
+- [x] T009 Gate fix round: tests for the adapter script without an HTTP target (none, mcp, a2a, browser, auto), no cURL PoC outside openai/rest, `poc --protocol`, indicator-before-tool-call order, case-insensitive grep and single imports; run red against cf7d9d2: 14 failed (the order and case tests pin behaviour that already held).
+- [x] T010 Python PoC split: httpx script for openai/rest, the base adapter script otherwise; base `run_instructions` and imports restored; `generate_all` cURL for openai/rest only; `poc --protocol`; docs.
+- [x] T011 Delta mutants in a fresh `git archive` copy under `timeout -s KILL 120`: 13 of 13 killed.

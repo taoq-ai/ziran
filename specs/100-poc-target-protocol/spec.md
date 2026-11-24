@@ -29,12 +29,19 @@ After the fix:
   stays.
 - The cURL PoC keeps spec 099's quoting and writes. It exits 0 when an indicator is in the
   reply, 1 when none is, and 2 when the finding has no text indicator to check.
-- The Python PoC is a standalone script needing only httpx. It sends the same request, checks
-  every string in the JSON reply, and exits 0, 1 or 2 the same way. With no text indicator it
-  reports a reply that holds tool calls as reproduced, as the old adapter check did.
-- `ziran scan --target` writes a cURL PoC next to the Python one, built from the target config
-  with the protocol the adapter detected when the config says `auto`. `ziran poc --target
-  <yaml>` builds both from a target config.
+- For an `openai` or `rest` target the Python PoC is a standalone script needing only httpx
+  (it imports `json`, `sys` and `httpx`). It sends the same request, checks every string in
+  the JSON reply, and exits 0, 1 or 2 the same way. With no text indicator it reports a reply
+  that holds tool calls as reproduced, as the old adapter check did; a recorded indicator
+  decides first.
+- With no target (framework and in-process scans) or another protocol (MCP, A2A, browser,
+  unresolved `auto`), the Python PoC stays the adapter-driven script: `reproduce(adapter)`,
+  the configured imports and the configured run instructions, as before.
+- `ziran scan --target` writes a cURL PoC next to the Python one for `openai` and `rest`
+  targets only, built from the target config with the protocol the adapter detected when the
+  config says `auto`. `ziran poc --target <yaml> [--protocol <p>]` builds the PoCs from a
+  target config; `--protocol` overrides its protocol, as in `scan`. `poc` cannot resolve
+  `auto`, so an `auto` config falls back unless `--protocol` is given.
 
 ## Acceptance scenarios
 
@@ -62,9 +69,11 @@ After the fix:
   writes); the body is `json.dumps` of the built body, the method a quoted `-X` word.
 - FR-004: Both PoCs exit 0 reproduced, 1 not reproduced, 2 no text indicator (Python: unless a
   reply holds tool calls).
-- FR-005: The Python PoC imports only the standard library, httpx and the configured imports.
-- FR-006: `generate_all` adds the cURL PoC when a target is set; `scan --target` passes its
-  config with the resolved protocol; `poc --target` loads one.
+- FR-005: The httpx Python PoC imports `json`, `sys` and `httpx` once each; the adapter
+  Python PoC is the base script for no target and for non-HTTP protocols.
+- FR-006: `generate_all` adds the cURL PoC for an `openai` or `rest` target; `scan --target`
+  passes its config with the resolved protocol; `poc --target` loads one and `poc --protocol`
+  overrides its protocol.
 
 ## Assumptions
 
@@ -82,3 +91,12 @@ After the fix:
 - The request shape is copied from the two handlers, not imported: the application layer must
   not import infrastructure. A contract test sends one prompt through each real handler and
   compares the request.
+- Framework scans have no target, and the base shipped their Python PoC as
+  `reproduce(adapter)` with a LangChain example in its usage text. That form stays for no
+  target and for MCP, A2A, browser and unresolved `auto`. The httpx script is written only
+  where it can send the scan's request (`openai`, `rest`), so no existing PoC loses its entry
+  point and the change is not breaking. Overturned if an adapter user relied on the adapter
+  script for an `openai` or `rest` target; `ziran poc` without `--target` still writes it.
+- The cURL PoC is skipped in `generate_all` outside `openai` and `rest`, rather than labelled:
+  it cannot reproduce there, and skipping is the smaller change. `--format curl` still writes
+  one on request, in today's form.
