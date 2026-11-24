@@ -113,7 +113,8 @@ ziran scan --framework langchain --agent-path agent.py \
 ### Stop on Critical
 
 ```bash
-# Stop campaign when a critical vulnerability is found (default)
+# Stop after a critical finding in exploitation_setup or a later phase (default);
+# criticals from earlier phases are kept and the campaign continues
 ziran scan --framework langchain --agent-path agent.py --stop-on-critical
 
 # Continue even after critical findings

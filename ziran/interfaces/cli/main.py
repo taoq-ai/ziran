@@ -151,7 +151,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
 @click.option(
     "--stop-on-critical / --no-stop-on-critical",
     default=True,
-    help="Stop if a critical vulnerability is found.",
+    help="Stop after a critical finding in exploitation_setup or a later phase.",
 )
 @click.option(
     "--coverage",

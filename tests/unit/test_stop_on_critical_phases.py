@@ -94,6 +94,33 @@ class TestStopOnCriticalPhases:
         assert ran.index(phase) == len(ran) - 1
 
     @pytest.mark.parametrize("make", _strategies())
+    @pytest.mark.parametrize("phase", [ScanPhase.PERSISTENCE, ScanPhase.EXFILTRATION])
+    async def test_optional_late_critical_stops(
+        self, monkeypatch: pytest.MonkeyPatch, make: Any, phase: ScanPhase
+    ) -> None:
+        ran = await _run(monkeypatch, phase, strategy=make(), phases=list(ScanPhase))
+        assert ran[-1] == phase
+
+    async def test_early_critical_stays_in_result(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        results: list[PhaseResult] = []
+        orig = AgentScanner._has_critical_finding
+
+        def spy(self: Any, r: PhaseResult) -> bool:
+            results.append(r)
+            return orig(self, r)
+
+        monkeypatch.setattr(AgentScanner, "_has_critical_finding", spy)
+        ran = await _run(
+            monkeypatch,
+            ScanPhase.RECONNAISSANCE,
+            strategy=FixedStrategy(stop_on_critical=True),
+            phases=list(CORE_PHASES),
+        )
+        assert len(ran) == len(CORE_PHASES)
+        recon = next(r for r in results if r.phase == ScanPhase.RECONNAISSANCE)
+        assert recon.vulnerabilities_found == ["crit"]
+
+    @pytest.mark.parametrize("make", _strategies())
     async def test_stop_on_critical_off_runs_every_phase(
         self, monkeypatch: pytest.MonkeyPatch, make: Any
     ) -> None:
@@ -103,10 +130,10 @@ class TestStopOnCriticalPhases:
             monkeypatch,
             ScanPhase.EXECUTION,
             strategy=strategy,
-            phases=list(CORE_PHASES),
+            phases=list(ScanPhase),
             stop_on_critical=False,
         )
-        assert set(ran) == set(CORE_PHASES)
+        assert set(ran) == set(ScanPhase)
 
     async def test_default_is_on(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import inspect
