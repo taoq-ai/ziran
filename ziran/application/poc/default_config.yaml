@@ -17,7 +17,13 @@ python_template:
     - asyncio
     - sys
   run_instructions:
-    - "Pass an endpoint as the first argument to send the request elsewhere."
+    - "To reproduce, configure your agent adapter and call:"
+    - "  asyncio.run(reproduce(your_adapter))"
+    - ""
+    - "Example with LangChain:"
+    - "  from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter"
+    - "  adapter = LangChainAdapter(your_agent_executor)"
+    - "  asyncio.run(reproduce(adapter))"
   vulnerable_text_match: "VULNERABLE — Matched indicators: {matched}"
   vulnerable_tool_match: "VULNERABLE — Dangerous tool execution detected"
   not_reproduced: "Not reproduced — no indicators matched"

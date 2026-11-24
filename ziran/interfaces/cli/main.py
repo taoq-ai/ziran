@@ -1094,7 +1094,15 @@ def report(result_file: str, fmt: str) -> None:
     default=None,
     help="Target YAML the scan used; the PoCs then send its protocol's request.",
 )
-def poc(result_file: str, output: str | None, fmt: str, target: str | None) -> None:
+@click.option(
+    "--protocol",
+    type=click.Choice(["rest", "openai", "mcp", "a2a", "browser", "auto"], case_sensitive=False),
+    default=None,
+    help="Override protocol type (used with --target).",
+)
+def poc(
+    result_file: str, output: str | None, fmt: str, target: str | None, protocol: str | None
+) -> None:
     """Generate proof-of-concept exploit scripts from scan results.
 
     Creates reproducible PoC artifacts for all confirmed vulnerabilities
@@ -1106,9 +1114,10 @@ def poc(result_file: str, output: str | None, fmt: str, target: str | None) -> N
         ziran poc ./ziran_results/campaign_123_report.json --format python
         ziran poc ./ziran_results/campaign_123_report.json -o ./my_pocs/
         ziran poc ./ziran_results/campaign_123_report.json --target ./target.yaml
+        ziran poc ./ziran_results/campaign_123_report.json --target t.yaml --protocol openai
     """
     from ziran.application.poc.generator import PoCGenerator
-    from ziran.domain.entities.target import TargetConfigError, load_target_config
+    from ziran.domain.entities.target import ProtocolType, TargetConfigError, load_target_config
 
     filepath = Path(result_file)
     try:
@@ -1116,6 +1125,8 @@ def poc(result_file: str, output: str | None, fmt: str, target: str | None) -> N
     except TargetConfigError as e:
         console.print(f"[bold red]Error loading target:[/bold red] {e}")
         sys.exit(1)
+    if poc_target is not None and protocol:
+        poc_target.protocol = ProtocolType(protocol)
 
     try:
         with filepath.open() as f:

@@ -77,6 +77,13 @@ class PoCGenerator:
         self.config = config or PoCConfig.default()
         self.target = target
 
+    def _http_target(self) -> bool:
+        """True when the target speaks a protocol the scripts reproduce over plain HTTP."""
+        return self.target is not None and self.target.protocol in (
+            ProtocolType.OPENAI,
+            ProtocolType.REST,
+        )
+
     def _request(self, prompt: str, endpoint: str | None) -> tuple[str, str, dict[str, Any]]:
         """Method, URL and JSON body the target's protocol handler sends for ``prompt``.
 
@@ -167,7 +174,7 @@ class PoCGenerator:
             path = self.generate_python_poc(result, campaign_result.campaign_id)
             generated.append(path)
 
-        if self.target is not None:
+        if self._http_target():
             for result in successful:
                 generated.append(
                     self.generate_curl_poc(result, campaign_id=campaign_result.campaign_id)
@@ -185,19 +192,36 @@ class PoCGenerator:
         campaign_id: str = "unknown",
         endpoint: str | None = None,
     ) -> Path:
-        """Generate a standalone Python PoC script (httpx only) for a single finding.
+        """Generate a Python PoC script for a single finding.
+
+        For an ``openai`` or ``rest`` target the script is standalone (httpx
+        only) and sends the target's request. Otherwise it defines
+        ``reproduce(adapter)`` for a configured ZIRAN adapter, as before.
 
         Args:
             result: Successful attack result.
             campaign_id: Campaign identifier for traceability.
-            endpoint: URL to send to instead of the target's.
+            endpoint: URL to send to instead of the target's (HTTP script only).
 
         Returns:
             Path to the generated Python script.
         """
         tpl = self.config.python_template
-        imports_block = "\n".join(f"import {m}" for m in tpl.imports)
-        method, url, body = self._request(result.prompt_used or "", endpoint)
+        http = self._http_target()
+        if http:
+            method, url, body = self._request(result.prompt_used or "", endpoint)
+            usage = _PY_HTTP_USAGE
+            imports_block = "import json\nimport sys\n\nimport httpx"
+            request = (
+                f"METHOD = {method!r}\nDEFAULT_ENDPOINT = {url!r}\n"
+                f"BODY = json.loads({json.dumps(body)!r})\n"
+            )
+            reproduce = _PY_HTTP_REPRODUCE
+        else:
+            usage = "Run it against the same agent configuration to validate the issue."
+            imports_block = "\n".join(f"import {m}" for m in tpl.imports)
+            request = ""
+            reproduce = _PY_ADAPTER_REPRODUCE
 
         # Every finding value goes in as a repr() literal: none is pasted into
         # the docstring, an f-string or a comment, so no value can end a quote.
@@ -206,14 +230,9 @@ class PoCGenerator:
             {shebang}
             """Proof-of-Concept that reproduces a confirmed ZIRAN finding.
 
-            Usage: python3 <this file> [ENDPOINT]   (needs httpx)
-            Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check.
+            {usage}
             """
 
-            import json
-            import sys
-
-            import httpx
             {imports_block}
 
             VECTOR_NAME = {vector_name}
@@ -225,11 +244,8 @@ class PoCGenerator:
             GENERATED = {generated}
             GENERATOR = {generator_label}
 
-            # ── Attack request ──────────────────────────────────────────
-            METHOD = {method}
-            DEFAULT_ENDPOINT = {endpoint}
-            BODY = json.loads({body})
-            ATTACK_PROMPT = {prompt}
+            # ── Attack payload ──────────────────────────────────────────
+            {request}ATTACK_PROMPT = {prompt}
 
             # ── Expected indicators ─────────────────────────────────────
             SUCCESS_INDICATORS = {indicators}
@@ -238,54 +254,19 @@ class PoCGenerator:
             VULNERABLE_TOOL_MATCH = {vulnerable_tool_match}
             NOT_REPRODUCED = {not_reproduced}
 
-
-            def _texts(value, tool_calls):
-                """Every string in a parsed JSON reply; non-empty tool_calls go to tool_calls."""
-                if isinstance(value, str):
-                    return [value]
-                if isinstance(value, dict):
-                    if value.get("tool_calls"):
-                        tool_calls.append(value["tool_calls"])
-                    value = list(value.values())
-                if not isinstance(value, list):
-                    return []
-                return [text for item in value for text in _texts(item, tool_calls)]
-
-
-            def reproduce(endpoint=DEFAULT_ENDPOINT):
-                """Send the attack request; return 0 reproduced, 1 not, 2 nothing to check."""
-                print("[*] Sending attack payload to " + endpoint)
-                reply = httpx.request(METHOD, endpoint, json=BODY, timeout=120.0)
-                print("[*] Agent response (HTTP " + str(reply.status_code) + ", first 200 chars):")
-                print("    " + reply.text[:200])
-                try:
-                    data = reply.json()
-                except ValueError:
-                    data = reply.text
-                tool_calls = []
-                content_lower = "\\n".join(_texts(data, tool_calls)).lower()
-                matched = [ind for ind in SUCCESS_INDICATORS if ind.lower() in content_lower]
-
-                if matched:
-                    print("[!] " + VULNERABLE_TEXT_MATCH.replace("{{matched}}", str(matched)))
-                    return 0
-                if SUCCESS_INDICATORS:
-                    print("[-] " + NOT_REPRODUCED)
-                    return 1
-                if tool_calls:
-                    print("[!] " + VULNERABLE_TOOL_MATCH)
-                    return 0
-                print("[-] No text indicator recorded: check the agent's tool log")
-                return 2
-
+            {reproduce}
 
             if __name__ == "__main__":
                 print("=" * 60)
                 print("ZIRAN Proof-of-Concept: " + {display_name})
                 print("=" * 60)
+                print()
         ''').format(
             shebang=tpl.shebang,
+            usage=usage,
             imports_block=imports_block,
+            request=request,
+            reproduce=reproduce,
             vector_name=repr(result.vector_name),
             display_name=repr(_printable(result.vector_name)),
             campaign_id=repr(campaign_id),
@@ -295,9 +276,6 @@ class PoCGenerator:
             owasp=repr(_owasp_ids(result)),
             generated=repr(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
             generator_label=repr(self.config.generator_label),
-            method=repr(method),
-            endpoint=repr(url),
-            body=repr(json.dumps(body)),
             prompt=repr(result.prompt_used or ""),
             indicators=repr(_indicators(result)),
             vulnerable_text_match=repr(tpl.vulnerable_text_match),
@@ -305,12 +283,13 @@ class PoCGenerator:
             not_reproduced=repr(tpl.not_reproduced),
         )
 
-        # Append run instructions from config
-        for instruction in tpl.run_instructions:
-            script += f"    print({instruction!r})\n"
-
-        script += "    print()\n"
-        script += "    sys.exit(reproduce(*sys.argv[1:2]))\n"
+        if http:
+            script += "    sys.exit(reproduce(*sys.argv[1:2]))\n"
+        else:
+            for instruction in tpl.run_instructions:
+                script += f"    print({instruction!r})\n"
+            script += "    print()\n"
+            script += "    sys.exit(0)\n"
 
         return self._write(
             f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.py", script
@@ -526,6 +505,94 @@ class PoCGenerator:
         md.new_paragraph(f"*Generated by {ziran_link} — {tpl.footer_tagline}*")
 
         return self._write(filename, md.get_md_text())
+
+
+# ── Python PoC bodies (plain text, never passed through str.format) ──
+
+_PY_HTTP_USAGE = """Usage: python3 <this file> [ENDPOINT]   (needs httpx)
+Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check."""
+
+_PY_HTTP_REPRODUCE = '''
+def _texts(value, tool_calls):
+    """Every string in a parsed JSON reply; non-empty tool_calls go to tool_calls."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        if value.get("tool_calls"):
+            tool_calls.append(value["tool_calls"])
+        value = list(value.values())
+    if not isinstance(value, list):
+        return []
+    return [text for item in value for text in _texts(item, tool_calls)]
+
+
+def reproduce(endpoint=DEFAULT_ENDPOINT):
+    """Send the attack request; return 0 reproduced, 1 not, 2 nothing to check."""
+    print("[*] Sending attack payload to " + endpoint)
+    reply = httpx.request(METHOD, endpoint, json=BODY, timeout=120.0)
+    print("[*] Agent response (HTTP " + str(reply.status_code) + ", first 200 chars):")
+    print("    " + reply.text[:200])
+    try:
+        data = reply.json()
+    except ValueError:
+        data = reply.text
+    tool_calls = []
+    content_lower = "\\n".join(_texts(data, tool_calls)).lower()
+    matched = [ind for ind in SUCCESS_INDICATORS if ind.lower() in content_lower]
+
+    if matched:
+        print("[!] " + VULNERABLE_TEXT_MATCH.replace("{matched}", str(matched)))
+        return 0
+    if SUCCESS_INDICATORS:
+        print("[-] " + NOT_REPRODUCED)
+        return 1
+    if tool_calls:
+        print("[!] " + VULNERABLE_TOOL_MATCH)
+        return 0
+    print("[-] No text indicator recorded: check the agent's tool log")
+    return 2
+'''
+
+_PY_ADAPTER_REPRODUCE = '''
+async def reproduce(adapter):
+    """Send the attack payload and check for success indicators.
+
+    Args:
+        adapter: A configured ZIRAN BaseAgentAdapter instance.
+
+    Returns:
+        True if the vulnerability is confirmed, False otherwise.
+    """
+    print(f"[*] Sending attack prompt: {ATTACK_PROMPT[:80]}...")
+    response = await adapter.invoke(ATTACK_PROMPT)
+
+    print(f"[*] Agent response (first 200 chars):")
+    print(f"    {response.content[:200]}")
+
+    # Check text indicators
+    content_lower = response.content.lower()
+    matched = [
+        ind for ind in SUCCESS_INDICATORS
+        if ind.lower() in content_lower
+    ]
+
+    # Check tool call side-effects
+    if response.tool_calls:
+        print(f"[!] Agent executed {len(response.tool_calls)} tool(s):")
+        for tc in response.tool_calls:
+            tool_name = tc.get("tool") or tc.get("name") or "unknown"
+            print(f"    - {tool_name}")
+
+    if matched:
+        print("[!] " + VULNERABLE_TEXT_MATCH.replace("{matched}", str(matched)))
+        return True
+    elif response.tool_calls:
+        print("[!] " + VULNERABLE_TOOL_MATCH)
+        return True
+    else:
+        print("[-] " + NOT_REPRODUCED)
+        return False
+'''
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

@@ -190,16 +190,20 @@ def test_python_poc_reproduces_a_leak_and_not_a_fix(tmp_path: Path, stub: _Stub)
     stub.reply = "I can't share that. (llm_judge_verdict shell (runs commands))"
     fixed = _run(cmd, work)
     assert fixed.returncode == 1, fixed.stdout + fixed.stderr
-    tree = ast.parse(py.read_text(encoding="utf-8"))
-    imported = {
+    assert sorted(_imports(py)) == ["httpx", "json", "sys"]  # once each, no asyncio
+
+
+def _imports(script: Path) -> list[str]:
+    """Every module a script imports, one entry per import."""
+    tree = ast.parse(script.read_text(encoding="utf-8"))
+    return [
         alias.name.split(".")[0]
         for node in ast.walk(tree)
         if isinstance(node, ast.Import | ast.ImportFrom)
         for alias in (
             node.names if isinstance(node, ast.Import) else [ast.alias(node.module or "")]
         )
-    }
-    assert imported - set(sys.stdlib_module_names) == {"httpx"}
+    ]
 
 
 def test_pocs_send_the_handlers_request(tmp_path: Path, stub: _Stub) -> None:
@@ -371,3 +375,107 @@ def test_scan_hands_the_detected_protocol_to_the_pocs(tmp_path: Path) -> None:
     assert run.exit_code == 0, run.output
     assert save.call_args.kwargs["target"].protocol == ProtocolType.OPENAI
     assert config.protocol == ProtocolType.AUTO  # the loaded config is not mutated
+
+
+@pytest.mark.parametrize("target", [None, "mcp", "a2a", "browser", "auto"])
+def test_without_an_http_target_the_python_poc_drives_an_adapter(
+    tmp_path: Path, target: str | None
+) -> None:
+    # Framework scans (in-process agents) and non-HTTP protocols have no request to send.
+    config = None if target is None else TargetConfig(url="https://a.example", protocol=target)
+    py = PoCGenerator(tmp_path, target=config).generate_python_poc(_result(), "c")
+    source = py.read_text(encoding="utf-8")
+
+    assert "\nasync def reproduce(adapter):\n" in source
+    assert "asyncio.run(reproduce(your_adapter))" in source
+    assert "httpx" not in _imports(py)
+    driver = (
+        "import asyncio, runpy, sys, types\n"
+        "class Adapter:\n"
+        "    async def invoke(self, prompt):\n"
+        "        return types.SimpleNamespace(content=sys.argv[2], tool_calls=[])\n"
+        "module = runpy.run_path(sys.argv[1])\n"
+        "sys.exit(0 if asyncio.run(module['reproduce'](Adapter())) else 1)\n"
+    )
+    leak = subprocess.run([sys.executable, "-c", driver, str(py), CANARY], check=False)
+    fixed = subprocess.run([sys.executable, "-c", driver, str(py), "no"], check=False)
+    assert (leak.returncode, fixed.returncode) == (0, 1)
+
+
+@pytest.mark.parametrize("protocol", ["mcp", "a2a", "browser", "auto"])
+def test_generate_all_writes_no_curl_poc_outside_openai_and_rest(
+    tmp_path: Path, protocol: str
+) -> None:
+    from ziran.domain.entities.phase import CampaignResult
+
+    campaign = CampaignResult(
+        campaign_id="c3",
+        target_agent="agent",
+        phases_executed=[],
+        attack_results=[_result().model_dump(mode="json")],
+        total_vulnerabilities=1,
+        final_trust_score=0.1,
+        success=True,
+    )
+    target = TargetConfig(url="https://a.example", protocol=protocol)
+
+    paths = PoCGenerator(tmp_path, target=target).generate_all(campaign)
+
+    assert sorted(p.suffix for p in paths) == [".md", ".py"]
+
+
+def test_python_poc_checks_indicators_before_tool_calls(tmp_path: Path) -> None:
+    server = _Stub("openai")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        _, py, work = _pocs(tmp_path, server, _result())
+        server.reply = "I can't share that."
+        server.tool_calls = [{"id": "1", "function": {"name": "shell", "arguments": "{}"}}]
+
+        run = _run([sys.executable, "-I", str(py)], work)
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    # A recorded indicator decides: a tool call alone does not reproduce a text finding.
+    assert run.returncode == 1, run.stdout
+
+
+def test_curl_poc_matches_indicators_case_insensitively(tmp_path: Path, stub: _Stub) -> None:
+    curl, _, work = _pocs(tmp_path, stub, _result())
+    stub.reply = f"the key is {CANARY.lower()}"
+
+    assert _run(["bash", str(curl)], work).returncode == 0
+
+
+def test_poc_protocol_option_overrides_an_auto_target(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    from ziran.domain.entities.phase import CampaignResult
+    from ziran.interfaces.cli.main import cli
+
+    campaign = CampaignResult(
+        campaign_id="c4",
+        target_agent="agent",
+        phases_executed=[],
+        attack_results=[_result().model_dump(mode="json")],
+        total_vulnerabilities=1,
+        final_trust_score=0.1,
+        success=True,
+    )
+    report = tmp_path / "report.json"
+    report.write_text(campaign.model_dump_json())
+    target = tmp_path / "target.yaml"
+    target.write_text("url: http://127.0.0.1:9\n")
+    out = tmp_path / "out"
+
+    def run(*extra: str) -> str:
+        args = ["poc", str(report), "--format", "curl", "--target", str(target), "-o", str(out)]
+        result = CliRunner().invoke(cli, [*args, *extra])
+        assert result.exit_code == 0, result.output
+        return (out / "poc_canary_leak_c4.sh").read_text()
+
+    assert "DEFAULT_ENDPOINT=http://127.0.0.1:9\n" in run()  # auto is not resolved by poc
+    assert "DEFAULT_ENDPOINT=http://127.0.0.1:9/v1/chat/completions\n" in run(
+        "--protocol", "openai"
+    )

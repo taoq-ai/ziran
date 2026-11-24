@@ -224,19 +224,31 @@ ziran poc RESULT_FILE [OPTIONS]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--output`, `-o` | `.` | Output directory |
+| `--output`, `-o` | `<result dir>/pocs` | Output directory |
 | `--format` | `all` | PoC format: `python`, `curl`, `markdown`, `all` |
-| `--target` | none | Target YAML the scan used. The PoCs then send the request that target's protocol takes (`openai`: `POST {url}/v1/chat/completions`; `rest`: the configured method, path and body). Without it they post `{"message": ...}` to `http://localhost:8000/invoke`. |
+| `--target` | none | Target YAML the scan used. With an `openai` or `rest` protocol, the PoCs send that protocol's request (`openai`: `POST {url}/v1/chat/completions`; `rest`: the configured method, path and body). |
+| `--protocol` | none | Override the target's protocol, as in `scan` (used with `--target`). |
 
-`ziran scan --target` writes the Python and cURL PoCs this way on its own, with the detected protocol when the config says `auto`.
+`poc` reads the protocol from the YAML only. A config that says `auto` (the default) is not resolved here, so it falls back to the forms below unless you pass `--protocol`. `ziran scan --target` uses the protocol it detected.
 
-Each PoC takes an optional endpoint as its first argument and checks the reply for the matched indicators found in the scan's recorded reply. The Python PoC needs only `httpx`. Exit codes: `0` reproduced, `1` not reproduced, `2` the finding has no text indicator to check (the Python PoC then reports tool calls in the reply as reproduced). Auth headers are not written into the scripts; add them by hand.
+With an `openai` or `rest` target:
+
+- The Python PoC is a standalone script that needs only `httpx`.
+- The cURL PoC sends the same request. `scan --target` writes it beside the Python PoC.
+- Each script takes an optional endpoint as its first argument. It checks the reply for the matched indicators found in the reply the scan recorded.
+- Exit codes: `0` reproduced, `1` not reproduced, `2` the finding has no text indicator to check. In that last case the Python PoC reports tool calls in the reply as reproduced.
+- Auth headers are not written into the scripts, so add them by hand.
+
+With no target, or another protocol (`mcp`, `a2a`, `browser`, unresolved `auto`):
+
+- The Python PoC defines `reproduce(adapter)`. Run it with `asyncio.run(reproduce(adapter))` and a configured ZIRAN adapter, as before.
+- `--format curl` posts `{"message": ...}` to the target URL, or to `http://localhost:8000/invoke` with no target. `scan` writes no cURL PoC for these targets.
 
 **Examples:**
 
 ```bash
 ziran poc results.json --format python --output ./pocs/
-ziran poc results.json --format curl --target target.yaml
+ziran poc results.json --format curl --target target.yaml --protocol openai
 bash pocs/poc_<vector>_<campaign>.sh https://agent.example.com/v1/chat/completions
 ```
 
