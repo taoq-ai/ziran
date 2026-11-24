@@ -142,10 +142,13 @@ class AgentScanner:
             config: Optional configuration overrides.
                 Supported keys:
                 - ``attack_timeout`` (float): Per-attack timeout in seconds.
-                - ``phase_timeout`` (float): Per-phase timeout in seconds.
+                - ``phase_timeout`` (float): Per-phase timeout in seconds; a phase with
+                  ``tactic: pair`` vectors gets extra time for them (spec 081).
                 - ``llm_client`` / ``detector_config``: LLM client / DetectorConfig for detectors.
                 - ``usage_ledger``, ``max_campaign_tokens``, ``max_cost``: usage budget (spec 047).
                 - ``scan_cache`` (ScanCache): opt-in per-vector result cache (spec 049).
+                - ``attacker_llm_client``: runs ``tactic: pair`` vectors (spec 081). Pass it
+                  unwrapped: a ``track()`` wrapper counts its tokens twice.
         """
         self.adapter = adapter
         self.config = config or {}
@@ -266,6 +269,8 @@ class AgentScanner:
             encoding=encoding,
             n_shots=(int(n) if (n := self.config.get("n_shots")) is not None else None),
             context_window=int(self.config.get("context_window", 200_000)),
+            attacker=self.config.get("attacker_llm_client"),
+            budget=self._budget,
         )
         phase_executor = PhaseExecutor(
             attack_executor,
@@ -691,6 +696,8 @@ class AgentScanner:
             streaming=streaming_val,
             emitter=emitter,
             encoding=encoding_val,
+            attacker=self.config.get("attacker_llm_client"),
+            budget=self._budget,
         )
         pe = PhaseExecutor(
             attack_executor,
@@ -728,6 +735,8 @@ class AgentScanner:
             streaming=streaming_val,
             emitter=emitter,
             encoding=encoding_val,
+            attacker=self.config.get("attacker_llm_client"),
+            budget=self._budget,
         )
         return await executor.execute(attack)
 

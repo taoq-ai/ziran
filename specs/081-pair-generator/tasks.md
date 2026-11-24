@@ -49,11 +49,12 @@ and scripted attacker):
 - [x] B004 Implement `ziran/application/attacks/pair.py` per plan section 2, with the cost warning in
    its docstring and no runtime import from `ziran.infrastructure` other than logging.
 
-Phase 3, wiring (`tests/unit/test_phase_executor_pair.py`); `[x]` items are in PR 1:
+Phase 3, wiring (`tests/unit/test_phase_executor_pair.py`, and `tests/unit/test_pair_wiring.py` for
+the PR 2 items):
 
 5. B005 Failing tests, with `pair.PAIR_GRACE_SECONDS` patched to 0.05 so the timers
    stay under a second:
-   - [ ] (PR 2) `AttackExecutor` sends `tactic: pair` to `PairExecutor` and other tactics as before;
+   - [x] (PR 2) `AttackExecutor` sends `tactic: pair` to `PairExecutor` and other tactics as before;
      `AgentScanner` passes `attacker_llm_client` unchanged and its budget.
    - [x] Deadline: a PAIR vector stops with `pair.stop == "timeout"` and a best attempt, and is
      recorded. Built with scaled timers (phase 0.1 s, PAIR 0.3 s, slot opening at 0.3 s): with the
@@ -69,16 +70,16 @@ Phase 3, wiring (`tests/unit/test_phase_executor_pair.py`); `[x]` items are in P
      acquires the slot, not 0.3 s after it was queued.
    - [x] A PAIR vector that gets its slot with less than the grace left is recorded as an error with
      no target call.
-   - [ ] (PR 2) With `scan_cache` on, a failed PAIR result writes no entry.
+   - [x] (PR 2) With `scan_cache` on, a failed PAIR result writes no entry.
 6. B006 [x] Plan section 3 in PR 1: the helpers in `attacks/pair.py` (the 400-line budget of
-   `phase_executor.py`), their call sites in `phase_executor.py`, and the `deadline` keyword. [ ] (PR 2)
+   `phase_executor.py`), their call sites in `phase_executor.py`, and the `deadline` keyword. [x] (PR 2)
    Wire `TacticType.PAIR`, the `tactic` description, `attack_executor.py`, `scanner.py` (with
    the `track()` double-count warning in the `attacker_llm_client` docstring), the dispatch in `attack_executor.py`
    and `scan_cache.is_cacheable` (plan section 5).
 
 PR 2, phase 4, docs and gates:
 
-7. B007 Add the cost warning and a `tactic: pair` YAML example to `docs/concepts/attack-vectors.md`.
-8. B008 Run the touched test files under `timeout 120`, `uv run ruff check .`,
+7. B007 [x] (PR 2) Add the cost warning and a `tactic: pair` YAML example to `docs/concepts/attack-vectors.md`.
+8. B008 [x] (PR 2) Run the touched test files under `timeout 120`, `uv run ruff check .`,
    `uv run ruff format --check .` and `uv run mypy ziran/`; take the full suite and coverage from
    CI.
