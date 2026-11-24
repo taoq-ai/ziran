@@ -226,12 +226,18 @@ ziran poc RESULT_FILE [OPTIONS]
 |--------|---------|-------------|
 | `--output`, `-o` | `.` | Output directory |
 | `--format` | `all` | PoC format: `python`, `curl`, `markdown`, `all` |
+| `--target` | none | Target YAML the scan used. The PoCs then send the request that target's protocol takes (`openai`: `POST {url}/v1/chat/completions`; `rest`: the configured method, path and body). Without it they post `{"message": ...}` to `http://localhost:8000/invoke`. |
+
+`ziran scan --target` writes the Python and cURL PoCs this way on its own, with the detected protocol when the config says `auto`.
+
+Each PoC takes an optional endpoint as its first argument and checks the reply for the matched indicators found in the scan's recorded reply. The Python PoC needs only `httpx`. Exit codes: `0` reproduced, `1` not reproduced, `2` the finding has no text indicator to check (the Python PoC then reports tool calls in the reply as reproduced). Auth headers are not written into the scripts; add them by hand.
 
 **Examples:**
 
 ```bash
 ziran poc results.json --format python --output ./pocs/
-ziran poc results.json --format curl
+ziran poc results.json --format curl --target target.yaml
+bash pocs/poc_<vector>_<campaign>.sh https://agent.example.com/v1/chat/completions
 ```
 
 ---

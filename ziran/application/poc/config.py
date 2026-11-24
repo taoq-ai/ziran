@@ -35,16 +35,10 @@ class PythonPoCTemplate(BaseModel):
 
     run_instructions: list[str] = Field(
         default_factory=lambda: [
-            "To reproduce, configure your agent adapter and call:",
-            "  asyncio.run(reproduce(your_adapter))",
-            "",
-            "Example with LangChain:",
-            "  from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter",
-            "  adapter = LangChainAdapter(your_agent_executor)",
-            "  asyncio.run(reproduce(adapter))",
+            "Pass an endpoint as the first argument to send the request elsewhere.",
         ],
     )
-    """Lines printed when the PoC is executed directly."""
+    """Lines printed when the PoC starts, before it sends the request."""
 
     vulnerable_text_match: str = "VULNERABLE — Matched indicators: {matched}"
     """Template for the success message when text indicators match."""

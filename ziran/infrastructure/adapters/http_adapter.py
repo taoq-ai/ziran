@@ -146,6 +146,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     def __init__(self, config: TargetConfig) -> None:
         self._config = config
+        self.protocol: ProtocolType = config.protocol
+        """The protocol in use: the configured one, or the detected one once ``auto`` resolves."""
         self._conversation: list[dict[str, str]] = []
         self._tool_observations: list[dict[str, Any]] = []
         self._session_id = ""
@@ -170,6 +172,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
             logger.info("protocol_auto_detected", protocol=protocol)
 
         self._handler = self._create_handler(protocol)
+        self.protocol = protocol
         self._session_id = f"ziran-{int(time.time())}"
 
     # ── BaseAgentAdapter Implementation ──────────────────────────

@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Any
 from mdutils.mdutils import MdUtils
 
 from ziran.application.poc.config import PoCConfig
-from ziran.domain.entities.target import ProtocolType
+from ziran.domain.entities.target import OpenAIConfig, ProtocolType, RestConfig
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -87,8 +87,8 @@ class PoCGenerator:
         if target is None:
             url = self.config.curl_template.default_endpoint
             return "POST", endpoint or url, {"message": prompt}
-        if target.protocol == ProtocolType.OPENAI and target.openai is not None:
-            oa = target.openai
+        if target.protocol == ProtocolType.OPENAI:
+            oa = target.openai or OpenAIConfig()
             body: dict[str, Any] = {
                 "model": oa.model,
                 "messages": [{"role": "user", "content": prompt}],
@@ -98,8 +98,8 @@ class PoCGenerator:
             if oa.max_tokens is not None:
                 body["max_tokens"] = oa.max_tokens
             return "POST", endpoint or f"{target.normalized_url}/v1/chat/completions", body
-        if target.protocol == ProtocolType.REST and target.rest is not None:
-            rest = target.rest
+        if target.protocol == ProtocolType.REST:
+            rest = target.rest or RestConfig()
             url = target.normalized_url
             if rest.request_path:
                 url = f"{url}/{rest.request_path.lstrip('/')}"
