@@ -21,9 +21,11 @@ from ziran.application.attacks.pair import PairExecutor
 from ziran.application.cicd.gate import QualityGate
 from ziran.application.cicd.github_actions import review_note, write_step_summary
 from ziran.application.cicd.sarif import campaign_from_sarif, generate_sarif
+from ziran.application.detectors import side_effect as side_effect_module
 from ziran.application.detectors.authorization import AuthorizationDetector
 from ziran.application.detectors.pipeline import DetectorConfig, DetectorPipeline
-from ziran.application.detectors.provenance import call_args, call_name
+from ziran.application.detectors.provenance import ProvenanceInputError, call_args, call_name
+from ziran.application.detectors.side_effect import SideEffectDetector
 from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
 from ziran.domain.entities.detection import DetectorResult
 from ziran.domain.entities.phase import CampaignResult, ScanPhase
@@ -587,3 +589,45 @@ def test_ziran_ci_prints_the_count_and_fails_nothing(tmp_path: Path) -> None:
     again = CliRunner().invoke(cli, ["ci", str(sarif)])
     assert again.exit_code == 0
     assert "1 vector(s) with signals to review" in again.output
+
+
+# ── a reply with no tool call costs no pass over the prompt ───────────
+
+
+def _side_effect(meta: dict[str, Any], calls: list[dict[str, Any]] | None = None) -> DetectorResult:
+    response = AgentResponse(content=PLAIN, tool_calls=calls or [], metadata=meta)
+    return SideEffectDetector().detect(ATTACK, response, SPEC)
+
+
+def test_a_reply_with_no_tool_call_skips_the_pass_over_the_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    before = _side_effect({"payload": [ATTACK]})
+    assert (before.score, before.confidence, before.evidence) == (0.5, 0.2, None)
+    monkeypatch.setattr(side_effect_module, "provenance", lambda *_a, **_k: pytest.fail("ran"))
+    assert _side_effect({"payload": [ATTACK]}) == before
+    assert _side_effect({"payload": [ATTACK], "model": "m"}) == before
+
+
+@pytest.mark.parametrize(
+    "meta",
+    [
+        {"payload": "not a list"},
+        {"payload": [ATTACK, 3]},
+        {"payload": [ATTACK], "tool_results": "not a list"},
+        {"trusted_task": " "},
+    ],
+)
+def test_a_malformed_key_still_raises_with_no_tool_call(meta: dict[str, Any]) -> None:
+    with pytest.raises(ProvenanceInputError):
+        _side_effect(meta)
+
+
+def test_a_known_task_with_no_tool_call_keeps_its_record() -> None:
+    r = _side_effect({"trusted_task": "Summarise my inbox.", "payload": [ATTACK]})
+    assert (r.score, r.confidence) == (0.5, 0.5)
+    assert r.reasoning.startswith("P1")
+
+
+def test_a_tool_call_still_gets_the_pass() -> None:
+    assert _side_effect({"payload": [ATTACK]}, CANARY).evidence == "canary"

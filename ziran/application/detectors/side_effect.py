@@ -77,14 +77,27 @@ class SideEffectDetector:
             ProvenanceInputError: a provenance key in ``response.metadata`` is malformed
                 or mixed up (spec 063).
         """
-        prov = provenance(prompt, response, vector)
-        meta = response.metadata if isinstance(response.metadata, dict) else {}
-        # A known task accounts for every call (spec 063). A scan knows only its own
-        # prompt: a call with no value of it keeps its name tier, as a signal.
-        if prov.hit or (prov.state != "not_applicable" and meta.get("trusted_task") is not None):
-            return self._provenance_result(prov, response.tool_calls)
-
         tool_calls = response.tool_calls
+        meta = response.metadata if isinstance(response.metadata, dict) else {}
+        payload = meta.get("payload")
+        # A scan's reply with no tool call: no call can hold a value, so the pass over the
+        # prompt (long, for a many-shot one) is skipped. The result is the one it would give.
+        scan_reply_without_calls = (
+            not tool_calls
+            and meta.get("trusted_task") is None
+            and "tool_results" not in meta
+            and isinstance(payload, list)
+            and all(isinstance(text, str) for text in payload)
+        )
+        if not scan_reply_without_calls:
+            prov = provenance(prompt, response, vector)
+            # A known task accounts for every call (spec 063). A scan knows only its own
+            # prompt: a call with no value of it keeps its name tier, as a signal.
+            if prov.hit or (
+                prov.state != "not_applicable" and meta.get("trusted_task") is not None
+            ):
+                return self._provenance_result(prov, tool_calls)
+
         if not tool_calls:
             return DetectorResult(
                 detector_name=self.name,
