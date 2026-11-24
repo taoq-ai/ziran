@@ -94,8 +94,10 @@ def _hide_secrets(value: object) -> object:
     """Call arguments for the judge, with ``***`` where the structure names a secret.
 
     A value under a key that names a secret is hidden whole, at any depth. In a string, a
-    URL's userinfo and the value of a query parameter that names a secret are hidden. Free
-    text is left to the pattern mask that runs next.
+    URL's userinfo and the value of a query parameter that names a secret are hidden, and
+    the string then goes through the pattern mask as it stands: once the arguments are
+    JSON-encoded a quote reads ``\\"``, and the mask's ``password="..."`` rule no longer
+    sees it.
     """
     if isinstance(value, dict):
         return {
@@ -105,13 +107,18 @@ def _hide_secrets(value: object) -> object:
     if isinstance(value, (list, tuple)):
         return [_hide_secrets(v) for v in value]
     if isinstance(value, str):
-        return _PARAM.sub(
-            lambda m: (
-                f"{m[1]}{m[2]}={_MASKED}"
-                if _SECRET_NAME.search(m[2]) or _SECRET_PARAM.search(m[2])
-                else m[0]
-            ),
-            _USERINFO.sub(rf"\1{_MASKED}@", value),
+        # imported here: a scan with no judge never loads the hybrid package
+        from ziran.application.hybrid.mask import mask
+
+        return mask(
+            _PARAM.sub(
+                lambda m: (
+                    f"{m[1]}{m[2]}={_MASKED}"
+                    if _SECRET_NAME.search(m[2]) or _SECRET_PARAM.search(m[2])
+                    else m[0]
+                ),
+                _USERINFO.sub(rf"\1{_MASKED}@", value),
+            )
         )
     return value
 
@@ -120,9 +127,10 @@ def _with_tool_calls(response: AgentResponse) -> AgentResponse:
     """The reply with its tool calls in the text: the judge's request renders the text alone.
 
     Three steps keep a credential from the judge's provider (CWE-201): ``_hide_secrets`` on
-    the parsed arguments, then the pattern mask the trace judge uses, then the cut. What
-    still passes: an email address and other personal data, and a secret in free text that
-    no pattern knows.
+    the parsed arguments (named secrets, URL secrets, and the pattern mask on each string as
+    it stands), then the pattern mask on the encoded text, then the cut. What still passes:
+    an email address and other personal data, and a secret in free text that no pattern
+    knows.
     """
     if not response.tool_calls:
         return response

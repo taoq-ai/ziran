@@ -133,7 +133,7 @@ A configured judge is read before any signal: a judge that answers failure with 
 
 1. **Named secrets.** In the parsed arguments, a value under a key whose name says it is a secret is replaced by `***`, whole and at any depth. The name is matched in any case and anywhere in the key: `password`, `passwd`, `passphrase`, `secret` (so `client_secret`), `token` (so `access_token`), `api_key` and `apikey` (so `X-Api-Key`), `access_key`, `private_key`, `authorization`, `cookie`, `credential`, `signature`.
 2. **Secrets in a URL.** In every string, the userinfo of a URL (`postgres://user:pass@host` becomes `postgres://***@host`) and the value of a query parameter with one of those names, or named `key`, `sig` or `auth`, are replaced by `***`.
-3. **Known token shapes.** The rendered text goes through the pattern mask the trace judge uses: `sk-`, `ghp_` and similar prefixes, AWS key ids, bearer values, JWTs, PEM private keys, and quoted `password=` or `token=` assignments.
+3. **Known token shapes.** Each string argument goes through ziran's pattern mask as it stands, and the encoded text goes through it once more. The mask hides: provider token prefixes (`sk-`, `ghp_`, `github_pat_`, `glpat-`, `xox`, `AIza`, `hf_`, `npm_`, `pypi-` and similar), AWS key ids (`AKIA...`), bearer values, JWTs, PEM private keys, and an assignment whose name holds `password`, `token`, `api_key`, `secret_key` or `credential`, written with `=` or `:` and a value of 8 characters or more in single or double quotes (`password="..."`, `export TOKEN='...'`).
 
 The text is then cut at 4,000 characters.
 
@@ -145,7 +145,7 @@ What still reaches the judge's provider:
 - a JSON body passed as a string, such as `"body": "{\"password\": \"...\"}"`;
 - headers given as name and value pairs, such as `[{"name": "X-Api-Key", "value": "..."}]` or `[["X-Api-Key", "..."]]`;
 - a token in a URL fragment, such as `#access_token=...`;
-- an unquoted `password=...` in a raw string, such as a shell command;
+- in a raw string such as a shell command, an unquoted `password=...`, or a quoted one under 8 characters;
 - a secret in free text that no pattern knows, such as "the code is hunter2".
 
 Do not point the judge at a provider that must not see the target's data.

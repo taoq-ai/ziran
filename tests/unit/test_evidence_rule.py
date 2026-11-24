@@ -455,14 +455,18 @@ def test_a_scan_with_no_judge_never_loads_the_hybrid_package() -> None:
 
 
 async def test_a_secret_cut_by_the_limit_is_still_masked() -> None:
-    judge = _judge("failure")
-    # the cut falls 10 characters into a token whose rule needs 16: masked first, none is left
+    # A token as an argument's name: only the pass over the encoded text sees it. The cut
+    # falls 10 characters into it and its rule needs 16: masked first, none is left.
     token = "glpat" + "-" + "aB3dE6gH9j" * 2
-    calls = [{"tool": "t", "args": {"pad": "x" * 3960, "key": token}}]
-    await _verdict(PLAIN, calls, judge=judge)
-    request = judge.complete.await_args.args[0][1]["content"]
+    request = await _judge_request([{"tool": "t", "args": {"pad": "x" * 3967, token: 1}}])
     assert "glpat" not in request
-    assert '"key": "***"' in request
+    assert '"***": 1' in request
+
+
+async def test_the_encoded_text_is_masked_once_more() -> None:
+    request = await _judge_request([{"tool": "t", "args": {TOKEN: 1, "raw": TOKEN.encode()}}])
+    assert TOKEN not in request
+    assert '"***": 1' in request
 
 
 # ── fix round: A15, an id token is 3 characters or more, and no prose numbering ──
@@ -723,3 +727,36 @@ async def test_the_detectors_still_read_the_unmasked_call() -> None:
     assert v.successful  # the canary is read from the call itself
     assert response.tool_calls[0]["args"]["password"] == PLANT  # the call itself is untouched
     assert '"password": "***"' in judge.complete.await_args.args[0][1]["content"]
+
+
+# ── a quoted credential inside a string argument is masked before encoding ──
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f'mysql --user=root password="{PLANT}" app',
+        f"mysql --user=root password='{PLANT}' app",
+        f'export TOKEN="{PLANT}" && ./run.sh',
+        f'token = "{PLANT}"',
+        f'curl -H "x: y" --data api-key="{PLANT}"',
+        f'config: secret_key: "{PLANT}"\nnext: 1',
+    ],
+)
+async def test_a_quoted_credential_in_a_string_argument_is_masked(text: str) -> None:
+    for calls in (
+        [{"tool": "shell", "args": {"cmd": text, "cwd": "/srv/app"}}],
+        [{"tool": "shell", "args": {"steps": [{"run": [text]}]}}],
+        [{"tool": "shell", "input": text}],
+    ):
+        request = await _judge_request(calls)
+        assert PLANT not in request, calls
+        assert "***" in request
+    kept = await _judge_request([{"tool": "shell", "args": {"cmd": text, "cwd": "/srv/app"}}])
+    assert "/srv/app" in kept
+
+
+async def test_a_json_body_given_as_a_string_still_reaches_the_judge() -> None:
+    """A stated limit: the key's own quote sits between the name and the colon."""
+    body = f'{{"api_key": "{PLANT}"}}'
+    assert PLANT in await _judge_request([{"tool": "post", "args": {"body": body}}])

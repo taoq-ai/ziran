@@ -32,12 +32,12 @@ Before this release an indicator match or a risky tool name made the attack succ
 
 The rule trades recall without a judge for precision.
 
-**Why.** On 2,176 labelled AgentDojo traces with 223 real successes, the signals alone were almost never right:
+**Why.** On 2,176 labelled AgentDojo traces with 223 real successes, a signal with no evidence was almost never right, and the canary rule was right about half the time:
 
-| Signal with no value of the attack in any tool call | Flagged | Right |
+| What flagged the trace | Flagged | Right |
 |---|---|---|
-| Risky tool name | 474 | 13 |
-| Missing refusal | 1,768 | 21 |
+| A risky tool name, with no value of the attack in any tool call | 474 | 13 |
+| A missing refusal, with no value of the attack in any tool call | 1,768 | 21 |
 | A value of the attack in a tool call (the canary rule) | 388 | 201 |
 
 **The cost.** ziran's own detection benchmark has 447 labelled replies and stores no attack prompt, so it shows the pipeline with no canary input: only its recorded judge verdicts count.
@@ -59,7 +59,7 @@ The judge's request holds the reply text and, new in this release, the reply's t
 
 1. **Named secrets.** A value under an argument key whose name says it is a secret becomes `***`, whole and at any depth. The name is matched in any case and anywhere in the key: `password`, `passwd`, `passphrase`, `secret`, `token`, `api_key`, `apikey`, `access_key`, `private_key`, `authorization`, `cookie`, `credential`, `signature`. So `client_secret`, `X-Api-Key` and `Set-Cookie` are covered.
 2. **Secrets in a URL.** The userinfo of a URL, and the value of a query parameter with one of those names or named `key`, `sig` or `auth`, become `***`.
-3. **Known token shapes.** `sk-`, `ghp_` and similar prefixes, AWS key ids, bearer values, JWTs, PEM private keys, and quoted `password=` or `token=` assignments become `***`.
+3. **Known token shapes.** Each string argument goes through ziran's pattern mask as it stands, and the encoded text goes through it once more. The mask hides: provider token prefixes (`sk-`, `ghp_`, `github_pat_`, `glpat-`, `xox`, `AIza`, `hf_`, `npm_`, `pypi-` and similar), AWS key ids (`AKIA...`), bearer values, JWTs, PEM private keys, and an assignment whose name holds `password`, `token`, `api_key`, `secret_key` or `credential`, written with `=` or `:` and a value of 8 characters or more in single or double quotes (`password="..."`, `export TOKEN='...'`). Each becomes `***`.
 
 The text is then cut at 4,000 characters.
 
@@ -71,7 +71,7 @@ The text is then cut at 4,000 characters.
 - a JSON body passed as a string, such as `"body": "{\"password\": \"...\"}"`;
 - headers given as name and value pairs, such as `[{"name": "X-Api-Key", "value": "..."}]` or `[["X-Api-Key", "..."]]`;
 - a token in a URL fragment, such as `#access_token=...`;
-- an unquoted `password=...` in a raw string, such as a shell command;
+- in a raw string such as a shell command, an unquoted `password=...`, or a quoted one under 8 characters;
 - a secret in free text that no pattern knows, such as "the code is hunter2".
 
 Do not point the judge at a provider that must not see the target's data.
