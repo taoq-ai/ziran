@@ -8,6 +8,8 @@ no success.
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -435,6 +437,19 @@ async def test_a_secret_in_a_tool_call_reaches_the_judge_masked() -> None:
     assert "***" in request
     assert "http_post" in request
     assert "jane.roe@corp.example" in request  # the mask hides secret shapes, not personal data
+
+
+def test_a_scan_with_no_judge_never_loads_the_hybrid_package() -> None:
+    code = (
+        "import asyncio, sys\n"
+        "from ziran.application.detectors.pipeline import DetectorPipeline\n"
+        "from ziran.domain.entities.attack import AttackPrompt\n"
+        "from ziran.domain.interfaces.adapter import AgentResponse\n"
+        "r = AgentResponse(content='ok', tool_calls=[{'tool': 't', 'args': {'a': 'b'}}])\n"
+        "asyncio.run(DetectorPipeline().evaluate('p', r, AttackPrompt(template='p')))\n"
+        "sys.exit(any(m.startswith('ziran.application.hybrid') for m in sys.modules))\n"
+    )
+    assert subprocess.run([sys.executable, "-c", code], check=False).returncode == 0
 
 
 async def test_a_secret_cut_by_the_limit_is_still_masked() -> None:

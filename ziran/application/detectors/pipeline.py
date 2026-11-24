@@ -37,7 +37,6 @@ from ziran.application.detectors.refusal import RefusalDetector
 from ziran.application.detectors.semantic import SemanticDetector
 from ziran.application.detectors.side_effect import SideEffectDetector
 from ziran.application.detectors.thresholds import DetectorThresholds
-from ziran.application.hybrid.mask import mask
 from ziran.domain.entities.detection import DetectionVerdict, DetectorResult
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
@@ -85,6 +84,9 @@ def _with_tool_calls(response: AgentResponse) -> AgentResponse:
     """
     if not response.tool_calls:
         return response
+    # imported here: a scan with no judge never loads the hybrid package
+    from ziran.application.hybrid.mask import mask
+
     calls = "\n".join(
         f"- {call_name(c)} {json.dumps(call_args(c), default=str)}" for c in response.tool_calls
     )
