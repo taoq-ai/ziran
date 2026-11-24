@@ -399,8 +399,8 @@ class TestSarif:
     def test_no_radius_or_no_tools_keeps_properties(self) -> None:
         doc = generate_sarif(_result([_chain(), _chain("a", "b")], {HTTP: SHOWN}))
         assert [r["properties"] for r in _chain_rows(doc)] == [
-            {"tools": [], "vulnerability_type": "data_exfiltration"},
-            {"tools": ["a", "b"], "vulnerability_type": "data_exfiltration"},
+            {"tools": [], "vulnerability_type": "data_exfiltration", "severity": "high"},
+            {"tools": ["a", "b"], "vulnerability_type": "data_exfiltration", "severity": "high"},
         ]
 
     def test_attack_results_byte_identical(self) -> None:

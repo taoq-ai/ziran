@@ -572,6 +572,10 @@ CI/CD quality gate — evaluate results and emit integration outputs.
 ziran ci RESULT_FILE [OPTIONS]
 ```
 
+`RESULT_FILE` is a campaign result JSON or the SARIF ziran wrote from one (`--sarif`); both gate
+alike. A SARIF without ziran's run properties exits 1 and names them. See
+[Gate a scan's SARIF](../guides/cicd-integration.md#gate-a-scans-sarif).
+
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--gate-config`, `-g` | — | Quality gate YAML config |
@@ -586,6 +590,9 @@ ziran ci RESULT_FILE [OPTIONS]
 ```bash
 # Simple gate check
 ziran ci results.json --gate-config gate.yaml
+
+# Gate the SARIF a scan wrote
+ziran ci results.sarif --gate-config gate.yaml
 
 # Full CI pipeline
 ziran ci results.json \

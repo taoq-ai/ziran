@@ -280,6 +280,34 @@ type in `properties.vulnerability_type`. Each chain result lists its `tools`, an
 (plus `agents` for a delegated trifecta) when known. A chain the suppressions file suppresses
 carries a SARIF `suppressions` entry, so code scanning shows it as dismissed.
 
+### Gate a scan's SARIF
+
+`ziran ci` also takes the SARIF ziran wrote, so a pipeline that keeps only the SARIF can gate
+on it:
+
+```bash
+ziran ci results.json --sarif results.sarif   # once, where the scan result lives
+ziran ci results.sarif --gate-config gate.yaml
+```
+
+The SARIF gates exactly like the result it came from: the same pass or fail, violations and
+counts, with the same gate config and suppressions file. Each result carries its exact severity
+in `properties.severity` (level `error` is both critical and high), and the run carries the trust
+score and the other gate inputs in `runs[0].properties.ziran`. A SARIF from another tool, or from
+`ziran audit`, has no such properties: `ziran ci` exits 1 and names the missing ones
+(`target_agent`, `final_trust_score`, `success`). With `--sarif`, a SARIF input writes a new SARIF
+that keeps the gate fields but not messages or evidence.
+
+In the GitHub Action, pass the SARIF as `result-file`:
+
+```yaml
+- uses: taoq-ai/ziran@v0
+  with:
+    command: ci
+    result-file: results.sarif
+    sarif-output: ""
+```
+
 ## GitHub Actions Features
 
 ### Annotations

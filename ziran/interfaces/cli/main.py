@@ -1689,8 +1689,9 @@ def ci(
 ) -> None:
     """Evaluate campaign results for CI/CD quality gating.
 
-    Runs quality-gate checks against a scan result JSON file
-    and emits outputs suitable for CI/CD environments:
+    Runs quality-gate checks against a scan result JSON file, or the
+    SARIF ziran wrote from one, and emits outputs suitable for CI/CD
+    environments:
 
     \b
       - GitHub Actions annotations (::error / ::warning)
@@ -1704,6 +1705,7 @@ def ci(
         ziran ci results.json --gate-config gate.yaml --sarif results.sarif
         ziran ci results.json --no-github-annotations --sarif results.sarif
         ziran ci results.json --suppressions .ziran/suppressions.yaml
+        ziran ci results.sarif --gate-config gate.yaml
     """
     from ziran.application.cicd.gate import QualityGate, load_suppressions
     from ziran.application.cicd.github_actions import (
@@ -1711,16 +1713,19 @@ def ci(
         set_output,
         write_step_summary,
     )
-    from ziran.application.cicd.sarif import write_sarif
+    from ziran.application.cicd.sarif import campaign_from_sarif, write_sarif
 
     filepath = Path(result_file)
 
-    # 1. Load campaign result
+    # 1. Load campaign result, or the SARIF generate_sarif wrote from one (spec 093)
     try:
         with filepath.open() as f:
             data = json.load(f)
-        result = CampaignResult.model_validate(data)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+        if isinstance(data, dict) and "runs" in data:
+            result = campaign_from_sarif(data)
+        else:
+            result = CampaignResult.model_validate(data)
+    except (OSError, ValueError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
         sys.exit(1)
     except Exception as e:

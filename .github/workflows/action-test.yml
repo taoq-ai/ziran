@@ -61,6 +61,54 @@ jobs:
           fi
           echo "SARIF file size: $(wc -c < ziran-results.sarif) bytes"
 
+  test-ci-sarif:
+    name: "Test: ci command gates a ziran SARIF"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Gate the campaign JSON
+        id: json
+        uses: ./
+        with:
+          command: ci
+          result-file: tests/fixtures/sample_campaign_result.json
+          sarif-output: ""
+          ziran-version: "."
+        continue-on-error: true
+
+      - name: Write the SARIF of the same campaign
+        shell: bash
+        run: |
+          ziran ci tests/fixtures/sample_campaign_result.json --sarif results.sarif \
+            --no-github-annotations --no-github-summary > /dev/null || true
+          test -s results.sarif
+
+      - name: Gate the SARIF
+        id: sarif
+        uses: ./
+        with:
+          command: ci
+          result-file: results.sarif
+          sarif-output: ""
+          ziran-version: "."
+        continue-on-error: true
+
+      - name: Verify the SARIF gated like the JSON
+        shell: bash
+        run: |
+          for pair in \
+            "${{ steps.json.outputs.status }}|${{ steps.sarif.outputs.status }}" \
+            "${{ steps.json.outputs.exit-code }}|${{ steps.sarif.outputs.exit-code }}" \
+            "${{ steps.json.outputs.trust-score }}|${{ steps.sarif.outputs.trust-score }}" \
+            "${{ steps.json.outputs.total-findings }}|${{ steps.sarif.outputs.total-findings }}" \
+            "${{ steps.json.outputs.critical-findings }}|${{ steps.sarif.outputs.critical-findings }}"
+          do
+            [ "${pair%%|*}" = "${pair#*|}" ] || { echo "::error::JSON and SARIF differ: $pair"; exit 1; }
+          done
+          [ "${{ steps.sarif.outputs.status }}" = "failed" ] || { echo "::error::status=${{ steps.sarif.outputs.status }}"; exit 1; }
+          [ "${{ steps.sarif.outputs.total-findings }}" = "3" ] || { echo "::error::total-findings=${{ steps.sarif.outputs.total-findings }}"; exit 1; }
+
   test-audit-command:
     name: "Test: audit command"
     runs-on: ubuntu-latest
