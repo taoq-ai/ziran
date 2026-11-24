@@ -184,7 +184,7 @@ class PoCGenerator:
                         print(f"    - {{tool_name}}")
 
                 if matched:
-                    print("[!] " + VULNERABLE_TEXT_MATCH.format(matched=matched))
+                    print("[!] " + VULNERABLE_TEXT_MATCH.replace("{{matched}}", str(matched)))
                     return True
                 elif response.tool_calls:
                     print("[!] " + VULNERABLE_TOOL_MATCH)

@@ -341,13 +341,25 @@ def hostile_result() -> AttackResult:
     )
 
 
+def _hostile_generator(out: Path) -> PoCGenerator:
+    template = PythonPoCTemplate(
+        vulnerable_text_match=_HOSTILE + "{matched}",
+        vulnerable_tool_match=_HOSTILE,
+        not_reproduced=_HOSTILE,
+        run_instructions=[_HOSTILE],
+    )
+    return PoCGenerator(out, PoCConfig(generator_label=_HOSTILE, python_template=template))
+
+
 class TestPoCQuoting:
     def test_python_poc_runs_no_injected_code(
         self, tmp_path: Path, hostile_result: AttackResult
     ) -> None:
         work = tmp_path / "work"
         work.mkdir()
-        path = PoCGenerator(tmp_path / "pocs").generate_python_poc(hostile_result, _HOSTILE_ID)
+        path = _hostile_generator(tmp_path / "pocs").generate_python_poc(
+            hostile_result, _HOSTILE_ID
+        )
         driver = tmp_path / "driver.py"
         driver.write_text(_PY_DRIVER)
 
@@ -364,6 +376,7 @@ class TestPoCQuoting:
             check=False,
         )
         assert run.returncode == 0, run.stderr
+        assert f"[!] {_HOSTILE}['-e']" in run.stdout
 
         assert not (work / "pwned").exists()
         assert (work / "received").read_text(encoding="utf-8") == _HOSTILE
