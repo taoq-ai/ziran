@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path as _Path
 from typing import TYPE_CHECKING
 
@@ -12,7 +17,7 @@ from ziran.application.poc.config import (
     PoCConfig,
     PythonPoCTemplate,
 )
-from ziran.application.poc.generator import PoCGenerator, _escape_python_string
+from ziran.application.poc.generator import PoCGenerator
 from ziran.domain.entities.attack import (
     AttackCategory,
     AttackResult,
@@ -214,20 +219,6 @@ class TestPoCGenerator:
         assert "2 confirmed vulnerabilities" in content
 
 
-class TestEscapePythonString:
-    """Tests for the _escape_python_string helper."""
-
-    def test_basic_string(self) -> None:
-        assert _escape_python_string("hello world") == "hello world"
-
-    def test_backslash_escaped(self) -> None:
-        assert _escape_python_string("a\\b") == "a\\\\b"
-
-    def test_triple_quotes_escaped(self) -> None:
-        result = _escape_python_string('say """hello"""')
-        assert '"""' not in result
-
-
 # ──────────────────────────────────────────────────────────────────────
 # PoCConfig tests
 # ──────────────────────────────────────────────────────────────────────
@@ -300,3 +291,141 @@ python_template:
         path = gen.generate_curl_poc(successful_result, campaign_id="camp_curl")
         content = path.read_text()
         assert "my-agent:3000" in content
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Quoting: hostile values and every built-in prompt (spec 099)
+# ──────────────────────────────────────────────────────────────────────
+
+# Each form would create ``pwned`` in the working directory if it escaped
+# its quoting: shell substitution, backticks, a closed single, double or
+# triple quote, a newline that ends a comment or docstring, a heredoc end.
+_HOSTILE = (
+    "it's $(touch pwned) `touch pwned` \"$(touch pwned)\" ''' \\ {x} %s\n"
+    "EOF\nZIRAN_PAYLOAD\n'\n\"\"\"\n__import__('pathlib').Path('pwned').touch()\n#"
+)
+_HOSTILE_ID = 'id\'$(touch pwned)`touch pwned`"""{x}'
+_HOSTILE_ENDPOINT = "http://127.0.0.1:1/'$(touch pwned)\"`touch pwned`"
+
+_STUB_CURL = """#!/bin/sh
+printf '%s\\n' "$@" > curl_args
+cat > curl_body
+printf 'stub reply -e'
+"""
+
+_PY_DRIVER = """
+import asyncio, runpy, sys, types
+
+class Adapter:
+    async def invoke(self, prompt):
+        with open("received", "w", encoding="utf-8") as fh:
+            fh.write(prompt)
+        return types.SimpleNamespace(content="stub reply -e", tool_calls=[])
+
+module = runpy.run_path(sys.argv[1])
+assert asyncio.run(module["reproduce"](Adapter())) is True
+"""
+
+
+@pytest.fixture
+def hostile_result() -> AttackResult:
+    return AttackResult(
+        vector_id=_HOSTILE_ID,
+        vector_name=_HOSTILE,
+        category=AttackCategory.PROMPT_INJECTION,
+        severity="high",
+        successful=True,
+        evidence={"matched_indicators": [_HOSTILE, "-e", _HOSTILE_ID]},
+        prompt_used=_HOSTILE,
+        owasp_mapping=[OwaspLlmCategory.LLM01],
+    )
+
+
+class TestPoCQuoting:
+    def test_python_poc_runs_no_injected_code(
+        self, tmp_path: Path, hostile_result: AttackResult
+    ) -> None:
+        work = tmp_path / "work"
+        work.mkdir()
+        path = PoCGenerator(tmp_path / "pocs").generate_python_poc(hostile_result, _HOSTILE_ID)
+        driver = tmp_path / "driver.py"
+        driver.write_text(_PY_DRIVER)
+
+        main = subprocess.run(
+            [sys.executable, str(path)], cwd=work, capture_output=True, text=True, check=False
+        )
+        assert main.returncode == 0, main.stderr
+        assert _HOSTILE in main.stdout
+        run = subprocess.run(
+            [sys.executable, str(driver), str(path)],
+            cwd=work,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert run.returncode == 0, run.stderr
+
+        assert not (work / "pwned").exists()
+        assert (work / "received").read_text(encoding="utf-8") == _HOSTILE
+
+    @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+    def test_curl_poc_runs_no_injected_command(
+        self, tmp_path: Path, hostile_result: AttackResult
+    ) -> None:
+        work = tmp_path / "work"
+        stubs = tmp_path / "stubs"
+        work.mkdir()
+        stubs.mkdir()
+        curl = stubs / "curl"
+        curl.write_text(_STUB_CURL)
+        curl.chmod(0o755)
+        path = PoCGenerator(tmp_path / "pocs").generate_curl_poc(
+            hostile_result, endpoint=_HOSTILE_ENDPOINT, campaign_id=_HOSTILE_ID
+        )
+
+        run = subprocess.run(
+            ["bash", str(path)],
+            cwd=work,
+            env={**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert run.returncode == 1, run.stderr  # the stub reply holds the "-e" indicator
+        assert not (work / "pwned").exists()
+        assert (work / "curl_body").read_bytes() == json.dumps({"message": _HOSTILE}).encode()
+        assert _HOSTILE_ENDPOINT in (work / "curl_args").read_text().splitlines()
+        assert f"=== ZIRAN PoC: {_HOSTILE} ===\n" in run.stdout
+
+    @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+    def test_every_builtin_prompt_parses(self, tmp_path: Path) -> None:
+        from ziran.application.attacks.library import AttackLibrary
+
+        gen = PoCGenerator(tmp_path)
+        shells: list[str] = []
+        count = 0
+        for vector in AttackLibrary().vectors:
+            for i, prompt in enumerate(vector.prompts):
+                result = AttackResult(
+                    vector_id=vector.id,
+                    vector_name=vector.name,
+                    category=vector.category,
+                    severity=vector.severity,
+                    successful=True,
+                    evidence={"matched_indicators": prompt.success_indicators},
+                    prompt_used=prompt.template,
+                )
+                py = gen.generate_python_poc(result, str(i))
+                compile(py.read_text(encoding="utf-8"), str(py), "exec")
+                shells.append(str(gen.generate_curl_poc(result, campaign_id=str(i))))
+                count += 1
+
+        check = subprocess.run(
+            ["bash", "-c", 'for f; do bash -n "$f" 2>/dev/null || echo "$f"; done', "_", *shells],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert count >= 930
+        assert check.stdout == ""
