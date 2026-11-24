@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import pickle
 import re
 import shutil
 import subprocess
@@ -132,6 +133,7 @@ class TestPoCGenerator:
         )
         assert path.exists()
         assert path.suffix == ".sh"
+        assert os.access(path, os.X_OK)
         content = path.read_text()
         assert "curl" in content
         assert "campaign_123" in content
@@ -304,14 +306,17 @@ python_template:
 _HOSTILE = (
     "it's $(touch pwned) `touch pwned` \"$(touch pwned)\" ''' \\ {x} %s\n"
     "EOF\nZIRAN_PAYLOAD\n'\n\"\"\"\n__import__('pathlib').Path('pwned').touch()\n#"
+    " \x1b]0;title\x07 \x1b[31m red \x9b2J \u202e caf\u00e9 \u4f60\u597d"
 )
+# Terminal controls that must never reach the terminal raw from the vector name.
+_CONTROLS = ("\x1b", "\x07", "\x9b", "\u202e")
 _HOSTILE_ID = 'id\'$(touch pwned)`touch pwned`"""{x}'
 _HOSTILE_ENDPOINT = "http://127.0.0.1:1/'$(touch pwned)\"`touch pwned`"
 
 _STUB_CURL = """#!/bin/sh
 printf '%s\\n' "$@" > curl_args
 cat > curl_body
-printf 'stub reply -e'
+if [ -n "${STUB_REPLY:-}" ]; then printf '%s' "$STUB_REPLY"; else printf 'stub reply -e'; fi
 """
 
 _PY_DRIVER = """
@@ -353,7 +358,7 @@ def _hostile_generator(out: Path) -> PoCGenerator:
 
 
 def _run_curl_poc(
-    tmp_path: Path, result: AttackResult
+    tmp_path: Path, result: AttackResult, reply: str = ""
 ) -> tuple[subprocess.CompletedProcess[str], Path]:
     """Run the cURL PoC with a stub ``curl`` first on PATH; return the run and its cwd."""
     work = tmp_path / "work"
@@ -369,7 +374,11 @@ def _run_curl_poc(
     run = subprocess.run(
         ["bash", str(path)],
         cwd=work,
-        env={**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"},
+        env={
+            **os.environ,
+            "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}",
+            "STUB_REPLY": reply,
+        },
         capture_output=True,
         text=True,
         check=False,
@@ -393,7 +402,11 @@ class TestPoCQuoting:
             [sys.executable, str(path)], cwd=work, capture_output=True, text=True, check=False
         )
         assert main.returncode == 0, main.stderr
-        assert _HOSTILE in main.stdout
+        assert _HOSTILE in main.stdout  # the configured run instruction, printed as given
+        banner = next(line for line in main.stdout.splitlines() if "Proof-of-Concept:" in line)
+        assert banner.endswith("caf\u00e9 \u4f60\u597d")
+        assert "\\nEOF\\n" in banner
+        assert not any(c in banner for c in _CONTROLS)
         run = subprocess.run(
             [sys.executable, str(driver), str(path)],
             cwd=work,
@@ -416,8 +429,13 @@ class TestPoCQuoting:
         assert run.returncode == 1, run.stderr  # the stub reply holds the "-e" indicator
         assert not (work / "pwned").exists()
         assert (work / "curl_body").read_bytes() == json.dumps({"message": _HOSTILE}).encode()
-        assert _HOSTILE_ENDPOINT in (work / "curl_args").read_text().splitlines()
-        assert f"=== ZIRAN PoC: {_HOSTILE} ===\n" in run.stdout
+        args = (work / "curl_args").read_text().splitlines()
+        assert args[args.index("--url") + 1] == _HOSTILE_ENDPOINT
+        banner = next(line for line in run.stdout.splitlines() if "=== ZIRAN PoC:" in line)
+        assert banner.startswith("=== ZIRAN PoC: it's $(touch pwned)")
+        assert banner.endswith("caf\u00e9 \u4f60\u597d ===")
+        assert "\\nEOF\\n" in banner
+        assert not any(c in banner for c in _CONTROLS)
 
     @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
     def test_curl_poc_matches_indicators_as_fixed_strings(
@@ -428,6 +446,45 @@ class TestPoCQuoting:
         run, _ = _run_curl_poc(tmp_path, hostile_result)
 
         assert run.returncode == 0, run.stderr
+
+    @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+    def test_curl_poc_previews_a_long_reply(
+        self, tmp_path: Path, hostile_result: AttackResult
+    ) -> None:
+        hostile_result.evidence["matched_indicators"] = ["needle"]
+        reply = "a" * 2990 + "needle" + "b" * 4
+        run, _ = _run_curl_poc(tmp_path, hostile_result, reply)
+
+        assert run.returncode == 1, run.stderr  # matched past the 500-char preview
+        assert "\n" + "a" * 500 + "\n" in run.stdout
+        assert "a" * 501 not in run.stdout
+
+    def test_scripts_are_utf8_under_an_ascii_locale(
+        self, tmp_path: Path, hostile_result: AttackResult
+    ) -> None:
+        code = (
+            "import pickle, sys\n"
+            "from pathlib import Path\n"
+            "from ziran.application.poc.generator import PoCGenerator\n"
+            "r = pickle.loads(sys.stdin.buffer.read())\n"
+            "g = PoCGenerator(Path(sys.argv[1]))\n"
+            "g.generate_python_poc(r, 'c'); g.generate_curl_poc(r, campaign_id='c')\n"
+            "g.generate_markdown_guide([r], 'c')\n"
+        )
+        out = tmp_path / "pocs"
+        run = subprocess.run(
+            [sys.executable, "-X", "utf8=0", "-c", code, str(out)],
+            input=pickle.dumps(hostile_result),
+            env={**os.environ, "LC_ALL": "C", "PYTHONIOENCODING": "utf-8"},
+            capture_output=True,
+            check=False,
+        )
+
+        assert run.returncode == 0, run.stderr.decode()
+        files = sorted(out.iterdir())
+        assert len(files) == 3
+        for path in files:
+            assert "caf\u00e9 \u4f60\u597d" in path.read_bytes().decode("utf-8")
 
     @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
     def test_every_builtin_prompt_parses(self, tmp_path: Path) -> None:
@@ -512,3 +569,68 @@ class TestPoCFileNames:
     def test_path_outside_output_dir_refused(self, tmp_path: Path, name: str) -> None:
         with pytest.raises(ValueError, match="file name"):
             PoCGenerator(tmp_path / "pocs")._path(name)
+
+    @pytest.mark.parametrize("writer", ["py", "sh", "md"])
+    def test_planted_link_is_not_written_through(
+        self, tmp_path: Path, successful_result: AttackResult, writer: str
+    ) -> None:
+        out = tmp_path / "pocs"
+        target = tmp_path / "outside.txt"
+        target.write_text("keep")
+        gen = PoCGenerator(out)
+        successful_result.vector_id = "v"
+        name = {"py": "poc_v_c.py", "sh": "poc_v_c.sh", "md": "poc_guide_c.md"}[writer]
+        (out / name).symlink_to(target)
+
+        with pytest.raises(ValueError, match="file name"):
+            if writer == "py":
+                gen.generate_python_poc(successful_result, "c")
+            elif writer == "sh":
+                gen.generate_curl_poc(successful_result, campaign_id="c")
+            else:
+                gen.generate_markdown_guide([successful_result], "c")
+        assert target.read_text() == "keep"
+
+    def test_markdown_suffix_campaign_id_writes_the_checked_file(
+        self, tmp_path: Path, successful_result: AttackResult
+    ) -> None:
+        out = tmp_path / "pocs"
+        target = tmp_path / "outside.txt"
+        target.write_text("keep")
+        gen = PoCGenerator(out)
+        (out / "poc_guide_x.md").symlink_to(target)
+
+        path = gen.generate_markdown_guide([successful_result], "x.md")
+
+        assert path == out / "poc_guide_x.md.md"
+        assert "Reproduction Guide" in path.read_text(encoding="utf-8")
+        assert target.read_text() == "keep"
+
+    def test_write_refuses_a_link_swapped_in_after_the_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Stand in for a link planted between the _path check and the open.
+        out = tmp_path / "pocs"
+        target = tmp_path / "outside.txt"
+        target.write_text("keep")
+        gen = PoCGenerator(out)
+        (out / "poc_v_c.py").symlink_to(target)
+        monkeypatch.setattr(gen, "_path", lambda name: out / name)
+
+        with pytest.raises(OSError):
+            gen._write("poc_v_c.py", "x")
+        assert target.read_text() == "keep"
+
+    def test_rewritten_script_is_executable(
+        self, tmp_path: Path, successful_result: AttackResult
+    ) -> None:
+        out = tmp_path / "pocs"
+        gen = PoCGenerator(out)
+        stale = out / "poc_pi_basic_override_c.sh"
+        stale.write_text("old")
+        stale.chmod(0o644)
+
+        path = gen.generate_curl_poc(successful_result, campaign_id="c")
+
+        assert path == stale
+        assert os.access(path, os.X_OK)

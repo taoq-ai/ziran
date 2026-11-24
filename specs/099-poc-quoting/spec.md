@@ -26,7 +26,11 @@ After the fix, the scripts are safe to run whatever those values hold:
 - `vector_id` and `campaign_id` also form the PoC file names. A `/` or `..` in either wrote
   outside the output folder. Each is now reduced to `[A-Za-z0-9._-]` (anything else becomes
   `_`), an empty or dot-only value is refused, and the final path must resolve to a file
-  directly inside the output folder.
+  directly inside the output folder. Every file is opened with `O_NOFOLLOW`, and the Markdown
+  guide is written by ZIRAN itself, so the checked name is the name written and a planted link
+  is never written through.
+- Banners print the vector name with non-printable characters escaped, so an ESC, C1 or bidi
+  sequence in a name cannot drive the terminal. curl takes the endpoint as `--url`.
 
 ## Acceptance scenarios
 
@@ -39,7 +43,9 @@ After the fix, the scripts are safe to run whatever those values hold:
    the output folder under a `[A-Za-z0-9._-]` name, and nothing is written elsewhere.
 3. **Given** an empty or dot-only `vector_id` or `campaign_id`, **When** a PoC file is written,
    **Then** a `ValueError` is raised and no file is written.
-4. **Given** every built-in vector prompt (930), **When** its PoC scripts are generated, **Then**
+4. **Given** a link planted at a PoC file name, or a `campaign_id` of `x.md` with a link at
+   `poc_guide_x.md`, **When** the files are written, **Then** the link target is unchanged.
+5. **Given** every built-in vector prompt (930), **When** its PoC scripts are generated, **Then**
    each Python script compiles and each shell script passes `bash -n`.
 
 ## Requirements
@@ -51,6 +57,8 @@ After the fix, the scripts are safe to run whatever those values hold:
   PoC runs.
 - FR-005: Every PoC file name part passes `_safe_name`, and `PoCGenerator._path` refuses a
   path whose resolved parent is not the output folder.
+- FR-006: Every PoC file is written as UTF-8 through `os.open(..., O_NOFOLLOW)`.
+- FR-007: No banner prints a non-printable character of the vector name raw.
 
 ## Assumptions
 
