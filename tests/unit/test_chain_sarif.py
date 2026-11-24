@@ -69,6 +69,7 @@ class TestChainRules:
         assert row["properties"] == {
             "tools": ["read_file", "http_request"],
             "vulnerability_type": "data_exfiltration",
+            "severity": risk,
         }
         assert row["message"]["text"] == "data_exfiltration: read_file -> http_request"
         assert list(_rules(doc)) == [CHAIN_RULE_ID]

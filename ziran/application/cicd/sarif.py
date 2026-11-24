@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ziran import __version__
 from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID
 from ziran.application.knowledge_graph.trifecta import DELEGATED_RULE_ID as LT002
 from ziran.application.knowledge_graph.trifecta import DELEGATED_TYPE, LEGS
@@ -29,13 +30,17 @@ from ziran.domain.entities.attack import (
     OwaspLlmCategory,
 )
 from ziran.domain.entities.capability import BlastRadius
+from ziran.domain.entities.phase import (
+    UNMEASURED_METADATA_KEY,
+    WARNINGS_METADATA_KEY,
+    CampaignResult,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ziran.application.static_analysis.analyzer import StaticFinding
     from ziran.domain.entities.ci import GateResult
-    from ziran.domain.entities.phase import CampaignResult
 
 _SEVERITY_TO_SARIF: dict[str, str] = {
     "critical": "error",
@@ -53,7 +58,6 @@ _SECURITY_SEVERITY: dict[str, str] = {
 
 _SEVERITY_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
-_ZIRAN_VERSION = "0.1.0"
 
 _TRIFECTA_RULES: dict[str, str] = {TRIFECTA: LT001, DELEGATED_TYPE: LT002}
 
@@ -111,7 +115,31 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
         results.append(chain_result)
     rules.extend(chain_rules.values())
 
-    return _sarif_document(rules, results)
+    return _sarif_document(rules, results, {"ziran": _gate_inputs(result)})
+
+
+def _phase_vulnerabilities(result: CampaignResult) -> dict[str, list[str]]:
+    """Phase to its vulnerability ids, merged when a phase repeats."""
+    merged: dict[str, list[str]] = {}
+    for p in result.phases_with_findings:
+        merged.setdefault(str(p.phase), []).extend(p.vulnerabilities_found)
+    return merged
+
+
+def _gate_inputs(result: CampaignResult) -> dict[str, Any]:
+    """The campaign fields ``QualityGate`` reads beyond the results (spec 093 FR-001)."""
+    keys = (UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY)
+    return {
+        "schema": _GATE_SCHEMA,
+        "attack_count": len(result.attack_results),
+        "campaign_id": result.campaign_id,
+        "target_agent": result.target_agent,
+        "final_trust_score": result.final_trust_score,
+        "success": result.success,
+        "critical_paths": result.critical_paths,
+        "phase_vulnerabilities": _phase_vulnerabilities(result),
+        "metadata": {k: result.metadata[k] for k in keys if k in result.metadata},
+    }
 
 
 def _chain_result(
@@ -142,7 +170,13 @@ def _chain_result(
             f"{leg} from {', '.join(map(str, evidence.get(leg, [])))}" for leg in LEGS
         )
         rules.setdefault(rule_id, _trifecta_rule(rule_id, vt))
-    properties: dict[str, Any] = {"tools": tools, "vulnerability_type": vt}
+    properties: dict[str, Any] = {
+        "tools": tools,
+        "vulnerability_type": vt,
+        "severity": chain.get("risk_level", "medium"),
+    }
+    if chain.get("graph_path"):
+        properties["graph_path"] = chain["graph_path"]
     for key in ("agent", "agents"):
         if key in evidence:
             properties[key] = evidence[key]
@@ -257,24 +291,29 @@ def generate_audit_sarif(findings: Sequence[StaticFinding]) -> dict[str, Any]:
     return _sarif_document(list(rules.values()), results)
 
 
-def _sarif_document(rules: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Wrap *rules* and *results* in the ZIRAN SARIF v2.1.0 envelope."""
+def _sarif_document(
+    rules: list[dict[str, Any]],
+    results: list[dict[str, Any]],
+    properties: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Wrap *rules* and *results* (and run *properties*) in the ZIRAN SARIF v2.1.0 envelope."""
+    run: dict[str, Any] = {
+        "tool": {
+            "driver": {
+                "name": "ZIRAN",
+                "version": __version__,
+                "informationUri": "https://github.com/taoq-ai/ziran",
+                "rules": rules,
+            }
+        },
+        "results": results,
+    }
+    if properties is not None:
+        run["properties"] = properties
     return {
         "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.6.json",
         "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "ZIRAN",
-                        "version": _ZIRAN_VERSION,
-                        "informationUri": "https://github.com/taoq-ai/ziran",
-                        "rules": rules,
-                    }
-                },
-                "results": results,
-            }
-        ],
+        "runs": [run],
     }
 
 
@@ -287,6 +326,129 @@ def write_sarif(result: CampaignResult, path: Path, gate: GateResult | None = No
     sarif = generate_sarif(result, gate)
     path.write_text(json.dumps(sarif, indent=2))
     return path
+
+
+_GATE_SCHEMA = 1
+_MAX_ATTACK_COUNT = 1_000_000  # a crafted count cannot pad the result past this
+_REQUIRED_GATE_INPUTS = ("target_agent", "final_trust_score", "success", "attack_count")
+
+
+def _mapping(value: Any, where: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        msg = f"SARIF {where} must be an object, got {type(value).__name__}"
+        raise ValueError(msg)
+    return value
+
+
+def _array(value: Any, where: str) -> list[Any]:
+    if not isinstance(value, list):
+        msg = f"SARIF {where} must be an array, got {type(value).__name__}"
+        raise ValueError(msg)
+    return value
+
+
+def campaign_from_sarif(doc: Any) -> CampaignResult:
+    """Rebuild the gate's view of a campaign from a SARIF ``generate_sarif`` wrote (spec 093).
+
+    Attacks and chains come back in result order with the fields ``QualityGate`` reads; the
+    trust score, verdict, critical paths and phase findings come from
+    ``runs[0].properties.ziran``.
+
+    Raises:
+        ValueError: not one run, a malformed shape, or missing ziran run properties (named).
+    """
+    runs = _array(_mapping(doc, "log").get("runs"), "runs")
+    if len(runs) != 1:
+        msg = f"expected one SARIF run as ziran writes, got {len(runs)}"
+        raise ValueError(msg)
+    run = _mapping(runs[0], "runs[0]")
+    run_props = _mapping(run.get("properties", {}), "runs[0].properties")
+    gate_inputs = _mapping(run_props.get("ziran", {}), "runs[0].properties.ziran")
+    missing = [k for k in _REQUIRED_GATE_INPUTS if k not in gate_inputs]
+    if missing:
+        msg = (
+            f"not a ziran scan SARIF: runs[0].properties.ziran lacks {', '.join(missing)}; "
+            "write it with `ziran ci --sarif` from a scan result"
+        )
+        raise ValueError(msg)
+    if gate_inputs.get("schema", _GATE_SCHEMA) != _GATE_SCHEMA:
+        msg = f"unsupported ziran SARIF schema {gate_inputs['schema']}; this ziran reads 1"
+        raise ValueError(msg)
+
+    driver = _mapping(_mapping(run.get("tool", {}), "tool").get("driver", {}), "tool.driver")
+    rules: dict[str, dict[str, Any]] = {}
+    for i, raw_rule in enumerate(_array(driver.get("rules", []), "tool.driver.rules")):
+        rule = _mapping(raw_rule, f"rules[{i}]")
+        rules[str(rule.get("id"))] = rule
+
+    attacks: list[dict[str, Any]] = []
+    chains: list[dict[str, Any]] = []
+    for i, raw in enumerate(_array(run.get("results", []), "results")):
+        row = _mapping(raw, f"results[{i}]")
+        if "ruleId" not in row:
+            msg = f"SARIF results[{i}] has no ruleId"
+            raise ValueError(msg)
+        props = _mapping(row.get("properties", {}), f"results[{i}].properties")
+        severity = props.get("severity", "medium")
+        if "vulnerability_type" in props:
+            chain = {
+                "vulnerability_type": props["vulnerability_type"],
+                "tools": _array(props.get("tools", []), f"results[{i}].properties.tools"),
+                "risk_level": severity,
+            }
+            if "graph_path" in props:
+                chain["graph_path"] = _array(props["graph_path"], f"results[{i}] graph_path")
+            chains.append(chain)
+            continue
+        rule = rules.get(str(row["ruleId"]), {})
+        rule_props = _mapping(rule.get("properties", {}), f"rule {row['ruleId']} properties")
+        tags = [str(t) for t in _array(rule_props.get("tags", []), f"rule {row['ruleId']} tags")]
+        attacks.append(
+            {
+                "vector_id": row["ruleId"],
+                "vector_name": rule.get("name", row["ruleId"]),
+                "category": tags[0] if tags else "unknown",
+                "severity": severity,
+                "owasp_mapping": [t.removeprefix("owasp/") for t in tags if t.startswith("owasp/")],
+                "successful": True,
+            }
+        )
+
+    # the SARIF lists successful attacks only; the gate counts every attack run (nothing_measured)
+    count = gate_inputs["attack_count"]
+    valid = isinstance(count, int) and not isinstance(count, bool)
+    if not valid or not len(attacks) <= count <= _MAX_ATTACK_COUNT:
+        msg = (
+            f"SARIF attack_count {count!r} must be an integer from {len(attacks)} "
+            f"to {_MAX_ATTACK_COUNT}"
+        )
+        raise ValueError(msg)
+    attacks += [{"successful": False}] * (count - len(attacks))
+
+    phase_vulns = _mapping(gate_inputs.get("phase_vulnerabilities", {}), "phase_vulnerabilities")
+    return CampaignResult.model_validate(
+        {
+            "campaign_id": gate_inputs.get("campaign_id", "sarif"),
+            "target_agent": gate_inputs["target_agent"],
+            "phases_executed": [
+                {
+                    "phase": phase,
+                    "success": True,
+                    "trust_score": gate_inputs["final_trust_score"],
+                    "duration_seconds": 0.0,
+                    "vulnerabilities_found": vulns,
+                }
+                for phase, vulns in phase_vulns.items()
+            ],
+            "total_vulnerabilities": 0,
+            "critical_paths": gate_inputs.get("critical_paths", []),
+            "final_trust_score": gate_inputs["final_trust_score"],
+            "success": gate_inputs["success"],
+            "attack_results": attacks,
+            "dangerous_tool_chains": chains,
+            "metadata": gate_inputs.get("metadata", {}),
+        }
+    )
 
 
 # ── Internal builders ────────────────────────────────────────────────
@@ -353,9 +515,10 @@ def _build_result(
         ],
     }
 
-    # Attach evidence as properties
+    # The exact severity (level ``error`` is both critical and high), then any evidence
+    sarif_result["properties"] = {"severity": severity}
     evidence = ar.get("evidence", {})
     if evidence:
-        sarif_result["properties"] = {"evidence": evidence}
+        sarif_result["properties"]["evidence"] = evidence
 
     return sarif_result
