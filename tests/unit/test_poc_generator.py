@@ -351,6 +351,31 @@ def _hostile_generator(out: Path) -> PoCGenerator:
     return PoCGenerator(out, PoCConfig(generator_label=_HOSTILE, python_template=template))
 
 
+def _run_curl_poc(
+    tmp_path: Path, result: AttackResult
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    """Run the cURL PoC with a stub ``curl`` first on PATH; return the run and its cwd."""
+    work = tmp_path / "work"
+    stubs = tmp_path / "stubs"
+    work.mkdir()
+    stubs.mkdir()
+    curl = stubs / "curl"
+    curl.write_text(_STUB_CURL)
+    curl.chmod(0o755)
+    path = PoCGenerator(tmp_path / "pocs").generate_curl_poc(
+        result, endpoint=_HOSTILE_ENDPOINT, campaign_id=_HOSTILE_ID
+    )
+    run = subprocess.run(
+        ["bash", str(path)],
+        cwd=work,
+        env={**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return run, work
+
+
 class TestPoCQuoting:
     def test_python_poc_runs_no_injected_code(
         self, tmp_path: Path, hostile_result: AttackResult
@@ -385,31 +410,23 @@ class TestPoCQuoting:
     def test_curl_poc_runs_no_injected_command(
         self, tmp_path: Path, hostile_result: AttackResult
     ) -> None:
-        work = tmp_path / "work"
-        stubs = tmp_path / "stubs"
-        work.mkdir()
-        stubs.mkdir()
-        curl = stubs / "curl"
-        curl.write_text(_STUB_CURL)
-        curl.chmod(0o755)
-        path = PoCGenerator(tmp_path / "pocs").generate_curl_poc(
-            hostile_result, endpoint=_HOSTILE_ENDPOINT, campaign_id=_HOSTILE_ID
-        )
-
-        run = subprocess.run(
-            ["bash", str(path)],
-            cwd=work,
-            env={**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}"},
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        run, work = _run_curl_poc(tmp_path, hostile_result)
 
         assert run.returncode == 1, run.stderr  # the stub reply holds the "-e" indicator
         assert not (work / "pwned").exists()
         assert (work / "curl_body").read_bytes() == json.dumps({"message": _HOSTILE}).encode()
         assert _HOSTILE_ENDPOINT in (work / "curl_args").read_text().splitlines()
         assert f"=== ZIRAN PoC: {_HOSTILE} ===\n" in run.stdout
+
+    @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+    def test_curl_poc_matches_indicators_as_fixed_strings(
+        self, tmp_path: Path, hostile_result: AttackResult
+    ) -> None:
+        # As a regex "r.p" would match the stub's "reply"; as text it does not.
+        hostile_result.evidence["matched_indicators"] = ["r.p"]
+        run, _ = _run_curl_poc(tmp_path, hostile_result)
+
+        assert run.returncode == 0, run.stderr
 
     @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
     def test_every_builtin_prompt_parses(self, tmp_path: Path) -> None:
