@@ -381,7 +381,9 @@ class TestChainSteering:
                 "tool_read_file",
                 "tool_http_request",
             ]
-            assert list(context.chain_vectors) == result.chain_targets[0].vector_ids
+            # every target's ids in plan order: the flat agent is also a lethal trifecta
+            steered = [v for t in result.chain_targets for v in t.vector_ids]
+            assert list(context.chain_vectors) == steered
         # the boost picks the execution phase, which holds the chain vectors, first
         assert result.phases_executed[0].phase == ScanPhase.EXECUTION
 

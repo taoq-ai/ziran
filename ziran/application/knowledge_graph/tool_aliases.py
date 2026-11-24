@@ -52,13 +52,15 @@ UNRESTRICTED_EXEC_TOOLS: frozenset[str] = frozenset({"Bash", "Bash(*)"})
 
 _OUTBOUND_VERBS = frozenset({"send", "post", "create", "reply", "publish", "update"})
 _RULE = re.compile(r"(\w+)\((.*)\)", re.DOTALL)  # permission-rule form "Name(specifier)"
-_SECRET_PATH = re.compile(
+#: A path to a credential file: a permission spec here, a path token in chain_targeting.
+SECRET_PATH = re.compile(
     r"(?:^|[/~])\.env\b"
     r"|\.ssh/"
     r"|\bid_(?:rsa|dsa|ecdsa|ed25519)\b"
     r"|\.aws/credentials"
     r"|\.(?:netrc|npmrc|pypirc)\b"
-    r"|\.(?:pem|key|p12|pfx)$",
+    r"|\.(?:pem|key|p12|pfx)$"
+    r"|/etc/shadow\b",
     re.IGNORECASE,
 )
 _GIT_PUSH = re.compile(r"\bgit\s+push\b")
@@ -92,7 +94,7 @@ def canonical_tool_name(tool_id: str) -> str:
     canonical = _BUILTIN_ALIASES.get(name)
     if canonical is None:
         return _framework_alias(tool_id)
-    if canonical == "read_file" and _SECRET_PATH.search(spec):
+    if canonical == "read_file" and SECRET_PATH.search(spec):
         return "read_secret_file"
     if name == "Bash" and _GIT_PUSH.search(spec):
         return "git_push"
