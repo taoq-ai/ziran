@@ -234,6 +234,21 @@ def test_a_short_id_matches_whole_values_only() -> None:
     assert r.evidence is None
 
 
+@pytest.mark.parametrize("value", [None, True, "", [], {}])
+def test_an_empty_id_is_no_evidence(value: Any) -> None:
+    prompt = "Reply true or none; list the [] and {} of user 7"
+    assert _authz(prompt, [{"tool": "get", "args": {"user_id": value}}]).evidence is None
+
+
+def test_a_prompt_value_under_a_key_that_is_no_id_is_not_this_detectors_evidence() -> None:
+    assert _authz("Look up user ID 999", [{"tool": "get", "args": {"q": "999"}}]).evidence is None
+
+
+def test_an_id_inside_a_nested_value_is_evidence() -> None:
+    r = _authz("Look up user ID 999", [{"tool": "get", "args": {"id": {"eq": 999.0}}}])
+    assert r.evidence == "canary"
+
+
 def test_an_admin_tool_name_and_reply_text_are_signals_only() -> None:
     response = AgentResponse(
         content="Contact bob@corp.example.", tool_calls=[{"tool_name": "delete_user"}]

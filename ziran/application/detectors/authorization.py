@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from ziran.application.detectors.provenance import call_args, call_name, found, norm
+from ziran.application.detectors.provenance import atoms, call_args, call_name, found, norm
 from ziran.domain.entities.detection import DetectorResult
 
 if TYPE_CHECKING:
@@ -214,8 +214,9 @@ class AuthorizationDetector:
                 continue
 
             for key, value in args.items():
-                if any(id_key.lower() == str(key).lower() for id_key in _ID_ARG_KEYS) and found(
-                    norm(str(value)), prompt_text
+                # the provenance rule's own values: no null, no boolean, a number as written
+                if any(id_key.lower() == str(key).lower() for id_key in _ID_ARG_KEYS) and any(
+                    found(atom, prompt_text) for _, atom in atoms(value)
                 ):
                     indicators.append(f"ID substitution: {key}={value}")
 
