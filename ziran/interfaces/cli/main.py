@@ -214,7 +214,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "--phase-timeout",
     type=float,
     default=300.0,
-    help="Per-phase timeout in seconds (default: 300).",
+    help="Per-phase timeout in seconds (default: 300); extended for tactic: pair vectors.",
 )
 @click.option(
     "--strategy",

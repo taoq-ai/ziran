@@ -53,6 +53,7 @@ class TacticType(StrEnum):
     ROLE_PLAY = "role_play"
     LANGUAGE_SWITCH = "language_switch"
     CODE_MODE = "code_mode"
+    PAIR = "pair"  # attacker-LLM refinement, run by PairExecutor (spec 081)
 
 
 class TacticExecutor:
