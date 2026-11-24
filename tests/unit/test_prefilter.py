@@ -181,8 +181,11 @@ class TestRouting:
         calls = [{"tool": "execute_shell", "args": {"command": "rm -rf /tmp/x"}}]
         v = await _eval(p, "Done.", tool_calls=calls)
         assert v.successful is False
-        assert cheap.calls + frontier.calls >= 1
         assert p.tier_counts["deterministic"] == 0
+        # each model that is asked reads the reply's tool calls (A14)
+        asked = [c for c in (cheap, frontier) if c.calls]
+        assert cheap in asked
+        assert all(c.last is not None and "rm -rf /tmp/x" in c.last[0][1]["content"] for c in asked)
 
     async def test_cheap_success_decides(self) -> None:
         cheap, frontier = _CountingClient("success", 0.95), _CountingClient()
