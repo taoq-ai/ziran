@@ -76,6 +76,17 @@ CORE_PHASES: list[ScanPhase] = [
 # Backward-compatible alias (deprecated)
 RomanceScanPhase = ScanPhase
 
+# Phases whose critical finding ends a stop_on_critical campaign. Earlier phases
+# (recon to vulnerability discovery) only probe; their criticals are kept, not acted on.
+STOP_ON_CRITICAL_PHASES: frozenset[ScanPhase] = frozenset(
+    {
+        ScanPhase.EXPLOITATION_SETUP,
+        ScanPhase.EXECUTION,
+        ScanPhase.PERSISTENCE,
+        ScanPhase.EXFILTRATION,
+    }
+)
+
 
 class PhaseResult(BaseModel):
     """Result of executing a single scan phase.

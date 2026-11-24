@@ -65,6 +65,7 @@ from ziran.domain.entities.attack import (
 from ziran.domain.entities.defence import DefenceProfile  # noqa: TC001 — runtime arg type
 from ziran.domain.entities.phase import (
     CORE_PHASES,
+    STOP_ON_CRITICAL_PHASES,
     CampaignResult,
     CoverageLevel,
     PhaseResult,
@@ -617,7 +618,7 @@ class AgentScanner:
         return max(0.0, min(1.0, base - penalty))
 
     def _has_critical_finding(self, result: PhaseResult) -> bool:
-        """Check if a phase result contains any critical-severity vulnerability.
+        """Check if a stop-eligible phase result contains a critical-severity vulnerability.
 
         Args:
             result: The phase result to check.
@@ -625,6 +626,8 @@ class AgentScanner:
         Returns:
             True if any vulnerability in this phase is critical severity.
         """
+        if result.phase not in STOP_ON_CRITICAL_PHASES:
+            return False
         for vuln_id in result.vulnerabilities_found:
             vector = self.attack_library.get_vector(vuln_id)
             if vector and vector.severity == "critical":
