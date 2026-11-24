@@ -212,9 +212,11 @@ def test_pocs_send_the_handlers_request(tmp_path: Path, stub: _Stub) -> None:
     stub.reply = CANARY
 
     assert _run(["bash", str(curl)], work).returncode == 0
-    assert stub.seen.pop() == expected
+    sent_by_curl = stub.seen.pop()
+    assert sent_by_curl == expected
     assert _run([sys.executable, "-I", str(py)], work).returncode == 0
-    assert stub.seen.pop() == expected
+    sent_by_python = stub.seen.pop()
+    assert sent_by_python == expected
     assert not (work / "pwned").exists()
     sent = (
         expected[2]["input"] if stub.protocol == "rest" else expected[2]["messages"][0]["content"]
