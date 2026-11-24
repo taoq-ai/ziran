@@ -6,7 +6,9 @@ process-global and the test session has usually configured it already.
 
 from __future__ import annotations
 
+import copy
 import json
+import pickle
 import subprocess
 import sys
 from pathlib import Path
@@ -125,6 +127,14 @@ def test_capture_logs_still_captures() -> None:
     with structlog.testing.capture_logs() as logs:
         get_logger("probe").info("captured_event", key="v")
     assert {"event": "captured_event", "key": "v", "log_level": "info"} in logs
+
+
+def test_logger_survives_deepcopy_and_pickle() -> None:
+    log = get_logger("probe")
+    for clone in (copy.deepcopy(log), pickle.loads(pickle.dumps(log))):
+        with structlog.testing.capture_logs() as logs:
+            clone.info("cloned_event")
+        assert {"event": "cloned_event", "log_level": "info"} in logs
 
 
 def test_setup_logging_after_first_use_gives_structured_json() -> None:

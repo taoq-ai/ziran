@@ -148,6 +148,8 @@ class _LibraryLogger:
         self._name = name
 
     def __getattr__(self, attr: str) -> Any:
+        if attr.startswith("__") or attr == "_name":  # copy and pickle probe before _name is set
+            raise AttributeError(attr)
         if structlog.is_configured():
             return getattr(structlog.stdlib.get_logger(self._name), attr)
         return getattr(
