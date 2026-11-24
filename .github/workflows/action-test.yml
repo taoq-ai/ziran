@@ -61,6 +61,60 @@ jobs:
           fi
           echo "SARIF file size: $(wc -c < ziran-results.sarif) bytes"
 
+  test-ci-sarif:
+    name: "Test: ci command gates a ziran SARIF"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Gate the campaign JSON
+        id: json
+        uses: ./
+        with:
+          command: ci
+          result-file: tests/fixtures/sample_campaign_result.json
+          sarif-output: ""
+          ziran-version: "."
+        continue-on-error: true
+
+      - name: Write the SARIF of the same campaign
+        shell: bash
+        run: |
+          ziran ci tests/fixtures/sample_campaign_result.json --sarif results.sarif \
+            --no-github-annotations --no-github-summary > /dev/null || true
+          test -s results.sarif
+
+      - name: Gate the SARIF
+        id: sarif
+        uses: ./
+        with:
+          command: ci
+          result-file: results.sarif
+          ziran-version: "."  # default sarif-output: a SARIF input skips the re-emit
+        continue-on-error: true
+
+      - name: Verify the SARIF gated like the JSON
+        shell: bash
+        env:
+          JSON_STATUS: ${{ steps.json.outputs.status }}
+          SARIF_STATUS: ${{ steps.sarif.outputs.status }}
+          JSON_EXIT: ${{ steps.json.outputs.exit-code }}
+          SARIF_EXIT: ${{ steps.sarif.outputs.exit-code }}
+          JSON_TRUST: ${{ steps.json.outputs.trust-score }}
+          SARIF_TRUST: ${{ steps.sarif.outputs.trust-score }}
+          JSON_TOTAL: ${{ steps.json.outputs.total-findings }}
+          SARIF_TOTAL: ${{ steps.sarif.outputs.total-findings }}
+          JSON_CRITICAL: ${{ steps.json.outputs.critical-findings }}
+          SARIF_CRITICAL: ${{ steps.sarif.outputs.critical-findings }}
+        run: |
+          for name in STATUS EXIT TRUST TOTAL CRITICAL; do
+            json="JSON_$name" sarif="SARIF_$name"
+            [ "${!json}" = "${!sarif}" ] || { echo "::error::$name differs: JSON ${!json}, SARIF ${!sarif}"; exit 1; }
+          done
+          [ "$SARIF_STATUS" = "failed" ] || { echo "::error::status=$SARIF_STATUS"; exit 1; }
+          [ "$SARIF_TOTAL" = "3" ] || { echo "::error::total-findings=$SARIF_TOTAL"; exit 1; }
+          [ ! -e ziran-results.sarif ] || { echo "::error::a SARIF input re-emitted ziran-results.sarif"; exit 1; }
+
   test-audit-command:
     name: "Test: audit command"
     runs-on: ubuntu-latest

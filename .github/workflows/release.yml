@@ -173,9 +173,62 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
-  # ── Publish to PyPI (Trusted Publishing / OIDC) ───────────────────
-  publish-pypi:
+      # CycloneDX SBOM of the locked runtime packages (every extra, no
+      # dependency group). Kept out of dist/ so PyPI never sees it.
+      - name: Export SBOM
+        run: |
+          mkdir sbom
+          uv export --preview-features sbom-export --format cyclonedx1.5 \
+            --frozen --no-default-groups --all-extras > "sbom/ziran-${RELEASE_TAG}.cdx.json"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom/
+          if-no-files-found: error
+          retention-days: 5
+
+  # ── Attest build provenance and SBOM (Sigstore, GitHub API) ────────
+  # Runs no repository or third-party build code: it only downloads the
+  # built files and signs them. SECURITY.md shows how to verify them.
+  attest:
     needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write      # Sigstore signing certificate
+      attestations: write  # store the attestations
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - name: Download SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom
+          path: sbom/
+
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            dist/*
+            sbom/*.cdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*
+          sbom-path: sbom/ziran-${{ env.RELEASE_TAG }}.cdx.json
+
+  # ── Publish to PyPI (Trusted Publishing / OIDC) ───────────────────
+  # Waits for attest: a failed attestation publishes nothing.
+  publish-pypi:
+    needs: [build, attest]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -198,7 +251,7 @@ jobs:
       contains(github.event.inputs.tag || github.ref_name, 'a')
       || contains(github.event.inputs.tag || github.ref_name, 'b')
       || contains(github.event.inputs.tag || github.ref_name, 'rc')
-    needs: [build]
+    needs: [build, attest]
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -234,6 +287,12 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Download SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom
+          path: sbom/
+
       - name: Determine pre-release flag
         id: prerelease
         run: |
@@ -250,7 +309,9 @@ jobs:
           name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           prerelease: ${{ steps.prerelease.outputs.flag }}
-          files: dist/*
+          files: |
+            dist/*
+            sbom/*.cdx.json
 
   # ── Update floating major version tag for GitHub Actions ───────────
   # Consumers reference `taoq-ai/ziran@v0` — this tag always points

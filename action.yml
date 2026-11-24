@@ -16,8 +16,8 @@ inputs:
 
   result-file:
     description: >
-      Path to a previously generated ZIRAN campaign result JSON file.
-      Required for: policy, ci (when not running a live scan).
+      Path to a previously generated ZIRAN campaign result JSON file, or (for ci) the SARIF
+      ziran wrote from one. Required for: policy, ci (when not running a live scan).
     required: false
     default: ""
 

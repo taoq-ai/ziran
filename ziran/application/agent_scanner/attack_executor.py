@@ -16,6 +16,7 @@ from ziran.application.agent_scanner.progress import (
 from ziran.application.attacks.many_shot import ShotRenderer, clamp_shots, estimate_tokens
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
+from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
 from ziran.domain.entities.attack import (
     AttackPrompt,
     AttackResult,
@@ -33,6 +34,7 @@ from ziran.infrastructure.telemetry.tracing import get_tracer
 if TYPE_CHECKING:
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
+    from ziran.infrastructure.llm.base import BaseLLMClient
 
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
@@ -53,6 +55,7 @@ class AttackExecutor:
         streaming: Whether to use streaming invocation.
         emitter: Progress emitter for lifecycle events.
         encoding: Optional list of encoding types to apply.
+        attacker / budget: PAIR attacker client and campaign budget (spec 081).
     """
 
     def __init__(
@@ -65,6 +68,8 @@ class AttackExecutor:
         encoding: list[str] | None = None,
         n_shots: int | None = None,
         context_window: int = 200_000,
+        attacker: BaseLLMClient | None = None,
+        budget: CampaignBudget | None = None,
     ) -> None:
         self._adapter = adapter
         # Bounded-cardinality provider label for metrics (e.g. "anthropic",
@@ -79,6 +84,8 @@ class AttackExecutor:
         self._n_shots_override = n_shots
         self._context_window = context_window
         self._shot_renderer: ShotRenderer | None = None
+        self._attacker = attacker
+        self._budget = budget or CampaignBudget(UsageLedger(), UsageBudget())
 
     # -- public API --------------------------------------------------------
 
@@ -117,10 +124,15 @@ class AttackExecutor:
 
         # Delegate to TacticExecutor for multi-turn tactics
         if attack.tactic != "single":
+            from ziran.application.attacks.pair import PairExecutor
             from ziran.application.attacks.tactics import TacticExecutor
 
-            executor = TacticExecutor(self._adapter)
-            result = await executor.execute(attack, self._detector_pipeline, self._render_prompt)
+            pipeline, render = self._detector_pipeline, self._render_prompt
+            if attack.tactic == "pair":
+                pair = PairExecutor(self._adapter, self._attacker, self._budget)
+                result = await pair.execute(attack, pipeline, render, deadline=deadline)
+            else:
+                result = await TacticExecutor(self._adapter).execute(attack, pipeline, render)
             _attack_span.set_attribute("ziran.attack.successful", result.successful)
             _attack_span.end()
             return result
