@@ -618,3 +618,35 @@ def test_a_canary_echoed_from_the_prompt_does_not_reproduce(tmp_path: Path, stub
 
     assert sh.returncode == 1, sh.stdout + sh.stderr
     assert python.returncode == 1, python.stdout + python.stderr
+
+
+def _deep(depth: int) -> list[Any]:
+    """``depth`` nested lists around the canary, built without recursion."""
+    value: list[Any] = [CANARY]
+    for _ in range(depth - 1):
+        value = [value]
+    return value
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        # A hostile agent's arguments string: 5000 nested brackets (10 kB).
+        {"name": "t", "arguments": "[" * 5000 + json.dumps(CANARY) + "]" * 5000},
+        # Arguments another adapter recorded already decoded, 3000 deep.
+        {"tool": "t", "input": {"q": _deep(3000)}},
+    ],
+)
+def test_deeply_nested_tool_arguments_still_generate_both_pocs(
+    tmp_path: Path, call: dict[str, Any]
+) -> None:
+    from ziran.application.poc.generator import _indicators
+
+    result = _result()
+    result.evidence = {"matched_indicators": [], "tool_calls": [call]}
+    result.agent_response = "Done."
+    gen = PoCGenerator(tmp_path, target=TargetConfig(url="http://127.0.0.1:9", protocol="openai"))
+
+    assert gen.generate_curl_poc(result, campaign_id="c").is_file()
+    assert gen.generate_python_poc(result, "c").is_file()
+    assert _indicators(result) == [CANARY]  # read as text, or walked, never dropped

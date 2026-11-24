@@ -647,24 +647,31 @@ def _indicators(result: AttackResult) -> list[str]:
 
 
 def _parsed(value: Any) -> Any:
-    """``value`` decoded when it is a JSON string (OpenAI tool-call arguments), else as is."""
+    """``value`` decoded when it is a JSON string (OpenAI tool-call arguments), else as is.
+
+    Malformed or too deeply nested JSON (a hostile agent's arguments) stays plain text.
+    """
     if isinstance(value, str):
         try:
             return json.loads(value)
-        except ValueError:
+        except (ValueError, RecursionError):
             return value
     return value
 
 
 def _strings(value: Any) -> list[str]:
-    """Every string in a decoded JSON value."""
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, dict):
-        value = list(value.values())
-    if isinstance(value, list):
-        return [s for v in value for s in _strings(v)]
-    return []
+    """Every string in a decoded JSON value, walked without recursion (any depth)."""
+    found: list[str] = []
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            found.append(item)
+        elif isinstance(item, dict):
+            stack.extend(reversed(list(item.values())))
+        elif isinstance(item, list):
+            stack.extend(reversed(item))
+    return found
 
 
 def _safe_name(value: str) -> str:
