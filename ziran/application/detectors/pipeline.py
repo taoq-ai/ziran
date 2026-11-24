@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
@@ -75,12 +76,53 @@ def _plain_apostrophes(response: AgentResponse) -> AgentResponse:
     return response.model_copy(update={"content": response.content.replace("\u2019", "'")})
 
 
+_MASKED = "***"
+#: An argument or query-parameter name that says its value is a secret, matched anywhere in
+#: the name and in any case ("X-Api-Key", "client_secret", "aws_secret_access_key").
+_SECRET_NAME = re.compile(
+    r"pass(?:word|wd|phrase)|secret|token|api[-_ ]?key|access[-_ ]?key|private[-_ ]?key"
+    r"|authorization|cookie|credential|signature",
+    re.I,
+)
+#: Query-parameter names that are a secret only as a whole word: ?key=, ?sig=, ?auth=.
+_SECRET_PARAM = re.compile(r"(?:^|[-_.])(?:key|sig|auth)$", re.I)
+_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.\-]*://)[^\s/?#@]+@")
+_PARAM = re.compile(r"([?&;])([^=&;#\s]+)=([^&;#\s]+)")
+
+
+def _hide_secrets(value: object) -> object:
+    """Call arguments for the judge, with ``***`` where the structure names a secret.
+
+    A value under a key that names a secret is hidden whole, at any depth. In a string, a
+    URL's userinfo and the value of a query parameter that names a secret are hidden. Free
+    text is left to the pattern mask that runs next.
+    """
+    if isinstance(value, dict):
+        return {
+            k: _MASKED if _SECRET_NAME.search(str(k)) else _hide_secrets(v)
+            for k, v in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_hide_secrets(v) for v in value]
+    if isinstance(value, str):
+        return _PARAM.sub(
+            lambda m: (
+                f"{m[1]}{m[2]}={_MASKED}"
+                if _SECRET_NAME.search(m[2]) or _SECRET_PARAM.search(m[2])
+                else m[0]
+            ),
+            _USERINFO.sub(rf"\1{_MASKED}@", value),
+        )
+    return value
+
+
 def _with_tool_calls(response: AgentResponse) -> AgentResponse:
     """The reply with its tool calls in the text: the judge's request renders the text alone.
 
-    The calls are masked before the cut, as the trace judge's are (CWE-201): a token in an
-    argument reaches the model as ``***``. The mask hides secret shapes only, not an email
-    address or other personal data.
+    Three steps keep a credential from the judge's provider (CWE-201): ``_hide_secrets`` on
+    the parsed arguments, then the pattern mask the trace judge uses, then the cut. What
+    still passes: an email address and other personal data, and a secret in free text that
+    no pattern knows.
     """
     if not response.tool_calls:
         return response
@@ -88,7 +130,8 @@ def _with_tool_calls(response: AgentResponse) -> AgentResponse:
     from ziran.application.hybrid.mask import mask
 
     calls = "\n".join(
-        f"- {call_name(c)} {json.dumps(call_args(c), default=str)}" for c in response.tool_calls
+        f"- {call_name(c)} {json.dumps(_hide_secrets(call_args(c)), default=str)}"
+        for c in response.tool_calls
     )
     text = f"{response.content}\n\nTOOL CALLS:\n{mask(calls)[:_JUDGE_CALLS_MAX]}"
     return response.model_copy(update={"content": text})

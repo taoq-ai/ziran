@@ -65,8 +65,12 @@ the default scan path. The tag `study-v2.1` is not made here.
    crossfire's 158 of 291,090 pairs uses single prompts, so the rate on many-shot and
    multi-turn prompts is unmeasured. These are false positives, not missed attacks: a target
    cannot forge or remove the payload.
-6. Change 7, the judge's request. It holds the reply's tool calls, masked for secret shapes
-   only. An email address or other personal data in an argument reaches the judge's provider.
+6. Change 7, the judge's request. It holds the reply's tool calls. Masked: a value under a
+   key that names a secret (password, secret, token, api key, authorization, cookie,
+   credential, signature and the like), a URL's userinfo, a query parameter that names a
+   secret, and the token shapes of the hybrid mask. Not masked, and sent to the judge's
+   provider: an email address and other personal data, a secret under a key with another
+   name, and a secret in free text that no pattern knows. The reply text is sent unmasked.
 
 ## Requirements
 

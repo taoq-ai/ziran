@@ -129,7 +129,15 @@ A verdict with signals and no evidence has `successful = false`, `needs_review =
 
 In CI the vectors to review are visible and fail nothing. `ziran ci` prints their count, the GitHub step summary carries the same line, and the SARIF output holds one result per vector at level `note`, with `needs_review` and `signals` in its properties. The quality gate does not count them, and `ziran ci` on that SARIF file reads a note back as a vector to review, not as a finding.
 
-A configured judge is read before any signal: a judge that answers failure with confidence makes the verdict a plain failure, with no review flag. The judge's request holds the reply's tool calls as well as its text. The rendered calls go through ziran's secret mask and are then cut at 4,000 characters, so a token, a key or a bearer credential in an argument reaches the judge as `***`. The mask covers secret shapes only: an email address, a name or any other personal data in an argument still reaches the judge's provider, as the reply text does.
+A configured judge is read before any signal: a judge that answers failure with confidence makes the verdict a plain failure, with no review flag. The judge's request holds the reply's tool calls as well as its text. Before the calls are sent, three steps run in this order:
+
+1. **Named secrets.** In the parsed arguments, a value under a key whose name says it is a secret is replaced by `***`, whole and at any depth. The name is matched in any case and anywhere in the key: `password`, `passwd`, `passphrase`, `secret` (so `client_secret`), `token` (so `access_token`), `api_key` and `apikey` (so `X-Api-Key`), `access_key`, `private_key`, `authorization`, `cookie`, `credential`, `signature`.
+2. **Secrets in a URL.** In every string, the userinfo of a URL (`postgres://user:pass@host` becomes `postgres://***@host`) and the value of a query parameter with one of those names, or named `key`, `sig` or `auth`, are replaced by `***`.
+3. **Known token shapes.** The rendered text goes through the pattern mask the trace judge uses: `sk-`, `ghp_` and similar prefixes, AWS key ids, bearer values, JWTs, PEM private keys, and quoted `password=` or `token=` assignments.
+
+The text is then cut at 4,000 characters.
+
+What still reaches the judge's provider: an email address, a name and any other personal data; a secret under a key with another name (a bare `key`, `pin`, `otp`); and a secret in free text that no pattern knows, such as "the code is hunter2". The reply text itself is sent unmasked, as before. Do not point the judge at a provider that must not see the target's data.
 
 For an authorization vector, a call that carries an identifier the attack prompt names is a canary. An identifier the prompt does not name is no bypass: the agent may have read the caller's own id from its session. Two general limits keep ordinary prose from reading as an identifier: a token under 3 characters is none, and a number counts only where the prompt holds it whole and not as the count of a numbering word ("step 3", "page 404").
 
