@@ -344,3 +344,30 @@ def test_save_results_writes_a_curl_poc_for_a_target(tmp_path: Path) -> None:
     _save_results(campaign, None, tmp_path, target=target)
 
     assert (tmp_path / "pocs" / "poc_canary_leak_c2.sh").is_file()
+
+
+def test_scan_hands_the_detected_protocol_to_the_pocs(tmp_path: Path) -> None:
+    from unittest.mock import MagicMock, patch
+
+    from click.testing import CliRunner
+
+    from ziran.interfaces.cli.main import cli
+
+    target_file = tmp_path / "target.yaml"
+    target_file.write_text("url: http://127.0.0.1:9\n")
+    adapter = MagicMock(protocol=ProtocolType.OPENAI)
+    config = TargetConfig(url="http://127.0.0.1:9")
+    with (
+        patch("ziran.interfaces.cli.main.load_remote_adapter", return_value=(adapter, config)),
+        patch("ziran.interfaces.cli.main.AgentScanner"),
+        patch("ziran.interfaces.cli.main.asyncio"),
+        patch("ziran.interfaces.cli.main._display_results"),
+        patch("ziran.interfaces.cli.main._save_results") as save,
+    ):
+        run = CliRunner().invoke(
+            cli, ["scan", "--target", str(target_file), "--output", str(tmp_path / "out")]
+        )
+
+    assert run.exit_code == 0, run.output
+    assert save.call_args.kwargs["target"].protocol == ProtocolType.OPENAI
+    assert config.protocol == ProtocolType.AUTO  # the loaded config is not mutated
