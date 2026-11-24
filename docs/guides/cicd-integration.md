@@ -273,6 +273,48 @@ Findings appear as security alerts with:
 - Remediation guidance
 - Link to attack vector documentation
 
+Each dangerous tool chain in the result is a SARIF result too, at the level of its risk. A
+`lethal_trifecta` chain uses rule `LT001` and a `lethal_trifecta_delegated` chain rule `LT002`;
+every other chain type (`data_exfiltration`, `rce` and the rest) shares rule `CC001`, with the
+type in `properties.vulnerability_type`. Each chain result lists its `tools`, and its `agent`
+(plus `agents` for a delegated trifecta) when known. A chain the suppressions file suppresses
+carries a SARIF `suppressions` entry, so code scanning shows it as dismissed.
+
+### Gate a scan's SARIF
+
+`ziran ci` also takes the SARIF ziran wrote, so a pipeline that keeps only the SARIF can gate
+on it:
+
+```bash
+ziran ci results.json --sarif results.sarif   # once, where the scan result lives
+ziran ci results.sarif --gate-config gate.yaml
+```
+
+The SARIF gates exactly like the result it came from: the same pass or fail, violations and
+counts, with the same gate config and suppressions file. Each result carries its exact severity
+in `properties.severity` (level `error` is both critical and high), and the run carries the trust
+score and the other gate inputs in `runs[0].properties.ziran`. A SARIF from another tool, or from
+`ziran audit`, has no such properties: `ziran ci` exits 1 and names the missing ones
+(`target_agent`, `final_trust_score`, `success`, `attack_count`). A SARIF with more than one run
+is refused. With a SARIF input, `--sarif` is skipped with a notice, since the input already is
+the SARIF. `--policy` is skipped too, with a notice: the SARIF lists only successful attacks,
+so policy rules on tested categories or success rates need the scan result JSON. A SARIF written
+by a ziran release older than the SARIF gate has no `runs[0].properties.ziran`; write it again
+with this release. A SARIF whose `schema` is newer than this release reads needs a newer ziran.
+
+In the GitHub Action, pass the SARIF as `result-file`:
+
+```yaml
+- uses: taoq-ai/ziran@v0
+  with:
+    command: ci
+    result-file: results.sarif
+```
+
+With the action's default `sarif-output`, a SARIF input is gated but not uploaded: the action
+writes no new SARIF. Upload the SARIF with `github/codeql-action/upload-sarif` where the scan
+wrote it.
+
 ## GitHub Actions Features
 
 ### Annotations

@@ -255,3 +255,42 @@ def test_contract_doc_example_matches_fixture() -> None:
     doc = (FIXTURES_DIR.parents[1] / "docs/guides/analyze-traces.md").read_text().splitlines()
     fixture = (CC_DIR / "read_env_then_webfetch.jsonl").read_text().splitlines()
     assert fixture[0] in doc
+
+
+def _otel_line(tools: list[str]) -> str:
+    spans = [
+        {
+            "traceId": "t1",
+            "spanId": f"s{i}",
+            "name": tool,
+            "startTimeUnixNano": str(1_700_000_000_000_000_000 + i * 1_000_000_000),
+            "endTimeUnixNano": str(1_700_000_000_500_000_000 + i * 1_000_000_000),
+            "attributes": [{"key": "gen_ai.tool.name", "value": {"stringValue": tool}}],
+        }
+        for i, tool in enumerate(tools)
+    ]
+    return json.dumps({"resourceSpans": [{"scopeSpans": [{"spans": spans}]}]}) + "\n"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("tools", "flagged"),
+    [
+        (["read_inbox", "get_customer", "send_email"], True),
+        (["send_email", "read_inbox", "get_customer"], False),
+    ],
+)
+def test_lethal_trifecta_needs_egress_after_untrusted_content(
+    runner: CliRunner, tmp_path: Path, tools: list[str], flagged: bool
+) -> None:
+    """Spec 088 slice 2: the trace order rule, through the CLI."""
+    trace = tmp_path / "trace.jsonl"
+    trace.write_text(_otel_line(tools))
+    args = ["analyze-traces", "--source", "otel", "--input", str(trace), "--out", str(tmp_path)]
+    runner.invoke(cli, args)
+    data: dict[str, Any] = json.loads((tmp_path / "trace_analysis.json").read_text())
+    found = [
+        c for c in data["dangerous_tool_chains"] if c["vulnerability_type"] == "lethal_trifecta"
+    ]
+    assert len(found) == int(flagged)
+    assert all(c["evidence"]["rule_id"] == "LT001" for c in found)

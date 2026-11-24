@@ -16,6 +16,7 @@ from ziran.application.agent_scanner.progress import (
 from ziran.application.attacks.many_shot import ShotRenderer, clamp_shots, estimate_tokens
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
+from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
 from ziran.domain.entities.attack import (
     AttackPrompt,
     AttackResult,
@@ -33,6 +34,7 @@ from ziran.infrastructure.telemetry.tracing import get_tracer
 if TYPE_CHECKING:
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
+    from ziran.infrastructure.llm.base import BaseLLMClient
 
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
@@ -53,6 +55,7 @@ class AttackExecutor:
         streaming: Whether to use streaming invocation.
         emitter: Progress emitter for lifecycle events.
         encoding: Optional list of encoding types to apply.
+        attacker / budget: PAIR attacker client and campaign budget (spec 081).
     """
 
     def __init__(
@@ -65,6 +68,8 @@ class AttackExecutor:
         encoding: list[str] | None = None,
         n_shots: int | None = None,
         context_window: int = 200_000,
+        attacker: BaseLLMClient | None = None,
+        budget: CampaignBudget | None = None,
     ) -> None:
         self._adapter = adapter
         # Bounded-cardinality provider label for metrics (e.g. "anthropic",
@@ -79,11 +84,13 @@ class AttackExecutor:
         self._n_shots_override = n_shots
         self._context_window = context_window
         self._shot_renderer: ShotRenderer | None = None
+        self._attacker = attacker
+        self._budget = budget or CampaignBudget(UsageLedger(), UsageBudget())
 
     # -- public API --------------------------------------------------------
 
-    async def execute(self, attack: AttackVector) -> AttackResult:
-        """Execute *attack* and return the result."""
+    async def execute(self, attack: AttackVector, *, deadline: float | None = None) -> AttackResult:
+        """Execute *attack*; *deadline* is a PAIR vector's event-loop stop time (spec 081)."""
         bind_vector(attack.id)
         _attack_span = _tracer.start_span(
             "ziran.attack",
@@ -109,6 +116,7 @@ class AttackExecutor:
                 successful=False,
                 error="No prompts defined for this attack vector",
                 owasp_mapping=attack.owasp_mapping,
+                owasp_agentic_mapping=attack.owasp_agentic_mapping,
                 atlas_mapping=attack.atlas_mapping,
                 business_impact=get_business_impacts(attack.category, attack.severity),
                 harm_category=attack.harm_category,
@@ -116,10 +124,15 @@ class AttackExecutor:
 
         # Delegate to TacticExecutor for multi-turn tactics
         if attack.tactic != "single":
+            from ziran.application.attacks.pair import PairExecutor
             from ziran.application.attacks.tactics import TacticExecutor
 
-            executor = TacticExecutor(self._adapter)
-            result = await executor.execute(attack, self._detector_pipeline, self._render_prompt)
+            pipeline, render = self._detector_pipeline, self._render_prompt
+            if attack.tactic == "pair":
+                pair = PairExecutor(self._adapter, self._attacker, self._budget)
+                result = await pair.execute(attack, pipeline, render, deadline=deadline)
+            else:
+                result = await TacticExecutor(self._adapter).execute(attack, pipeline, render)
             _attack_span.set_attribute("ziran.attack.successful", result.successful)
             _attack_span.end()
             return result
@@ -231,6 +244,7 @@ class AttackExecutor:
                         prompt_used=rendered_prompt,
                         encoding_applied=encoding_used,
                         owasp_mapping=attack.owasp_mapping,
+                        owasp_agentic_mapping=attack.owasp_agentic_mapping,
                         business_impact=get_business_impacts(attack.category, attack.severity),
                         harm_category=attack.harm_category,
                         quality_score=quality,
@@ -261,6 +275,7 @@ class AttackExecutor:
             agent_response=last_response_content,
             prompt_used=last_prompt_used,
             owasp_mapping=attack.owasp_mapping,
+            owasp_agentic_mapping=attack.owasp_agentic_mapping,
             atlas_mapping=attack.atlas_mapping,
             business_impact=get_business_impacts(attack.category, attack.severity),
             harm_category=attack.harm_category,
@@ -318,6 +333,7 @@ class AttackExecutor:
                 successful=False,
                 evidence={"skipped": reason, "n_shots": effective},
                 owasp_mapping=attack.owasp_mapping,
+                owasp_agentic_mapping=attack.owasp_agentic_mapping,
                 atlas_mapping=attack.atlas_mapping,
                 business_impact=get_business_impacts(attack.category, attack.severity),
                 harm_category=attack.harm_category,

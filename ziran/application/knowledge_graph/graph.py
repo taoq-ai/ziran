@@ -9,12 +9,17 @@ data sources, vulnerabilities) and edges represent relationships
 
 from __future__ import annotations
 
+import itertools
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
+from ziran.domain.entities.capability import BlastRadiusConfig
+
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ziran.domain.entities.capability import AgentCapability, DangerousChain
 
 
@@ -53,7 +58,7 @@ _PHASE_EDGE_TYPES = frozenset({EdgeType.DISCOVERED_IN, "executed_in"})
 
 # Above this node count, skip betweenness centrality (O(V*E)) to keep
 # ``export_state`` responsive on very large graphs; centrality defaults to 0.0.
-_MAX_CENTRALITY_NODES = 800
+MAX_CENTRALITY_NODES = 800
 
 
 class AttackKnowledgeGraph:
@@ -78,6 +83,11 @@ class AttackKnowledgeGraph:
         self.graph: nx.MultiDiGraph = nx.MultiDiGraph()
         self.campaign_start: datetime = datetime.now(tz=UTC)
         self._cached_state: dict[str, Any] | None = None
+        self.warnings: list[str] = []  # analysis a scan skipped; the result and reports show it
+        # tool id -> lethal trifecta legs, from .ziran/detectors.yaml (spec 088)
+        self.trifecta_roles: dict[str, frozenset[str]] = {}
+        # data tags and external overrides, from .ziran/detectors.yaml (spec 091)
+        self.blast_radius_config = BlastRadiusConfig()
 
     def _invalidate_cache(self) -> None:
         """Mark the cached export state as stale."""
@@ -224,6 +234,32 @@ class AttackKnowledgeGraph:
                 timestamp=datetime.now(tz=UTC).isoformat(),
             )
 
+    def add_co_resident_tools(self, tool_ids: Iterable[str]) -> None:
+        """Link every ordered pair of tools that share one context with ``CAN_CHAIN_TO``.
+
+        One tool's output can reach another's input, so each pair is a possible chain. The
+        edges carry ``co_resident=True`` and feed only the chain analyzer's direct pair rule:
+        every other walker reads :meth:`structure_view` (spec 086).
+        """
+        for a, b in itertools.permutations(tool_ids, 2):
+            self.add_edge(a, b, EdgeType.CAN_CHAIN_TO, {"risk_score": 0.5, "co_resident": True})
+
+    def has_co_resident_tools(self) -> bool:
+        """Whether :meth:`add_co_resident_tools` added any edge (survives export and import)."""
+        return any(d.get("co_resident") for _, _, d in self.graph.edges(data=True))
+
+    def structure_view(self) -> nx.MultiDiGraph:
+        """The graph without co-resident edges: what every path, cycle and centrality walk reads.
+
+        Co-resident edges make each tool set a complete graph, where those walks are
+        exponential and every ordering of tools is a path (spec 086).
+        """
+        if not self.has_co_resident_tools():
+            return self.graph
+        return nx.subgraph_view(
+            self.graph, filter_edge=lambda u, v, k: not self.graph[u][v][k].get("co_resident")
+        )
+
     def add_chain_finding(self, chain: DangerousChain) -> str:
         """Surface a dangerous tool-composition as a first-class finding node.
 
@@ -294,7 +330,7 @@ class AttackKnowledgeGraph:
 
         try:
             paths = nx.all_simple_paths(
-                self.graph,
+                self.structure_view(),
                 source,
                 target,
                 cutoff=max_path_length,
@@ -335,13 +371,14 @@ class AttackKnowledgeGraph:
         if not sources or not target_set:
             return []
 
+        graph = self.structure_view()
         all_paths: list[list[str]] = []
         for source in sources:
             if source not in self.graph:
                 continue
             try:
                 for path in nx.all_simple_paths(
-                    self.graph,
+                    graph,
                     source,
                     target_set,
                     cutoff=max_path_length,
@@ -369,7 +406,7 @@ class AttackKnowledgeGraph:
         if self.graph.number_of_nodes() == 0:
             return []
 
-        centrality: dict[str, float] = nx.betweenness_centrality(self.graph)
+        centrality: dict[str, float] = nx.betweenness_centrality(self.structure_view())
         sorted_nodes = sorted(centrality.items(), key=lambda x: x[1], reverse=True)
         return sorted_nodes[:top_n]
 
@@ -451,10 +488,10 @@ class AttackKnowledgeGraph:
         or large enough that the O(V*E) computation would be costly.
         """
         n_nodes = self.graph.number_of_nodes()
-        if n_nodes < 3 or n_nodes > _MAX_CENTRALITY_NODES:
+        if n_nodes < 3 or n_nodes > MAX_CENTRALITY_NODES:
             return {}
 
-        raw: dict[str, float] = nx.betweenness_centrality(self.graph)
+        raw: dict[str, float] = nx.betweenness_centrality(self.structure_view())
         if not raw:
             return {}
         peak = max(raw.values())
@@ -666,18 +703,19 @@ class AttackKnowledgeGraph:
             n for n, d in self.graph.nodes(data=True) if d.get("node_type") == NodeType.AGENT
         ]
 
+        graph = self.structure_view()
         paths: list[list[str]] = []
         for source in agent_nodes:
             for target in agent_nodes:
                 if source == target:
                     continue
                 try:
-                    for path in nx.all_simple_paths(self.graph, source, target, cutoff=5):
+                    for path in nx.all_simple_paths(graph, source, target, cutoff=5):
                         # Only include paths that cross delegation edges
                         has_delegation = any(
                             any(
                                 d.get("edge_type") == EdgeType.DELEGATES_TO
-                                for d in self.graph.get_edge_data(
+                                for d in graph.get_edge_data(
                                     path[i], path[i + 1], default={}
                                 ).values()
                             )

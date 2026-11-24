@@ -46,7 +46,7 @@ class TestNewTacticTypes:
         assert TacticType.CODE_MODE == "code_mode"
 
     def test_total_tactic_count(self) -> None:
-        assert len(TacticType) == 11
+        assert len(TacticType) == 12  # PAIR added by spec 081
 
 
 # ── Expanded tactics YAML vectors ───────────────────────────────────

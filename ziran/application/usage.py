@@ -3,7 +3,8 @@
 Every LLM call made for a campaign is recorded in a :class:`UsageLedger` keyed by
 ``(stage, model)``. Stages: ``judge`` (single judge), ``ensemble`` (ensemble members
 with their own model), ``prefilter`` (cheap first-pass judge), ``strategy``
-(LLM-adaptive strategy) and ``target`` (the agent under test, never priced).
+(LLM-adaptive strategy), ``attacker`` (the PAIR attacker, spec 081) and ``target``
+(the agent under test, never priced).
 
 A :class:`PriceTable` turns tokens into an estimated USD cost; a model without a
 price costs ``None`` (unknown), never ``0``. A :class:`CampaignBudget` is checked
@@ -26,8 +27,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-Stage = Literal["judge", "ensemble", "prefilter", "strategy", "target"]
-STAGES: tuple[Stage, ...] = ("judge", "ensemble", "prefilter", "strategy", "target")
+Stage = Literal["judge", "ensemble", "prefilter", "strategy", "attacker", "target"]
+STAGES: tuple[Stage, ...] = ("judge", "ensemble", "prefilter", "strategy", "attacker", "target")
 TARGET_MODEL = "unknown"  # model key for the target stage; the target is never priced
 
 

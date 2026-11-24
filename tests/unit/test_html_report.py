@@ -402,7 +402,7 @@ class TestBuildHtmlReport:
         sample_campaign_result: CampaignResult,
         sample_graph_state: dict[str, Any],
     ) -> None:
-        # Report CDN stays in step with the web UI's vis-network version.
+        # Report CDN pins the vis-network major version.
         result_data = sample_campaign_result.model_dump(mode="json")
         html = build_html_report(result_data, sample_graph_state)
         assert "vis-network@10" in html

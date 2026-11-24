@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ziran.domain.entities.mcp_server_surface import McpServerRequest
 from ziran.domain.entities.phase import ScanPhase
@@ -96,6 +96,39 @@ OWASP_LLM_DESCRIPTIONS: dict[OwaspLlmCategory, str] = {
     OwaspLlmCategory.LLM08: "Excessive Agency",
     OwaspLlmCategory.LLM09: "Overreliance",
     OwaspLlmCategory.LLM10: "Unbounded Consumption",
+}
+
+
+class OwaspAgenticCategory(StrEnum):
+    """OWASP Top 10 for Agentic Applications (2026), published 2025-12-09.
+
+    See: https://genai.owasp.org/top-10-for-agentic-applications-2026/
+    """
+
+    ASI01 = "ASI01"
+    ASI02 = "ASI02"
+    ASI03 = "ASI03"
+    ASI04 = "ASI04"
+    ASI05 = "ASI05"
+    ASI06 = "ASI06"
+    ASI07 = "ASI07"
+    ASI08 = "ASI08"
+    ASI09 = "ASI09"
+    ASI10 = "ASI10"
+
+
+#: Published names for each OWASP Agentic category.
+OWASP_AGENTIC_DESCRIPTIONS: dict[OwaspAgenticCategory, str] = {
+    OwaspAgenticCategory.ASI01: "Agent Goal Hijack",
+    OwaspAgenticCategory.ASI02: "Tool Misuse and Exploitation",
+    OwaspAgenticCategory.ASI03: "Identity and Privilege Abuse",
+    OwaspAgenticCategory.ASI04: "Agentic Supply Chain Vulnerabilities",
+    OwaspAgenticCategory.ASI05: "Unexpected Code Execution (RCE)",
+    OwaspAgenticCategory.ASI06: "Memory & Context Poisoning",
+    OwaspAgenticCategory.ASI07: "Insecure Inter-Agent Communication",
+    OwaspAgenticCategory.ASI08: "Cascading Failures",
+    OwaspAgenticCategory.ASI09: "Human-Agent Trust Exploitation",
+    OwaspAgenticCategory.ASI10: "Rogue Agents",
 }
 
 
@@ -731,6 +764,14 @@ class ManyShotConfig(BaseModel):
     corpus: str = Field(description="Harm-category key into the synthetic shot corpus.")
 
 
+class PairConfig(BaseModel):
+    """PAIR refinement bounds for a vector (spec 081). No seed: the loop draws no randomness."""
+
+    model_config = ConfigDict(extra="forbid")  # a stray `seed:` is an error, not a no-op
+    max_iterations: int = Field(default=20, ge=1, le=100)
+    timeout_seconds: float = Field(default=240.0, gt=0)
+
+
 class AttackVector(BaseModel):
     """A specific attack technique to test against an agent.
 
@@ -755,6 +796,10 @@ class AttackVector(BaseModel):
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories this vector maps to",
     )
+    owasp_agentic_mapping: list[OwaspAgenticCategory] = Field(
+        default_factory=list,
+        description="OWASP Top 10 for Agentic Applications categories this vector maps to",
+    )
     atlas_mapping: list[AtlasTechnique] = Field(
         default_factory=list,
         description="MITRE ATLAS techniques this vector exercises (October 2025 snapshot)",
@@ -766,7 +811,8 @@ class AttackVector(BaseModel):
     tactic: str = Field(
         default="single",
         description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, "
-        "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode.",
+        "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode, "
+        "pair (attacker-LLM refinement; needs an attacker client, spec 081).",
     )
     harm_category: HarmCategory | None = Field(
         default=None,
@@ -776,6 +822,10 @@ class AttackVector(BaseModel):
         default=None,
         description="Many-shot jailbreaking config; present → the executor stacks N shots "
         "before the final request.",
+    )
+    pair: PairConfig | None = Field(
+        default=None,
+        description="PAIR attacker-LLM refinement bounds (spec 081); unset uses the defaults.",
     )
     mcp_server_request: McpServerRequest | None = Field(
         default=None,
@@ -840,6 +890,10 @@ class AttackResult(BaseModel):
     owasp_mapping: list[OwaspLlmCategory] = Field(
         default_factory=list,
         description="OWASP Top 10 for LLM Applications categories for this finding",
+    )
+    owasp_agentic_mapping: list[OwaspAgenticCategory] = Field(
+        default_factory=list,
+        description="OWASP Top 10 for Agentic Applications categories for this finding",
     )
     atlas_mapping: list[AtlasTechnique] = Field(
         default_factory=list,

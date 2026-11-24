@@ -148,16 +148,18 @@ def test_audit_types_chains_only_when_the_flag_turns_them_on(args: list[str], ty
 
 @pytest.mark.unit
 @pytest.mark.parametrize("yaml_text", ["hit: !env UNSET_ZIRAN_067_VAR\n", "typed_chains: true\n"])
-def test_audit_never_reads_the_detector_config(yaml_text: str) -> None:
-    """develop's behaviour: a detectors.yaml audit has no use for, even a broken one, is not read."""
+def test_audit_survives_a_broken_detector_config(yaml_text: str) -> None:
+    """Audit reads only ``trifecta_roles`` (spec 088): a broken file warns on stderr and the
+    audit runs as without it."""
     runner = CliRunner()
     with runner.isolated_filesystem() as here:
         _agent_dir(Path(here))
         Path(".ziran").mkdir()
         Path(".ziran/detectors.yaml").write_text(yaml_text)
         result = runner.invoke(cli, ["audit", ".", "--format", "json"])
-    assert "UNSET_ZIRAN_067_VAR" not in result.output and "detectors.yaml" not in result.output
-    assert result.exit_code == 0 and '"files_analyzed": 1' in result.output
+    assert "trifecta_roles not read" in result.stderr
+    assert "detectors.yaml" not in result.stdout
+    assert result.exit_code == 0 and '"files_analyzed": 1' in result.stdout
 
 
 @pytest.mark.unit

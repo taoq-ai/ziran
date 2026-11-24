@@ -150,7 +150,7 @@ class TestDirectChains:
     def test_direct_chain_found(self, simple_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(simple_graph)
         tool_nodes = analyzer._get_tool_nodes()
-        chains = analyzer._find_direct_chains(tool_nodes, {})
+        chains = analyzer._find_direct_chains(tool_nodes, analyzer._candidate_pairs(tool_nodes))
 
         assert len(chains) >= 1
         assert chains[0].chain_type == "direct"
@@ -165,7 +165,7 @@ class TestDirectChains:
 
         analyzer = ToolChainAnalyzer(g)
         tool_nodes = analyzer._get_tool_nodes()
-        chains = analyzer._find_direct_chains(tool_nodes, {})
+        chains = analyzer._find_direct_chains(tool_nodes, analyzer._candidate_pairs(tool_nodes))
         assert chains == []
 
     def test_substring_matching(self) -> None:
@@ -177,7 +177,7 @@ class TestDirectChains:
 
         analyzer = ToolChainAnalyzer(g)
         tool_nodes = analyzer._get_tool_nodes()
-        chains = analyzer._find_direct_chains(tool_nodes, {})
+        chains = analyzer._find_direct_chains(tool_nodes, analyzer._candidate_pairs(tool_nodes))
         assert len(chains) >= 1
         assert chains[0].vulnerability_type == "data_exfiltration"
 
@@ -191,7 +191,9 @@ class TestIndirectChains:
     def test_indirect_chain_found(self, indirect_chain_graph: AttackKnowledgeGraph) -> None:
         analyzer = ToolChainAnalyzer(indirect_chain_graph)
         tool_nodes = analyzer._get_tool_nodes()
-        chains = analyzer._find_indirect_chains(tool_nodes, {}, max_hops=3)
+        chains = analyzer._find_indirect_chains(
+            analyzer._candidate_pairs(tool_nodes), {}, max_hops=3
+        )
 
         assert len(chains) >= 1
         assert chains[0].chain_type == "indirect"
@@ -201,7 +203,9 @@ class TestIndirectChains:
         """If there's a direct edge, indirect detection should skip it."""
         analyzer = ToolChainAnalyzer(simple_graph)
         tool_nodes = analyzer._get_tool_nodes()
-        chains = analyzer._find_indirect_chains(tool_nodes, {}, max_hops=3)
+        chains = analyzer._find_indirect_chains(
+            analyzer._candidate_pairs(tool_nodes), {}, max_hops=3
+        )
         # Direct edge exists, so indirect should not duplicate
         assert chains == []
 
@@ -327,6 +331,32 @@ class TestPatternMatching:
         analyzer = ToolChainAnalyzer(simple_graph)
         result = analyzer._match_pattern("harmless_a", "harmless_b", {})
         assert result is None
+
+    def test_pair_table_agrees_with_match_pattern(self) -> None:
+        """The direct and indirect rules read one pair table: same first pattern per pair."""
+        ids = [
+            "tool_read_file",
+            "HTTP_Request",
+            "requests_get",
+            "sql_query",
+            "execute_code",
+            "send_email",
+            "mcp__fs__write_file",
+            "Bash",
+            "harmless_a",
+            "read_write_file",  # matches both roles of one pattern: no pair with itself
+        ]
+        graph = AttackKnowledgeGraph()
+        for tool_id in ids:
+            graph.add_tool(tool_id)
+        analyzer = ToolChainAnalyzer(graph)
+        expected = {
+            (a, b): info
+            for a, b in itertools.permutations(ids, 2)
+            if (info := analyzer._match_pattern(a, b, {})) is not None
+        }
+        assert expected
+        assert analyzer._candidate_pairs(analyzer._get_tool_nodes()) == expected
 
 
 # ── Tests: Pattern database ──────────────────────────────────────────

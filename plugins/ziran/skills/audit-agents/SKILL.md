@@ -94,12 +94,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: taoq-ai/ziran@b813e4fb9076397098b7135785de15b98bb6528e  # v0.42.0
+      - uses: taoq-ai/ziran@591ccafa3fca7da82fd6f2673358552584f55339  # v0.43.0
         with:
           command: audit
           path: "."
           baseline: ziran-baseline.json
-          ziran-version: "ziran==0.42.0"
+          ziran-version: "ziran==0.43.0"
 ```
 
 Other inputs: `severity-threshold` (default `low`) and `sarif-output` (default

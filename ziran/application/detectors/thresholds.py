@@ -16,11 +16,14 @@ documented in ``docs/reference/benchmarks/detection-accuracy.md``.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 from ziran.application.detectors.ensemble import EnsembleConfig
 from ziran.application.detectors.prefilter import PrefilterConfig
 from ziran.application.detectors.semantic import SemanticConfig
+from ziran.domain.entities.capability import BlastRadiusConfig
 
 
 class DetectorThresholds(BaseModel):
@@ -110,6 +113,16 @@ class DetectorThresholds(BaseModel):
         le=1.0,
         description="Share of band units the hybrid sends to its model jobs (spec 067). "
         "0.0 is deterministic mode: no model call.",
+    )
+
+    trifecta_roles: dict[str, list[Literal["private_data", "untrusted_content", "egress"]]] = Field(
+        default_factory=dict,
+        description="Tool id or name -> its lethal trifecta legs, in place of the name "
+        "rules (spec 088). An empty list gives the tool no leg.",
+    )
+    blast_radius: BlastRadiusConfig = Field(
+        default_factory=BlastRadiusConfig,
+        description="Data tags and external overrides for the blast radius (spec 091).",
     )
 
     @model_validator(mode="after")

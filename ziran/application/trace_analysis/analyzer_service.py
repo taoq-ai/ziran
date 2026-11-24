@@ -18,6 +18,11 @@ from ziran.application.knowledge_graph.chain_analyzer import (
 )
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
+from ziran.application.knowledge_graph.trifecta import (
+    RULE_ID,
+    VULNERABILITY_TYPE,
+    egress_after_untrusted,
+)
 from ziran.application.static_analysis.config import StaticAnalysisConfig
 from ziran.application.trace_analysis.alerting import (
     build_digest,
@@ -137,7 +142,7 @@ class AnalyzerService:
             critical_paths=[c.graph_path for c in aggregated],
             final_trust_score=1.0,
             success=has_critical,
-            dangerous_tool_chains=[c.model_dump() for c in aggregated],
+            dangerous_tool_chains=[c.model_dump(exclude={"blast_radius"}) for c in aggregated],
             critical_chain_count=sum(1 for c in aggregated if c.is_critical),
             source="trace-analysis",
             metadata={
@@ -212,8 +217,13 @@ class AnalyzerService:
                     risk_score=0.5,
                 )
 
-        analyzer = ToolChainAnalyzer(graph)
-        chains = analyzer.analyze()
+        chains = ToolChainAnalyzer(graph).analyze()
+        # a trifecta in a trace needs the dangerous order: egress after untrusted content
+        trifecta = [c for c in chains if c.vulnerability_type == VULNERABILITY_TYPE]
+        if trifecta and not egress_after_untrusted(c.tool_name for c in session.tool_calls):
+            chains = [c for c in chains if c.vulnerability_type != VULNERABILITY_TYPE]
+        for chain in trifecta:
+            chain.evidence["rule_id"] = RULE_ID
 
         # Annotate with trace metadata
         for chain in chains:

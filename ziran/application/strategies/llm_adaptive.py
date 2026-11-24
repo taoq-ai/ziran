@@ -35,6 +35,7 @@ of an AI agent. You need to decide what to test next.
 - Vulnerabilities found so far: {vuln_count}
 - Critical vulnerability found: {critical_found}
 - Discovered capabilities: {capabilities}
+- Dangerous tool chains: {chains}
 
 ## Available Phases
 {available_phases}
@@ -168,6 +169,11 @@ class LLMAdaptiveStrategy(AdaptiveStrategy):
             vuln_count=context.total_vulnerabilities,
             critical_found=context.critical_found,
             capabilities=", ".join(context.discovered_capabilities[:20]) or "none discovered",
+            chains="; ".join(
+                f"{' -> '.join(c.tools)} ({c.vulnerability_type})"
+                for c in context.dangerous_chains[:10]
+            )
+            or "none found",
             available_phases="\n".join(f"- {p}" for p in available),
             recent_results=recent_results or "No phases completed yet",
         )

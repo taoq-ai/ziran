@@ -10,7 +10,7 @@ Rule   When
 =====  =========================================================
 BL001  a restricted agent gains a tool not in the baseline
 BL002  a restricted agent lost its ``tools`` key (inherits all)
-BL003  a dangerous chain not in the baseline
+BL003  a dangerous chain not in the baseline, a lethal trifecta (LT001) included
 BL004  an agent not in the baseline
 =====  =========================================================
 
@@ -26,10 +26,14 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID
+from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
 from ziran.application.static_analysis.analyzer import StaticFinding
 from ziran.application.static_analysis.claude_code_audit import agent_chains
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+
     from ziran.domain.entities.claude_code import ClaudeCodeAgent, ClaudeCodeScan
 
 _RERECORD = "re-record the baseline with --write-baseline."
@@ -66,8 +70,13 @@ class BaselineNarrowing(BaseModel):
     tools: list[str] = Field(default_factory=list)
 
 
-def build_baseline(scan: ClaudeCodeScan) -> AuditBaseline:
-    """Baseline of every parsed agent: agents sorted by name, chains sorted by ``tools``."""
+def build_baseline(
+    scan: ClaudeCodeScan, trifecta_roles: Mapping[str, Iterable[str]] | None = None
+) -> AuditBaseline:
+    """Baseline of every parsed agent: agents sorted by name, chains sorted by ``tools``.
+
+    Chains include ``lethal_trifecta`` (LT001, spec 088) under the *trifecta_roles* overrides.
+    """
     return AuditBaseline(
         version=1,
         agents={
@@ -80,7 +89,7 @@ def build_baseline(scan: ClaudeCodeScan) -> AuditBaseline:
                             vulnerability_type=c.vulnerability_type,
                             severity=c.risk_level,
                         )
-                        for c in agent_chains(a)
+                        for c in agent_chains(a, trifecta_roles=trifecta_roles)
                     ),
                     key=lambda c: c.tools,
                 ),
@@ -115,13 +124,20 @@ def _violation(
 
 
 def apply_baseline(
-    findings: list[StaticFinding], scan: ClaudeCodeScan, baseline: AuditBaseline
+    findings: list[StaticFinding],
+    scan: ClaudeCodeScan,
+    baseline: AuditBaseline,
+    trifecta_roles: Mapping[str, Iterable[str]] | None = None,
 ) -> tuple[list[StaticFinding], list[BaselineNarrowing]]:
-    """Return (findings with accepted rows removed and violations appended, narrowings)."""
+    """Return (findings with accepted rows removed and violations appended, narrowings).
+
+    A chain is accepted by its tools and type, so a recorded pair chain does not accept a
+    lethal trifecta over the same tools.
+    """
     kept = [
         dataclasses.replace(f, severity="critical") if f.check_id == "CC000" else f
         for f in findings
-        if f.check_id != "CC001" and not _accepted(f, baseline)
+        if f.check_id not in (CHAIN_RULE_ID, LT001) and not _accepted(f, baseline)
     ]
     violations: list[StaticFinding] = []
     narrowed: list[BaselineNarrowing] = []
@@ -129,7 +145,7 @@ def apply_baseline(
     for agent in scan.agents:
         entry = baseline.agents.get(agent.name)
         name = agent.name
-        chains = agent_chains(agent)
+        chains = agent_chains(agent, trifecta_roles=trifecta_roles)
         if entry is None:
             violations.append(
                 _violation(
@@ -156,7 +172,9 @@ def apply_baseline(
                 for t in agent.tools
                 if t not in entry.tools
             ]
-        accepted = {tuple(c.tools) for c in entry.chains} if entry else set()
+        accepted = (
+            {(tuple(c.tools), c.vulnerability_type) for c in entry.chains} if entry else set()
+        )
         violations += [
             _violation(
                 agent,
@@ -166,7 +184,7 @@ def apply_baseline(
                 tuple(c.tools),
             )
             for c in chains
-            if tuple(c.tools) not in accepted
+            if (tuple(c.tools), c.vulnerability_type) not in accepted
         ]
 
         if entry is None:
@@ -179,11 +197,11 @@ def apply_baseline(
             ]
         if entry.tools is None and agent.tools is not None:
             narrowed.append(BaselineNarrowing(agent=name, change="tools_key_added"))
-        current = {tuple(c.tools) for c in chains}
+        current = {(tuple(c.tools), c.vulnerability_type) for c in chains}
         narrowed += [
             BaselineNarrowing(agent=name, change="chain_removed", tools=c.tools)
             for c in entry.chains
-            if tuple(c.tools) not in current
+            if (tuple(c.tools), c.vulnerability_type) not in current
         ]
 
     names = {a.name for a in scan.agents}

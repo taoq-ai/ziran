@@ -17,11 +17,11 @@ import json
 from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
-from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY
+from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY
+from ziran.interfaces.cli.reports import BLAST_RADIUS_INTRO, blast_radius_blocks
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
-# vis-network CDN version — kept in step with the web UI's ``vis-network``
-# dependency so both surfaces behave identically.
+# vis-network CDN version used by the self-contained report.
 _VIS_NETWORK_VERSION = "10.0.2"
 
 # Graph payload caps for the self-contained report (spec 048). Applied to the
@@ -204,6 +204,7 @@ def build_html_report(
     trust_score = result_data.get("final_trust_score", 0)
     success = result_data.get("success", False)
     unmeasured = (result_data.get("metadata") or {}).get(UNMEASURED_METADATA_KEY, [])
+    warnings = (result_data.get("metadata") or {}).get(WARNINGS_METADATA_KEY, [])
     phases = result_data.get("phases_executed", [])
     token_usage = result_data.get("token_usage", {})
     coverage_level = result_data.get("coverage_level", "")
@@ -239,6 +240,49 @@ def build_html_report(
         else ""
     )
 
+    blocks = blast_radius_blocks(
+        result_data.get("dangerous_tool_chains", []),
+        result_data.get("blast_radius") or {},
+        html.escape,
+    )
+    blast_html_section = (
+        "  <!-- Blast radius (spec 091) -->\n"
+        '  <div class="section">\n'
+        '    <div class="section-title">Blast radius</div>\n'
+        f'    <p class="muted">{BLAST_RADIUS_INTRO}</p>\n'
+        + "".join(
+            f"    <h4>{heading}</h4>\n"
+            + "".join(
+                f"    <strong>{title}</strong>\n    <ul>"
+                + "".join(f"<li>{x}</li>" for x in part_lines)
+                + "</ul>\n"
+                for title, part_lines in parts
+            )
+            for heading, parts in blocks
+        )
+        + "  </div>\n"
+        if blocks
+        else ""
+    )
+
+    targets = result_data.get("chain_targets") or []
+    targets_html_section = (  # vectors aimed at the chains found at discovery (spec 087)
+        '  <div class="section">\n'
+        '    <div class="section-title">Chain-targeted vectors</div>\n'
+        '    <table class="owasp-table">\n'
+        "    <tr><th>Chain</th><th>Vulnerability type</th><th>Chosen vectors</th><th>Ran</th></tr>\n"
+        + "".join(
+            f"    <tr><td><code>{html.escape(' → '.join(t['tools']))}</code></td>"
+            f"<td>{html.escape(t['vulnerability_type'])}</td>"
+            f"<td>{html.escape(', '.join(t['vector_ids']))}</td>"
+            f"<td>{html.escape(', '.join(t['ran'])) or 'none'}</td></tr>\n"
+            for t in targets
+        )
+        + "    </table>\n  </div>\n"
+        if targets
+        else ""
+    )
+
     return _HTML_TEMPLATE.format(
         vis_version=_VIS_NETWORK_VERSION,
         campaign_id=html.escape(campaign_id),
@@ -254,6 +298,10 @@ def build_html_report(
         if unmeasured
         else "PASSED",
         success_class="danger" if success else "orange" if unmeasured else "safe",
+        warnings_html="".join(
+            f'\n    <p class="muted" style="color:var(--orange)">Warning: {html.escape(str(w))}</p>'
+            for w in warnings
+        ),
         total_nodes=stats.get("total_nodes", 0),
         total_edges=stats.get("total_edges", 0),
         density=f"{stats.get('density', 0):.3f}",
@@ -276,6 +324,7 @@ def build_html_report(
         owasp_html=owasp_html,
         atlas_html=atlas_html,
         defence_html_section=defence_html_section,
+        blast_html_section=blast_html_section + targets_html_section,
         vis_nodes_json=_script_json(vis_data["nodes"]),
         vis_edges_json=_script_json(vis_data["edges"]),
         critical_paths_json=_script_json(shown_paths),
@@ -1279,7 +1328,7 @@ _HTML_TEMPLATE = """\
 
   <!-- Summary metrics -->
   <div class="section">
-    <div class="section-title">Campaign Summary</div>
+    <div class="section-title">Campaign Summary</div>{warnings_html}
     <div class="metric-grid">
       <div class="metric">
         <div class="metric-value {success_class}">{success_label}</div>
@@ -1371,7 +1420,7 @@ _HTML_TEMPLATE = """\
     {atlas_html}
   </div>
 
-  {defence_html_section}
+  {defence_html_section}{blast_html_section}
 
   <!-- Attack Paths -->
   <div class="section">

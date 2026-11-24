@@ -203,6 +203,14 @@ class GateResult(BaseModel):
             if f.kind == "attack" and f.state == "suppressed"
         }
 
+    def suppressed_chains(self) -> dict[int, str]:
+        """dangerous_tool_chains index -> entry reason, for every suppressed chain."""
+        return {
+            f.index: f.reason
+            for f in self.findings
+            if f.kind == "chain" and f.state == "suppressed"
+        }
+
     @property
     def passed(self) -> bool:
         return self.status == GateStatus.PASSED

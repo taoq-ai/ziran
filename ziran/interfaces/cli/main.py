@@ -24,6 +24,7 @@ from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorConfig
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
+from ziran.domain.entities.capability import BlastRadius, BlastRadiusConfig
 from ziran.domain.entities.defence import DefenceProfile
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
@@ -213,7 +214,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "--phase-timeout",
     type=float,
     default=300.0,
-    help="Per-phase timeout in seconds (default: 300).",
+    help="Per-phase timeout in seconds (default: 300); extended for tactic: pair vectors.",
 )
 @click.option(
     "--strategy",
@@ -685,6 +686,8 @@ def scan(
             )
 
     scanner = AgentScanner(adapter=adapter, attack_library=attack_library, config=scanner_config)
+    scanner.graph.trifecta_roles = _trifecta_roles()
+    scanner.graph.blast_radius_config = _blast_radius_config()
     coverage_level = CoverageLevel(coverage.lower())
 
     # Build campaign strategy
@@ -1032,6 +1035,8 @@ def report(result_file: str, fmt: str) -> None:
         with filepath.open() as f:
             data = json.load(f)
         result = CampaignResult.model_validate(data)
+        for radius in result.blast_radius.values():  # reports parse each; fail here, not mid-render
+            BlastRadius.model_validate(radius)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
         sys.exit(1)
@@ -1362,8 +1367,11 @@ def audit(
     else:
         report = analyzer.analyze_directory(target)
 
+    trifecta_roles = _trifecta_roles() if scan.detected else {}
     if scan.detected:
-        cc = audit_claude_code(scan, analyzer.config, typed=typed_chains)
+        cc = audit_claude_code(
+            scan, analyzer.config, typed=typed_chains, trifecta_roles=trifecta_roles
+        )
         report.files_analyzed += cc.files_analyzed
         report.findings.extend(cc.findings)
 
@@ -1372,7 +1380,7 @@ def audit(
         if not scan.detected:
             raise click.UsageError("no Claude Code agent definitions found under PATH")
         if write_baseline_path:
-            baseline = build_baseline(scan)
+            baseline = build_baseline(scan, trifecta_roles)
             try:
                 Path(write_baseline_path).write_text(
                     baseline.model_dump_json(indent=2) + "\n", encoding="utf-8"
@@ -1401,7 +1409,7 @@ def audit(
                 raise click.BadParameter(
                     f"invalid baseline at {loc}: {err['msg']}", param_hint="--baseline"
                 ) from None
-        report.findings, narrowed = apply_baseline(report.findings, scan, baseline)
+        report.findings, narrowed = apply_baseline(report.findings, scan, baseline, trifecta_roles)
 
     # Filter by severity if requested
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -1681,8 +1689,9 @@ def ci(
 ) -> None:
     """Evaluate campaign results for CI/CD quality gating.
 
-    Runs quality-gate checks against a scan result JSON file
-    and emits outputs suitable for CI/CD environments:
+    Runs quality-gate checks against a scan result JSON file, or the
+    SARIF ziran wrote from one, and emits outputs suitable for CI/CD
+    environments:
 
     \b
       - GitHub Actions annotations (::error / ::warning)
@@ -1696,6 +1705,7 @@ def ci(
         ziran ci results.json --gate-config gate.yaml --sarif results.sarif
         ziran ci results.json --no-github-annotations --sarif results.sarif
         ziran ci results.json --suppressions .ziran/suppressions.yaml
+        ziran ci results.sarif --gate-config gate.yaml
     """
     from ziran.application.cicd.gate import QualityGate, load_suppressions
     from ziran.application.cicd.github_actions import (
@@ -1703,16 +1713,17 @@ def ci(
         set_output,
         write_step_summary,
     )
-    from ziran.application.cicd.sarif import write_sarif
+    from ziran.application.cicd.sarif import campaign_from_sarif, write_sarif
 
     filepath = Path(result_file)
 
-    # 1. Load campaign result
+    # 1. Load campaign result, or the SARIF generate_sarif wrote from one (spec 093)
     try:
         with filepath.open() as f:
             data = json.load(f)
-        result = CampaignResult.model_validate(data)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+        from_sarif = isinstance(data, dict) and "runs" in data
+        result = campaign_from_sarif(data) if from_sarif else CampaignResult.model_validate(data)
+    except (OSError, ValueError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
         sys.exit(1)
     except Exception as e:
@@ -1746,9 +1757,15 @@ def ci(
     _display_gate_result(gate_result)
     if unmeasured_note := _unmeasured_note(result):
         console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
+    for warning in result.warnings:  # analysis the scan skipped (spec 086)
+        console.print(f"Warning: {warning}", style="yellow", markup=False)
 
-    # 5. SARIF output
-    if sarif_path:
+    # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
+    if sarif_path and from_sarif:
+        console.print(
+            f"--sarif skipped: {filepath} is already a SARIF", style="yellow", markup=False
+        )
+    elif sarif_path:
         try:
             written = write_sarif(result, Path(sarif_path), gate_result)
             console.print(f"[dim]SARIF report: {written}[/dim]")
@@ -1775,8 +1792,14 @@ def ci(
         set_output("suppressed_findings", str(gate_result.suppressed_findings))
         set_output("regressed_findings", str(gate_result.regressed_findings))
 
-    # 9. Policy evaluation (optional overlay)
-    if policy_path:
+    # 9. Policy evaluation (optional overlay); a SARIF lists successful attacks only
+    if policy_path and from_sarif:
+        console.print(
+            f"--policy skipped: {filepath} is a SARIF; run it on the scan result JSON",
+            style="yellow",
+            markup=False,
+        )
+    elif policy_path:
         try:
             from ziran.application.policy.engine import PolicyEngine
 
@@ -1870,6 +1893,37 @@ def _no_hybrid_client() -> None:
         "hybrid_route_share above 0.0 needs a model client; ziran sends no hybrid call, "
         "so a scan runs at 0.0 (deterministic mode)"
     )
+
+
+def _trifecta_roles() -> dict[str, frozenset[str]]:
+    """``trifecta_roles`` of ``.ziran/detectors.yaml`` (spec 088). An invalid file warns and
+    gives no override, so every trifecta the name rules see is still reported."""
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+
+    try:
+        roles = load_detector_thresholds().trifecta_roles
+    except DetectorConfigError as exc:
+        click.echo(f"Warning: trifecta_roles not read: {exc}", err=True)
+        return {}
+    return {tool: frozenset(legs) for tool, legs in roles.items()}
+
+
+def _blast_radius_config() -> BlastRadiusConfig:
+    """``blast_radius`` of ``.ziran/detectors.yaml`` (spec 091). An invalid file warns and gives
+    no tags, so the radius lists nodes only."""
+    from ziran.infrastructure.config.detectors import (
+        DetectorConfigError,
+        load_detector_thresholds,
+    )
+
+    try:
+        return load_detector_thresholds().blast_radius
+    except DetectorConfigError as exc:
+        click.echo(f"Warning: blast_radius not read: {exc}", err=True)
+        return BlastRadiusConfig()
 
 
 def _config_share() -> float:

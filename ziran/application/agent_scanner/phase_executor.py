@@ -11,11 +11,13 @@ from datetime import UTC, datetime
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.agent_scanner.chain_targeting import steer
 from ziran.application.agent_scanner.progress import (
     ProgressEmitter,
     ProgressEvent,
     ProgressEventType,
 )
+from ziran.application.attacks.pair import is_pair, queue_pair_last, run_in_phase
 from ziran.application.usage import TARGET_MODEL
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
@@ -28,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from ziran.application.agent_scanner.attack_executor import AttackExecutor
+    from ziran.application.agent_scanner.chain_targeting import ChainSteering
     from ziran.application.agent_scanner.scan_cache import ScanCache
     from ziran.application.attacks.library import AttackLibrary
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
@@ -100,6 +103,7 @@ class PhaseExecutor:
         calculate_trust_score: Any = None,
         on_vector_complete: Callable[[], None] | None = None,
         capabilities: Sequence[AgentCapability] = (),
+        steering: ChainSteering | None = None,
     ) -> PhaseResult:
         """Execute a single scan phase.
 
@@ -121,6 +125,7 @@ class PhaseExecutor:
                 Used for incremental checkpointing; ``None`` preserves the
                 original between-phase-only behaviour.
             capabilities: Discovered capability set, part of the cache keys (spec 049).
+            steering: Chains found at discovery; their vectors run first (spec 087).
 
         Returns:
             Phase result with all findings.
@@ -160,8 +165,12 @@ class PhaseExecutor:
             strategy_context = CampaignContext(
                 graph_state=self._graph.export_state(),
                 attack_results_summary={r.vector_id: r.successful for r in attack_results},
+                dangerous_chains=steering.chains if steering else [],
+                chain_vectors=steering.vectors if steering else {},
             )
             attacks = strategy.prioritize_attacks(attacks, strategy_context)
+        if steering is not None:  # after the strategy, for every strategy, before the cap
+            attacks = steer(attacks, steering.vectors)
 
         if decision is not None:
             if decision.attack_filter is not None:
@@ -169,6 +178,16 @@ class PhaseExecutor:
                 attacks = [a for a in attacks if a.id in allowed]
             if decision.max_attacks is not None:
                 attacks = attacks[: decision.max_attacks]
+
+        attacks, phase_timeout = queue_pair_last(attacks, self._phase_timeout, max_concurrent)
+        if phase_timeout != self._phase_timeout:
+            pair_count = sum(map(is_pair, attacks))
+            logger.info(
+                "phase_timeout_extended",
+                phase=phase.value,
+                pair_vectors=pair_count,
+                timeout_seconds=phase_timeout,
+            )
 
         logger.info(
             "phase_attacks_loaded",
@@ -228,8 +247,12 @@ class PhaseExecutor:
                         metrics.attack_started(phase.value)
                         started = perf_counter()
                         try:
-                            async with asyncio.timeout(self._attack_timeout):
-                                result = await self._attack_executor.execute(attack)
+                            if is_pair(attack):  # deadline taken here, after the acquire
+                                executor = self._attack_executor.execute
+                                result = await run_in_phase(executor, attack, phase_deadline)
+                            else:
+                                async with asyncio.timeout(self._attack_timeout):
+                                    result = await self._attack_executor.execute(attack)
                         finally:
                             metrics.attack_finished(phase.value)
                         # Refused = agent responded but the attack did not succeed
@@ -313,14 +336,15 @@ class PhaseExecutor:
 
         # Run attacks concurrently with bounded parallelism
         tasks = [_run_attack(idx, atk) for idx, atk in enumerate(attacks)]
+        phase_deadline = asyncio.get_running_loop().time() + phase_timeout
         try:
-            async with asyncio.timeout(self._phase_timeout):
+            async with asyncio.timeout_at(phase_deadline):
                 await asyncio.gather(*tasks)
         except TimeoutError:
             logger.warning(
                 "phase_timed_out",
                 phase=phase.value,
-                timeout_seconds=self._phase_timeout,
+                timeout_seconds=phase_timeout,
             )
 
         # Calculate trust score

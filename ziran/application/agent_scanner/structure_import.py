@@ -14,22 +14,86 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ziran.application.knowledge_graph.graph import EdgeType
+from ziran.domain.entities.capability import CapabilityType
 from ziran.domain.entities.multi_agent import MultiAgentTopology
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+    from ziran.domain.entities.capability import AgentCapability
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = get_logger(__name__)
 
 STATE_NODE_PREFIX = "state:"  # knowledge-graph node id = STATE_NODE_PREFIX + channel name
+MAX_CO_RESIDENT_TOOLS = 100  # above this many tools in co-resident sets, none get edges
+MAX_CO_RESIDENT_ID_CHARS = 200 * MAX_CO_RESIDENT_TOOLS  # the same, for their summed id length
 
 
 async def import_adapter_structure(
+    adapter: BaseAgentAdapter,
+    graph: AttackKnowledgeGraph,
+    capabilities: Iterable[AgentCapability],
+) -> MultiAgentTopology | None:
+    """Call ``adapter.discover_structure()`` and import the result; never raises.
+
+    When the import linked no two of the tool *capabilities*, tools that share a context are
+    linked as co-resident (spec 086): all of them when no agents were reported (a flat agent,
+    or a CrewAI crew, whose agents share task context), else each agent's own tools, plus one
+    set for the tools no agent lists. Over the tool cap or the id-length cap no set is linked
+    and ``graph.warnings`` says so.
+    """
+    topology = await _discover_and_import(adapter, graph)
+    tools = [c.id for c in capabilities if c.type == CapabilityType.TOOL and c.id in graph.graph]
+    tool_set = set(tools)
+    # An earlier discovery on this graph (the pentest agent runs a campaign per step) linked them.
+    if graph.has_co_resident_tools() or _links_tools(graph, tool_set):
+        return topology
+    agents = topology.agents if topology is not None else []
+    listed = {t for agent in agents for t in agent.capabilities}
+    sets = [[t for t in agent.capabilities if t in tool_set] for agent in agents]
+    sets.append([t for t in tools if t not in listed])
+    # The target sets the tool count and names: n tools give n^2 edges and ~n^2/4 chains,
+    # and each one copies both tool ids (CWE-400).
+    linked = [t for s in sets if len(s) > 1 for t in s]
+    count, chars = len(linked), sum(map(len, linked))
+    if count > MAX_CO_RESIDENT_TOOLS or chars > MAX_CO_RESIDENT_ID_CHARS:
+        logger.warning(
+            "co_resident_tools_skipped",
+            tools=count,
+            cap=MAX_CO_RESIDENT_TOOLS,
+            id_chars=chars,
+            id_char_cap=MAX_CO_RESIDENT_ID_CHARS,
+        )
+        warning = (
+            f"Tool chains between tools of one agent were not analysed: {count} tools with "
+            f"{chars} characters of ids is over the cap of {MAX_CO_RESIDENT_TOOLS} tools or "
+            f"{MAX_CO_RESIDENT_ID_CHARS} characters of ids"
+        )
+        if warning not in graph.warnings:
+            graph.warnings.append(warning)
+        return topology
+    for s in sets:
+        graph.add_co_resident_tools(s)
+    return topology
+
+
+def _links_tools(graph: AttackKnowledgeGraph, tools: set[str]) -> bool:
+    """Whether some tool has an edge to another tool, or to a state node another tool reads."""
+    g = graph.structure_view()
+    for tool in tools:
+        for nxt in g.successors(tool):
+            hops = g.successors(nxt) if nxt.startswith(STATE_NODE_PREFIX) else [nxt]
+            if any(n in tools and n != tool for n in hops):
+                return True
+    return False
+
+
+async def _discover_and_import(
     adapter: BaseAgentAdapter, graph: AttackKnowledgeGraph
 ) -> MultiAgentTopology | None:
-    """Call ``adapter.discover_structure()`` and import the result; never raises."""
     try:
         topology = await adapter.discover_structure()
     except Exception as e:

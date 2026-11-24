@@ -183,6 +183,17 @@ def compute_resilience(
 
 #: ``CampaignResult.metadata`` key listing vectors no reply measured (specs 071, 082).
 UNMEASURED_METADATA_KEY = "unmeasured"
+#: ``CampaignResult.metadata`` key listing analysis the scan skipped (spec 086).
+WARNINGS_METADATA_KEY = "warnings"
+
+
+class ChainTarget(BaseModel):
+    """The vectors a campaign aimed at one dangerous tool chain (spec 087)."""
+
+    tools: list[str] = Field(description="The chain's tools, source first")
+    vulnerability_type: str
+    vector_ids: list[str] = Field(description="Vectors chosen for the chain, in run order")
+    ran: list[str] = Field(default_factory=list, description="Chosen vectors that have a result")
 
 
 class CampaignResult(BaseModel):
@@ -214,6 +225,14 @@ class CampaignResult(BaseModel):
     dangerous_tool_chains: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Dangerous tool chain combinations discovered by the chain analyzer",
+    )
+    blast_radius: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Blast radius per last tool of a chain (spec 091): a chain's radius is "
+        "blast_radius[chain['tools'][-1]], kept once per tool so the output stays linear",
+    )
+    chain_targets: list[ChainTarget] = Field(
+        default_factory=list, description="Vectors aimed at each chain found at discovery"
     )
     critical_chain_count: int = Field(
         default=0, description="Number of critical-severity tool chains found"
@@ -257,6 +276,11 @@ class CampaignResult(BaseModel):
         A result with any is never a plain pass: the reports label it INCOMPLETE.
         """
         return [str(v) for v in self.metadata.get(UNMEASURED_METADATA_KEY, [])]
+
+    @property
+    def warnings(self) -> list[str]:
+        """Analysis the scan skipped, such as tool chains over the co-resident cap (spec 086)."""
+        return [str(w) for w in self.metadata.get(WARNINGS_METADATA_KEY, [])]
 
     @property
     def phases_with_findings(self) -> list[PhaseResult]:

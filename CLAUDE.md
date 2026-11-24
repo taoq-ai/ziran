@@ -22,9 +22,9 @@ Auto-generated from all feature plans. Last updated: 2026-11-12
 - YAML for CVE-modeled ground-truth agents (`benchmarks/ground_truth/agents/`); JSON cassettes for recorded agent runs (`benchmarks/ground_truth/pentest_runs/`); JSON results + baseline under `benchmarks/results/` (existing pattern). (022-pentest-vs-scanner-benchmark)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (`ManyShotConfig` model + validators), PyYAML (vectors + synthetic corpus loading), existing `AttackLibrary` / `AttackExecutor` / `AgentScanner`. No new runtime dependencies (token estimate is a char heuristic, not `tiktoken`). (023-many-shot-jailbreak)
 - YAML — the vector file (`ziran/application/attacks/vectors/many_shot_jailbreak.yaml`) and a synthetic shot corpus (`ziran/application/attacks/vectors/many_shot_corpus.yaml`). (023-many-shot-jailbreak)
-- Python 3.11+ (CI matrix 3.11/3.12/3.13) backend; TypeScript 5.x / Node frontend — *no new source code*, only manifests, lockfiles, CI workflows, and docs. + package managers + audit tooling — `uv` (Python lock/sync), `npm` (frontend lock), `pip-audit` (Python vuln gate), `npm audit` (frontend vuln gate). No new runtime dependencies in `ziran/`. (024-security-alert-remediation)
+- Python 3.11+ (CI matrix 3.11/3.12/3.13) — *no new source code*, only manifests, lockfiles, CI workflows, and docs. + package managers + audit tooling — `uv` (Python lock/sync), `pip-audit` (Python vuln gate). No new runtime dependencies in `ziran/`. (024-security-alert-remediation)
 - N/A (no data store). The committed risk-acceptance record (`docs/security/risk-acceptances.md`) is the only new persisted artifact. (024-security-alert-remediation)
-- Python 3.11+ (CI matrix 3.11/3.12/3.13); TypeScript frontend unaffected. (025-dependency-modernization)
+- Python 3.11+ (CI matrix 3.11/3.12/3.13). (025-dependency-modernization)
 - N/A. Touched persisted artifact: `docs/security/risk-acceptances.md` (rows removed). (025-dependency-modernization)
 - Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2 (entities/config), PyYAML (vector loading), `re` (stdlib). No new dependencies. (027-detector-indicator-false-positives)
 - N/A — attack vectors are YAML files under `ziran/application/attacks/vectors/`; benchmark artifacts under `benchmarks/`. (027-detector-indicator-false-positives)
@@ -81,6 +81,8 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (CI matrix: 3.11, 3.12, 3.13): Follow standard conventions
 
 ## Recent Changes
+- 091-blast-radius: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, NetworkX, stdlib `collections`; no new dependencies. `ziran/application/knowledge_graph/blast_radius.py` (`blast_radius(graph, start_tool_ids, *, remove, tool_calls, external)`: data sources, exec/egress/high_impact tools, downstream agents and external channels reached from a chain's last tool, split demonstrated vs reachable, lists capped at `MAX_LISTED` with `counts`); `DangerousChain.blast_radius`; `CampaignResult.blast_radius` keeps one radius per last tool.
+- 088-lethal-trifecta: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib only; no new dependencies. `ziran/application/knowledge_graph/trifecta.py` (legs `private_data`, `untrusted_content`, `egress` from names or `trifecta_roles` in `.ziran/detectors.yaml`); `ToolChainAnalyzer.analyze` adds one `lethal_trifecta` chain per agent; `ziran audit` rule `LT001`, the same rule id in the scan SARIF; the audit baseline keys chains by tools and type.
 - 070-hybrid-harness: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + stdlib `argparse`/`json`/`importlib`; no new dependencies. `benchmarks/external_eval/run.py --hybrid-replies | --hybrid-record` with `--hybrid-model` and `--hybrid-client-version`: the worker runs the pin's trace judge (`judge_traces(share=1.0)`) on every AgentDojo variant through `RecordReplayClient` and writes the predictors `hybrid`, `hybrid_r025`, `hybrid_r050` and `hybrid_r075` (the same replies at each routing share, by the pin's `routed`); rows gain `reply_outcome` values and `no_reply_cause`; `pins.<pin>.hybrid.<variant>` counts band, sent per share, outcomes, no-usable replies by cause and label, and mask changes.
 - 069-agentdojo-reserve: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13), stdlib `json`; no new dependencies. `benchmarks/external_eval/` gains the `agentdojo_reserve` set (ziran-paper `rules.reserve`: defended model folders, attack not `none`) with an `attack` cell beside the model folder, and `run.py --paper <ziran-paper checkout>`: the fresh and reserve sets refuse before reading `--data` unless the set's committed use log ends in the guard's matching `aborted` line and holds no `scored` line (`run.require_admitted`).
 - 067-hybrid-jobs: Added Python 3.11+ (CI matrix 3.11, 3.12, 3.13) + Pydantic v2, stdlib `hashlib`/`json`/`re`/`unicodedata`; no new dependencies. `ziran/application/hybrid/jobs.py` (trace judge, capability and plausibility jobs on the spec 064 seam); prompts at `ziran/application/hybrid/prompts/<job>/v<N>.md` (sha256 pinned); `provenance.evidence_values`; `request_key(repeat=)`; `hybrid_route_share` and `typed_chains` in `.ziran/detectors.yaml`, `scan --hybrid-route-share`, `audit --typed-chains`.
@@ -149,5 +151,14 @@ uv run pytest --cov=ziran        # Tests — all pass, coverage >= 85%
 - After every `git push`, ALWAYS check the CI pipeline status (`gh pr checks`) and wait for results.
 - If any check fails, investigate and fix before proceeding to next work.
 - Do NOT leave a PR with failing CI — fix it immediately.
+
+## Testing in an archive copy
+
+In a `git archive` copy (no `.git`):
+
+- Set `SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0` before `uv sync` or `uv build`.
+- Pin `PYTHONPATH` to the copy and check `ziran.__file__` points inside it.
+- Run ruff on named folders (`ziran tests benchmarks scripts`), not `.`.
+- Read git-dependent tests (`test_external_eval_*`, the hybrid prompt base) from CI.
 
 <!-- MANUAL ADDITIONS END -->

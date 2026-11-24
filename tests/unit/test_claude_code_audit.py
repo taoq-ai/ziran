@@ -71,7 +71,8 @@ class TestStaticFindingFields:
 @pytest.mark.unit
 class TestAgentChains:
     def test_researcher_direct_exfiltration(self) -> None:
-        chains = agent_chains(_agent(tools="Read, Grep, WebFetch, mcp__slack__send_message"))
+        found = agent_chains(_agent(tools="Read, Grep, WebFetch, mcp__slack__send_message"))
+        chains = [c for c in found if c.vulnerability_type != "lethal_trifecta"]  # spec 088
         assert sorted(c.tools for c in chains) == sorted(
             [
                 ["Read", "WebFetch"],
@@ -172,7 +173,9 @@ class TestAuditClaudeCode:
         cc001 = _rules(audit_claude_code(_scan(agent)).findings, "CC001")
         chains = agent_chains(agent)
         assert [(f.severity, f.tools) for f in cc001] == [
-            (c.risk_level, tuple(c.tools)) for c in chains
+            (c.risk_level, tuple(c.tools))
+            for c in chains
+            if c.vulnerability_type != "lethal_trifecta"  # LT001, spec 088
         ]
         assert all(f.line_number == 4 and f.agent == "researcher" for f in cc001)
         assert "Agent 'researcher': data_exfiltration via Read -> WebFetch" in {
@@ -196,4 +199,4 @@ class TestAuditClaudeCode:
         assert first.message == "m"
         order = [f.check_id for f in report.findings]
         assert order[:3] == ["CC000", "SA001", "SA007"]
-        assert set(order[3:]) == {"CC001"}
+        assert set(order[3:]) == {"CC001", "LT001"}  # inherited Read + WebFetch (spec 088)

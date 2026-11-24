@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 
 class CapabilityType(StrEnum):
@@ -83,6 +83,65 @@ class ToolChain(BaseModel):
         return len(self.tools)
 
 
+class DataTag(BaseModel):
+    """What a tool or data source holds, as the operator tags it (spec 091 slice 2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    data_class: Literal["secret", "pii", "financial", "source_code"]
+    records: StrictInt | None = Field(default=None, ge=0, description="Record count, if known")
+    owner: str | None = Field(default=None, description="Who owns the data")
+
+
+class BlastRadiusConfig(BaseModel):
+    """The ``blast_radius`` section of ``.ziran/detectors.yaml`` (spec 091 slice 2).
+
+    Keys are a node id or a tool name without ``tool_``; the id wins when both are given.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    tags: dict[str, DataTag] = Field(default_factory=dict, description="Node -> its data tag")
+    external: dict[str, StrictBool] = Field(
+        default_factory=dict, description="Tool -> whether it reaches parties outside"
+    )
+
+
+class BlastReach(BaseModel):
+    """Nodes of one kind of reach (demonstrated or reachable) in a blast radius (spec 091).
+
+    Each list is sorted and holds at most ``MAX_LISTED`` ids; ``counts`` holds each list's full
+    size, so a large agent stays a constant size per chain.
+    """
+
+    data_sources: list[str] = Field(default_factory=list, description="Data sources reached")
+    exec: list[str] = Field(default_factory=list, description="Tools with the exec role")
+    egress: list[str] = Field(default_factory=list, description="Tools with the egress role")
+    high_impact: list[str] = Field(
+        default_factory=list, description="Tools with the high_impact role"
+    )
+    agents: list[str] = Field(default_factory=list, description="Agents reached downstream")
+    external: list[str] = Field(
+        default_factory=list,
+        description="Outbound channels: egress tools that reach parties outside the organisation",
+    )
+    counts: dict[str, int] = Field(default_factory=dict, description="Full size of each list")
+    tags: dict[str, DataTag] = Field(
+        default_factory=dict, description="Reached node -> its operator tag, exactly as given"
+    )
+
+
+class BlastRadius(BaseModel):
+    """What an attacker reaches from a chain's last tool (spec 091).
+
+    ``demonstrated`` holds the nodes the campaign's recorded tool calls touched, ``reachable``
+    the ones the graph reaches but no call touched. A node is in one of the two, never both.
+    """
+
+    demonstrated: BlastReach = Field(default_factory=BlastReach)
+    reachable: BlastReach = Field(default_factory=BlastReach)
+
+
 class DangerousChain(BaseModel):
     """A dangerous tool combination found in an agent.
 
@@ -126,6 +185,9 @@ class DangerousChain(BaseModel):
         default=0, ge=0, description="Number of times observed in production traces"
     )
     trace_source: str | None = Field(default=None, description="Trace source: 'otel' or 'langfuse'")
+    blast_radius: BlastRadius | None = Field(
+        default=None, description="What the chain's last tool reaches, filled after a scan"
+    )
 
     @property
     def is_critical(self) -> bool:

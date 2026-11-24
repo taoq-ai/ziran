@@ -84,6 +84,8 @@ async def test_dangerous_chain_files_one_issue_then_dedups() -> None:
 
     # Re-run on the same trace → dedup, zero new issues.
     outcome2 = await service.emit_findings(Path("dummy"), _github_sinks())
+    # http_request is untrusted content and egress in one call, so the trace order rule (spec
+    # 088 slice 2) raises no lethal trifecta: only the pair chain dedups
     assert outcome2.deduped == 1
     assert len(created) == 1
 

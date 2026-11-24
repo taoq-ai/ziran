@@ -179,3 +179,14 @@ def test_flat_thresholds_leave_prefilter_disabled(tmp_path: Path) -> None:
     cfg = tmp_path / "detectors.yaml"
     cfg.write_text("hit: 0.65\n", encoding="utf-8")
     assert load_detector_thresholds(cfg).prefilter.enabled is False
+
+
+@pytest.mark.parametrize("kind", ["utf16", "directory"])
+def test_unreadable_file_raises_config_error(tmp_path: Path, kind: str) -> None:
+    path = tmp_path / "detectors.yaml"
+    if kind == "directory":
+        path.mkdir()
+    else:
+        path.write_text("hit: 0.8\n", encoding="utf-16")
+    with pytest.raises(DetectorConfigError, match="cannot read file"):
+        load_detector_thresholds(path)

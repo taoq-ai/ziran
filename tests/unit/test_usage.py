@@ -75,7 +75,7 @@ class TestLedger:
         ledger.record("judge", "a", 1, 1)
         keys = [(e.stage, e.model) for e in ledger.summary()]
         assert keys == [("judge", "a"), ("judge", "z"), ("prefilter", "a"), ("target", "unknown")]
-        assert STAGES == ("judge", "ensemble", "prefilter", "strategy", "target")
+        assert STAGES == ("judge", "ensemble", "prefilter", "strategy", "attacker", "target")
 
 
 @pytest.mark.unit
