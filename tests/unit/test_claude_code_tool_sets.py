@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 import pytest
@@ -80,6 +81,17 @@ def test_a_space_list_is_several_tools(tmp_path: Path) -> None:
 def test_a_space_inside_a_specifier_is_kept(tmp_path: Path) -> None:
     agent = _agent(tmp_path, "tools: Read Bash(git status:*), Grep\n")
     assert agent.tools == ["Read", "Bash(git status:*)", "Grep"]
+
+
+def test_an_unclosed_specifier_is_not_split(tmp_path: Path) -> None:
+    assert _agent(tmp_path, "tools: Read, Bash(git status\n").tools == ["Read", "Bash(git status"]
+
+
+def test_a_tools_line_of_a_megabyte_is_read_in_linear_time(tmp_path: Path) -> None:
+    start = time.monotonic()
+    agent = _agent(tmp_path, "tools: " + "Read Grep " * 100_000 + "\n")
+    assert agent.tools == ["Read", "Grep"]
+    assert time.monotonic() - start < 5
 
 
 def test_a_yaml_list_entry_with_spaces_is_several_tools(tmp_path: Path) -> None:

@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from pathlib import Path
 from typing import Any, Final
 
@@ -42,8 +41,23 @@ logger = get_logger(__name__)
 
 MAX_FILE_BYTES: Final = 1_048_576
 _AGENT_KEYS = ("name", "description", "tools", "model")
-# a tool list is split at commas and at spaces; neither splits inside "(...)" (spec 099)
-_TOOLS_SPLIT = re.compile(r"[,\s]+(?![^()]*\))")
+
+
+def _split_tools(text: str) -> list[str]:
+    """A tool list split at commas and at spaces, never inside "(...)" (spec 099).
+
+    One pass: a file is untrusted and may hold a tools line of 1 MiB, so no regex lookahead.
+    """
+    out, depth, start = [], 0, 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(depth - 1, 0)
+        elif depth == 0 and (ch == "," or ch.isspace()):
+            out.append(text[start:i])
+            start = i + 1
+    return [*out, text[start:]]
 
 
 def _tool_list(value: object) -> object:
@@ -51,7 +65,7 @@ def _tool_list(value: object) -> object:
     entries = [value] if isinstance(value, str) else value
     if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
         return value
-    return [t for e in entries for t in _TOOLS_SPLIT.split(e)]
+    return [t for e in entries for t in _split_tools(e)]
 
 
 def _real(path: Path) -> Path:
