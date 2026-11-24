@@ -121,7 +121,7 @@ def test_a_confined_sink_gives_no_chain(tmp_path: Path, sink: str) -> None:
 @pytest.mark.parametrize("sink", ["WebFetch", "WebFetch(*)", "Bash", "Bash(*)", "Bash(git push:*)"])
 def test_an_open_sink_still_gives_its_chain(tmp_path: Path, sink: str) -> None:
     agent = _agent(tmp_path, f"tools: Read, {sink}\n")
-    assert any(c.tools[-1] == sink for c in agent_chains(agent, typed=True))
+    assert any(c.tools == ["Read", sink] for c in agent_chains(agent, typed=True))
 
 
 # ── Change 4: egress means sending to someone else ───────────────────
