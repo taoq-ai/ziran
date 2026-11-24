@@ -1,4 +1,4 @@
-"""Contract test for the release workflow's attestation path (spec 094)."""
+"""Contract test for the release workflow's attestation path (spec 095)."""
 
 from __future__ import annotations
 
