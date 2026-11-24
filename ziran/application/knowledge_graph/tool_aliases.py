@@ -7,10 +7,9 @@ from application-layer code.
 
 :func:`canonical_tool_name` maps a Claude Code tool id (``Read``, ``Bash``,
 ``mcp__slack__slack_send_message``, ``Read(./.env)`` ...) to the capability
-keyword the chain patterns already use. A sink that its permission specifier limits to named
-commands or domains (``Bash(git status:*)``, ``WebFetch(domain:docs.example.org)``) maps to
-:data:`CONFINED`, which no pattern and no role matches; a ``Bash`` rule for pushing to a
-remote stays a sink. Ids that are not Claude Code tools
+keyword the chain patterns already use. ``WebFetch`` limited to named domains
+(``WebFetch(domain:docs.example.org)``) maps to :data:`CONFINED`, which no pattern and no
+role matches. ``Bash(git status:*)`` stays a sink: a named command can still send data. Ids that are not Claude Code tools
 are checked against a short table of LangChain-style names
 (``recursive_url_loader``, ``tavily_search``, ``vector_store_query``,
 ``read_secrets``, ``execute_command`` and their variants); any other id is returned unchanged. The result is for matching
@@ -60,8 +59,10 @@ UNRESTRICTED_EXEC_TOOLS: frozenset[str] = frozenset({"Bash", "Bash(*)"})
 #: Verbs that send data to someone other than the user. Creating or updating an object in the
 #: user's own account is a write, not egress (spec 099, change 4).
 _OUTBOUND_VERBS = frozenset({"send", "post", "reply", "publish"})
-#: The keyword of a sink its permission specifier confines to named domains or commands: it
-#: matches no chain pattern and has no role (spec 099, change 6).
+#: The keyword of ``WebFetch`` confined to named domains by its permission specifier: it
+#: matches no chain pattern and has no role (spec 099, change 6). A ``Bash`` entry with a
+#: specifier stays a sink: a named command can still send data. The plausibility request
+#: marks it restricted and shows the specifier to the judge.
 CONFINED = "confined"
 _RULE = re.compile(r"(\w+)\((.*)\)", re.DOTALL)  # permission-rule form "Name(specifier)"
 #: A path to a credential file: a permission spec here, a path token in chain_targeting.
@@ -112,8 +113,6 @@ def canonical_tool_name(tool_id: str) -> str:
         return "read_secret_file"
     if name == "Bash" and _GIT_PUSH.search(spec):
         return "git_push"
-    if (name == "Bash" and spec.strip(" *:")) or (
-        name == "WebFetch" and spec.startswith("domain:") and spec[7:].strip(" *")
-    ):
+    if name == "WebFetch" and spec.startswith("domain:") and spec[7:].strip(" *"):
         return CONFINED
     return canonical

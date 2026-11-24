@@ -333,7 +333,7 @@ In a directory, Python files are still analysed as before and the Claude Code fi
 | `CC001` | the chain's risk | A dangerous tool chain over the agent's declared tools (e.g. `Read -> WebFetch`) | `tools:` line |
 | `LT001` | critical | The lethal trifecta: the agent's declared tools read private data, see untrusted content and can send data out (e.g. `Read, WebFetch`) | `tools:` line |
 
-The `tools` value is read as the format writes it: a list split at commas or spaces, the `allowed-tools` key when there is no `tools` key, and an empty value (`tools:`, `tools: []`) as an agent with no tool, which gets no `SA007`. A sink that its permission specifier limits to named commands or domains (`Bash(git status:*)`, `WebFetch(domain:docs.example.org)`) is in no chain.
+The `tools` value is read as the format writes it: a list split at commas or spaces, the `allowed-tools` key when there is no `tools` key, and an empty value (`tools:`, `tools: []`) as an agent with no tool, which gets no `SA007`. `WebFetch` limited to named domains (`WebFetch(domain:docs.example.org)`) is in no chain; `Bash(git status:*)` stays a sink, since a named command can still send data.
 
 When Claude Code definitions are detected, every JSON row (Python rows included) gains two keys:
 `agent` (the agent name, `null` for Python rows and `CC000`) and `tools` (the tool strings, in

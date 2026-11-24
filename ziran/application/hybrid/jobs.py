@@ -9,8 +9,9 @@ registers, and merges a reply with the first pass, so no reply removes a first-p
 2. Capability classifier: the tools ziran's tables do not know, names only (ADR 0007), at most 12
    a request. A usable reply gives role overrides for typed chains. A table tool is never sent,
    so no reply can retype it, and an override never reaches a table chain.
-3. Chain plausibility: one agent and at most 12 typed pairs. Only ``yes`` is a finding; a pair
-   with no usable reply stays listed for review.
+3. Chain plausibility: one agent and at most 12 pairs, its typed pairs and the
+   exfiltration-class pattern pairs the caller adds (spec 099). Only ``yes`` is a finding; a
+   pair with no usable reply stays listed for review, and a pair past the 12 is not assessed.
 
 A reply is an untrusted model output (OWASP LLM01): each parse accepts only its closed form.
 Untrusted text is masked (``mask.py``) and rendered as ``| `` data lines between markers it
@@ -49,10 +50,15 @@ if TYPE_CHECKING:
 
 TRACE_JUDGE_VERSION = 1  # ADR 0008
 CAPABILITY_VERSION = 1  # ADR 0007, rendered names only
-PLAUSIBILITY_VERSION = 0
+PLAUSIBILITY_VERSION = 1  # the four conditions of a finding (spec 099)
 CUT = 4000  # g11_dev_sets.CUT: the rendering cuts each tool result, the detector never does
 CALLS = 1000  # hybrid_send.CALLS: the judge's call index is below it
 PER_REQUEST = 12  # tools or pairs a request (protocol section 2)
+# ziran-paper's sender refuses a request over 200,000 characters: the agent's text takes at most
+# half of that, the approval files a quarter, and the rest is left for the prompt and the pairs
+AGENT_CUT = 100_000
+APPROVAL_CUT = 50_000
+APPROVAL_FILES = 5  # shown at most, in sorted order of their paths
 
 # ── Untrusted text as data (g11_judge_spike.py's render) ─────────────
 
@@ -92,10 +98,34 @@ def _json(value: object) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
 
+def _cut(text: object, marker: re.Pattern[str], limit: int) -> list[str]:
+    """Untrusted text as record lines within ``limit`` characters, masked before the cut so no
+    secret is cut in two. A cut is said in a heading line, which recorded text cannot imitate."""
+    clean = marker.sub(_MARK, mask(str(text)))
+    out: list[str] = []
+    room = limit
+    for line in clean.splitlines() or [""]:
+        room -= 3  # "| " and the line break
+        if room < len(line):
+            out += ["| " + line[:room]] if room > 0 else []
+            return [*out, f"[cut at {limit} characters]"]
+        out.append("| " + line)
+        room -= len(line)
+    return out
+
+
+def _no_repeat(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    out = dict(pairs)
+    if len(out) != len(pairs):  # json.loads would keep the last of two equal keys
+        raise ValueError("reply holds a repeated key")
+    return out
+
+
 def _reply(content: str) -> Any:
-    """A reply's JSON; ValueError (not usable) for anything else, a deep nesting included."""
+    """A reply's JSON; ValueError (not usable) for anything else: a deep nesting, or an object
+    with a repeated key, which contradicts itself."""
     try:
-        return json.loads(content)
+        return json.loads(content, object_pairs_hook=_no_repeat)
     except RecursionError:
         raise ValueError("reply nests too deep") from None
 
@@ -340,42 +370,95 @@ async def classify_tools(
 
 A_BEGIN, A_END = "<<<AGENT_DATA_BEGIN>>>", "<<<AGENT_DATA_END>>>"
 REASONS = ("plausible", "no_untrusted_input", "no_flow", "approval_step", "sink_restricted")
+NOT_ASSESSED = "not_assessed"  # a pair past the request's 12: never a finding, and counted
+_EXFILTRATION = "typed_data_exfiltration"
+_SPECIFIER = re.compile(r"\w+\(.*\)", re.DOTALL)  # the permission-rule form "Name(specifier)"
+
+Pair = tuple[str, str]
 
 
-def pairs_of(chains: Iterable[DangerousChain]) -> list[tuple[str, str]]:
-    """An agent's typed pairs, each once, exfiltration pairs first, at most PER_REQUEST."""
-    typed = sorted(
-        (c for c in chains if c.typed),
-        key=lambda c: c.vulnerability_type != "typed_data_exfiltration",
-    )
-    return list(dict.fromkeys((c.tools[0], c.tools[1]) for c in typed))[:PER_REQUEST]
+class PairUnit(NamedTuple):
+    """One agent unit of the plausibility job. A plain ``(agent, chains)`` tuple is one too."""
+
+    agent: ClaudeCodeAgent
+    chains: Sequence[DangerousChain]
+    #: Exfiltration-class pattern pairs the caller adds: the first and last tool of each such
+    #: chain. A pattern chain itself stays untyped.
+    exfil: Sequence[Pair] = ()
+    #: (path, text) of the files that can hold an approval step, already masked for their
+    #: kind by the caller. ziran reads no path of its own.
+    approvals: Sequence[tuple[str, str]] = ()
 
 
-def render_pairs(prompt: Prompt, agent: ClaudeCodeAgent, chains: Sequence[DangerousChain]) -> str:
-    """The request: the agent's masked definition, its tools' roles, and its numbered pairs."""
+def _spread(pairs: set[Pair]) -> list[Pair]:
+    """One pair per source in turn, sources and sinks each in sorted order of their ids."""
+    by_source: dict[str, list[str]] = {}
+    for a, b in sorted(pairs):
+        by_source.setdefault(a, []).append(b)
+    depth = max(map(len, by_source.values()), default=0)
+    return [(a, sinks[i]) for i in range(depth) for a, sinks in by_source.items() if i < len(sinks)]
+
+
+def _candidates(chains: Iterable[DangerousChain], exfil: Iterable[Pair] = ()) -> list[Pair]:
+    """Every pair the job could ask about, each once: the exfiltration pairs (typed, and the
+    caller's pattern pairs), then the other typed pairs, each group spread over its sources.
+    The order reads no label and does not depend on the order of the chains or the file."""
+    typed = [c for c in chains if c.typed]
+    first = {(c.tools[0], c.tools[1]) for c in typed if c.vulnerability_type == _EXFILTRATION}
+    first |= {(a, b) for a, b in exfil}
+    rest = {(c.tools[0], c.tools[1]) for c in typed} - first
+    return _spread(first) + _spread(rest)
+
+
+def pairs_of(chains: Iterable[DangerousChain], exfil: Iterable[Pair] = ()) -> list[Pair]:
+    """The pairs a request asks about: the first PER_REQUEST of the candidates."""
+    return _candidates(chains, exfil)[:PER_REQUEST]
+
+
+def render_pairs(prompt: Prompt, unit: PairUnit | tuple[Any, ...]) -> str:
+    """The request: the agent's masked definition cut at AGENT_CUT, the approval files (at most
+    APPROVAL_FILES, sharing APPROVAL_CUT), the roles of the asked tools, and the numbered pairs."""
+    agent, chains, exfil, approvals = PairUnit(*unit)
+    pairs = pairs_of(chains, exfil)
+    asked = {t for pair in pairs for t in pair}
     roles: dict[str, list[str]] = {}
     for c in chains:
         if c.typed:
-            roles.update(c.evidence.get("roles", {}))
+            roles.update({t: r for t, r in c.evidence.get("roles", {}).items() if t in asked})
     definition = (
         f"name: {agent.name}\ndescription: {agent.description}\n"
         f"tools: {', '.join(agent.effective_tools)}\n{agent.system_prompt}"
     )
+    shown = sorted(approvals)[:APPROVAL_FILES]
+    files = [
+        line
+        for n, (_, text) in enumerate(shown, 1)
+        for line in (f"[approval file {n}]", *_cut(text, _AGENT, APPROVAL_CUT // len(shown)))
+    ]
+    if len(approvals) > len(shown):
+        files.append(f"[{len(approvals) - len(shown)} more approval files left out]")
     record = [
         A_BEGIN,
         "AGENT:",
-        _data(definition, _AGENT),
+        *_cut(definition, _AGENT, AGENT_CUT),
+        "APPROVALS:",
+        *(files or ["[no approval file in the store]"]),
         "ROLES:",
         _data("\n".join(f"{t}: {', '.join(r) or 'none'}" for t, r in roles.items()), _AGENT),
         "PAIRS:",
-        *(_line(f"[pair {n}] {a} -> {b}", _AGENT) for n, (a, b) in enumerate(pairs_of(chains), 1)),
+        *(
+            _line(f"[pair {n}] {a} -> {b}", _AGENT)
+            + (" [sink restricted by its specifier]" if _SPECIFIER.fullmatch(b) else "")
+            for n, (a, b) in enumerate(pairs, 1)
+        ),
         A_END,
     ]
     return prompt.text.rstrip("\n") + "\n\n" + "\n".join(record)
 
 
 def _answers(content: str) -> list[str] | None:
-    """Each pair's answer; a wrong count fails ``zip(strict=True)`` in the job's parse."""
+    """Each pair's answer; a wrong count fails ``zip(strict=True)`` in the job's parse. An
+    answer must agree with its reason: ``plausible`` goes with ``yes`` and with nothing else."""
     r = _reply(content)
     pairs = r.get("pairs") if isinstance(r, dict) and set(r) == {"pairs"} else None
     ok = isinstance(pairs, list) and all(
@@ -383,33 +466,39 @@ def _answers(content: str) -> list[str] | None:
         and set(p) == {"answer", "reason"}
         and p["answer"] in ("yes", "no", "unsure")
         and p["reason"] in REASONS
+        and (p["answer"] == "yes") == (p["reason"] == "plausible")
         for p in pairs
     )
     return [p["answer"] for p in pairs] if ok else None  # type: ignore[union-attr]
 
 
 async def judge_pairs(
-    agents: Mapping[str, tuple[ClaudeCodeAgent, Sequence[DangerousChain]]],
+    agents: Mapping[str, PairUnit | tuple[Any, ...]],
     client: BaseLLMClient | None,
     *,
     share: float = 0.0,
     repeat: int = 0,
-) -> HybridResult[dict[tuple[str, str], str]]:
-    """Each agent unit's pairs answered ``yes``, ``no`` or ``unsure``; ``review`` when no usable
-    reply came. Only ``yes`` is a hybrid finding. An agent with no typed pair is never sent."""
+) -> HybridResult[dict[Pair, str]]:
+    """Each agent unit's candidate pairs: ``yes``, ``no`` or ``unsure`` for an asked pair,
+    ``review`` when no usable reply came, ``not_assessed`` for a pair past the request's 12.
+    Only ``yes`` is a hybrid finding. An agent with no candidate pair is never sent."""
     prompt = load("plausibility", PLAUSIBILITY_VERSION)
-    pairs = {u: pairs_of(chains) for u, (_, chains) in agents.items()}
+    units = {u: PairUnit(*unit) for u, unit in agents.items()}
+    every = {u: _candidates(unit.chains, unit.exfil) for u, unit in units.items()}
+    rest = {u: dict.fromkeys(p[PER_REQUEST:], NOT_ASSESSED) for u, p in every.items()}
 
-    def parse(unit: str, content: str) -> dict[tuple[str, str], str] | None:
+    def parse(unit: str, content: str) -> dict[Pair, str] | None:
         answers = _answers(content)
-        return None if answers is None else dict(zip(pairs[unit], answers, strict=True))
+        if answers is None:
+            return None
+        return dict(zip(every[unit][:PER_REQUEST], answers, strict=True)) | rest[unit]
 
     return await decide(
-        {u: dict.fromkeys(p, "review") for u, p in pairs.items()},
-        [u for u, p in pairs.items() if p],
+        {u: dict.fromkeys(p[:PER_REQUEST], "review") | rest[u] for u, p in every.items()},
+        [u for u, p in every.items() if p],
         client,
         prompt,
-        lambda u: render_pairs(prompt, *agents[u]),
+        lambda u: render_pairs(prompt, units[u]),
         parse,
         merge=lambda _, reply: reply,
         share=share,

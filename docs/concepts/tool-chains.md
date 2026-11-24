@@ -57,7 +57,7 @@ map shared with trace analysis. Reported chains keep the original tool names.
 | `WebSearch` | `browse_url` |
 | `Agent` | `spawn_subagent` |
 | `SendMessage`, `PushNotification` | `session_internal` (delivered inside the user's own session or device: in no chain) |
-| `Bash(<named command>)`, `WebFetch(domain:<name>)` | `confined` (a sink limited to named commands or domains: in no chain) |
+| `WebFetch(domain:<name>)` | `confined` (limited to named domains: in no chain). `Bash(<command>)` stays `shell_execute`: a named command can still send data |
 | `mcp__<server>__<tool>` whose first tool word (ignoring server words) is `send`, `post`, `reply` or `publish` | `send_email` (outbound message). `create` and `update` write to the user's own account and are not outbound |
 
 Matching is exact and case-sensitive. Any other id is checked against the LangChain-style names

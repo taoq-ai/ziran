@@ -124,13 +124,15 @@ def test_tools_wins_over_allowed_tools(tmp_path: Path) -> None:
     assert _agent(tmp_path, "tools: Read\nallowed-tools: Read, WebFetch\n").tools == ["Read"]
 
 
-@pytest.mark.parametrize("sink", ["WebFetch(domain:docs.example.org)", "Bash(git status:*)"])
-def test_a_confined_sink_gives_no_chain(tmp_path: Path, sink: str) -> None:
-    agent = _agent(tmp_path, f"tools: Read, {sink}\n")
+def test_webfetch_confined_to_a_domain_gives_no_chain(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, "tools: Read, WebFetch(domain:docs.example.org)\n")
     assert agent_chains(agent, typed=True) == []
 
 
-@pytest.mark.parametrize("sink", ["WebFetch", "WebFetch(*)", "Bash", "Bash(*)", "Bash(git push:*)"])
+@pytest.mark.parametrize(
+    "sink",
+    ["WebFetch", "WebFetch(*)", "Bash", "Bash(*)", "Bash(git push:*)", "Bash(git status:*)"],
+)
 def test_an_open_sink_still_gives_its_chain(tmp_path: Path, sink: str) -> None:
     agent = _agent(tmp_path, f"tools: Read, {sink}\n")
     assert any(c.tools == ["Read", sink] for c in agent_chains(agent, typed=True))

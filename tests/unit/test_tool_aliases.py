@@ -51,8 +51,9 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("Read(src/main.py)", "read_file"),
         ("Bash(git push:*)", "git_push"),
         ("Bash(git push origin main)", "git_push"),
-        # a sink its specifier confines to named commands or domains (spec 099)
-        ("Bash(npm test:*)", "confined"),
+        # a named command can still send data: Bash with a specifier stays a sink (spec 099)
+        ("Bash(npm test:*)", "shell_execute"),
+        # WebFetch confined to named domains by its specifier (spec 099)
         ("WebFetch(domain:docs.example.org)", "confined"),
         ("WebFetch(domain:*)", "http_request"),
         ("Bash(:*)", "shell_execute"),
