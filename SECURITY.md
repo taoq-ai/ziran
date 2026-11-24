@@ -46,9 +46,12 @@ Verify the SBOM file, and that the wheel's SBOM attestation holds:
 
 ```bash
 gh release download v<version> --repo taoq-ai/ziran --pattern 'ziran-v<version>.cdx.json'
-gh attestation verify ziran-v<version>.cdx.json --repo taoq-ai/ziran
+gh attestation verify ziran-v<version>.cdx.json \
+  --repo taoq-ai/ziran \
+  --signer-workflow taoq-ai/ziran/.github/workflows/release.yml
 gh attestation verify ziran-dist/ziran-<version>-*.whl \
   --repo taoq-ai/ziran \
+  --signer-workflow taoq-ai/ziran/.github/workflows/release.yml \
   --predicate-type https://cyclonedx.org/bom
 ```
 
