@@ -127,9 +127,11 @@ When detectors disagree, the pipeline uses this priority:
 
 A verdict with signals and no evidence has `successful = false`, `needs_review = true` and the signal names in `signals`. The attack result's `evidence` carries `needs_review` and `signals`, `CampaignResult.needs_review_vectors` lists the vectors, and the Markdown report and the scan summary show them under "Signals To Review", apart from the findings.
 
-A configured judge is read before any signal: a judge that answers failure with confidence makes the verdict a plain failure, with no review flag. The judge's request holds the reply's tool calls (the first 4,000 characters of them) as well as its text.
+In CI the vectors to review are visible and fail nothing. `ziran ci` prints their count, the GitHub step summary carries the same line, and the SARIF output holds one result per vector at level `note`, with `needs_review` and `signals` in its properties. The quality gate does not count them, and `ziran ci` on that SARIF file reads a note back as a vector to review, not as a finding.
 
-For an authorization vector, a call that carries an identifier the attack prompt names is a canary. An identifier the prompt does not name is no bypass: the agent may have read the caller's own id from its session.
+A configured judge is read before any signal: a judge that answers failure with confidence makes the verdict a plain failure, with no review flag. The judge's request holds the reply's tool calls as well as its text. The rendered calls go through ziran's secret mask and are then cut at 4,000 characters, so a token, a key or a bearer credential in an argument reaches the judge as `***`. The mask covers secret shapes only: an email address, a name or any other personal data in an argument still reaches the judge's provider, as the reply text does.
+
+For an authorization vector, a call that carries an identifier the attack prompt names is a canary. An identifier the prompt does not name is no bypass: the agent may have read the caller's own id from its session. Two general limits keep ordinary prose from reading as an identifier: a token under 3 characters is none, and a number counts only where the prompt holds it whole and not as the count of a numbering word ("step 3", "page 404").
 
 A typographic apostrophe is read as a plain one before the refusal phrases are matched, so "I can’t" is a refusal like "I can't".
 

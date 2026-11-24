@@ -37,6 +37,7 @@ from ziran.application.detectors.refusal import RefusalDetector
 from ziran.application.detectors.semantic import SemanticDetector
 from ziran.application.detectors.side_effect import SideEffectDetector
 from ziran.application.detectors.thresholds import DetectorThresholds
+from ziran.application.hybrid.mask import mask
 from ziran.domain.entities.detection import DetectionVerdict, DetectorResult
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry.tracing import get_tracer
@@ -76,13 +77,18 @@ def _plain_apostrophes(response: AgentResponse) -> AgentResponse:
 
 
 def _with_tool_calls(response: AgentResponse) -> AgentResponse:
-    """The reply with its tool calls in the text: the judge's request renders the text alone."""
+    """The reply with its tool calls in the text: the judge's request renders the text alone.
+
+    The calls are masked before the cut, as the trace judge's are (CWE-201): a token in an
+    argument reaches the model as ``***``. The mask hides secret shapes only, not an email
+    address or other personal data.
+    """
     if not response.tool_calls:
         return response
     calls = "\n".join(
         f"- {call_name(c)} {json.dumps(call_args(c), default=str)}" for c in response.tool_calls
     )
-    text = f"{response.content}\n\nTOOL CALLS:\n{calls[:_JUDGE_CALLS_MAX]}"
+    text = f"{response.content}\n\nTOOL CALLS:\n{mask(calls)[:_JUDGE_CALLS_MAX]}"
     return response.model_copy(update={"content": text})
 
 

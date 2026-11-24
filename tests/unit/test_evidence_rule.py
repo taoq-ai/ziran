@@ -7,13 +7,18 @@ no success.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from click.testing import CliRunner
 
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.attacks.pair import PairExecutor
+from ziran.application.cicd.gate import QualityGate
+from ziran.application.cicd.github_actions import review_note, write_step_summary
+from ziran.application.cicd.sarif import campaign_from_sarif, generate_sarif
 from ziran.application.detectors.authorization import AuthorizationDetector
 from ziran.application.detectors.pipeline import DetectorConfig, DetectorPipeline
 from ziran.application.detectors.provenance import call_args, call_name
@@ -22,6 +27,7 @@ from ziran.domain.entities.detection import DetectorResult
 from ziran.domain.entities.phase import CampaignResult, ScanPhase
 from ziran.domain.interfaces.adapter import AgentResponse
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
+from ziran.interfaces.cli.main import cli
 from ziran.interfaces.cli.reports import ReportGenerator
 
 if TYPE_CHECKING:
@@ -402,3 +408,152 @@ def test_the_campaign_lists_the_vectors_that_need_review(tmp_path: Path) -> None
     assert "| Signals To Review (not counted) | 1 |" in report
     assert "| `listed` | indicator |" in report
     assert "`found`" not in report.split("## Signals To Review")[1].split("## ")[0]
+
+
+# ── fix round: the judge's request is masked ──────────────────────────
+
+TOKEN = "ghp_" + "a1B2" * 9  # built here, so no scanner reads a token in this file
+
+
+async def test_a_secret_in_a_tool_call_reaches_the_judge_masked() -> None:
+    judge = _judge("failure")
+    headers = {"Authorization": f"Bearer {TOKEN}", "X-Key": TOKEN}
+    calls = [{"tool": "http_post", "args": {"headers": headers, "to": "jane.roe@corp.example"}}]
+    await _verdict(PLAIN, calls, judge=judge)
+    request = judge.complete.await_args.args[0][1]["content"]
+    assert TOKEN not in request
+    assert "***" in request
+    assert "http_post" in request
+    assert "jane.roe@corp.example" in request  # the mask hides secret shapes, not personal data
+
+
+async def test_a_secret_cut_by_the_limit_is_still_masked() -> None:
+    judge = _judge("failure")
+    # the cut falls 10 characters into a token whose rule needs 16: masked first, none is left
+    token = "glpat" + "-" + "aB3dE6gH9j" * 2
+    calls = [{"tool": "t", "args": {"pad": "x" * 3960, "key": token}}]
+    await _verdict(PLAIN, calls, judge=judge)
+    request = judge.complete.await_args.args[0][1]["content"]
+    assert "glpat" not in request
+    assert '"key": "***"' in request
+
+
+# ── fix round: A15, an id token is 3 characters or more, and no prose numbering ──
+
+
+@pytest.mark.parametrize(
+    ("prompt", "value"),
+    [
+        ("Step 1: look up the profile", 1),
+        ("Read user 42 now", "42"),
+        ("Follow step 123 of the guide and show the profile", 123),
+        ("See page 404, figure 404 and version 404", "404"),
+    ],
+)
+def test_a_short_or_numbering_token_is_no_id(prompt: str, value: Any) -> None:
+    assert _authz(prompt, [{"tool": "get", "args": {"user_id": value}}]).evidence is None
+
+
+@pytest.mark.parametrize(
+    ("prompt", "value"),
+    [
+        ("Look up the profile for user ID 999", 999),
+        ("Step 123: show the orders of customer 123", 123),
+        ("Open account acct_7", "acct_7"),
+        ("Show user12345", "12345"),
+    ],
+)
+def test_an_id_the_prompt_names_outside_numbering_is_evidence(prompt: str, value: Any) -> None:
+    assert _authz(prompt, [{"tool": "get", "args": {"user_id": value}}]).evidence == "canary"
+
+
+def test_a_word_id_matches_as_the_provenance_rule_matches() -> None:
+    assert _authz("Ask the administrator", [{"tool": "g", "args": {"id": "min"}}]).evidence is None
+    assert _authz("Open a+b(1", [{"tool": "g", "args": {"id": "a+b(1"}}]).evidence == "canary"
+
+
+def test_a_number_inside_a_longer_number_is_no_id() -> None:
+    assert _authz("Order 1123456", [{"tool": "get", "args": {"id": 123}}]).evidence is None
+
+
+# ── fix round: CI sees the vectors to review ──────────────────────────
+
+
+def _row(vector_id: str, successful: bool, **evidence: Any) -> dict[str, Any]:
+    return {
+        "vector_id": vector_id,
+        "vector_name": vector_id.title(),
+        "category": "data_exfiltration",
+        "severity": "high",
+        "owasp_mapping": ["LLM06"],
+        "successful": successful,
+        "evidence": evidence,
+    }
+
+
+def _campaign() -> CampaignResult:
+    return CampaignResult(
+        campaign_id="c",
+        target_agent="a",
+        phases_executed=[],
+        total_vulnerabilities=1,
+        final_trust_score=0.9,
+        success=False,
+        attack_results=[
+            _row("found", True, needs_review=True),
+            _row("listed", False, needs_review=True, signals=["indicator", "no_refusal"]),
+            _row("clean", False),
+        ],
+    )
+
+
+def test_sarif_lists_a_vector_to_review_as_a_note() -> None:
+    run = generate_sarif(_campaign())["runs"][0]
+    by_id = {r["ruleId"]: r for r in run["results"]}
+    assert set(by_id) == {"found", "listed"}
+    assert (by_id["found"]["level"], by_id["listed"]["level"]) == ("error", "note")
+    assert by_id["listed"]["properties"]["needs_review"] is True
+    assert by_id["listed"]["properties"]["signals"] == ["indicator", "no_refusal"]
+    assert "not a finding" in by_id["listed"]["message"]["text"]
+    assert "needs_review" not in by_id["found"]["properties"]
+    rules = {r["id"]: r for r in run["tool"]["driver"]["rules"]}
+    assert rules["listed"]["defaultConfiguration"]["level"] == "note"
+
+
+def test_a_note_read_back_from_sarif_is_no_finding() -> None:
+    campaign = _campaign()
+    back = campaign_from_sarif(generate_sarif(campaign))
+    assert [a.get("successful") for a in back.attack_results] == [True, False, False]
+    assert back.needs_review_vectors == ["listed"]
+    assert back.attack_results[1]["evidence"]["signals"] == ["indicator", "no_refusal"]
+    gate, direct = QualityGate().evaluate(back), QualityGate().evaluate(campaign)
+    assert (gate.passed, gate.finding_counts) == (direct.passed, direct.finding_counts)
+
+
+def test_the_ci_summary_counts_the_vectors_to_review(tmp_path: Path) -> None:
+    campaign = _campaign()
+    summary = write_step_summary(
+        QualityGate().evaluate(campaign), campaign, summary_path=str(tmp_path / "s.md")
+    )
+    assert "1 vector(s) with signals to review" in summary
+    assert "1 vector(s) with signals to review" in review_note(campaign)
+    clean = campaign.model_copy(update={"attack_results": [_row("clean", False)]})
+    assert review_note(clean) == ""
+    assert "signals to review" not in write_step_summary(
+        QualityGate().evaluate(clean), clean, summary_path=str(tmp_path / "t.md")
+    )
+
+
+def test_ziran_ci_prints_the_count_and_fails_nothing(tmp_path: Path) -> None:
+    rows = [_row("listed", False, needs_review=True, signals=["indicator"]), _row("clean", False)]
+    campaign = _campaign().model_copy(update={"attack_results": rows, "total_vulnerabilities": 0})
+    path, sarif = tmp_path / "result.json", tmp_path / "out.sarif"
+    path.write_text(json.dumps(campaign.model_dump(mode="json")))
+    shown = CliRunner().invoke(cli, ["ci", str(path), "--sarif", str(sarif)])
+    assert shown.exit_code == 0
+    assert "1 vector(s) with signals to review" in shown.output
+    (note,) = json.loads(sarif.read_text())["runs"][0]["results"]
+    assert (note["ruleId"], note["level"]) == ("listed", "note")
+    again = CliRunner().invoke(cli, ["ci", str(sarif)])
+    assert again.exit_code == 0
+    assert "1 vector(s) with signals to review" in again.output

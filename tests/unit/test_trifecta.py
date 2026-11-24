@@ -166,6 +166,11 @@ class TestAudit:
 
 
 @pytest.mark.unit
+def _findings(sarif: dict[str, Any]) -> list[dict[str, Any]]:
+    """The SARIF results that are findings: a vector to review is a note (study-v2.1)."""
+    return [r for r in sarif["runs"][0]["results"] if r["level"] != "note"]
+
+
 class TestScan:
     async def _campaign(self, tools: list[str], roles: dict[str, Any] | None = None) -> Any:
         adapter = MockAgentAdapter(capabilities=[_cap(t) for t in tools])
@@ -184,10 +189,11 @@ class TestScan:
             "egress": ["tool_send_email"],
         }
         sarif = generate_sarif(result)
-        (row,) = sarif["runs"][0]["results"]
+        (row,) = _findings(sarif)
         assert (row["ruleId"], row["level"]) == (RULE_ID, "error")
         assert "agent" not in row["properties"] and "suppressions" not in row
-        assert {r["id"] for r in sarif["runs"][0]["tool"]["driver"]["rules"]} == {RULE_ID}
+        rules = sarif["runs"][0]["tool"]["driver"]["rules"]
+        assert {r["id"] for r in rules if r["defaultConfiguration"]["level"] != "note"} == {RULE_ID}
 
     async def test_suppressed_trifecta_is_suppressed_in_sarif(self) -> None:
         result = await self._campaign(SUPPORT)
@@ -202,7 +208,7 @@ class TestScan:
         ]
         gate = QualityGate().evaluate(result, SuppressionFile(version=1, entries=entries))
         assert gate.passed
-        (row,) = generate_sarif(result, gate)["runs"][0]["results"]
+        (row,) = _findings(generate_sarif(result, gate))
         assert row["suppressions"] == [{"kind": "external", "justification": "accepted risk"}]
 
     async def test_unmatched_or_expired_entry_leaves_it_unsuppressed(self) -> None:
@@ -225,7 +231,7 @@ class TestScan:
         ]
         gate = QualityGate().evaluate(result, SuppressionFile(version=1, entries=entries))
         assert not gate.passed
-        (row,) = generate_sarif(result, gate)["runs"][0]["results"]
+        (row,) = _findings(generate_sarif(result, gate))
         assert row["ruleId"] == RULE_ID and "suppressions" not in row
 
     async def test_suppressed_attack_does_not_suppress_the_trifecta(self) -> None:

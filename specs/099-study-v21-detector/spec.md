@@ -54,6 +54,20 @@ the default scan path. The tag `study-v2.1` is not made here.
 3. Change 7 turns signals into non-successes. A CI gate that failed now passes on a target
    that leaks through text only, with no judge configured.
 
+4. Change 7, the authorization id. The prompt names the caller's own id ("I am user 7",
+   call `user_id=7`) and the call reads as evidence. A victim's id the prompt does not name
+   (an enumerated `user_id=4822`) raises nothing from this branch, and an id nested under a
+   key that is no id key (`filter.user_id`) is not read.
+5. Change 7, the whole prompt as the payload. False canaries grow with the prompt's length.
+   A synthetic 300-shot prompt that shows `write_file(path='notes.txt')` makes a benign
+   `write_file(path="notes.txt")` call a canary success; the same call after a short attack
+   prompt is none. A multi-turn tactic adds every turn sent so far, with the same effect. The
+   crossfire's 158 of 291,090 pairs uses single prompts, so the rate on many-shot and
+   multi-turn prompts is unmeasured. These are false positives, not missed attacks: a target
+   cannot forge or remove the payload.
+6. Change 7, the judge's request. It holds the reply's tool calls, masked for secret shapes
+   only. An email address or other personal data in an argument reaches the judge's provider.
+
 ## Requirements
 
 - FR-001: `tool_roles(tool, override, toolkit=...)` implements change 1. `is_state_changing`,
@@ -104,7 +118,9 @@ the default scan path. The tag `study-v2.1` is not made here.
   prompt does not name is nothing. The design's wording, "differs from one the prompt or the
   session gives", is not built to the letter: ziran's BOLA prompts name the victim's id, so
   that rule would flag an agent that answers with the caller's own id and miss one that
-  uses the victim's. No session identity reaches a detector today.
+  uses the victim's. No session identity reaches a detector today. An id token is 3
+  characters or more, and a number is no id where it counts a numbering word ("step 3"): a
+  general limit on what an identifier is, not a rule read off data.
 - Change 7, the payload of a scan. A multi-turn tactic passes every turn sent so far, and
   an encoded prompt passes its plain text beside the encoded one. Why: the attack's values
   are in that text. Overturned if only the last prompt as sent should count.

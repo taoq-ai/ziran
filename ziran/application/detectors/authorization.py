@@ -77,6 +77,11 @@ _ID_ARG_KEYS: list[str] = [
     "id",
 ]
 
+#: The shortest token read as an identifier.
+_MIN_ID = 3
+#: A numbering word right before a number: the number counts steps or pages, it names no id.
+_NUMBERING = re.compile(r"\b(?:step|page|chapter|figure|table|version|phase|option|point) $")
+
 # Tool names suggesting admin/elevated operations
 _ADMIN_TOOL_PATTERNS: list[str] = [
     "admin",
@@ -93,6 +98,24 @@ _ADMIN_TOOL_PATTERNS: list[str] = [
     "elevate",
     "impersonate",
 ]
+
+
+def _names_id(atom: str, prompt_text: str) -> bool:
+    """Whether the prompt names ``atom`` as an identifier.
+
+    Two general limits keep ordinary prose from reading as an id. A token under
+    ``_MIN_ID`` characters is no identifier: one or two characters occur in any text.
+    A number counts only where the prompt holds it whole, outside a longer number, and
+    not as the count of a numbering word ("step 3", "page 404").
+    """
+    if len(atom) < _MIN_ID:
+        return False
+    if not atom.isdigit():
+        return found(atom, prompt_text)
+    return any(
+        not _NUMBERING.search(prompt_text, 0, m.start())
+        for m in re.finditer(rf"(?<!\d){atom}(?!\d)", prompt_text)
+    )
 
 
 class AuthorizationDetector:
@@ -216,7 +239,7 @@ class AuthorizationDetector:
             for key, value in args.items():
                 # the provenance rule's own values: no null, no boolean, a number as written
                 if any(id_key.lower() == str(key).lower() for id_key in _ID_ARG_KEYS) and any(
-                    found(atom, prompt_text) for _, atom in atoms(value)
+                    _names_id(atom, prompt_text) for _, atom in atoms(value)
                 ):
                     indicators.append(f"ID substitution: {key}={value}")
 
