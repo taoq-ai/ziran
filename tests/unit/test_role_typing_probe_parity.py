@@ -1,4 +1,7 @@
-"""Parity: tool_roles() and the typed chains against the frozen G-10 dev probe's V2 (spec 066).
+"""Parity: the V2 word rules and the typed chains against the frozen G-10 dev probe's V2 (spec 066).
+
+Since spec 099 the word rules type a table tool only (and the scan's blast radius and trifecta
+legs, through ``keyword_roles``); any other tool takes the action-verb rule of ``tool_roles``.
 
 The oracle below is copied verbatim from ``study/scripts/g10_dev_probe.py`` in
 taoq-ai/ziran-paper at commit f80204a6a3424fbae33a05e4977de12916088978 (lines 69 to 91,
@@ -25,7 +28,7 @@ import pytest
 from ziran.application.knowledge_graph import role_typing as module
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
-from ziran.application.knowledge_graph.role_typing import tool_roles
+from ziran.application.knowledge_graph.role_typing import keyword_roles, tool_roles
 from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
 
 pytestmark = pytest.mark.unit
@@ -157,16 +160,19 @@ NAMES = _FIXED + [_name(random.Random(seed)) for seed in range(3000)]
 
 
 def test_name_rules_equal_the_probe_on_every_name() -> None:
-    differ = [n for n in NAMES if tool_roles(n) != probe_roles(n)]
+    differ = [n for n in NAMES if keyword_roles(n) != probe_roles(n)]
     assert differ == []
+    # a table tool keeps the word rules in tool_roles too
+    table = [n for n in NAMES if canonical_tool_name(n) != n]
+    assert len(table) > 20 and all(tool_roles(n) == probe_roles(n) for n in table)
     # the names reach every role, both kinds of source, and names with no role
-    seen = [tool_roles(n) for n in NAMES]
+    seen = [keyword_roles(n) for n in NAMES]
     for role in ("source", "egress", "exec", "high_impact"):
         assert sum(role in r for r in seen) > 100, role
     assert sum(not r for r in seen) > 100
 
 
-def test_typed_pairs_equal_the_probe_v2_on_seeded_agents() -> None:
+def test_typed_pairs_are_every_source_and_sink_pair_on_seeded_agents() -> None:
     rng = random.Random(20261112)
     checked = 0
     for _ in range(150):
@@ -190,7 +196,7 @@ def test_typed_pairs_equal_the_probe_v2_on_seeded_agents() -> None:
         want = {
             (a, b)
             for a, b in permutations(tools, 2)
-            if typed(roles(a, canonical_tool_name), roles(b, canonical_tool_name))["V2"]
+            if "source" in tool_roles(a) and tool_roles(b) & module.SINKS
         } - table
         assert got == want, tools
         checked += bool(want)

@@ -299,8 +299,8 @@ async def classify_tools(
 
     A tool ziran's alias table maps keeps its roles and is never sent, nor is a name holding a
     control character (NUL included), which keeps its name rules. A tool typed ``unknown``
-    on every role gets no role (ziran-paper#128); a tool with no usable reply gets no override,
-    so the name rules stand.
+    on every role gets no role from the reply (ziran-paper#128); a tool with no usable reply gets no
+    override. Either way `tool_roles` types it by its name, one rule whatever the reason (spec 099).
     """
     prompt = load("capability", CAPABILITY_VERSION)
     band = sorted(

@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ziran.application.knowledge_graph.graph import EdgeType, NodeType
-from ziran.application.knowledge_graph.role_typing import EGRESS, tokens, tool_roles
+from ziran.application.knowledge_graph.role_typing import EGRESS, keyword_roles, tokens
 from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
 from ziran.domain.entities.capability import DangerousChain
 
@@ -83,7 +83,7 @@ def tool_legs(tool_id: str, override: Iterable[str] | None = None) -> frozenset[
             raise ValueError(f"trifecta override for {tool_id!r} must be a set of {list(LEGS)}")
         return legs
     toks = set(tokens(canonical_tool_name(tool_id)))
-    reads = "source" in tool_roles(tool_id)
+    reads = "source" in keyword_roles(tool_id)
     out = set()
     if toks & SECRET or (reads and toks & PRIVATE):
         out.add("private_data")
