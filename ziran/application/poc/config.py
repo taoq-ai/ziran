@@ -125,7 +125,7 @@ class PoCConfig(BaseModel):
             msg = f"Config file not found: {path}"
             raise FileNotFoundError(msg)
 
-        with path.open() as fh:
+        with path.open(encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
 
         if not isinstance(data, dict):

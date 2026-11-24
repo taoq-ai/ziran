@@ -24,6 +24,10 @@ Example::
 from __future__ import annotations
 
 import json
+import os
+import re
+import secrets
+import shlex
 import textwrap
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -66,6 +70,36 @@ class PoCGenerator:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.config = config or PoCConfig.default()
+
+    def _path(self, filename: str) -> Path:
+        """Return ``filename`` inside the output folder, or raise ValueError."""
+        path = self.output_dir / filename
+        if path.resolve().parent != self.output_dir.resolve():
+            msg = f"PoC file name {filename!r} leaves the output folder"
+            raise ValueError(msg)
+        return path
+
+    def _write(self, filename: str, text: str, mode: int = 0o644) -> Path:
+        """Write ``text`` as UTF-8 to ``filename`` in the output folder.
+
+        The path passes :meth:`_path`. The text goes to a new temp file in the
+        folder (``O_EXCL``, the umask applies), which then replaces the final
+        name, so a symlink, hard link or FIFO planted there is replaced, never
+        written through. Only an executable mode is forced past the umask.
+        """
+        path = self._path(filename)
+        tmp = path.with_name(f".{filename}.{secrets.token_hex(8)}.tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                if mode & 0o111 and hasattr(os, "fchmod"):
+                    os.fchmod(fh.fileno(), mode)
+                fh.write(text)
+            os.replace(tmp, path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
+        return path
 
     def generate_all(
         self,
@@ -119,43 +153,38 @@ class PoCGenerator:
             Path to the generated Python script.
         """
         tpl = self.config.python_template
-        owasp_str = _owasp_ids(result)
-        prompt_escaped = _escape_python_string(result.prompt_used or "")
-        indicators = result.evidence.get("matched_indicators", [])
-        indicators_repr = repr(indicators)
-        result.evidence.get("tool_calls", [])
-        result.evidence.get("side_effects", {})
-
         imports_block = "\n".join(f"import {m}" for m in tpl.imports)
 
-        # Dedent the template before filling it: a multi-line value (the imports
-        # block, a multi-turn prompt) would otherwise defeat dedent and leave the
-        # whole module indented.
+        # Every finding value goes in as a repr() literal: none is pasted into
+        # the docstring, an f-string or a comment, so no value can end a quote.
+        # Dedent before filling, so a multi-line imports block keeps the module flat.
         script = textwrap.dedent('''\
-            {tpl.shebang}
-            """Proof-of-Concept: {result.vector_name}
+            {shebang}
+            """Proof-of-Concept that reproduces a confirmed ZIRAN finding.
 
-            Campaign:  {campaign_id}
-            Vector:    {result.vector_id}
-            Category:  {result.category.value}
-            Severity:  {result.severity}
-            OWASP:     {owasp_str}
-
-            Generated: {generated}
-            Generator: {generator_label}
-
-            This script reproduces a confirmed vulnerability finding.
             Run it against the same agent configuration to validate the issue.
             """
 
             {imports_block}
 
+            VECTOR_NAME = {vector_name}
+            CAMPAIGN_ID = {campaign_id}
+            VECTOR_ID = {vector_id}
+            CATEGORY = {category}
+            SEVERITY = {severity}
+            OWASP = {owasp}
+            GENERATED = {generated}
+            GENERATOR = {generator_label}
 
             # ── Attack payload ──────────────────────────────────────────
-            ATTACK_PROMPT = """{prompt_escaped}"""
+            ATTACK_PROMPT = {prompt}
 
             # ── Expected indicators ─────────────────────────────────────
-            SUCCESS_INDICATORS = {indicators_repr}
+            SUCCESS_INDICATORS = {indicators}
+
+            VULNERABLE_TEXT_MATCH = {vulnerable_text_match}
+            VULNERABLE_TOOL_MATCH = {vulnerable_tool_match}
+            NOT_REPRODUCED = {not_reproduced}
 
 
             async def reproduce(adapter):
@@ -188,44 +217,50 @@ class PoCGenerator:
                         print(f"    - {{tool_name}}")
 
                 if matched:
-                    print(f"[!] {tpl.vulnerable_text_match}")
+                    print("[!] " + VULNERABLE_TEXT_MATCH.replace("{{matched}}", str(matched)))
                     return True
                 elif response.tool_calls:
-                    print(f"[!] {tpl.vulnerable_tool_match}")
+                    print("[!] " + VULNERABLE_TOOL_MATCH)
                     return True
                 else:
-                    print(f"[-] {tpl.not_reproduced}")
+                    print("[-] " + NOT_REPRODUCED)
                     return False
 
 
             if __name__ == "__main__":
                 print("=" * 60)
-                print("ZIRAN Proof-of-Concept: {result.vector_name}")
+                print("ZIRAN Proof-of-Concept: " + {display_name})
                 print("=" * 60)
                 print()
         ''').format(
-            tpl=tpl,
-            result=result,
-            campaign_id=campaign_id,
-            owasp_str=owasp_str,
-            generated=datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
-            generator_label=self.config.generator_label,
+            shebang=tpl.shebang,
             imports_block=imports_block,
-            prompt_escaped=prompt_escaped,
-            indicators_repr=indicators_repr,
+            vector_name=repr(result.vector_name),
+            display_name=repr(_printable(result.vector_name)),
+            campaign_id=repr(campaign_id),
+            vector_id=repr(result.vector_id),
+            category=repr(result.category.value),
+            severity=repr(result.severity),
+            owasp=repr(_owasp_ids(result)),
+            generated=repr(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
+            generator_label=repr(self.config.generator_label),
+            prompt=repr(result.prompt_used or ""),
+            indicators=repr(result.evidence.get("matched_indicators", [])),
+            vulnerable_text_match=repr(tpl.vulnerable_text_match),
+            vulnerable_tool_match=repr(tpl.vulnerable_tool_match),
+            not_reproduced=repr(tpl.not_reproduced),
         )
 
         # Append run instructions from config
         for instruction in tpl.run_instructions:
-            script += f'    print("{instruction}")\n'
+            script += f"    print({instruction!r})\n"
 
         script += "    print()\n"
         script += "    sys.exit(0)\n"
 
-        filename = f"poc_{result.vector_id}_{campaign_id}.py"
-        filepath = self.output_dir / filename
-        filepath.write_text(script)
-        return filepath
+        return self._write(
+            f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.py", script
+        )
 
     def generate_curl_poc(
         self,
@@ -245,46 +280,61 @@ class PoCGenerator:
             Path to the generated shell script.
         """
         tpl = self.config.curl_template
-        effective_endpoint = endpoint or tpl.default_endpoint
+        q = shlex.quote
         prompt_json = json.dumps({"message": result.prompt_used or ""})
-        owasp_str = _owasp_ids(result)
         indicators = result.evidence.get("matched_indicators", [])
 
-        script = textwrap.dedent(f"""\
+        # Every value is a shlex-quoted word, never pasted into a comment, an
+        # echo or a hand-quoted string. The body goes through the printf
+        # builtin to curl's stdin, so it arrives byte for byte at any size.
+        script = textwrap.dedent("""\
             #!/bin/bash
-            # Proof-of-Concept: {result.vector_name}
-            #
-            # Campaign:  {campaign_id}
-            # Vector:    {result.vector_id}
-            # Category:  {result.category.value}
-            # Severity:  {result.severity}
-            # OWASP:     {owasp_str}
-            # Generated: {datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}
+            # Proof-of-Concept that reproduces a confirmed ZIRAN finding.
 
             set -euo pipefail
 
-            ENDPOINT="${{1:-{effective_endpoint}}}"
+            VECTOR_NAME={vector_name}
+            CAMPAIGN_ID={campaign_id}
+            VECTOR_ID={vector_id}
+            CATEGORY={category}
+            SEVERITY={severity}
+            OWASP={owasp}
+            GENERATED={generated}
 
-            echo "=== ZIRAN PoC: {result.vector_name} ==="
-            echo "Sending attack payload to $ENDPOINT ..."
+            DEFAULT_ENDPOINT={endpoint}
+            ENDPOINT="${{1:-$DEFAULT_ENDPOINT}}"
 
-            RESPONSE=$(curl -s -X POST "$ENDPOINT" \\
+            printf '%s\\n' {banner}
+            printf 'Sending attack payload to %s ...\\n' "$ENDPOINT"
+
+            RESPONSE=$(printf '%s' {payload} | curl -s -X POST --url "$ENDPOINT" \\
               -H "Content-Type: application/json" \\
-              -d '{prompt_json}')
+              --data-binary @-)
 
             echo ""
             echo "Response:"
-            echo "$RESPONSE" | head -c {tpl.max_response_chars}
+            printf '%s' "${{RESPONSE:0:{max_chars}}}"
             echo ""
             echo ""
 
             # Check for success indicators
             VULNERABLE=0
-        """)
+        """).format(
+            vector_name=q(result.vector_name),
+            campaign_id=q(campaign_id),
+            vector_id=q(result.vector_id),
+            category=q(result.category.value),
+            severity=q(result.severity),
+            owasp=q(_owasp_ids(result)),
+            generated=q(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
+            endpoint=q(endpoint or tpl.default_endpoint),
+            banner=q(f"=== ZIRAN PoC: {_printable(result.vector_name)} ==="),
+            payload=q(prompt_json),
+            max_chars=tpl.max_response_chars,
+        )
 
         for ind in indicators[: tpl.max_indicators]:
-            ind_escaped = ind.replace("'", "'\\''")
-            script += f"    echo \"$RESPONSE\" | grep -qi '{ind_escaped}' && VULNERABLE=1\n"
+            script += f'grep -qiF -- {q(ind)} <<<"$RESPONSE" && VULNERABLE=1\n'
 
         script += textwrap.dedent("""\
 
@@ -297,11 +347,8 @@ class PoCGenerator:
             fi
         """)
 
-        filename = f"poc_{result.vector_id}_{campaign_id}.sh"
-        filepath = self.output_dir / filename
-        filepath.write_text(script)
-        filepath.chmod(0o755)
-        return filepath
+        name = f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.sh"
+        return self._write(name, script, 0o755)
 
     def generate_markdown_guide(
         self,
@@ -320,10 +367,10 @@ class PoCGenerator:
             Path to the generated Markdown file.
         """
         tpl = self.config.markdown_template
-        filepath = self.output_dir / f"poc_guide_{campaign_id}.md"
+        filename = f"poc_guide_{_safe_name(campaign_id)}.md"
 
         md = MdUtils(
-            file_name=str(filepath.with_suffix("")),  # mdutils appends .md
+            file_name=filename,  # unused: the text is written by self._write
             title=tpl.title,
         )
 
@@ -416,8 +463,7 @@ class PoCGenerator:
         ziran_link = md.new_inline_link(link=tpl.footer_link_url, text=tpl.footer_link_text)
         md.new_paragraph(f"*Generated by {ziran_link} — {tpl.footer_tagline}*")
 
-        md.create_md_file()
-        return filepath
+        return self._write(filename, md.get_md_text())
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -429,6 +475,20 @@ def _owasp_ids(result: AttackResult) -> str:
     return ", ".join(c.value for c in ids) or "N/A"
 
 
-def _escape_python_string(s: str) -> str:
-    """Escape a string for safe embedding in a triple-quoted Python string."""
-    return s.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
+def _safe_name(value: str) -> str:
+    """``value`` with every character outside ``[A-Za-z0-9._-]`` replaced by ``_``.
+
+    Raises:
+        ValueError: when ``value`` is empty or only dots, which name no file.
+    """
+    if not value.strip("."):
+        msg = f"PoC file name part {value!r} is empty or only dots"
+        raise ValueError(msg)
+    return re.sub(r"[^A-Za-z0-9._-]", "_", value)
+
+
+def _printable(value: str) -> str:
+    """``value`` with every non-printable character (C0, C1, ESC, bidi) backslash-escaped."""
+    return "".join(
+        c if c.isprintable() else c.encode("unicode_escape").decode("ascii") for c in value
+    )
