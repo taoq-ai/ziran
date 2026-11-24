@@ -33,8 +33,9 @@ Python 3.11+ (CI matrix 3.11, 3.12, 3.13), stdlib `re`; no new dependencies. Tou
 
 Before the change, every steerable library vector (no `harmful_task`, no `protocol_filter`,
 single turn, in a family category) was rendered with the current code and tested with the
-wider path check. Newly skipped: 0 of 81 at standard coverage (595 vectors), 0 of 91 at
-comprehensive (669). Two raw library prompts name a path (`pe_capability_expansion`,
+wider path check. Newly skipped: 0 of 81 steerable at standard coverage (595 candidates), 0 of
+91 at comprehensive (669 candidates); the library holds 677 vectors. Re-run after fix round 1
+(Windows paths): still 0. Two raw library prompts name a path (`pe_capability_expansion`,
 `pe_sudo_equivalent`), and the existing word check or the resource fill already handles both.
 
 ## Constitution Check

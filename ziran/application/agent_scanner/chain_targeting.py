@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
+from ziran.application.knowledge_graph import trifecta
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.knowledge_graph.role_typing import tokens
 from ziran.application.knowledge_graph.tool_aliases import SECRET_PATH
 from ziran.application.strategies.protocol import CampaignContext
 from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
@@ -159,8 +161,9 @@ def plan(
         if family is None or not chain.tools:
             continue
         # a trifecta's tools are in tool order: its private data and egress legs name the ends
-        source = _leg(chain, "private_data") or chain.tools[0]
-        sink = _leg(chain, "egress") or chain.tools[-1]
+        private, _, egress = trifecta.LEGS
+        source = _leg(chain, private) or chain.tools[0]
+        sink = _leg(chain, egress) or chain.tools[-1]
         sink_name = _plain(names.get(sink, sink.removeprefix("tool_"))) or "the last tool"
         task = (
             _plain(names.get(source, source.removeprefix("tool_"))) or "the first tool",
@@ -239,10 +242,14 @@ def _rank(family: _Family, vectors: list[AttackVector]) -> list[AttackVector]:
 
 
 def _leg(chain: DangerousChain, leg: str) -> str | None:
-    """The first tool the chain's evidence lists for *leg* (a trifecta chain), else None."""
+    """The first tool the chain's evidence lists for *leg* (a trifecta chain), else None.
+
+    A tool without a secret word comes first: the own-name exemption would hide a ``get_secret``.
+    """
     tools = chain.evidence.get(leg)
-    first = tools[0] if isinstance(tools, list) and tools else None
-    return first if isinstance(first, str) else None
+    named = [t for t in tools if isinstance(t, str)] if isinstance(tools, list) else []
+    plain = [t for t in named if not trifecta.SECRET.intersection(tokens(t))]
+    return next(iter(plain or named), None)
 
 
 def _plain(text: str) -> str:
@@ -298,7 +305,8 @@ def _render(
     hosts = {m.group(2) for t in texts for m in _HOST.finditer(t)} - {_ENDPOINT_HOST}
 
     def swap(text: str) -> str:
-        for host in hosts:  # a whole host only: never inside devil.company or evil.com.au
+        # longest first (evil.com:8080 before evil.com); a whole host only, never in devil.company
+        for host in sorted(hosts, key=len, reverse=True):
             text = re.sub(rf"(?i)(?<![\w.-]){re.escape(host)}(?![\w-]|\.\w)", _ENDPOINT_HOST, text)
         return text
 
@@ -323,8 +331,8 @@ def _normalise(text: str) -> str:
 
 def _names_secret(text: str, *own_names: str) -> bool:
     """Whether *text* names a secret, or a credential file path, once *own_names* are taken out."""
-    # SECRET_PATH is anchored for a permission spec, so match it on each path-like token
-    if any(SECRET_PATH.search(t.rstrip(".")) for t in _PATH_SPLIT.split(text)):
+    # SECRET_PATH is anchored for a permission spec, so match it on each path-like token, in /
+    if any(SECRET_PATH.search(t.rstrip(".").replace("\\", "/")) for t in _PATH_SPLIT.split(text)):
         return True
     words = _normalise(text)
     for name in filter(None, map(_normalise, own_names)):

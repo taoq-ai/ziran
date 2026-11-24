@@ -19,3 +19,11 @@ before T003.
 
 - [x] T007 Touched tests and `test_scanner_size.py` green; ruff and strict mypy clean.
 - [x] T008 Mutants in a `git archive` copy.
+
+## Phase 4 - Fix round 1
+
+- [x] T009 `test_langgraph_adapter.py`: the strategy context holds every target's ids in order.
+- [x] T010 `swap` longest host first again; test with nine host and host:port pairs.
+- [x] T011 Path tokens read `\` as `/`; Windows, quote, backtick, bracket and separator tests.
+- [x] T012 Trifecta source prefers a tool without a secret word; legs from `trifecta.LEGS`; mail
+      check tested on `SendMail` and `mailer`.

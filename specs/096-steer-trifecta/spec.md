@@ -47,13 +47,16 @@ Spec 087 steers the campaign at the chains found at discovery. Three gaps in
 
 - **FR-001**: `_FAMILIES`' exfiltration row's prefixes include `trifecta`.
 - **FR-002**: a chain whose evidence lists `private_data` and `egress` tools takes its source and
-  sink from the first of each; otherwise `tools[0]` and `tools[-1]`.
+  sink from the first of each that holds no secret word (`trifecta.SECRET`), else the first;
+  otherwise `tools[0]` and `tools[-1]`.
 - **FR-003**: when the sink's name contains `mail`, the exfiltration task names
   `reports@reports.example.invalid` in place of the upload URL.
 - **FR-004**: `tool_aliases.SECRET_PATH` is public and matches `/etc/shadow`;
-  `_names_secret` returns True when any path-like token of the raw text matches it.
+  `_names_secret` returns True when any path-like token of the raw text matches it, with `\`
+  read as `/` (Windows paths such as `C:\app\.env`).
 - **FR-005**: `swap` replaces a mapped host only where no host character comes before it and no
-  host character or `.label` comes after it.
+  host character or `.label` comes after it, longest host first (`evil.com:8080` before
+  `evil.com`), so the result does not depend on set order.
 - **FR-006**: the PR records how many library vectors the wider check newly skips at standard
   coverage.
 
@@ -82,5 +85,8 @@ New vector categories, which chains the analyzer finds, `scanner.py` and `attack
 - The mail address applies to any exfiltration chain whose sink name contains `mail`, not only
   the trifecta. Why: the upload URL is the wrong target for a mail tool on any chain. Overturn:
   a pinned prompt set the owner wants kept.
+- The trifecta source skips a secret-named private data tool when a plain one exists. Why: the
+  own-name exemption in `_names_secret` would otherwise let `get_secret` steer a credential grab.
+  Overturn: none known.
 - The host swap is case-insensitive. Why: host names are; the old swap was not. Overturn: none
   known.
