@@ -573,8 +573,8 @@ ziran ci RESULT_FILE [OPTIONS]
 ```
 
 `RESULT_FILE` is a campaign result JSON or the SARIF ziran wrote from one (`--sarif`); both gate
-alike. A SARIF without ziran's run properties exits 1 and names them; `--sarif` is skipped for a
-SARIF input. See
+alike. A SARIF without ziran's run properties exits 1 and names them; `--sarif` and `--policy` are
+skipped for a SARIF input. See
 [Gate a scan's SARIF](../guides/cicd-integration.md#gate-a-scans-sarif).
 
 | Option | Default | Description |

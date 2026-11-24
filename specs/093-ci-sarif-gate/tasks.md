@@ -32,3 +32,11 @@ before T002.
 - [x] T009 `main.py`: skip `--sarif` on a SARIF input. `action-test.yml`: outputs through `env:`,
       the default `sarif-output` re-emits nothing.
 - [x] T010 Spec and docs: what parity catches, `--policy` on a SARIF.
+
+## Phase 5 - Fix round 2
+
+- [x] T011 Skip `--policy` on a SARIF input; cap `attack_count` at 1,000,000; merge a repeated
+      phase; tests for each refused count, the missing key, the cap, the schema default, the
+      policy skip and the merged phase.
+- [x] T012 Docs: a SARIF input with the default `sarif-output` is gated, not uploaded; an older
+      SARIF needs this release.

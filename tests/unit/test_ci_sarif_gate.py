@@ -30,6 +30,8 @@ from ziran.domain.entities.phase import (
     UNMEASURED_METADATA_KEY,
     WARNINGS_METADATA_KEY,
     CampaignResult,
+    PhaseResult,
+    ScanPhase,
 )
 
 if TYPE_CHECKING:
@@ -203,6 +205,44 @@ class TestGateParity:
         chains = _round_trip(_mixed()).dangerous_tool_chains
         assert [c.get("graph_path") for c in chains] == [None, ["a", "b"], None, None]
 
+    def test_repeated_phase_merges_its_vulnerabilities(self) -> None:
+        phase = next(iter(ScanPhase))
+        rows = [
+            PhaseResult(
+                phase=phase,
+                success=True,
+                trust_score=0.8,
+                duration_seconds=0.0,
+                vulnerabilities_found=[v],
+            )
+            for v in ("v1", "v2")
+        ]
+        result = _campaign().model_copy(update={"phases_executed": rows})
+        assert _round_trip(result).all_vulnerabilities == ["v1", "v2"]
+
+    def test_schema_defaults_to_1(self) -> None:
+        doc = generate_sarif(_mixed())
+        del doc["runs"][0]["properties"]["ziran"]["schema"]
+        assert campaign_from_sarif(doc).final_trust_score == 0.42
+
+    @pytest.mark.parametrize("count", ["5", 5.0, True, -1, 3, 1_000_001, None])
+    def test_attack_count_refused(self, count: Any) -> None:
+        doc = generate_sarif(_mixed())  # lists 4 successful attacks
+        doc["runs"][0]["properties"]["ziran"]["attack_count"] = count
+        with pytest.raises(ValueError, match="attack_count"):
+            campaign_from_sarif(doc)
+
+    def test_attack_count_at_the_cap(self) -> None:
+        doc = generate_sarif(_mixed())
+        doc["runs"][0]["properties"]["ziran"]["attack_count"] = 1_000_000
+        assert len(campaign_from_sarif(doc).attack_results) == 1_000_000
+
+    def test_attack_count_missing_is_named(self) -> None:
+        doc = generate_sarif(_mixed())
+        del doc["runs"][0]["properties"]["ziran"]["attack_count"]
+        with pytest.raises(ValueError, match=r"lacks attack_count;"):
+            campaign_from_sarif(doc)
+
     def test_metadata_survives(self) -> None:
         result = _campaign().model_copy(
             update={
@@ -274,6 +314,14 @@ class TestCiCommand:
         assert out.exit_code == 1
         assert "--sarif skipped" in out.output
         assert sarif.read_text() == before
+
+    def test_sarif_input_skips_policy(self, ci_env: Path) -> None:
+        (ci_env / "r.sarif").write_text(json.dumps(generate_sarif(_mixed())))
+        policy = Path(__file__).parents[2] / "ziran/application/policy/default_policy.yaml"
+        out = _ci("r.sarif", "--policy", str(policy), "--no-github-annotations")
+        assert out.exit_code == 1
+        assert "--policy skipped" in out.output
+        assert "policy evaluation failed" not in out.output
 
     def test_unknown_schema_refused(self, ci_env: Path) -> None:
         doc = generate_sarif(_campaign())

@@ -297,9 +297,10 @@ score and the other gate inputs in `runs[0].properties.ziran`. A SARIF from anot
 `ziran audit`, has no such properties: `ziran ci` exits 1 and names the missing ones
 (`target_agent`, `final_trust_score`, `success`, `attack_count`). A SARIF with more than one run
 is refused. With a SARIF input, `--sarif` is skipped with a notice, since the input already is
-the SARIF. `--policy` can give a different verdict on a SARIF than on the JSON: the SARIF lists
-only successful attacks, so policy rules on tested categories or success rates see less. The
-policy overlay never changes the exit code.
+the SARIF. `--policy` is skipped too, with a notice: the SARIF lists only successful attacks,
+so policy rules on tested categories or success rates need the scan result JSON. A SARIF written
+by a ziran release older than the SARIF gate has no `runs[0].properties.ziran`; write it again
+with this release. A SARIF whose `schema` is newer than this release reads needs a newer ziran.
 
 In the GitHub Action, pass the SARIF as `result-file`:
 
@@ -310,8 +311,9 @@ In the GitHub Action, pass the SARIF as `result-file`:
     result-file: results.sarif
 ```
 
-The action's default `sarif-output` writes nothing for a SARIF input, so nothing is uploaded
-twice.
+With the action's default `sarif-output`, a SARIF input is gated but not uploaded: the action
+writes no new SARIF. Upload the SARIF with `github/codeql-action/upload-sarif` where the scan
+wrote it.
 
 ## GitHub Actions Features
 

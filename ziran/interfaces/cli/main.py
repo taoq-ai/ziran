@@ -1792,8 +1792,14 @@ def ci(
         set_output("suppressed_findings", str(gate_result.suppressed_findings))
         set_output("regressed_findings", str(gate_result.regressed_findings))
 
-    # 9. Policy evaluation (optional overlay)
-    if policy_path:
+    # 9. Policy evaluation (optional overlay); a SARIF lists successful attacks only
+    if policy_path and from_sarif:
+        console.print(
+            f"--policy skipped: {filepath} is a SARIF; run it on the scan result JSON",
+            style="yellow",
+            markup=False,
+        )
+    elif policy_path:
         try:
             from ziran.application.policy.engine import PolicyEngine
 

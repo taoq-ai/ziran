@@ -74,7 +74,8 @@
 - **FR-004**: `campaign_from_sarif` raises `ValueError` naming each missing required property
   (`target_agent`, `final_trust_score`, `success`, `attack_count`), or the shape problem, for any
   other input, a log with more than one run included. It pads the rebuilt `attack_results` with
-  failed entries up to `attack_count`.
+  failed entries up to `attack_count`, which must be an integer from the number of listed
+  attacks to 1,000,000. `phase_vulnerabilities` merges a phase that repeats.
 - **FR-004a**: The driver version is the installed ziran version.
 - **FR-004b**: `ziran ci --sarif` with a SARIF input skips the write with a notice, so the input
   is never overwritten and the Action's default `sarif-output` does not re-emit a stripped copy.
@@ -101,8 +102,8 @@
 - `--sarif` with a SARIF input is skipped with a notice, not refused. Why: the Action's default
   `sarif-output` would otherwise fail every SARIF gate. Overturned by: a need to re-emit a SARIF
   with the gate's suppression marks.
-- `--policy` on a SARIF input can differ from the JSON: the policy engine reads tested
+- `--policy` on a SARIF input is skipped with a notice: the policy engine reads tested
   categories and success counts from `attack_results`, and the SARIF holds only successful
-  attacks. The overlay is display-only and leaves the exit code alone.
+  attacks (the padded rows are not valid `AttackResult`s). The overlay is display-only.
 - Additive SARIF properties are a minor change (`feat:`). Overturned by: a consumer that rejects
   unknown properties.

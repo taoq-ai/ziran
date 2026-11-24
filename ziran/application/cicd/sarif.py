@@ -118,6 +118,14 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
     return _sarif_document(rules, results, {"ziran": _gate_inputs(result)})
 
 
+def _phase_vulnerabilities(result: CampaignResult) -> dict[str, list[str]]:
+    """Phase to its vulnerability ids, merged when a phase repeats."""
+    merged: dict[str, list[str]] = {}
+    for p in result.phases_with_findings:
+        merged.setdefault(str(p.phase), []).extend(p.vulnerabilities_found)
+    return merged
+
+
 def _gate_inputs(result: CampaignResult) -> dict[str, Any]:
     """The campaign fields ``QualityGate`` reads beyond the results (spec 093 FR-001)."""
     keys = (UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY)
@@ -129,9 +137,7 @@ def _gate_inputs(result: CampaignResult) -> dict[str, Any]:
         "final_trust_score": result.final_trust_score,
         "success": result.success,
         "critical_paths": result.critical_paths,
-        "phase_vulnerabilities": {
-            str(p.phase): p.vulnerabilities_found for p in result.phases_with_findings
-        },
+        "phase_vulnerabilities": _phase_vulnerabilities(result),
         "metadata": {k: result.metadata[k] for k in keys if k in result.metadata},
     }
 
@@ -323,6 +329,7 @@ def write_sarif(result: CampaignResult, path: Path, gate: GateResult | None = No
 
 
 _GATE_SCHEMA = 1
+_MAX_ATTACK_COUNT = 1_000_000  # a crafted count cannot pad the result past this
 _REQUIRED_GATE_INPUTS = ("target_agent", "final_trust_score", "success", "attack_count")
 
 
@@ -409,8 +416,12 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
 
     # the SARIF lists successful attacks only; the gate counts every attack run (nothing_measured)
     count = gate_inputs["attack_count"]
-    if not isinstance(count, int) or isinstance(count, bool) or count < len(attacks):
-        msg = f"SARIF attack_count {count!r} must be an integer of at least {len(attacks)}"
+    valid = isinstance(count, int) and not isinstance(count, bool)
+    if not valid or not len(attacks) <= count <= _MAX_ATTACK_COUNT:
+        msg = (
+            f"SARIF attack_count {count!r} must be an integer from {len(attacks)} "
+            f"to {_MAX_ATTACK_COUNT}"
+        )
         raise ValueError(msg)
     attacks += [{"successful": False}] * (count - len(attacks))
 
