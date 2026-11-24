@@ -7,8 +7,10 @@ import os
 import pickle
 import re
 import shutil
+import stat
 import subprocess
 import sys
+import threading
 from pathlib import Path as _Path
 from typing import TYPE_CHECKING
 
@@ -606,10 +608,10 @@ class TestPoCFileNames:
         assert "Reproduction Guide" in path.read_text(encoding="utf-8")
         assert target.read_text() == "keep"
 
-    def test_write_refuses_a_link_swapped_in_after_the_check(
+    def test_link_swapped_in_after_the_check_is_replaced(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Stand in for a link planted between the _path check and the open.
+        # Stand in for a link planted between the _path check and the write.
         out = tmp_path / "pocs"
         target = tmp_path / "outside.txt"
         target.write_text("keep")
@@ -617,9 +619,63 @@ class TestPoCFileNames:
         (out / "poc_v_c.py").symlink_to(target)
         monkeypatch.setattr(gen, "_path", lambda name: out / name)
 
-        with pytest.raises(OSError):
-            gen._write("poc_v_c.py", "x")
+        path = gen._write("poc_v_c.py", "x")
+
         assert target.read_text() == "keep"
+        assert not path.is_symlink()
+        assert path.read_text() == "x"
+
+    def test_hard_link_at_target_is_replaced(
+        self, tmp_path: Path, successful_result: AttackResult
+    ) -> None:
+        out = tmp_path / "pocs"
+        target = tmp_path / "outside.txt"
+        target.write_text("keep")
+        gen = PoCGenerator(out)
+        os.link(target, out / "poc_pi_basic_override_c.py")
+
+        path = gen.generate_python_poc(successful_result, "c")
+
+        assert target.read_text() == "keep"
+        assert path.stat().st_nlink == 1
+        assert "ATTACK_PROMPT" in path.read_text(encoding="utf-8")
+
+    @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="needs mkfifo")
+    def test_fifo_at_target_does_not_hang(
+        self, tmp_path: Path, successful_result: AttackResult
+    ) -> None:
+        out = tmp_path / "pocs"
+        gen = PoCGenerator(out)
+        fifo = out / "poc_pi_basic_override_c.sh"
+        os.mkfifo(fifo)
+        done: list[Path] = []
+        worker = threading.Thread(
+            target=lambda: done.append(gen.generate_curl_poc(successful_result, campaign_id="c")),
+            daemon=True,
+        )
+
+        worker.start()
+        worker.join(10)
+        if worker.is_alive():  # unblock the hung open before failing
+            os.close(os.open(fifo, os.O_RDONLY | os.O_NONBLOCK))
+        assert done == [fifo]
+        assert fifo.is_file()
+        assert sorted(p.name for p in out.iterdir()) == [fifo.name]
+
+    def test_modes_follow_the_umask(self, tmp_path: Path, successful_result: AttackResult) -> None:
+        gen = PoCGenerator(tmp_path / "pocs")
+        old = os.umask(0o077)
+        try:
+            paths = [
+                gen.generate_python_poc(successful_result, "c"),
+                gen.generate_curl_poc(successful_result, campaign_id="c"),
+                gen.generate_markdown_guide([successful_result], "c"),
+            ]
+        finally:
+            os.umask(old)
+
+        modes = [stat.S_IMODE(p.stat().st_mode) for p in paths]
+        assert modes == [0o600, 0o755, 0o600]
 
     def test_rewritten_script_is_executable(
         self, tmp_path: Path, successful_result: AttackResult
@@ -634,3 +690,25 @@ class TestPoCFileNames:
 
         assert path == stale
         assert os.access(path, os.X_OK)
+
+    def test_failed_write_leaves_no_temp_file(self, tmp_path: Path) -> None:
+        out = tmp_path / "pocs"
+        gen = PoCGenerator(out)
+
+        with pytest.raises(UnicodeEncodeError):
+            gen._write("poc_v_c.py", "\ud800")
+        assert list(out.iterdir()) == []
+
+    def test_link_at_the_temp_name_is_refused(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        out = tmp_path / "pocs"
+        target = tmp_path / "outside.txt"
+        target.write_text("keep")
+        gen = PoCGenerator(out)
+        monkeypatch.setattr("secrets.token_hex", lambda _n: "guessed")
+        (out / ".poc_v_c.py.guessed.tmp").symlink_to(target)
+
+        with pytest.raises(FileExistsError):
+            gen._write("poc_v_c.py", "x")
+        assert target.read_text() == "keep"

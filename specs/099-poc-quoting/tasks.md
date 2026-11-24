@@ -11,5 +11,8 @@ Base: `origin/develop`. Branch `fix/099-poc-quoting`. Test first.
 - [x] T007 `_safe_name` and `PoCGenerator._path` on the Python, cURL and Markdown writers.
 - [x] T008 File-name mutants under `timeout -s KILL 120`: 13 of 13 killed.
 - [x] T009 Security fix round: planted-link tests per writer, `x.md` campaign id, 3000-char reply, ASCII-locale UTF-8 run, control characters and `--url`; run red (4 failing).
-- [x] T010 `PoCGenerator._write` (`_path`, `O_NOFOLLOW`, UTF-8) for all three writers, `get_md_text()` for the guide, `_printable` banners, `--url`, UTF-8 `from_yaml`.
+- [x] T010 `PoCGenerator._write` (`_path`, then a UTF-8 write) for all three writers, `get_md_text()` for the guide, `_printable` banners, `--url`, UTF-8 `from_yaml`.
 - [x] T011 Fix-round mutants under `timeout -s KILL 120`: 15 of 15 killed.
+- [x] T012 Second security round: umask 077 modes, hard link, FIFO, a link at the temp name, no temp left on error; run red (4 failing).
+- [x] T013 `_write` through an `O_EXCL` temp file and `os.replace`; `fchmod` only for an executable mode.
+- [x] T014 Mutants under `timeout -s KILL 120`: 20 of 20 killed.

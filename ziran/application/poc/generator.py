@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import shlex
 import textwrap
 from datetime import UTC, datetime
@@ -81,16 +82,23 @@ class PoCGenerator:
     def _write(self, filename: str, text: str, mode: int = 0o644) -> Path:
         """Write ``text`` as UTF-8 to ``filename`` in the output folder.
 
-        The path passes :meth:`_path`, and ``O_NOFOLLOW`` refuses a link
-        planted at the final name between that check and the open.
+        The path passes :meth:`_path`. The text goes to a new temp file in the
+        folder (``O_EXCL``, the umask applies), which then replaces the final
+        name, so a symlink, hard link or FIFO planted there is replaced, never
+        written through. Only an executable mode is forced past the umask.
         """
         path = self._path(filename)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(path, flags, mode)
-        if hasattr(os, "fchmod"):
-            os.fchmod(fd, mode)
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
+        tmp = path.with_name(f".{filename}.{secrets.token_hex(8)}.tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                if mode & 0o111 and hasattr(os, "fchmod"):
+                    os.fchmod(fh.fileno(), mode)
+                fh.write(text)
+            os.replace(tmp, path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
         return path
 
     def generate_all(

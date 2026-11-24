@@ -13,8 +13,9 @@ One file changes: `ziran/application/poc/generator.py`. No new dependency (`shle
 - Banners print the vector name through `_printable`, which backslash-escapes every
   non-printable character (C0, C1, ESC, bidi controls); the `VECTOR_NAME` constant keeps the
   exact value. curl takes the endpoint as `--url "$ENDPOINT"`, so a dash-led endpoint is no option.
-- Every file is written by `PoCGenerator._write`: the `_path` check, then `os.open` with
-  `O_NOFOLLOW` and UTF-8. The Markdown guide writes `MdUtils.get_md_text()` itself, so the
+- Every file is written by `PoCGenerator._write`: the `_path` check, then a new temp file in
+  the folder (`O_EXCL`, the umask applies, UTF-8) that `os.replace` moves onto the final name.
+  Only the executable `.sh` mode is forced with `fchmod`, as the base `chmod` did. The Markdown guide writes `MdUtils.get_md_text()` itself, so the
   checked name is the written name. `PoCConfig.from_yaml` reads UTF-8.
 - File names: `_safe_name` replaces anything outside `[A-Za-z0-9._-]` with `_` and refuses an
   empty or dot-only value; `PoCGenerator._path` checks the resolved parent is the output
