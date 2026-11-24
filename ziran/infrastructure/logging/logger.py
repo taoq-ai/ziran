@@ -121,6 +121,30 @@ def setup_logging(
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 
+def _route_to_stdlib_by_default() -> None:
+    """Send ziran's events to stdlib logging when the host has not configured structlog.
+
+    Unconfigured structlog prints every event, debug included, to stdout. Routed
+    through stdlib instead, a library host sees nothing below WARNING without a
+    handler and WARNING and above on stderr (stdlib's last-resort handler), while
+    a host's own logging handlers receive the rendered lines.
+    """
+    if structlog.is_configured():
+        return
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            *_SHARED_PROCESSORS,
+            structlog.dev.ConsoleRenderer(colors=False),
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+    )
+
+
+_route_to_stdlib_by_default()
+
+
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """Get a named structlog logger within the ``ziran`` namespace.
 
