@@ -1,4 +1,4 @@
-"""Contract test for the release workflow's attestation path (spec 095)."""
+"""Contract test for the release workflow (specs 095 and 097)."""
 
 from __future__ import annotations
 
@@ -9,11 +9,12 @@ from typing import Any
 import pytest
 import yaml
 
-WORKFLOW = yaml.safe_load(
-    (Path(__file__).parents[2] / ".github" / "workflows" / "release.yml").read_text()
-)
+WORKFLOWS = Path(__file__).parents[2] / ".github" / "workflows"
+RELEASE_TEXT = (WORKFLOWS / "release.yml").read_text()
+WORKFLOW = yaml.safe_load(RELEASE_TEXT)
 JOBS: dict[str, Any] = WORKFLOW["jobs"]
 PINNED = re.compile(r"^actions/(download-artifact|attest)@[0-9a-f]{40}$")
+SHA_PINNED_LINE = re.compile(r"^\s*(- )?uses: [\w.-]+/[\w./-]+@[0-9a-f]{40} # v\d+(\.\d+)*$")
 
 pytestmark = pytest.mark.unit
 
@@ -71,3 +72,14 @@ def test_security_policy_shows_how_to_verify() -> None:
     for heading in ("Supported versions", "Reporting a vulnerability", "Verifying a release"):
         assert f"\n## {heading}\n" in policy, heading
     assert "attestation verify" in policy and "--repo taoq-ai/ziran" in policy
+
+
+def test_every_release_action_is_pinned_by_commit_with_its_tag() -> None:
+    uses = [line for line in RELEASE_TEXT.splitlines() if "uses:" in line]
+    assert uses
+    assert [u for u in uses if not SHA_PINNED_LINE.match(u)] == []
+
+
+def test_ci_lint_checks_the_lockfile() -> None:
+    ci = yaml.safe_load((WORKFLOWS / "ci.yml").read_text())
+    assert "uv lock --check" in [s.get("run") for s in ci["jobs"]["lint"]["steps"]]
