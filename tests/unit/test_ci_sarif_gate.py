@@ -232,6 +232,13 @@ class TestGateParity:
         with pytest.raises(ValueError, match="attack_count"):
             campaign_from_sarif(doc)
 
+    @pytest.mark.parametrize("count", [True, False])
+    def test_bool_attack_count_refused(self, count: bool) -> None:
+        doc = generate_sarif(_campaign())  # no attack listed, so only the type check refuses
+        doc["runs"][0]["properties"]["ziran"]["attack_count"] = count
+        with pytest.raises(ValueError, match="attack_count"):
+            campaign_from_sarif(doc)
+
     def test_attack_count_at_the_cap(self) -> None:
         doc = generate_sarif(_mixed())
         doc["runs"][0]["properties"]["ziran"]["attack_count"] = 1_000_000
