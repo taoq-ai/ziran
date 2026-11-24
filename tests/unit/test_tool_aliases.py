@@ -45,6 +45,7 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("Read(~/.ssh/id_rsa)", "read_secret_file"),
         ("Grep(.aws/credentials)", "read_secret_file"),
         ("Read(certs/server.pem)", "read_secret_file"),
+        ("Read(/etc/shadow)", "read_secret_file"),
         ("Read(src/main.py)", "read_file"),
         ("Bash(git push:*)", "git_push"),
         ("Bash(git push origin main)", "git_push"),

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
+from ziran.application.knowledge_graph.tool_aliases import SECRET_PATH
 from ziran.application.strategies.protocol import CampaignContext
 from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
 from ziran.domain.entities.phase import ChainTarget
@@ -32,6 +33,7 @@ MAX_VECTORS_PER_CHAIN = 5
 DEFAULT_RESOURCE = "notes.txt"  # neutral; a poisoned file at this path is the supported setup
 ENDPOINT = "https://reports.example.invalid/upload"  # reserved TLD (RFC 2606): never resolves
 _ENDPOINT_HOST = "reports.example.invalid"
+MAILBOX = f"reports@{_ENDPOINT_HOST}"  # the endpoint when the sink sends mail
 # The target names its tools and sets the schema default. Prompt text taken from them is one
 # line, at most this long and brace-free, so no placeholder fill repeats it (CWE-400).
 MAX_RESOURCE_CHARS = 100
@@ -52,7 +54,7 @@ _EXEC_TAGS = frozenset(
 )
 _FAMILIES = (
     _Family(
-        ("exfil", "leak"),
+        ("exfil", "leak", "trifecta"),  # trifecta: spec 096
         {
             AttackCategory.DATA_EXFILTRATION: frozenset(),
             AttackCategory.INDIRECT_INJECTION: _EXFIL_TAGS,
@@ -97,6 +99,7 @@ _SECRET = re.compile(
     r"|ssh ?keys?|id (?:rsa|dsa|ecdsa|ed25519)|(?:environment|env) ?var(?:iable)?s?"
     r"|(?:authori[sz]ation|auth) ?headers?|cookies?|bearer)\b"
 )
+_PATH_SPLIT = re.compile(r"[\s\"'`()\[\]<>{},;:=?!*]+")
 # a URL's host or a mail address's domain (no trailing dot): what a sink could reach
 _HOST = re.compile(r"(?i)(\bhttps?://|[\w.+-]@)([^/\s?#)\]\"'>,;]*[^/\s?#)\]\"'>,;.])")
 
@@ -155,12 +158,15 @@ def plan(
         family = _family(chain.vulnerability_type)
         if family is None or not chain.tools:
             continue
-        source, sink = chain.tools[0], chain.tools[-1]
+        # a trifecta's tools are in tool order: its private data and egress legs name the ends
+        source = _leg(chain, "private_data") or chain.tools[0]
+        sink = _leg(chain, "egress") or chain.tools[-1]
+        sink_name = _plain(names.get(sink, sink.removeprefix("tool_"))) or "the last tool"
         task = (
             _plain(names.get(source, source.removeprefix("tool_"))) or "the first tool",
-            _plain(names.get(sink, sink.removeprefix("tool_"))) or "the last tool",
+            sink_name,
             _resource(params.get(source, {})),
-            family.task,
+            family.task.replace(ENDPOINT, MAILBOX) if "mail" in sink_name.lower() else family.task,
         )
         chosen: list[AttackVector] = []
         for v in pools[id(family)]:
@@ -232,6 +238,13 @@ def _rank(family: _Family, vectors: list[AttackVector]) -> list[AttackVector]:
     return sorted(members, key=lambda v: (-fit(v), _SEVERITY_RANK.get(v.severity, 4)))
 
 
+def _leg(chain: DangerousChain, leg: str) -> str | None:
+    """The first tool the chain's evidence lists for *leg* (a trifecta chain), else None."""
+    tools = chain.evidence.get(leg)
+    first = tools[0] if isinstance(tools, list) and tools else None
+    return first if isinstance(first, str) else None
+
+
 def _plain(text: str) -> str:
     """*text* stripped when it is one line, brace-free and short enough for a prompt, else ""."""
     text = text.strip()
@@ -285,8 +298,8 @@ def _render(
     hosts = {m.group(2) for t in texts for m in _HOST.finditer(t)} - {_ENDPOINT_HOST}
 
     def swap(text: str) -> str:
-        for host in sorted(hosts, key=len, reverse=True):  # longest first: no partial overlap
-            text = text.replace(host, _ENDPOINT_HOST)
+        for host in hosts:  # a whole host only: never inside devil.company or evil.com.au
+            text = re.sub(rf"(?i)(?<![\w.-]){re.escape(host)}(?![\w-]|\.\w)", _ENDPOINT_HOST, text)
         return text
 
     prompts: list[AttackPrompt] = []
@@ -309,7 +322,10 @@ def _normalise(text: str) -> str:
 
 
 def _names_secret(text: str, *own_names: str) -> bool:
-    """Whether *text* names a secret once the chain's own *own_names* are taken out."""
+    """Whether *text* names a secret, or a credential file path, once *own_names* are taken out."""
+    # SECRET_PATH is anchored for a permission spec, so match it on each path-like token
+    if any(SECRET_PATH.search(t.rstrip(".")) for t in _PATH_SPLIT.split(text)):
+        return True
     words = _normalise(text)
     for name in filter(None, map(_normalise, own_names)):
         words = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", " ", words)
