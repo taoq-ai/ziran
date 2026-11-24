@@ -513,17 +513,15 @@ _PY_HTTP_USAGE = """Usage: python3 <this file> [ENDPOINT]   (needs httpx)
 Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check."""
 
 _PY_HTTP_REPRODUCE = '''
-def _texts(value, tool_calls):
-    """Every string in a parsed JSON reply; non-empty tool_calls go to tool_calls."""
+def _texts(value):
+    """Every string in a parsed JSON reply, tool-call arguments included."""
     if isinstance(value, str):
         return [value]
     if isinstance(value, dict):
-        if value.get("tool_calls"):
-            tool_calls.append(value["tool_calls"])
         value = list(value.values())
     if not isinstance(value, list):
         return []
-    return [text for item in value for text in _texts(item, tool_calls)]
+    return [text for item in value for text in _texts(item)]
 
 
 def reproduce(endpoint=DEFAULT_ENDPOINT):
@@ -536,8 +534,7 @@ def reproduce(endpoint=DEFAULT_ENDPOINT):
         data = reply.json()
     except ValueError:
         data = reply.text
-    tool_calls = []
-    content_lower = "\\n".join(_texts(data, tool_calls)).lower()
+    content_lower = "\\n".join(_texts(data)).lower()
     matched = [ind for ind in SUCCESS_INDICATORS if ind.lower() in content_lower]
 
     if matched:
@@ -546,9 +543,6 @@ def reproduce(endpoint=DEFAULT_ENDPOINT):
     if SUCCESS_INDICATORS:
         print("[-] " + NOT_REPRODUCED)
         return 1
-    if tool_calls:
-        print("[!] " + VULNERABLE_TOOL_MATCH)
-        return 0
     print("[-] No text indicator recorded: check the agent's tool log")
     return 2
 '''
@@ -604,15 +598,54 @@ def _owasp_ids(result: AttackResult) -> str:
     return ", ".join(c.value for c in ids) or "N/A"
 
 
-def _indicators(result: AttackResult) -> list[str]:
-    """The matched indicators that occur in the reply the scan recorded.
+#: A canary: one token that names itself one and holds a digit (``ZX-CANARY-7731``).
+_CANARY = re.compile(r"[A-Za-z0-9_-]*canary[A-Za-z0-9_-]*", re.IGNORECASE)
 
-    Drops labels no reply holds (a judge verdict, a tool description). With no
-    recorded reply, every matched indicator stays.
+
+def _indicators(result: AttackResult) -> list[str]:
+    """The canaries the scan recorded, then the matched indicators found where it saw them.
+
+    A canary is taken from the recorded reply or a recorded tool call's arguments, so
+    a fixed agent holding a fresh canary does not match. A matched indicator stays when
+    it occurs in that reply or those arguments; this drops labels no reply holds (a
+    judge verdict, a tool description). With no recorded reply, every matched one stays.
     """
-    reply = (result.agent_response or result.evidence.get("response_snippet") or "").lower()
-    matched = result.evidence.get("matched_indicators", [])
-    return [i for i in matched if isinstance(i, str) and i and (not reply or i.lower() in reply)]
+    reply = result.agent_response or result.evidence.get("response_snippet") or ""
+    calls = result.evidence.get("tool_calls") or []
+    args = [
+        _strings(_parsed(c.get("arguments", c.get("input", c.get("args")))))
+        for c in calls
+        if isinstance(c, dict)
+    ]
+    seen = "\n".join([reply, *(s for a in args for s in a)])
+    canaries = [t for t in _CANARY.findall(seen) if any(c.isdigit() for c in t)]
+    matched = [
+        i
+        for i in result.evidence.get("matched_indicators", [])
+        if isinstance(i, str) and i and (not reply or i.lower() in seen.lower())
+    ]
+    return list(dict.fromkeys([*canaries, *matched]))
+
+
+def _parsed(value: Any) -> Any:
+    """``value`` decoded when it is a JSON string (OpenAI tool-call arguments), else as is."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    return value
+
+
+def _strings(value: Any) -> list[str]:
+    """Every string in a decoded JSON value."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        value = list(value.values())
+    if isinstance(value, list):
+        return [s for v in value for s in _strings(v)]
+    return []
 
 
 def _safe_name(value: str) -> str:
