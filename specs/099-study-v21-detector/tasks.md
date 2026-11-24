@@ -7,8 +7,8 @@ Base: `origin/develop` at `1adc751`. Branch `feat/study-v21-detector`. Test firs
 - [x] T003 Change 1 tests in `tests/unit/test_role_typing_verb_rule.py`, run red.
 - [x] T004 Change 1 in `role_typing.py`; old-contract tests updated; green.
 - [x] T005 Change 1 mutants: last verb, no MCP strip, no toolkit strip, no-verb clause.
-- [ ] T006 Change 9 tests red, fix, mutants.
-- [ ] T007 Changes 2, 4 and 6 tests red, fix, mutants.
+- [x] T006 Change 9 tests red, fix, mutants (fragment match, file order, shortest first).
+- [x] T007 Changes 2, 4 and 6 tests red, fix, mutants.
 - [ ] T008 Change 3 tests red, prompt v1, fix, mutants.
 - [ ] T009 Change 7 tests red, fix, mutants, detection benchmark before and after.
 - [ ] T010 Change 8 tests red, fix, mutants, the early check with no send.

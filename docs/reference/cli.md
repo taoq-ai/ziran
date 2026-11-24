@@ -329,9 +329,11 @@ In a directory, Python files are still analysed as before and the Claude Code fi
 | `SA001` | critical | Secret pattern in the system prompt, `description` or `tools` | the matching line |
 | `SA003` | high | A declared tool is dangerous (e.g. `Bash`, `WebFetch`, `Write`) | `tools:` line |
 | `SA004` | medium | A declared tool is a wildcard (`Bash(*)`, `mcp__server`, `mcp__server__*`) | `tools:` line |
-| `SA007` | high | No `tools` key: the agent inherits every tool | `1` |
-| `CC001` | the chain's risk | A dangerous tool chain over the agent's tools (e.g. `Read -> WebFetch`) | `tools:` line (`1` when absent) |
-| `LT001` | critical | The lethal trifecta: the agent's tools read private data, see untrusted content and can send data out (e.g. `Read, WebFetch`) | `tools:` line (`1` when absent) |
+| `SA007` | high | No `tools` key, or `tools: "*"`: the agent inherits every tool. It is the agent's one tool finding: an inherited set gives no `CC001` or `LT001` row, because it depends on the parent session | `tools:` line (`1` when absent) |
+| `CC001` | the chain's risk | A dangerous tool chain over the agent's declared tools (e.g. `Read -> WebFetch`) | `tools:` line |
+| `LT001` | critical | The lethal trifecta: the agent's declared tools read private data, see untrusted content and can send data out (e.g. `Read, WebFetch`) | `tools:` line |
+
+The `tools` value is read as the format writes it: a list split at commas or spaces, the `allowed-tools` key when there is no `tools` key, and an empty value (`tools:`, `tools: []`) as an agent with no tool, which gets no `SA007`. A sink that its permission specifier limits to named commands or domains (`Bash(git status:*)`, `WebFetch(domain:docs.example.org)`) is in no chain.
 
 When Claude Code definitions are detected, every JSON row (Python rows included) gains two keys:
 `agent` (the agent name, `null` for Python rows and `CC000`) and `tools` (the tool strings, in

@@ -14,6 +14,7 @@ from ziran.application.static_analysis.config import (
     StaticAnalysisConfig,
 )
 from ziran.domain.entities.claude_code import (
+    CLAUDE_CODE_BUILTIN_TOOLS,
     ClaudeCodeAgent,
     ClaudeCodeParseIssue,
     ClaudeCodeScan,
@@ -96,9 +97,12 @@ class TestAgentChains:
         assert chains[0].vulnerability_type == "unrestricted_execution"
         assert chains[0].risk_level == "high"
 
-    def test_unrestricted_is_fast(self) -> None:
+    def test_an_inherited_tool_set_gives_no_chain(self) -> None:
+        assert agent_chains(_agent(name="generalist")) == []  # spec 099: SA007 reports it
+
+    def test_every_built_in_tool_declared_is_fast(self) -> None:
         start = time.monotonic()
-        chains = agent_chains(_agent(name="generalist"))
+        chains = agent_chains(_agent(name="generalist", tools=", ".join(CLAUDE_CODE_BUILTIN_TOOLS)))
         assert time.monotonic() - start < 1
         tools = [c.tools for c in chains]
         assert ["Bash"] in tools
@@ -198,5 +202,4 @@ class TestAuditClaudeCode:
         assert first.agent is None
         assert first.message == "m"
         order = [f.check_id for f in report.findings]
-        assert order[:3] == ["CC000", "SA001", "SA007"]
-        assert set(order[3:]) == {"CC001", "LT001"}  # inherited Read + WebFetch (spec 088)
+        assert order == ["CC000", "SA001", "SA007"]  # an inherited set gives no chain (spec 099)

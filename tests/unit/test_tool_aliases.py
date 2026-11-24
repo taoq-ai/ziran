@@ -33,8 +33,9 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("mcp__slack__slack_send_message", "send_email"),
         ("mcp__slack__slack_post_message", "send_email"),
         ("mcp__slack__slack_reply_to_thread", "send_email"),
-        ("mcp__github__create_issue", "send_email"),
-        ("mcp__github__update_pull_request", "send_email"),
+        # creating or updating an object in the user's own account is a write (spec 099)
+        ("mcp__github__create_issue", "mcp__github__create_issue"),
+        ("mcp__github__update_pull_request", "mcp__github__update_pull_request"),
         ("mcp__x__publish_post", "send_email"),
         # MCP non-outbound tools stay unchanged
         ("mcp__slack__slack_list_channels", "mcp__slack__slack_list_channels"),
@@ -50,7 +51,14 @@ from ziran.application.knowledge_graph.tool_aliases import (
         ("Read(src/main.py)", "read_file"),
         ("Bash(git push:*)", "git_push"),
         ("Bash(git push origin main)", "git_push"),
-        ("Bash(npm test:*)", "shell_execute"),
+        # a sink its specifier confines to named commands or domains (spec 099)
+        ("Bash(npm test:*)", "confined"),
+        ("WebFetch(domain:docs.example.org)", "confined"),
+        ("WebFetch(domain:*)", "http_request"),
+        ("Bash(:*)", "shell_execute"),
+        # the two built-in messaging tools are internal (spec 099)
+        ("SendMessage", "session_internal"),
+        ("PushNotification", "session_internal"),
         # Regression: non-Claude-Code ids are unchanged
         ("read_file", "read_file"),
         ("Read_File", "Read_File"),

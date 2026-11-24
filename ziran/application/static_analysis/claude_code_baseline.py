@@ -29,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID
 from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
 from ziran.application.static_analysis.analyzer import StaticFinding
-from ziran.application.static_analysis.claude_code_audit import agent_chains
+from ziran.application.static_analysis.claude_code_audit import agent_chains, declared_tools
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -81,7 +81,7 @@ def build_baseline(
         version=1,
         agents={
             a.name: BaselineAgent(
-                tools=None if a.tools is None else list(a.tools),
+                tools=declared_tools(a),
                 chains=sorted(
                     (
                         BaselineChain(
@@ -145,6 +145,7 @@ def apply_baseline(
     for agent in scan.agents:
         entry = baseline.agents.get(agent.name)
         name = agent.name
+        tools = declared_tools(agent)  # None: the agent inherits every tool
         chains = agent_chains(agent, trifecta_roles=trifecta_roles)
         if entry is None:
             violations.append(
@@ -152,10 +153,10 @@ def apply_baseline(
                     agent,
                     "BL004",
                     f"Agent '{name}' is not in the baseline",
-                    tuple(agent.tools or ()),
+                    tuple(tools or ()),
                 )
             )
-        elif entry.tools is not None and agent.tools is None:
+        elif entry.tools is not None and tools is None:
             violations.append(
                 _violation(
                     agent,
@@ -164,12 +165,12 @@ def apply_baseline(
                     (),
                 )
             )
-        elif entry.tools is not None and agent.tools is not None:
+        elif entry.tools is not None and tools is not None:
             violations += [
                 _violation(
                     agent, "BL001", f"Agent '{name}' gains tool '{t}' not in the baseline", (t,)
                 )
-                for t in agent.tools
+                for t in tools
                 if t not in entry.tools
             ]
         accepted = (
@@ -189,13 +190,13 @@ def apply_baseline(
 
         if entry is None:
             continue
-        if entry.tools is not None and agent.tools is not None:
+        if entry.tools is not None and tools is not None:
             narrowed += [
                 BaselineNarrowing(agent=name, change="tool_removed", tools=[t])
                 for t in entry.tools
-                if t not in agent.tools
+                if t not in tools
             ]
-        if entry.tools is None and agent.tools is not None:
+        if entry.tools is None and tools is not None:
             narrowed.append(BaselineNarrowing(agent=name, change="tools_key_added"))
         current = {(tuple(c.tools), c.vulnerability_type) for c in chains}
         narrowed += [

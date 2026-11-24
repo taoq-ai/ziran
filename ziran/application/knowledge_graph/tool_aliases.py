@@ -7,7 +7,10 @@ from application-layer code.
 
 :func:`canonical_tool_name` maps a Claude Code tool id (``Read``, ``Bash``,
 ``mcp__slack__slack_send_message``, ``Read(./.env)`` ...) to the capability
-keyword the chain patterns already use. Ids that are not Claude Code tools
+keyword the chain patterns already use. A sink that its permission specifier limits to named
+commands or domains (``Bash(git status:*)``, ``WebFetch(domain:docs.example.org)``) maps to
+:data:`CONFINED`, which no pattern and no role matches; a ``Bash`` rule for pushing to a
+remote stays a sink. Ids that are not Claude Code tools
 are checked against a short table of LangChain-style names
 (``recursive_url_loader``, ``tavily_search``, ``vector_store_query``,
 ``read_secrets``, ``execute_command`` and their variants); any other id is returned unchanged. The result is for matching
@@ -30,6 +33,10 @@ _BUILTIN_ALIASES: dict[str, str] = {
     "WebSearch": "browse_url",
     "Agent": "spawn_subagent",
 }
+#: The two built-in messaging tools deliver to an agent of the same session or to the user's
+#: own device: internal, no egress (spec 099, change 4). The list is read off study data.
+_INTERNAL_TOOLS: frozenset[str] = frozenset({"SendMessage", "PushNotification"})
+INTERNAL = "session_internal"  # a keyword no chain pattern and no role matches
 
 #: LangChain-style tool names -> chain-pattern keyword. Keys are squashed (lowercase,
 #: non-alphanumerics removed). The squashed id must equal a key, after an optional
@@ -50,7 +57,12 @@ _FRAMEWORK_ALIASES: dict[str, str] = {
 #: Tool ids that grant unscoped shell execution (bare ``Bash`` or ``Bash(*)``).
 UNRESTRICTED_EXEC_TOOLS: frozenset[str] = frozenset({"Bash", "Bash(*)"})
 
-_OUTBOUND_VERBS = frozenset({"send", "post", "create", "reply", "publish", "update"})
+#: Verbs that send data to someone other than the user. Creating or updating an object in the
+#: user's own account is a write, not egress (spec 099, change 4).
+_OUTBOUND_VERBS = frozenset({"send", "post", "reply", "publish"})
+#: The keyword of a sink its permission specifier confines to named domains or commands: it
+#: matches no chain pattern and has no role (spec 099, change 6).
+CONFINED = "confined"
 _RULE = re.compile(r"(\w+)\((.*)\)", re.DOTALL)  # permission-rule form "Name(specifier)"
 #: A path to a credential file: a permission spec here, a path token in chain_targeting.
 SECRET_PATH = re.compile(
@@ -91,6 +103,8 @@ def canonical_tool_name(tool_id: str) -> str:
 
     m = _RULE.fullmatch(tool_id)
     name, spec = (m[1], m[2]) if m else (tool_id, "")
+    if name in _INTERNAL_TOOLS:
+        return INTERNAL
     canonical = _BUILTIN_ALIASES.get(name)
     if canonical is None:
         return _framework_alias(tool_id)
@@ -98,4 +112,8 @@ def canonical_tool_name(tool_id: str) -> str:
         return "read_secret_file"
     if name == "Bash" and _GIT_PUSH.search(spec):
         return "git_push"
+    if (name == "Bash" and spec.strip(" *:")) or (
+        name == "WebFetch" and spec.startswith("domain:") and spec[7:].strip(" *")
+    ):
+        return CONFINED
     return canonical

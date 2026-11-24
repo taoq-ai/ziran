@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Final
 
@@ -41,6 +42,16 @@ logger = get_logger(__name__)
 
 MAX_FILE_BYTES: Final = 1_048_576
 _AGENT_KEYS = ("name", "description", "tools", "model")
+# a tool list is split at commas and at spaces; neither splits inside "(...)" (spec 099)
+_TOOLS_SPLIT = re.compile(r"[,\s]+(?![^()]*\))")
+
+
+def _tool_list(value: object) -> object:
+    """A ``tools`` value as a list of entries; any other shape is left for the model to refuse."""
+    entries = [value] if isinstance(value, str) else value
+    if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
+        return value
+    return [t for e in entries for t in _TOOLS_SPLIT.split(e)]
 
 
 def _real(path: Path) -> Path:
@@ -155,6 +166,12 @@ class _Scanner:
             else {}
         )
         fields = {k: data[k] for k in _AGENT_KEYS if k in data}
+        if "tools" not in data and "allowed-tools" in data:  # the key skills and commands use
+            fields["tools"] = data["allowed-tools"]
+            if "allowed-tools" in key_lines:
+                key_lines["tools"] = key_lines["allowed-tools"]
+        if "tools" in fields:
+            fields["tools"] = _tool_list(fields["tools"])
         try:
             agent = ClaudeCodeAgent.model_validate(
                 fields
