@@ -9,3 +9,6 @@ Base: `origin/develop` at 9dbec90. Branch `fix/poc-recorded-canaries`. Test firs
 - [x] T005 Docs: `docs/reference/cli.md`.
 - [x] T006 Touched tests green (`test_poc_target_protocol.py`, `test_poc_generator.py`); ruff, format and strict mypy clean.
 - [x] T007 Mutants in a `git archive` copy under `timeout -s KILL 120`.
+- [x] T008 Gate fix round (arch at 4c7c9a5): tests for a canary echoed from the prompt (cURL and Python against both stubs, exit 1), the prompt token in a tool argument, host and file name labels, the `args` key, canary order and dedup, and the attempt note; run red: 5 failed, 42 passed.
+- [x] T009 Drop prompt-echoed tokens and host or file name labels; both scripts print the attempt note after a match; docs.
+- [x] T010 Delta mutants in a fresh `git archive` copy under `timeout -s KILL 120`.

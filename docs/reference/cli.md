@@ -235,7 +235,8 @@ With an `openai` or `rest` target:
 
 - The Python PoC is a standalone script that needs only `httpx`.
 - The cURL PoC sends the same request. `scan --target` writes it beside the Python PoC.
-- Each script takes an optional endpoint as its first argument. It checks the whole reply, tool-call arguments included, for the canaries the scan recorded (a token holding `canary` and a digit, such as `ZX-CANARY-7731`, in the recorded reply or tool-call arguments) and for the matched indicators found there. A fixed agent restarted with a fresh canary reads not reproduced.
+- Each script takes an optional endpoint as its first argument. It checks the whole reply, tool-call arguments included, for the canaries the scan recorded (a token holding `canary` and a digit, such as `ZX-CANARY-7731`, in the recorded reply or tool-call arguments) and for the matched indicators found there. A token the attack prompt itself sent, and a host or file name such as `canary1.example`, is not a canary. A fixed agent restarted with a fresh canary reads not reproduced.
+- A match shows that the reply carries a recorded canary or indicator, so the agent attempted to send it. A fix at the egress tool is not visible to the PoC: an agent fixed only there, with the same canary, still reads reproduced.
 - Exit codes: `0` reproduced, `1` not reproduced, `2` the finding has no text indicator to check. A tool call alone does not count as reproduced.
 - Auth headers are not written into the scripts, so add them by hand.
 

