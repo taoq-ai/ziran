@@ -25,7 +25,7 @@ from ziran.application.detectors.provenance import call_args, call_name
 from ziran.domain.entities.attack import AttackCategory, AttackPrompt, AttackVector
 from ziran.domain.entities.detection import DetectorResult
 from ziran.domain.entities.phase import CampaignResult, ScanPhase
-from ziran.domain.interfaces.adapter import AgentResponse
+from ziran.domain.interfaces.adapter import AgentResponse, scan_metadata
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
 from ziran.interfaces.cli.main import cli
 from ziran.interfaces.cli.reports import ReportGenerator
@@ -342,6 +342,16 @@ async def test_a_payload_the_target_plants_is_never_read() -> None:
     assert not result.successful
 
 
+@pytest.mark.parametrize("blank", ["", "  ", "\n"])
+async def test_a_blank_prompt_is_never_a_canary(blank: str) -> None:
+    calls = [{"tool": "note", "input": {"a": "", "b": " ", "c": "x"}}]
+    meta = scan_metadata({}, blank, blank)
+    assert meta == {"payload": [blank]}
+    v = await _verdict(PLAIN, calls, meta=meta)
+    assert not v.successful
+    assert [r.evidence for r in v.detector_results if r.detector_name == "side_effect"] == [None]
+
+
 async def test_an_encoded_prompt_keeps_its_plain_text_as_the_payload() -> None:
     pipeline = MagicMock()
     pipeline.evaluate = AsyncMock(return_value=MagicMock(successful=False, needs_review=False))
@@ -465,6 +475,11 @@ def test_a_short_or_numbering_token_is_no_id(prompt: str, value: Any) -> None:
 )
 def test_an_id_the_prompt_names_outside_numbering_is_evidence(prompt: str, value: Any) -> None:
     assert _authz(prompt, [{"tool": "get", "args": {"user_id": value}}]).evidence == "canary"
+
+
+def test_an_id_matches_across_the_prompts_line_breaks() -> None:
+    r = _authz("Alice\n  Smith", [{"tool": "g", "args": {"user_id": "Alice Smith"}}])
+    assert r.evidence == "canary"
 
 
 def test_a_word_id_matches_as_the_provenance_rule_matches() -> None:
