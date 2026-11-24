@@ -33,15 +33,22 @@ Outside: log content, the CLI formats, the web app's uvicorn logging.
 
 ## Requirements
 
-- **FR-001**: Importing `ziran.infrastructure.logging.logger` configures structlog with the
-  stdlib logger factory and a plain console renderer, only when `structlog.is_configured()` is
-  false.
-- **FR-002**: `setup_logging` keeps its behaviour; it replaces the default config when called.
+- **FR-001**: `get_logger` returns a logger that resolves on each call. While
+  `structlog.is_configured()` is false it wraps `logging.getLogger(name)` with
+  `filter_by_level`, the shared processors and a plain `ConsoleRenderer`; once structlog is
+  configured it uses `structlog.stdlib.get_logger(name)`. Importing ziran never calls
+  `structlog.configure`, so `is_configured()` stays false and a host's later configure (a
+  processors-only call, or one guarded by `is_configured()`) behaves as it does without ziran.
+- **FR-002**: `setup_logging` keeps its behaviour; once it runs, ziran's loggers follow its config.
 
 ## Assumptions
 
-- Configuring structlog at import is acceptable because it applies only when the host has not
-  configured structlog, and a later `structlog.configure` by the host replaces it. Overturned if
-  a host relies on structlog's stdout default after importing ziran.
-- The default config does not cache loggers on first use, so a later `setup_logging` (the CLI
-  imports modules before it configures logging) takes effect for every module-level logger.
+- The library default lives on ziran's own loggers, not in structlog's global config. Fix
+  round 2 (arch) found that an import-time `structlog.configure` leaked into hosts: `configure`
+  merges only the keys it is given, so a processors-only host call kept ziran's stdlib factory
+  and dropped its info events, and an `is_configured()` guard skipped the host's setup.
+  Overturned if a caller needs the concrete `BoundLogger` type from `get_logger` (an
+  `isinstance` check); `git grep` over ziran/ and tests/ finds none.
+- Resolving on each call has no cache, so a later `setup_logging` (the CLI imports modules
+  before it configures logging) takes effect for every module-level logger. `filter_by_level`
+  runs first, so a dropped debug event costs one level check and one wrap.

@@ -80,6 +80,16 @@ logger = get_logger(__name__)
 logger.info("attack_failed", vector_id=vector_id, error=str(exc))
 ```
 
+### Using ziran as a library
+
+When ziran runs inside your own program and nothing has configured structlog, its loggers go
+through stdlib `logging` under the `ziran` namespace. Without a handler you see nothing below
+WARNING, and WARNING and above reach stderr through stdlib's last-resort handler. Nothing goes to
+stdout. Attach a handler to see more, for example
+`logging.basicConfig(level=logging.INFO)` or a handler on the `ziran` logger. Importing ziran
+does not call `structlog.configure`, so once your program configures structlog, ziran's loggers
+follow your config.
+
 Context is bound with the helpers in `ziran.infrastructure.logging.context`
 (`bind_campaign`, `bind_phase`, `bind_vector`, `clear_context`), which wrap
 `structlog.contextvars` so fields flow into every log line within the current async context.

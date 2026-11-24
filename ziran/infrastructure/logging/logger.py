@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import structlog
 from rich.console import Console
@@ -121,28 +121,38 @@ def setup_logging(
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 
-def _route_to_stdlib_by_default() -> None:
-    """Send ziran's events to stdlib logging when the host has not configured structlog.
+# Library default: stdlib logging behind a plain console renderer, used only while the host
+# has not configured structlog. It is applied per logger, never through structlog.configure,
+# so a host's later configure (partial or guarded by is_configured) behaves as without ziran.
+_LIBRARY_DEFAULT: dict[str, Any] = {
+    "processors": [
+        structlog.stdlib.filter_by_level,
+        *_SHARED_PROCESSORS,
+        structlog.dev.ConsoleRenderer(
+            colors=False, exception_formatter=structlog.dev.plain_traceback
+        ),
+    ],
+    "wrapper_class": structlog.stdlib.BoundLogger,
+}
 
-    Unconfigured structlog prints every event, debug included, to stdout. Routed
-    through stdlib instead, a library host sees nothing below WARNING without a
-    handler and WARNING and above on stderr (stdlib's last-resort handler), while
-    a host's own logging handlers receive the rendered lines.
+
+class _LibraryLogger:
+    """Resolve the logger on each call: the host's structlog config once one exists.
+
+    Unconfigured structlog prints every event, debug included, to stdout. Until the host (or
+    ``setup_logging``) configures structlog, events go through stdlib logging instead: nothing
+    below WARNING without a handler, WARNING and above on stderr through the last-resort handler.
     """
-    if structlog.is_configured():
-        return
-    structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            *_SHARED_PROCESSORS,
-            structlog.dev.ConsoleRenderer(colors=False),
-        ],
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-    )
 
+    def __init__(self, name: str) -> None:
+        self._name = name
 
-_route_to_stdlib_by_default()
+    def __getattr__(self, attr: str) -> Any:
+        if structlog.is_configured():
+            return getattr(structlog.stdlib.get_logger(self._name), attr)
+        return getattr(
+            structlog.wrap_logger(logging.getLogger(self._name), **_LIBRARY_DEFAULT), attr
+        )
 
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
@@ -157,4 +167,4 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """
     if not name.startswith("ziran."):
         name = f"ziran.{name}"
-    return structlog.stdlib.get_logger(name)
+    return cast("structlog.stdlib.BoundLogger", _LibraryLogger(name))

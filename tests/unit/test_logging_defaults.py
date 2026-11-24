@@ -77,6 +77,50 @@ def test_host_structlog_config_is_kept() -> None:
     assert '"event": "info_event"' in result.stdout
 
 
+def test_import_leaves_structlog_unconfigured() -> None:
+    result = _run(
+        "import structlog, ziran.infrastructure.logging.logger\nprint(structlog.is_configured())"
+    )
+    assert result.stdout.strip() == "False"
+
+
+def test_host_processors_only_configure_after_import_is_kept() -> None:
+    """structlog.configure merges only the keys given, so ziran must not set a logger factory."""
+    result = _run(
+        "import structlog\n"
+        "from ziran.infrastructure.logging.logger import get_logger\n"
+        "structlog.configure(processors=[structlog.processors.add_log_level, structlog.processors.JSONRenderer()])\n"
+        "structlog.get_logger().info('host_event')\n"
+        "get_logger('probe').info('ziran_event')\n"
+    )
+    assert '"event": "host_event"' in result.stdout
+    assert '"event": "ziran_event"' in result.stdout
+
+
+def test_host_is_configured_guard_still_configures() -> None:
+    result = _run(
+        "import structlog\n"
+        "import ziran.infrastructure.logging.logger\n"
+        "if not structlog.is_configured():\n"
+        "    structlog.configure(processors=[structlog.processors.JSONRenderer()])\n"
+        "structlog.get_logger().info('host_event')\n"
+    )
+    assert '"event": "host_event"' in result.stdout
+
+
+def test_exception_renders_plain_traceback_without_warning() -> None:
+    result = _run(
+        "from ziran.infrastructure.logging.logger import get_logger\n"
+        "try:\n"
+        "    1 / 0\n"
+        "except ZeroDivisionError:\n"
+        "    get_logger('probe').exception('boom')\n"
+    )
+    assert result.stdout == ""
+    assert "ZeroDivisionError" in result.stderr
+    assert "UserWarning" not in result.stderr
+
+
 def test_capture_logs_still_captures() -> None:
     with structlog.testing.capture_logs() as logs:
         get_logger("probe").info("captured_event", key="v")
