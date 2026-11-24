@@ -4,8 +4,8 @@ Generates standalone PoC scripts from successful attack results that
 can be used to reproduce, validate, and demonstrate vulnerabilities.
 
 Supports multiple output formats:
-  - **Python**: Complete asyncio script using the adapter pattern.
-  - **cURL**: HTTP-based PoC for API-accessible agents.
+  - **Python**: Standalone httpx script that sends the scan's request.
+  - **cURL**: Shell script that sends the same request with curl.
   - **Markdown**: Human-readable reproduction steps.
 
 All template text, formatting options, and labels are loaded from a
@@ -30,17 +30,19 @@ import secrets
 import shlex
 import textwrap
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mdutils.mdutils import MdUtils
 
 from ziran.application.poc.config import PoCConfig
+from ziran.domain.entities.target import ProtocolType
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.domain.entities.attack import AttackResult
     from ziran.domain.entities.phase import CampaignResult
+    from ziran.domain.entities.target import TargetConfig
 
 
 class PoCGenerator:
@@ -53,6 +55,8 @@ class PoCGenerator:
         output_dir: Directory where generated PoC files are written.
         config: Template / formatting configuration.
             Defaults to the built-in config shipped with ZIRAN.
+        target: The scanned target. The scripts send the request its protocol
+            handler sent; without one they post ``{"message": prompt}``.
 
     Example::
 
@@ -66,10 +70,41 @@ class PoCGenerator:
         self,
         output_dir: Path,
         config: PoCConfig | None = None,
+        target: TargetConfig | None = None,
     ) -> None:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.config = config or PoCConfig.default()
+        self.target = target
+
+    def _request(self, prompt: str, endpoint: str | None) -> tuple[str, str, dict[str, Any]]:
+        """Method, URL and JSON body the target's protocol handler sends for ``prompt``.
+
+        Mirrors ``OpenAIProtocolHandler.send`` and ``RestProtocolHandler.send`` for one
+        turn; ``endpoint`` replaces the URL.
+        """
+        target = self.target
+        if target is None:
+            url = self.config.curl_template.default_endpoint
+            return "POST", endpoint or url, {"message": prompt}
+        if target.protocol == ProtocolType.OPENAI and target.openai is not None:
+            oa = target.openai
+            body: dict[str, Any] = {
+                "model": oa.model,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if oa.temperature is not None:
+                body["temperature"] = oa.temperature
+            if oa.max_tokens is not None:
+                body["max_tokens"] = oa.max_tokens
+            return "POST", endpoint or f"{target.normalized_url}/v1/chat/completions", body
+        if target.protocol == ProtocolType.REST and target.rest is not None:
+            rest = target.rest
+            url = target.normalized_url
+            if rest.request_path:
+                url = f"{url}/{rest.request_path.lstrip('/')}"
+            return rest.method, endpoint or url, {rest.message_field: prompt, **rest.extra_body}
+        return "POST", endpoint or target.url, {"message": prompt}
 
     def _path(self, filename: str) -> Path:
         """Return ``filename`` inside the output folder, or raise ValueError."""
@@ -132,6 +167,12 @@ class PoCGenerator:
             path = self.generate_python_poc(result, campaign_result.campaign_id)
             generated.append(path)
 
+        if self.target is not None:
+            for result in successful:
+                generated.append(
+                    self.generate_curl_poc(result, campaign_id=campaign_result.campaign_id)
+                )
+
         # Generate combined Markdown reproduction guide
         md_path = self.generate_markdown_guide(successful, campaign_result.campaign_id)
         generated.append(md_path)
@@ -142,18 +183,21 @@ class PoCGenerator:
         self,
         result: AttackResult,
         campaign_id: str = "unknown",
+        endpoint: str | None = None,
     ) -> Path:
-        """Generate a standalone Python PoC script for a single finding.
+        """Generate a standalone Python PoC script (httpx only) for a single finding.
 
         Args:
             result: Successful attack result.
             campaign_id: Campaign identifier for traceability.
+            endpoint: URL to send to instead of the target's.
 
         Returns:
             Path to the generated Python script.
         """
         tpl = self.config.python_template
         imports_block = "\n".join(f"import {m}" for m in tpl.imports)
+        method, url, body = self._request(result.prompt_used or "", endpoint)
 
         # Every finding value goes in as a repr() literal: none is pasted into
         # the docstring, an f-string or a comment, so no value can end a quote.
@@ -162,9 +206,14 @@ class PoCGenerator:
             {shebang}
             """Proof-of-Concept that reproduces a confirmed ZIRAN finding.
 
-            Run it against the same agent configuration to validate the issue.
+            Usage: python3 <this file> [ENDPOINT]   (needs httpx)
+            Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check.
             """
 
+            import json
+            import sys
+
+            import httpx
             {imports_block}
 
             VECTOR_NAME = {vector_name}
@@ -176,7 +225,10 @@ class PoCGenerator:
             GENERATED = {generated}
             GENERATOR = {generator_label}
 
-            # ── Attack payload ──────────────────────────────────────────
+            # ── Attack request ──────────────────────────────────────────
+            METHOD = {method}
+            DEFAULT_ENDPOINT = {endpoint}
+            BODY = json.loads({body})
             ATTACK_PROMPT = {prompt}
 
             # ── Expected indicators ─────────────────────────────────────
@@ -187,51 +239,50 @@ class PoCGenerator:
             NOT_REPRODUCED = {not_reproduced}
 
 
-            async def reproduce(adapter):
-                """Send the attack payload and check for success indicators.
+            def _texts(value, tool_calls):
+                """Every string in a parsed JSON reply; non-empty tool_calls go to tool_calls."""
+                if isinstance(value, str):
+                    return [value]
+                if isinstance(value, dict):
+                    if value.get("tool_calls"):
+                        tool_calls.append(value["tool_calls"])
+                    value = list(value.values())
+                if not isinstance(value, list):
+                    return []
+                return [text for item in value for text in _texts(item, tool_calls)]
 
-                Args:
-                    adapter: A configured ZIRAN BaseAgentAdapter instance.
 
-                Returns:
-                    True if the vulnerability is confirmed, False otherwise.
-                """
-                print(f"[*] Sending attack prompt: {{ATTACK_PROMPT[:80]}}...")
-                response = await adapter.invoke(ATTACK_PROMPT)
-
-                print(f"[*] Agent response (first 200 chars):")
-                print(f"    {{response.content[:200]}}")
-
-                # Check text indicators
-                content_lower = response.content.lower()
-                matched = [
-                    ind for ind in SUCCESS_INDICATORS
-                    if ind.lower() in content_lower
-                ]
-
-                # Check tool call side-effects
-                if response.tool_calls:
-                    print(f"[!] Agent executed {{len(response.tool_calls)}} tool(s):")
-                    for tc in response.tool_calls:
-                        tool_name = tc.get("tool") or tc.get("name") or "unknown"
-                        print(f"    - {{tool_name}}")
+            def reproduce(endpoint=DEFAULT_ENDPOINT):
+                """Send the attack request; return 0 reproduced, 1 not, 2 nothing to check."""
+                print("[*] Sending attack payload to " + endpoint)
+                reply = httpx.request(METHOD, endpoint, json=BODY, timeout=120.0)
+                print("[*] Agent response (HTTP " + str(reply.status_code) + ", first 200 chars):")
+                print("    " + reply.text[:200])
+                try:
+                    data = reply.json()
+                except ValueError:
+                    data = reply.text
+                tool_calls = []
+                content_lower = "\\n".join(_texts(data, tool_calls)).lower()
+                matched = [ind for ind in SUCCESS_INDICATORS if ind.lower() in content_lower]
 
                 if matched:
                     print("[!] " + VULNERABLE_TEXT_MATCH.replace("{{matched}}", str(matched)))
-                    return True
-                elif response.tool_calls:
-                    print("[!] " + VULNERABLE_TOOL_MATCH)
-                    return True
-                else:
+                    return 0
+                if SUCCESS_INDICATORS:
                     print("[-] " + NOT_REPRODUCED)
-                    return False
+                    return 1
+                if tool_calls:
+                    print("[!] " + VULNERABLE_TOOL_MATCH)
+                    return 0
+                print("[-] No text indicator recorded: check the agent's tool log")
+                return 2
 
 
             if __name__ == "__main__":
                 print("=" * 60)
                 print("ZIRAN Proof-of-Concept: " + {display_name})
                 print("=" * 60)
-                print()
         ''').format(
             shebang=tpl.shebang,
             imports_block=imports_block,
@@ -244,8 +295,11 @@ class PoCGenerator:
             owasp=repr(_owasp_ids(result)),
             generated=repr(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
             generator_label=repr(self.config.generator_label),
+            method=repr(method),
+            endpoint=repr(url),
+            body=repr(json.dumps(body)),
             prompt=repr(result.prompt_used or ""),
-            indicators=repr(result.evidence.get("matched_indicators", [])),
+            indicators=repr(_indicators(result)),
             vulnerable_text_match=repr(tpl.vulnerable_text_match),
             vulnerable_tool_match=repr(tpl.vulnerable_tool_match),
             not_reproduced=repr(tpl.not_reproduced),
@@ -256,7 +310,7 @@ class PoCGenerator:
             script += f"    print({instruction!r})\n"
 
         script += "    print()\n"
-        script += "    sys.exit(0)\n"
+        script += "    sys.exit(reproduce(*sys.argv[1:2]))\n"
 
         return self._write(
             f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.py", script
@@ -268,21 +322,23 @@ class PoCGenerator:
         endpoint: str | None = None,
         campaign_id: str = "unknown",
     ) -> Path:
-        """Generate a cURL-based PoC for API-accessible agents.
+        """Generate a cURL-based PoC that sends the target's request.
 
         Args:
             result: Successful attack result.
-            endpoint: The agent's HTTP endpoint.  Falls back to
-                the config default if not given.
+            endpoint: URL to send to instead of the target's (or, with
+                no target, the config default).
             campaign_id: Campaign identifier.
 
         Returns:
-            Path to the generated shell script.
+            Path to the generated shell script. It exits 0 when the
+            finding reproduces, 1 when it does not, 2 with no text
+            indicator to check.
         """
         tpl = self.config.curl_template
         q = shlex.quote
-        prompt_json = json.dumps({"message": result.prompt_used or ""})
-        indicators = result.evidence.get("matched_indicators", [])
+        method, url, body = self._request(result.prompt_used or "", endpoint)
+        indicators = _indicators(result)
 
         # Every value is a shlex-quoted word, never pasted into a comment, an
         # echo or a hand-quoted string. The body goes through the printf
@@ -290,6 +346,8 @@ class PoCGenerator:
         script = textwrap.dedent("""\
             #!/bin/bash
             # Proof-of-Concept that reproduces a confirmed ZIRAN finding.
+            # Usage: bash <this file> [ENDPOINT]
+            # Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check.
 
             set -euo pipefail
 
@@ -307,7 +365,7 @@ class PoCGenerator:
             printf '%s\\n' {banner}
             printf 'Sending attack payload to %s ...\\n' "$ENDPOINT"
 
-            RESPONSE=$(printf '%s' {payload} | curl -s -X POST --url "$ENDPOINT" \\
+            RESPONSE=$(printf '%s' {payload} | curl -s -X {method} --url "$ENDPOINT" \\
               -H "Content-Type: application/json" \\
               --data-binary @-)
 
@@ -327,12 +385,16 @@ class PoCGenerator:
             severity=q(result.severity),
             owasp=q(_owasp_ids(result)),
             generated=q(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
-            endpoint=q(endpoint or tpl.default_endpoint),
+            endpoint=q(url),
             banner=q(f"=== ZIRAN PoC: {_printable(result.vector_name)} ==="),
-            payload=q(prompt_json),
+            payload=q(json.dumps(body)),
+            method=q(method),
             max_chars=tpl.max_response_chars,
         )
 
+        if not indicators:
+            script += 'echo "[-] No text indicator recorded: check the agent\'s tool log"\n'
+            script += "exit 2\n"
         for ind in indicators[: tpl.max_indicators]:
             script += f'grep -qiF -- {q(ind)} <<<"$RESPONSE" && VULNERABLE=1\n'
 
@@ -340,10 +402,10 @@ class PoCGenerator:
 
             if [ "$VULNERABLE" -eq 1 ]; then
               echo "[!] VULNERABLE — Success indicators detected in response"
-              exit 1
+              exit 0
             else
               echo "[-] Not reproduced"
-              exit 0
+              exit 1
             fi
         """)
 
@@ -473,6 +535,17 @@ def _owasp_ids(result: AttackResult) -> str:
     """OWASP LLM then Agentic ids of a finding, or ``N/A``."""
     ids = [*result.owasp_mapping, *result.owasp_agentic_mapping]
     return ", ".join(c.value for c in ids) or "N/A"
+
+
+def _indicators(result: AttackResult) -> list[str]:
+    """The matched indicators that occur in the reply the scan recorded.
+
+    Drops labels no reply holds (a judge verdict, a tool description). With no
+    recorded reply, every matched indicator stays.
+    """
+    reply = (result.agent_response or result.evidence.get("response_snippet") or "").lower()
+    matched = result.evidence.get("matched_indicators", [])
+    return [i for i in matched if isinstance(i, str) and i and (not reply or i.lower() in reply)]
 
 
 def _safe_name(value: str) -> str:

@@ -200,7 +200,7 @@ class TestPoCGenerator:
 
         compile(source, "poc.py", "exec")
         assert source.startswith("#!")
-        assert "\nasync def reproduce(adapter):\n" in source
+        assert "\ndef reproduce(endpoint=DEFAULT_ENDPOINT):\n" in source
         assert "Step two: run {cmd}" in source
 
     def test_markdown_guide_multiple_findings(
@@ -322,16 +322,23 @@ if [ -n "${STUB_REPLY:-}" ]; then printf '%s' "$STUB_REPLY"; else printf 'stub r
 """
 
 _PY_DRIVER = """
-import asyncio, runpy, sys, types
+import json, runpy, sys, types
+import httpx
 
-class Adapter:
-    async def invoke(self, prompt):
-        with open("received", "w", encoding="utf-8") as fh:
-            fh.write(prompt)
-        return types.SimpleNamespace(content="stub reply -e", tool_calls=[])
+def request(method, url, json=None, timeout=None):
+    with open("received", "w", encoding="utf-8") as fh:
+        fh.write(json["message"])
+    return types.SimpleNamespace(
+        status_code=200, text="stub reply -e", json=lambda: {"reply": "stub reply -e"}
+    )
 
-module = runpy.run_path(sys.argv[1])
-assert asyncio.run(module["reproduce"](Adapter())) is True
+httpx.request = request
+try:
+    runpy.run_path(sys.argv[1], run_name="__main__")
+except SystemExit as exit:
+    assert exit.code == 0, exit.code
+else:
+    raise AssertionError("no exit")
 """
 
 
@@ -400,15 +407,6 @@ class TestPoCQuoting:
         driver = tmp_path / "driver.py"
         driver.write_text(_PY_DRIVER)
 
-        main = subprocess.run(
-            [sys.executable, str(path)], cwd=work, capture_output=True, text=True, check=False
-        )
-        assert main.returncode == 0, main.stderr
-        assert _HOSTILE in main.stdout  # the configured run instruction, printed as given
-        banner = next(line for line in main.stdout.splitlines() if "Proof-of-Concept:" in line)
-        assert banner.endswith("caf\u00e9 \u4f60\u597d")
-        assert "\\nEOF\\n" in banner
-        assert not any(c in banner for c in _CONTROLS)
         run = subprocess.run(
             [sys.executable, str(driver), str(path)],
             cwd=work,
@@ -417,6 +415,11 @@ class TestPoCQuoting:
             check=False,
         )
         assert run.returncode == 0, run.stderr
+        assert _HOSTILE in run.stdout  # the configured run instruction, printed as given
+        banner = next(line for line in run.stdout.splitlines() if "Proof-of-Concept:" in line)
+        assert banner.endswith("caf\u00e9 \u4f60\u597d")
+        assert "\\nEOF\\n" in banner
+        assert not any(c in banner for c in _CONTROLS)
         assert f"[!] {_HOSTILE}['-e']" in run.stdout
 
         assert not (work / "pwned").exists()
@@ -428,7 +431,7 @@ class TestPoCQuoting:
     ) -> None:
         run, work = _run_curl_poc(tmp_path, hostile_result)
 
-        assert run.returncode == 1, run.stderr  # the stub reply holds the "-e" indicator
+        assert run.returncode == 0, run.stderr  # the stub reply holds the "-e" indicator
         assert not (work / "pwned").exists()
         assert (work / "curl_body").read_bytes() == json.dumps({"message": _HOSTILE}).encode()
         args = (work / "curl_args").read_text().splitlines()
@@ -447,7 +450,7 @@ class TestPoCQuoting:
         hostile_result.evidence["matched_indicators"] = ["r.p"]
         run, _ = _run_curl_poc(tmp_path, hostile_result)
 
-        assert run.returncode == 0, run.stderr
+        assert run.returncode == 1, run.stderr
 
     @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
     def test_curl_poc_previews_a_long_reply(
@@ -457,7 +460,7 @@ class TestPoCQuoting:
         reply = "a" * 2990 + "needle" + "b" * 4
         run, _ = _run_curl_poc(tmp_path, hostile_result, reply)
 
-        assert run.returncode == 1, run.stderr  # matched past the 500-char preview
+        assert run.returncode == 0, run.stderr  # matched past the 500-char preview
         assert "\n" + "a" * 500 + "\n" in run.stdout
         assert "a" * 501 not in run.stdout
 
