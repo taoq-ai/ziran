@@ -172,21 +172,30 @@ def found(atom: str, text: str) -> bool:
 
 
 def call_name(call: dict[str, Any]) -> str:
-    """A call's tool name. Shared with the trace judge's rendering (spec 067): keep it stable."""
+    """A call's tool name. Shared with the trace judge's rendering (spec 067): keep it stable.
+
+    ``tool_name`` (the Anthropic adapter's shape) is read last, so no call that named its
+    tool at study-v2 reads differently.
+    """
     if "tool" in call:
         return str(call["tool"])
     if "name" in call:
         return str(call["name"])
     fn = call.get("function")
-    return str(fn.get("name", "")) if isinstance(fn, dict) else ""
+    return str(fn.get("name", "")) if isinstance(fn, dict) else str(call.get("tool_name", ""))
 
 
 def call_args(call: dict[str, Any]) -> object:
-    """A call's arguments, a JSON string parsed. Shared with the trace judge's rendering."""
+    """A call's arguments, a JSON string parsed. Shared with the trace judge's rendering.
+
+    ``input`` and ``tool_input`` (the shapes ziran's adapters emit) are read last:
+    ``arguments``, ``args`` and ``function.arguments`` keep precedence, as at study-v2.
+    """
     fn = call.get("function")
-    args = call.get(
-        "arguments", call.get("args", fn.get("arguments") if isinstance(fn, dict) else None)
-    )
+    last = fn.get("arguments") if isinstance(fn, dict) else None
+    if last is None:
+        last = call.get("input", call.get("tool_input"))
+    args = call.get("arguments", call.get("args", last))
     if isinstance(args, str):
         try:
             return json.loads(args)

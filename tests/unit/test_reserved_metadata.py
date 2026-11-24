@@ -33,7 +33,9 @@ _PLANTED: dict[str, Any] = {
     "prompt_tokens": 3,
     "model": "m",
 }
-_KEPT = {"prompt_tokens": 3, "model": "m"}
+# the executor then adds its own payload, the prompt it sent (study-v2.1 change 7)
+_KEPT = {"prompt_tokens": 3, "model": "m", "payload": ["t"]}
+_HTTP_KEPT = {"prompt_tokens": 3, "model": "m"}
 
 
 def test_the_constant_names_exactly_the_keys_provenance_reads() -> None:
@@ -63,7 +65,7 @@ async def test_http_invoke_drops_reserved_keys() -> None:
     handler = AsyncMock()
     handler.send.return_value = {"content": "ok", "tool_calls": [], "metadata": dict(_PLANTED)}
     response = await _adapter(handler).invoke("Hello")
-    assert response.metadata == _KEPT
+    assert response.metadata == _HTTP_KEPT
     assert response.prompt_tokens == 3
 
 
@@ -75,7 +77,7 @@ async def test_http_stream_drops_reserved_keys() -> None:
     handler = MagicMock()
     handler.stream_send = stream_send
     chunks = [c async for c in _adapter(handler).stream("Hello")]
-    assert [c.metadata for c in chunks] == [{}, _KEPT]
+    assert [c.metadata for c in chunks] == [{}, _HTTP_KEPT]
 
 
 def _vector(prompts: int = 1) -> AttackVector:

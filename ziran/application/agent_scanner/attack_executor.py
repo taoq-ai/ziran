@@ -24,7 +24,7 @@ from ziran.domain.entities.attack import (
     TokenUsage,
     get_business_impacts,
 )
-from ziran.domain.interfaces.adapter import AgentResponse, drop_reserved
+from ziran.domain.interfaces.adapter import AgentResponse, scan_metadata
 from ziran.domain.replies import ERROR_SENTINELS as _ERROR_SENTINELS
 from ziran.domain.replies import is_error_response as _is_error_response
 from ziran.infrastructure.logging.context import bind_vector
@@ -142,7 +142,6 @@ class AttackExecutor:
         # Track last response/prompt for reporting even when all prompts fail
         last_response_content: str | None = None
         last_prompt_used: str | None = None
-        encoding_used: str | None = None
 
         # Build list of (prompt_text, encoding_label) pairs to attempt.
         prompt_attempts: list[tuple[str, str | None, AttackPrompt]] = []
@@ -181,7 +180,8 @@ class AttackExecutor:
                     response = await self._invoke_streaming(rendered_prompt, attack.name)
                 else:
                     response = await self._adapter.invoke(rendered_prompt)
-                response.metadata = drop_reserved(response.metadata)
+                plain = rendered_cache[id(prompt_spec)]  # an encoded prompt's own values
+                response.metadata = scan_metadata(response.metadata, rendered_prompt, plain)
 
                 # Accumulate token usage
                 attack_tokens = attack_tokens + TokenUsage(
@@ -212,7 +212,6 @@ class AttackExecutor:
 
                 if verdict.successful:
                     side_effects = get_side_effect_summary(response.tool_calls)
-                    encoding_used = enc_label
                     _attack_span.set_attribute("ziran.attack.successful", True)
                     _attack_span.add_event("vulnerability_found", {"vector_id": attack.id})
                     _attack_span.end()
@@ -242,7 +241,7 @@ class AttackExecutor:
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
-                        encoding_applied=encoding_used,
+                        encoding_applied=enc_label,
                         owasp_mapping=attack.owasp_mapping,
                         owasp_agentic_mapping=attack.owasp_agentic_mapping,
                         business_impact=get_business_impacts(attack.category, attack.severity),

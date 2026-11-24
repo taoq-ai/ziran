@@ -2143,6 +2143,11 @@ def _display_results(result: CampaignResult) -> None:
     unmeasured = result.unmeasured_vectors
     if unmeasured:
         summary_table.add_row("Unmeasured Vectors", f"[bold yellow]{len(unmeasured)}[/bold yellow]")
+    if result.needs_review_vectors:  # signals with no evidence: listed, never counted
+        summary_table.add_row(
+            "Signals To Review (not counted)",
+            f"[yellow]{len(result.needs_review_vectors)}[/yellow]",
+        )
     summary_table.add_row(
         "Result",
         "[bold red]⚠️  VULNERABLE[/bold red]"

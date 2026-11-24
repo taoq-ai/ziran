@@ -263,6 +263,9 @@ class ReportGenerator:
         unmeasured = result.unmeasured_vectors
         if unmeasured:
             lines.append(f"| Unmeasured Vectors | {len(unmeasured)} |")
+        review = result.needs_review_vectors
+        if review:
+            lines.append(f"| Signals To Review (not counted) | {len(review)} |")
         overall = (
             "⚠️ VULNERABLE"
             if result.success
@@ -479,6 +482,22 @@ class ReportGenerator:
             lines.append("")
 
         # Phase Results
+        if review:  # signals with no evidence (study-v2.1): listed apart from findings
+            lines.append("## Signals To Review")
+            lines.append("")
+            lines.append(
+                "No evidence of success: no value of the attack in a tool call, and no judge "
+                "verdict. These are not findings and count in no gate."
+            )
+            lines.append("")
+            lines.append("| Vector | Signals |")
+            lines.append("|--------|---------|")
+            for ar in result.attack_results:
+                if ar.get("vector_id") in review:
+                    signals = ", ".join(ar.get("evidence", {}).get("signals", [])) or "judge"
+                    lines.append(f"| `{ar.get('vector_id')}` | {signals} |")
+            lines.append("")
+
         lines.append("## Phase Results")
         lines.append("")
 

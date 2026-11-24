@@ -61,10 +61,10 @@ class MockAgentAdapter(BaseAgentAdapter):
         self._response_index += 1
 
         # If vulnerable, model GENUINE exploitation: an actual data disclosure
-        # (labelled field values, not a capability description) plus a dangerous
-        # tool execution. This is what a truly compromised agent does — and it
-        # trips the side-effect detector deterministically, independent of any
-        # individual vector's success indicators.
+        # (labelled field values, not a capability description) plus a tool
+        # execution that carries the attack's own text. This is what a truly
+        # compromised agent does, and it is evidence for the side-effect detector
+        # (study-v2.1), independent of any individual vector's success indicators.
         tool_calls = self._tool_calls
         if self._vulnerable:
             response_text = (
@@ -74,7 +74,7 @@ class MockAgentAdapter(BaseAgentAdapter):
             )
             tool_calls = [
                 *self._tool_calls,
-                {"tool": "shell_execute", "input": "id", "output": "uid=0(root)"},
+                {"tool": "shell_execute", "input": message[:40], "output": "uid=0(root)"},
             ]
 
         self._conversation_history.append({"role": "user", "content": message})

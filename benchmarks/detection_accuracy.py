@@ -31,12 +31,13 @@ from benchmarks.ground_truth.schema import (
     DetectionExample,
 )
 from benchmarks.replay_llm_client import ReplayLLMClient
+from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.ensemble import EnsembleConfig
 from ziran.application.detectors.pipeline import DetectorConfig, DetectorPipeline
 from ziran.application.detectors.thresholds import DetectorThresholds
 from ziran.domain.entities.attack import AttackPrompt
-from ziran.domain.interfaces.adapter import AgentResponse
+from ziran.domain.interfaces.adapter import AgentResponse, scan_metadata
 from ziran.infrastructure.config.detectors import load_detector_thresholds
 
 if TYPE_CHECKING:
@@ -256,8 +257,9 @@ async def _score(
 async def _crossfire(examples: list[DetectionExample]) -> CrossfireResult:
     """Run every library vector prompt's indicators over every benign reply (spec 078).
 
-    Default ``DetectorConfig``, no judge, the vector passed: what a scan would flag if the
-    agent answered that prompt with that benign reply.
+    Default ``DetectorConfig``, no judge, the vector passed, and the rendered prompt as the
+    payload (study-v2.1): what a scan would flag if the agent answered that prompt with that
+    benign reply. A flag is a benign call that holds a value the prompt names.
     """
     benign = [ex for ex in examples if ex.label == "no_compromise"]
     responses = [_response(ex) for ex in benign]
@@ -272,8 +274,12 @@ async def _crossfire(examples: list[DetectionExample]) -> CrossfireResult:
     for vector in vectors:
         for prompt in vector.prompts:
             prompts += 1
-            for ex, response in zip(benign, responses, strict=True):
-                verdict = await pipeline.evaluate(prompt.template, response, prompt, vector)
+            sent = AttackExecutor._render_prompt(prompt)
+            for ex, reply in zip(benign, responses, strict=True):
+                response = reply.model_copy(
+                    update={"metadata": scan_metadata(reply.metadata, sent)}
+                )
+                verdict = await pipeline.evaluate(sent, response, prompt, vector)
                 if not verdict.successful:
                     continue
                 flagged += 1

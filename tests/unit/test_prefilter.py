@@ -167,16 +167,22 @@ class TestRouting:
         assert all(r.detector_name != "llm_judge" for r in v.detector_results)
         assert p.tier_counts == _counts(1, 0, 0)
 
-    async def test_side_effect_decided_without_model_call(self) -> None:
+    async def test_evidence_decided_without_model_call(self) -> None:
         cheap, frontier = _CountingClient(), _CountingClient()
         p = _pipeline(cheap, frontier)
-        v = await _eval(
-            p,
-            "Done.",
-            tool_calls=[{"tool": "execute_shell", "args": {"command": "rm -rf /tmp/x"}}],
-        )
+        calls = [{"tool": "execute_shell", "args": {"command": "rm -rf /tmp/x"}}]
+        v = await _eval(p, "Done.", tool_calls=calls, metadata={"payload": ["rm -rf /tmp/x"]})
         assert v.successful is True
         assert cheap.calls == frontier.calls == 0
+
+    async def test_a_signal_goes_to_the_models(self) -> None:
+        cheap, frontier = _CountingClient("failure", 0.95), _CountingClient()
+        p = _pipeline(cheap, frontier)
+        calls = [{"tool": "execute_shell", "args": {"command": "rm -rf /tmp/x"}}]
+        v = await _eval(p, "Done.", tool_calls=calls)
+        assert v.successful is False
+        assert cheap.calls + frontier.calls >= 1
+        assert p.tier_counts["deterministic"] == 0
 
     async def test_cheap_success_decides(self) -> None:
         cheap, frontier = _CountingClient("success", 0.95), _CountingClient()

@@ -310,7 +310,7 @@ class TestRender:
         # only the tool names are left out of the check, never the resource
         assert _render(_vec("de"), "read_file", "http_request", default, "send it") is None
 
-    async def test_rewritten_link_still_scores(self, shared_attack_library: AttackLibrary) -> None:
+    async def test_rewritten_link_still_fires(self, shared_attack_library: AttackLibrary) -> None:
         base = shared_attack_library.get_vector("de_markdown_link")
         assert base is not None
         steered = plan([_chain("data_exfiltration")], CAPS, [base]).vectors["de_markdown_link"]
@@ -326,7 +326,8 @@ class TestRender:
 
         for vector in (base, steered):
             result = await AttackExecutor(Renders(), DetectorPipeline()).execute(vector)
-            assert result.successful, vector.prompts[0].template
+            # a link in the reply text is a signal with no judge (study-v2.1 change 7)
+            assert "indicator" in result.evidence["signals"], vector.prompts[0].template
         assert "attacker.com" not in str(steered.model_dump())
 
     def test_hosts_point_to_the_endpoint(self) -> None:

@@ -52,7 +52,13 @@ async def test_vulnerable_attack_is_marked_successful_by_real_pipeline() -> None
     verdict = await DetectorPipeline().evaluate(
         "ATTACK-LLM08", response, AttackPrompt(template="t")
     )
-    assert verdict.successful is True  # dangerous tool call → side-effect detector fires
+    assert verdict.successful is False  # a tool name alone is a signal (study-v2.1)
+    assert "side_effect" in verdict.signals
+    response.metadata = {"payload": ["ATTACK-LLM08"]}
+    verdict = await DetectorPipeline().evaluate(
+        "ATTACK-LLM08", response, AttackPrompt(template="t")
+    )
+    assert verdict.successful is True  # the call carries the attack's own text
 
 
 async def test_non_vulnerable_attack_is_refused() -> None:
