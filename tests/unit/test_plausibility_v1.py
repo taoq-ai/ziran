@@ -98,7 +98,9 @@ def test_exfiltration_pairs_come_first_pattern_pairs_included() -> None:
     assert ("Read", "WebFetch") not in typed  # a pattern chain: the caller passes its pair
     asked = pairs_of(unit.chains, [("Read", "WebFetch")])
     assert asked[0] == ("Read", "WebFetch")
-    assert asked.index(("get_cases", "delete_case")) > asked.index(("get_cases", "WebFetch"))
+    # the high-impact pair sorts before the egress pair by id, and is still asked after it
+    plain = pairs_of(_unit(["get_cases", "delete_case", "send_report"]).chains)
+    assert plain == [("get_cases", "send_report"), ("get_cases", "delete_case")]
 
 
 # ── Parts 2 and 5: past the 12, and no reply ─────────────────────────
@@ -179,10 +181,15 @@ def test_a_million_line_breaks_are_cut_under_the_senders_limit() -> None:
 
 
 def test_a_secret_cut_in_two_is_masked_first() -> None:
-    secret = "sk-" + "a" * 40
-    body = "y" * (AGENT_CUT - 60) + f" api_key = {secret}"
-    text = render_pairs(_prompt(), _unit(["get_cases", "send_report"], system_prompt=body))
-    assert "sk-aaaa" not in text
+    unit = _unit(["get_cases", "send_report"])
+    head = len("name: helper\ndescription: d\ntools: get_cases, send_report\n")
+    key = (
+        "AKIA" + "ABCDEFGH12345678"
+    )  # masked only whole: a cut after 10 characters would show them
+    body = "y" * (AGENT_CUT - head - 3 * 2 - 3 - 10) + "\n" + key  # the key crosses the cut
+    text = render_pairs(_prompt(), unit._replace(agent=_agent(unit.agent.tools or [], body)))
+    assert f"[cut at {AGENT_CUT} characters]" not in text  # masked first, the text is shorter
+    assert "AKIA" not in text
 
 
 def test_no_approval_file_is_said_in_a_heading() -> None:
