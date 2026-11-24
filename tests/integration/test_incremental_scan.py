@@ -117,18 +117,37 @@ async def test_cached_success_counts_in_total_vulnerabilities(tmp_path: Path) ->
 
 
 async def test_stop_on_critical_honoured_on_cached_run(tmp_path: Path) -> None:
-    vectors = _write_vector_dir(tmp_path / "vectors")
+    vectors = tmp_path / "vectors"
+    vectors.mkdir()
+    _write_vector(
+        vectors, "s.yaml", "inc_setup", "setup", phase="exploitation_setup", severity="critical"
+    )
+    _write_vector(vectors, "e.yaml", "inc_exec", "exec", phase="execution")
     root = tmp_path / "scan_cache"
-    phases = [ScanPhase.RECONNAISSANCE, ScanPhase.TRUST_BUILDING]
+    phases = [ScanPhase.EXPLOITATION_SETUP, ScanPhase.EXECUTION]
     first = await _scan(
         vectors, root, MockAgentAdapter(vulnerable=True), phases=phases, stop_on_critical=True
     )
-    assert [p.phase for p in first.phases_executed] == [ScanPhase.RECONNAISSANCE]
+    assert [p.phase for p in first.phases_executed] == [ScanPhase.EXPLOITATION_SETUP]
 
     adapter = MockAgentAdapter(vulnerable=True)
     second = await _scan(vectors, root, adapter, phases=phases, stop_on_critical=True)
     assert adapter.invocations == []
-    assert [p.phase for p in second.phases_executed] == [ScanPhase.RECONNAISSANCE]
+    assert [p.phase for p in second.phases_executed] == [ScanPhase.EXPLOITATION_SETUP]
+
+
+async def test_early_critical_continues_on_cached_run(tmp_path: Path) -> None:
+    vectors = _write_vector_dir(tmp_path / "vectors")
+    root = tmp_path / "scan_cache"
+    phases = [ScanPhase.RECONNAISSANCE, ScanPhase.TRUST_BUILDING]
+    await _scan(
+        vectors, root, MockAgentAdapter(vulnerable=True), phases=phases, stop_on_critical=True
+    )
+    adapter = MockAgentAdapter(vulnerable=True)
+    second = await _scan(vectors, root, adapter, phases=phases, stop_on_critical=True)
+    assert adapter.invocations == []
+    assert [p.phase for p in second.phases_executed] == phases
+    assert "inc_v1" in second.phases_executed[0].vulnerabilities_found
 
 
 async def test_cached_results_zero_tokens(tmp_path: Path) -> None:

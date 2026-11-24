@@ -28,7 +28,7 @@ class FixedStrategy:
     ``AgentScanner.run_campaign()`` flow.
 
     Args:
-        stop_on_critical: If True, stop when a critical vulnerability is found.
+        stop_on_critical: If True, stop on a critical from exploitation_setup or later.
     """
 
     def __init__(self, *, stop_on_critical: bool = True) -> None:

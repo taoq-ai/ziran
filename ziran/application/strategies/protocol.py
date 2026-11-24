@@ -61,7 +61,7 @@ class CampaignContext:
     """Running count of vulnerabilities found so far."""
 
     critical_found: bool = False
-    """Whether a critical vulnerability has been found."""
+    """Whether a critical vulnerability was found in exploitation_setup or later."""
 
     attack_results_summary: dict[str, bool] = field(default_factory=dict)
     """Map of attack_id → successful (True/False) for all executed attacks."""

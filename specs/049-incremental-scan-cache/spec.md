@@ -103,7 +103,8 @@ Reusing the checkpoint `tested_vector_ids` exclude path would drop cached succes
    **When** run 1 stops after reconnaissance on the critical `inc_v1` finding and run 2 is served
    from the cache, **Then** run 2 also has exactly one phase executed, `inc_t1` is in neither
    run's `attack_results`, and run 2 reports `{"executed": 0, "cached": 5}` (strategy stop rules
-   see the cached result).
+   see the cached result). Superseded by spec 098: a reconnaissance critical no longer stops the
+   scan; the cached stop is now tested with a critical in exploitation_setup.
 3. **Given** a spec-047 token cap is reached, **Then** the budget check still runs first: a
    skipped vector is neither looked up nor executed (cache hits never bypass the cap logic).
 
