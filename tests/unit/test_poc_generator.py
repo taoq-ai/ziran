@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -459,3 +460,55 @@ class TestPoCQuoting:
         )
         assert count >= 930
         assert check.stdout == ""
+
+
+class TestPoCFileNames:
+    """vector_id and campaign_id form file names that stay in the output folder."""
+
+    @pytest.mark.parametrize(
+        "hostile", ["../x", "../../etc/passwd", "/tmp/abs", "a\x00b", "a/b\\c d", ".._x"]
+    )
+    @pytest.mark.parametrize("field", ["vector_id", "campaign_id"])
+    def test_names_stay_inside_output_dir(
+        self, tmp_path: Path, successful_result: AttackResult, field: str, hostile: str
+    ) -> None:
+        out = tmp_path / "pocs"
+        gen = PoCGenerator(out)
+        campaign_id = hostile if field == "campaign_id" else "c"
+        if field == "vector_id":
+            successful_result.vector_id = hostile
+        paths = [
+            gen.generate_python_poc(successful_result, campaign_id),
+            gen.generate_curl_poc(successful_result, campaign_id=campaign_id),
+            gen.generate_markdown_guide([successful_result], campaign_id),
+        ]
+        for path in paths:
+            assert path.parent == out
+            assert path.exists()
+            assert re.fullmatch(r"[A-Za-z0-9._-]+", path.name)
+        assert sorted(p.name for p in tmp_path.rglob("*") if p.is_file()) == sorted(
+            p.name for p in paths
+        )
+
+    @pytest.mark.parametrize("empty", ["", ".", "..", "..."])
+    @pytest.mark.parametrize("field", ["vector_id", "campaign_id"])
+    def test_empty_or_dot_only_name_refused(
+        self, tmp_path: Path, successful_result: AttackResult, field: str, empty: str
+    ) -> None:
+        gen = PoCGenerator(tmp_path / "pocs")
+        campaign_id = empty if field == "campaign_id" else "c"
+        if field == "vector_id":
+            successful_result.vector_id = empty
+        with pytest.raises(ValueError, match="file name"):
+            gen.generate_python_poc(successful_result, campaign_id)
+        with pytest.raises(ValueError, match="file name"):
+            gen.generate_curl_poc(successful_result, campaign_id=campaign_id)
+        if field == "campaign_id":
+            with pytest.raises(ValueError, match="file name"):
+                gen.generate_markdown_guide([successful_result], campaign_id)
+        assert list((tmp_path / "pocs").iterdir()) == []
+
+    @pytest.mark.parametrize("name", ["../x.py", "/tmp/x.py", "a/b.py", ".."])
+    def test_path_outside_output_dir_refused(self, tmp_path: Path, name: str) -> None:
+        with pytest.raises(ValueError, match="file name"):
+            PoCGenerator(tmp_path / "pocs")._path(name)

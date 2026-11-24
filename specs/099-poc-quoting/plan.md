@@ -11,6 +11,9 @@ One file changes: `ziran/application/poc/generator.py`. No new dependency (`shle
   through `printf '%s' <quoted json> | curl --data-binary @-`, indicators through
   `grep -qiF -- <quoted>`.
 - Files are written as UTF-8.
+- File names: `_safe_name` replaces anything outside `[A-Za-z0-9._-]` with `_` and refuses an
+  empty or dot-only value; `PoCGenerator._path` checks the resolved parent is the output
+  folder. The Python, cURL and Markdown writers all go through both.
 
 Tests in `tests/unit/test_poc_generator.py`: the hostile vector run end to end with a marker
 file, a stub adapter and a stub `curl`; every built-in prompt through `compile()` and `bash -n`.

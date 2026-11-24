@@ -24,6 +24,7 @@ Example::
 from __future__ import annotations
 
 import json
+import re
 import shlex
 import textwrap
 from datetime import UTC, datetime
@@ -67,6 +68,14 @@ class PoCGenerator:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.config = config or PoCConfig.default()
+
+    def _path(self, filename: str) -> Path:
+        """Return ``filename`` inside the output folder, or raise ValueError."""
+        path = self.output_dir / filename
+        if path.resolve().parent != self.output_dir.resolve():
+            msg = f"PoC file name {filename!r} leaves the output folder"
+            raise ValueError(msg)
+        return path
 
     def generate_all(
         self,
@@ -224,8 +233,7 @@ class PoCGenerator:
         script += "    print()\n"
         script += "    sys.exit(0)\n"
 
-        filename = f"poc_{result.vector_id}_{campaign_id}.py"
-        filepath = self.output_dir / filename
+        filepath = self._path(f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.py")
         filepath.write_text(script, encoding="utf-8")
         return filepath
 
@@ -314,8 +322,7 @@ class PoCGenerator:
             fi
         """)
 
-        filename = f"poc_{result.vector_id}_{campaign_id}.sh"
-        filepath = self.output_dir / filename
+        filepath = self._path(f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.sh")
         filepath.write_text(script, encoding="utf-8")
         filepath.chmod(0o755)
         return filepath
@@ -337,7 +344,7 @@ class PoCGenerator:
             Path to the generated Markdown file.
         """
         tpl = self.config.markdown_template
-        filepath = self.output_dir / f"poc_guide_{campaign_id}.md"
+        filepath = self._path(f"poc_guide_{_safe_name(campaign_id)}.md")
 
         md = MdUtils(
             file_name=str(filepath.with_suffix("")),  # mdutils appends .md
@@ -444,3 +451,15 @@ def _owasp_ids(result: AttackResult) -> str:
     """OWASP LLM then Agentic ids of a finding, or ``N/A``."""
     ids = [*result.owasp_mapping, *result.owasp_agentic_mapping]
     return ", ".join(c.value for c in ids) or "N/A"
+
+
+def _safe_name(value: str) -> str:
+    """``value`` with every character outside ``[A-Za-z0-9._-]`` replaced by ``_``.
+
+    Raises:
+        ValueError: when ``value`` is empty or only dots, which name no file.
+    """
+    if not value.strip("."):
+        msg = f"PoC file name part {value!r} is empty or only dots"
+        raise ValueError(msg)
+    return re.sub(r"[^A-Za-z0-9._-]", "_", value)
