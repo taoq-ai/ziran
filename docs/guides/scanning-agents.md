@@ -114,7 +114,10 @@ ziran scan --framework langchain --agent-path agent.py \
 
 ```bash
 # Stop after a critical finding in exploitation_setup or a later phase (default);
-# criticals from earlier phases are kept and the campaign continues
+# criticals from earlier phases are kept and the campaign continues.
+# Default-on scans therefore run more phases and send more traffic and tokens
+# against a vulnerable target; bound them with --max-cost and
+# --max-campaign-tokens, or use --no-stop-on-critical below to run every phase
 ziran scan --framework langchain --agent-path agent.py --stop-on-critical
 
 # Continue even after critical findings

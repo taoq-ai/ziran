@@ -71,7 +71,7 @@ inputs:
     default: "5"
 
   stop-on-critical:
-    description: "Stop the scan immediately when a critical finding is detected."
+    description: "Stop after a critical finding in exploitation_setup or a later phase; earlier criticals are kept and still fail the gate."
     required: false
     default: "true"
 

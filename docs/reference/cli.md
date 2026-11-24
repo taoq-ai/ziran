@@ -32,7 +32,7 @@ ziran scan [OPTIONS]
 | `--coverage` | No | `standard` | Coverage level: `essential`, `standard`, `comprehensive` |
 | `--output`, `-o` | No | `ziran_results` | Output directory |
 | `--custom-attacks` | No | — | Directory with custom YAML attack vectors |
-| `--stop-on-critical` | No | `true` | Stop after a critical finding in exploitation_setup or a later phase |
+| `--stop-on-critical` | No | `true` | Stop after a critical finding in exploitation_setup or a later phase; earlier criticals are kept. Default-on scans now run more phases and use more traffic and tokens against a vulnerable target: see `--max-cost`, `--max-campaign-tokens`, `--no-stop-on-critical` |
 | `--concurrency` | No | `5` | Max concurrent attacks |
 | `--strategy` | No | `fixed` | Campaign strategy: `fixed`, `adaptive`, `llm-adaptive` |
 | `--streaming` | No | `false` | Enable real-time SSE/WebSocket response streaming |

@@ -203,7 +203,7 @@ class AgentScanner:
 
         Args:
             phases: Specific phases to run (default: core phases).
-            stop_on_critical: Stop if a critical vulnerability is found.
+            stop_on_critical: Stop on a critical from exploitation_setup or later.
             reset_between_phases: Reset agent state between phases.
             on_progress: Optional callback invoked with ProgressEvent on
                 each campaign, phase, and attack lifecycle event. Useful
