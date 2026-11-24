@@ -10,7 +10,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import click
 from rich.console import Console
@@ -30,6 +30,9 @@ from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli.reports import ReportGenerator
+
+if TYPE_CHECKING:
+    from ziran.domain.entities.target import TargetConfig
 
 console = Console()
 
@@ -515,9 +518,11 @@ def scan(
     )
 
     # Load adapter
+    poc_target: TargetConfig | None = None
     try:
         if has_remote:
             adapter, config = load_remote_adapter(str(target), protocol)
+            poc_target = config
             console.print(f"[dim]Target: {config.url}[/dim]")
             console.print(f"[dim]Protocol: {config.protocol.value}[/dim]")
             if config.auth:
@@ -747,7 +752,11 @@ def scan(
         )
 
     # Save results
-    _save_results(result, scanner.graph, output_dir)
+    if poc_target is not None:
+        poc_target = poc_target.model_copy(
+            update={"protocol": getattr(adapter, "protocol", poc_target.protocol)}
+        )
+    _save_results(result, scanner.graph, output_dir, target=poc_target)
 
     console.print(f"\n[dim]Results saved to {output_dir}/[/dim]")
 
@@ -1079,7 +1088,21 @@ def report(result_file: str, fmt: str) -> None:
     default="all",
     help="PoC output format.",
 )
-def poc(result_file: str, output: str | None, fmt: str) -> None:
+@click.option(
+    "--target",
+    type=click.Path(exists=True),
+    default=None,
+    help="Target YAML the scan used; the PoCs then send its protocol's request.",
+)
+@click.option(
+    "--protocol",
+    type=click.Choice(["rest", "openai", "mcp", "a2a", "browser", "auto"], case_sensitive=False),
+    default=None,
+    help="Override protocol type (used with --target).",
+)
+def poc(
+    result_file: str, output: str | None, fmt: str, target: str | None, protocol: str | None
+) -> None:
     """Generate proof-of-concept exploit scripts from scan results.
 
     Creates reproducible PoC artifacts for all confirmed vulnerabilities
@@ -1090,10 +1113,20 @@ def poc(result_file: str, output: str | None, fmt: str) -> None:
         ziran poc ./ziran_results/campaign_123_report.json
         ziran poc ./ziran_results/campaign_123_report.json --format python
         ziran poc ./ziran_results/campaign_123_report.json -o ./my_pocs/
+        ziran poc ./ziran_results/campaign_123_report.json --target ./target.yaml
+        ziran poc ./ziran_results/campaign_123_report.json --target t.yaml --protocol openai
     """
     from ziran.application.poc.generator import PoCGenerator
+    from ziran.domain.entities.target import ProtocolType, TargetConfigError, load_target_config
 
     filepath = Path(result_file)
+    try:
+        poc_target = load_target_config(Path(target)) if target else None
+    except TargetConfigError as e:
+        console.print(f"[bold red]Error loading target:[/bold red] {e}")
+        sys.exit(1)
+    if poc_target is not None and protocol:
+        poc_target.protocol = ProtocolType(protocol)
 
     try:
         with filepath.open() as f:
@@ -1119,7 +1152,7 @@ def poc(result_file: str, output: str | None, fmt: str) -> None:
         return
 
     poc_dir = Path(output) if output else filepath.parent / "pocs"
-    generator = PoCGenerator(output_dir=poc_dir)
+    generator = PoCGenerator(output_dir=poc_dir, target=poc_target)
 
     generated: list[Path] = []
     if fmt in ("python", "all"):
@@ -1553,7 +1586,7 @@ def validate(target_config: str, protocol: str | None) -> None:
         ziran validate ./target.yaml
         ziran validate ./target.yaml --protocol openai
     """
-    from ziran.domain.entities.target import TargetConfig, TargetConfigError, load_target_config
+    from ziran.domain.entities.target import TargetConfigError, load_target_config
 
     config_path = Path(target_config)
     checks: list[tuple[str, bool, str]] = []  # (label, passed, detail)
@@ -2284,6 +2317,7 @@ def _save_results(
     result: CampaignResult,
     graph: Any,
     output_dir: Path,
+    target: TargetConfig | None = None,
 ) -> None:
     """Save campaign results and graph to disk.
 
@@ -2291,6 +2325,7 @@ def _save_results(
         result: Campaign result to save.
         graph: AttackKnowledgeGraph to persist.
         output_dir: Directory for output files.
+        target: The scanned remote target; its PoCs send the target's request.
     """
     from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 
@@ -2329,7 +2364,7 @@ def _save_results(
         from ziran.application.poc.generator import PoCGenerator
 
         poc_dir = output_dir / "pocs"
-        poc_gen = PoCGenerator(output_dir=poc_dir)
+        poc_gen = PoCGenerator(output_dir=poc_dir, target=target)
         poc_paths = poc_gen.generate_all(result)
         console.print(f"  [dim]PoC artifacts: {len(poc_paths)} files in {poc_dir}/[/dim]")
 

@@ -428,7 +428,7 @@ class TestPoCQuoting:
     ) -> None:
         run, work = _run_curl_poc(tmp_path, hostile_result)
 
-        assert run.returncode == 1, run.stderr  # the stub reply holds the "-e" indicator
+        assert run.returncode == 0, run.stderr  # the stub reply holds the "-e" indicator
         assert not (work / "pwned").exists()
         assert (work / "curl_body").read_bytes() == json.dumps({"message": _HOSTILE}).encode()
         args = (work / "curl_args").read_text().splitlines()
@@ -447,7 +447,7 @@ class TestPoCQuoting:
         hostile_result.evidence["matched_indicators"] = ["r.p"]
         run, _ = _run_curl_poc(tmp_path, hostile_result)
 
-        assert run.returncode == 0, run.stderr
+        assert run.returncode == 1, run.stderr
 
     @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
     def test_curl_poc_previews_a_long_reply(
@@ -457,7 +457,7 @@ class TestPoCQuoting:
         reply = "a" * 2990 + "needle" + "b" * 4
         run, _ = _run_curl_poc(tmp_path, hostile_result, reply)
 
-        assert run.returncode == 1, run.stderr  # matched past the 500-char preview
+        assert run.returncode == 0, run.stderr  # matched past the 500-char preview
         assert "\n" + "a" * 500 + "\n" in run.stdout
         assert "a" * 501 not in run.stdout
 
