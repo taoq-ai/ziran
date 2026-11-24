@@ -38,8 +38,9 @@
 1. **Given** a SARIF from another tool, or a `ziran audit` SARIF, **When** `ziran ci` runs,
    **Then** it exits 1 and names `target_agent`, `final_trust_score` and `success` as missing
    from `runs[0].properties.ziran`.
-2. **Given** a SARIF with no run, two runs, or a result that is not an object, **Then** it exits
-   1 with an error, not a traceback.
+2. **Given** a SARIF with no run, two runs (also when the first is a clean ziran run), an
+   unknown `schema`, or a result that is not an object, **Then** it exits 1 with an error, not a
+   traceback.
 
 ### User Story 3 - The Action gates a SARIF (P1)
 
@@ -58,8 +59,10 @@
 
 ## Requirements
 
-- **FR-001**: `generate_sarif` writes `runs[0].properties.ziran` with `campaign_id`,
-  `target_agent`, `final_trust_score`, `success`, `critical_paths`, `phase_vulnerabilities`
+- **FR-001**: `generate_sarif` writes `runs[0].properties.ziran` with `schema` (1; absent means
+  1, any other value is refused), `attack_count` (every attack run, failed ones included, since
+  the SARIF lists successful attacks only and the `nothing_measured` rule compares against the
+  full count), `campaign_id`, `target_agent`, `final_trust_score`, `success`, `critical_paths`, `phase_vulnerabilities`
   (phase to its vulnerability ids, phases with findings only) and `metadata` (the unmeasured and
   warnings keys, when present).
 - **FR-002**: Each attack and chain result carries `properties.severity`, the raw severity the
@@ -68,8 +71,13 @@
 - **FR-003**: `campaign_from_sarif(doc)` rebuilds the `CampaignResult` fields the gate reads:
   attacks from results without `vulnerability_type` (vector id, name, category and OWASP tags
   from the rule), chains from results with it, in result order.
-- **FR-004**: `campaign_from_sarif` raises `ValueError` naming each missing required property,
-  or the shape problem, for any other input.
+- **FR-004**: `campaign_from_sarif` raises `ValueError` naming each missing required property
+  (`target_agent`, `final_trust_score`, `success`, `attack_count`), or the shape problem, for any
+  other input, a log with more than one run included. It pads the rebuilt `attack_results` with
+  failed entries up to `attack_count`.
+- **FR-004a**: The driver version is the installed ziran version.
+- **FR-004b**: `ziran ci --sarif` with a SARIF input skips the write with a notice, so the input
+  is never overwritten and the Action's default `sarif-output` does not re-emit a stripped copy.
 - **FR-005**: `ziran ci` treats a JSON object with a `runs` key as SARIF; anything else loads as
   a `CampaignResult` as before.
 - **FR-006**: The action's `result-file` input documents SARIF; the self-test gates a SARIF.
@@ -77,7 +85,9 @@
 ## How this fails
 
 1. A new gate input is added to `QualityGate` but not to the run properties: the SARIF gate
-   drifts. The parity test over gate configs and suppressions catches a field the gate reads.
+   drifts. The parity tests catch it only when a case sets that input to a non-default value;
+   there is one case per gate rule, and the unmeasured cases with failed attacks pin the
+   `nothing_measured` count. They do not prove a future input is covered.
 2. Rule dedup: two results of one vector with different categories. The rule keeps the first.
    Vector category is fixed per vector, so this does not occur in a scan.
 3. Someone hand-edits a SARIF: it is a gate input like the JSON and carries the same trust.
@@ -88,8 +98,11 @@
   Why: level `error` is both critical and high, and the gate counts them apart. Overturned by: a
   standard SARIF field that holds the four values exactly.
 - One run per SARIF. Why: `generate_sarif` writes one. Overturned by: merged multi-run files.
-- `--sarif` with a SARIF input writes a new SARIF from the rebuilt result; it keeps the gate
-  fields but drops messages, evidence and blast radius. Why: the gate is the goal; rewriting is
-  a side path. Overturned by: a need to re-emit SARIF with full fidelity.
+- `--sarif` with a SARIF input is skipped with a notice, not refused. Why: the Action's default
+  `sarif-output` would otherwise fail every SARIF gate. Overturned by: a need to re-emit a SARIF
+  with the gate's suppression marks.
+- `--policy` on a SARIF input can differ from the JSON: the policy engine reads tested
+  categories and success counts from `attack_results`, and the SARIF holds only successful
+  attacks. The overlay is display-only and leaves the exit code alone.
 - Additive SARIF properties are a minor change (`feat:`). Overturned by: a consumer that rejects
   unknown properties.

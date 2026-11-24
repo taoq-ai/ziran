@@ -1721,10 +1721,8 @@ def ci(
     try:
         with filepath.open() as f:
             data = json.load(f)
-        if isinstance(data, dict) and "runs" in data:
-            result = campaign_from_sarif(data)
-        else:
-            result = CampaignResult.model_validate(data)
+        from_sarif = isinstance(data, dict) and "runs" in data
+        result = campaign_from_sarif(data) if from_sarif else CampaignResult.model_validate(data)
     except (OSError, ValueError) as e:
         console.print(f"[bold red]Error loading result:[/bold red] {e}")
         sys.exit(1)
@@ -1762,8 +1760,12 @@ def ci(
     for warning in result.warnings:  # analysis the scan skipped (spec 086)
         console.print(f"Warning: {warning}", style="yellow", markup=False)
 
-    # 5. SARIF output
-    if sarif_path:
+    # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
+    if sarif_path and from_sarif:
+        console.print(
+            f"--sarif skipped: {filepath} is already a SARIF", style="yellow", markup=False
+        )
+    elif sarif_path:
         try:
             written = write_sarif(result, Path(sarif_path), gate_result)
             console.print(f"[dim]SARIF report: {written}[/dim]")

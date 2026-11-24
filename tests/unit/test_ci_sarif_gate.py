@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -56,7 +57,7 @@ def _mixed() -> CampaignResult:
             _chain(("c", "d"), "medium", "lethal_trifecta"),
             _chain(("e", "f"), "severe", "privilege_escalation"),
         ],
-        critical_paths=[["x", "v1"], ["y", "a", "b"], []],
+        critical_paths=[["x", "v1"], ["y", "a", "b"], [], ["a", "b"]],
         phase_vulns=["v1", "other"],
         success=True,
     )
@@ -99,6 +100,46 @@ def _round_trip(result: CampaignResult) -> CampaignResult:
     return campaign_from_sarif(json.loads(json.dumps(generate_sarif(result))))
 
 
+def _with_unmeasured(result: CampaignResult, *ids: str) -> CampaignResult:
+    return result.model_copy(update={"metadata": {UNMEASURED_METADATA_KEY: list(ids)}})
+
+
+def _suppressed_mixed(**kw: Any) -> tuple[CampaignResult, QualityGateConfig, SuppressionFile]:
+    result = _mixed()
+    entries = [_entry(f, **kw) for f in QualityGate._findings(result)]
+    return result, QualityGateConfig(), SuppressionFile(version=1, entries=entries)
+
+
+_RULE_CASES: dict[str, Any] = {
+    "min_trust_score": lambda: (_mixed(), QualityGateConfig(min_trust_score=0.5), None),
+    "max_critical_findings": lambda: (_mixed(), QualityGateConfig(), None),
+    "severity_threshold_high": lambda: (
+        _mixed(),
+        QualityGateConfig(severity_thresholds=SeverityThresholds(critical=-1, high=2)),
+        None,
+    ),
+    "severity_threshold_medium": lambda: (
+        _mixed(),
+        QualityGateConfig(severity_thresholds=SeverityThresholds(medium=0)),
+        None,
+    ),
+    "nothing_measured": lambda: (
+        _with_unmeasured(_campaign(attacks=[_attack("v1", successful=False)] * 2), "v1", "v2"),
+        QualityGateConfig(),
+        None,
+    ),
+    "policy_violation": lambda: (
+        _mixed(),
+        QualityGateConfig(
+            max_critical_findings=-1, severity_thresholds=SeverityThresholds(critical=-1)
+        ),
+        None,
+    ),
+    "suppression_regressed": lambda: _suppressed_mixed(content_hash="0" * 64),
+    "suppression_expired": lambda: _suppressed_mixed(expires=date(2025, 1, 1)),
+}
+
+
 @pytest.mark.unit
 class TestRunProperties:
     def test_generate_sarif_writes_the_gate_inputs(self) -> None:
@@ -106,7 +147,8 @@ class TestRunProperties:
         assert props["target_agent"] == "test_agent"
         assert props["final_trust_score"] == 0.42
         assert props["success"] is True
-        assert props["critical_paths"] == [["x", "v1"], ["y", "a", "b"], []]
+        assert props["critical_paths"] == [["x", "v1"], ["y", "a", "b"], [], ["a", "b"]]
+        assert (props["schema"], props["attack_count"]) == (1, 5)
 
     def test_each_result_carries_its_severity(self) -> None:
         rows = generate_sarif(_mixed())["runs"][0]["results"]
@@ -138,6 +180,28 @@ class TestGateParity:
             "policy_violation",
         ]
         assert (got.finding_counts.critical, got.finding_counts.high) == (2, 3)
+
+    @pytest.mark.parametrize("rule", sorted(_RULE_CASES))
+    def test_each_rule_fires_alike(self, rule: str) -> None:
+        result, config, sup = _RULE_CASES[rule]()
+        want = QualityGate(config).evaluate(result, sup, today=TODAY)
+        got = QualityGate(config).evaluate(_round_trip(result), sup, today=TODAY)
+        assert rule in [v.rule for v in want.violations]
+        assert _comparable(got) == _comparable(want)
+
+    @pytest.mark.parametrize(("attacks", "unmeasured"), [(4, 1), (10, 2), (3, 3), (1, 2)])
+    def test_unmeasured_with_failed_attacks(self, attacks: int, unmeasured: int) -> None:
+        failed = [_attack(f"v{i}", successful=False) for i in range(attacks)]
+        result = _campaign(attacks=failed).model_copy(
+            update={"metadata": {UNMEASURED_METADATA_KEY: [f"v{i}" for i in range(unmeasured)]}}
+        )
+        want = QualityGate().evaluate(result)
+        assert _comparable(QualityGate().evaluate(_round_trip(result))) == _comparable(want)
+        assert ("nothing_measured" in [v.rule for v in want.violations]) is (unmeasured >= attacks)
+
+    def test_rebuilt_chain_keeps_graph_path(self) -> None:
+        chains = _round_trip(_mixed()).dangerous_tool_chains
+        assert [c.get("graph_path") for c in chains] == [None, ["a", "b"], None, None]
 
     def test_metadata_survives(self) -> None:
         result = _campaign().model_copy(
@@ -181,13 +245,6 @@ class TestCiCommand:
         assert (b.exit_code, out_b) == (a.exit_code, out_a), b.output
         assert "Error" not in b.output
 
-    def test_sarif_out_of_a_sarif_gates_alike(self, ci_env: Path) -> None:
-        sarif = ci_env / "r.sarif"
-        sarif.write_text(json.dumps(generate_sarif(_mixed())))
-        first = _ci(str(sarif), "--sarif", str(ci_env / "again.sarif"))
-        again = _ci(str(ci_env / "again.sarif"))
-        assert first.exit_code == again.exit_code == 1
-
     def test_foreign_sarif_names_the_missing_properties(self, ci_env: Path) -> None:
         doc = {
             "version": "2.1.0",
@@ -199,6 +256,45 @@ class TestCiCommand:
         assert "Traceback" not in out.output
         for name in ("target_agent", "final_trust_score", "success"):
             assert name in out.output
+
+    def test_two_runs_refused_even_with_a_clean_first_run(self, ci_env: Path) -> None:
+        clean = generate_sarif(_campaign().model_copy(update={"final_trust_score": 1.0}))
+        dirty = generate_sarif(_mixed())
+        clean["runs"].append(dirty["runs"][0])
+        (ci_env / "merged.sarif").write_text(json.dumps(clean))
+        out = _ci("merged.sarif")
+        assert out.exit_code == 1
+        assert "expected one SARIF run" in out.output
+
+    def test_sarif_input_skips_sarif_output(self, ci_env: Path) -> None:
+        sarif = ci_env / "r.sarif"
+        sarif.write_text(json.dumps(generate_sarif(_mixed())))
+        before = sarif.read_text()
+        out = _ci(str(sarif), "--sarif", str(sarif))
+        assert out.exit_code == 1
+        assert "--sarif skipped" in out.output
+        assert sarif.read_text() == before
+
+    def test_unknown_schema_refused(self, ci_env: Path) -> None:
+        doc = generate_sarif(_campaign())
+        doc["runs"][0]["properties"]["ziran"]["schema"] = 2
+        (ci_env / "s.sarif").write_text(json.dumps(doc))
+        out = _ci("s.sarif")
+        assert out.exit_code == 1
+        assert "schema 2" in out.output
+
+    def test_wrong_type_names_the_array(self, ci_env: Path) -> None:
+        doc = generate_sarif(_mixed())
+        doc["runs"][0]["results"] = {"x": 1}
+        (ci_env / "t.sarif").write_text(json.dumps(doc))
+        out = _ci("t.sarif")
+        assert out.exit_code == 1
+        assert "results must be an array" in out.output
+
+    def test_driver_version_is_the_package_version(self) -> None:
+        from ziran import __version__
+
+        assert generate_sarif(_campaign())["runs"][0]["tool"]["driver"]["version"] == __version__
 
     def test_audit_sarif_is_not_a_scan(self, ci_env: Path) -> None:
         (ci_env / "audit.sarif").write_text(json.dumps(generate_audit_sarif([])))

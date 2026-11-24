@@ -21,3 +21,14 @@ before T002.
       `test_trifecta.py`, `test_cli_main.py`.
 - [x] T005 `action.yml` `result-file` text; `action-test.yml` gates a SARIF.
 - [x] T006 `docs/guides/cicd-integration.md`, `docs/reference/cli.md`.
+
+## Phase 4 - Fix round 1 (arch, security, quality gates)
+
+- [x] T007 Tests: unmeasured vectors with failed attacks, one parity case per gate rule, the
+      rebuilt chain `graph_path`, a two-run SARIF with a clean first run, an unknown schema,
+      the array message, the driver version, `--sarif` skipped on a SARIF input.
+- [x] T008 `sarif.py`: `schema` and `attack_count` in the run properties, padding to the count,
+      the package version in the driver.
+- [x] T009 `main.py`: skip `--sarif` on a SARIF input. `action-test.yml`: outputs through `env:`,
+      the default `sarif-output` re-emits nothing.
+- [x] T010 Spec and docs: what parity catches, `--policy` on a SARIF.

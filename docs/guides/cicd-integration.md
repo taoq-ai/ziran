@@ -295,8 +295,11 @@ counts, with the same gate config and suppressions file. Each result carries its
 in `properties.severity` (level `error` is both critical and high), and the run carries the trust
 score and the other gate inputs in `runs[0].properties.ziran`. A SARIF from another tool, or from
 `ziran audit`, has no such properties: `ziran ci` exits 1 and names the missing ones
-(`target_agent`, `final_trust_score`, `success`). With `--sarif`, a SARIF input writes a new SARIF
-that keeps the gate fields but not messages or evidence.
+(`target_agent`, `final_trust_score`, `success`, `attack_count`). A SARIF with more than one run
+is refused. With a SARIF input, `--sarif` is skipped with a notice, since the input already is
+the SARIF. `--policy` can give a different verdict on a SARIF than on the JSON: the SARIF lists
+only successful attacks, so policy rules on tested categories or success rates see less. The
+policy overlay never changes the exit code.
 
 In the GitHub Action, pass the SARIF as `result-file`:
 
@@ -305,8 +308,10 @@ In the GitHub Action, pass the SARIF as `result-file`:
   with:
     command: ci
     result-file: results.sarif
-    sarif-output: ""
 ```
+
+The action's default `sarif-output` writes nothing for a SARIF input, so nothing is uploaded
+twice.
 
 ## GitHub Actions Features
 

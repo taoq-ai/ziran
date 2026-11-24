@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ziran import __version__
 from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID
 from ziran.application.knowledge_graph.trifecta import DELEGATED_RULE_ID as LT002
 from ziran.application.knowledge_graph.trifecta import DELEGATED_TYPE, LEGS
@@ -57,7 +58,6 @@ _SECURITY_SEVERITY: dict[str, str] = {
 
 _SEVERITY_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
-_ZIRAN_VERSION = "0.1.0"
 
 _TRIFECTA_RULES: dict[str, str] = {TRIFECTA: LT001, DELEGATED_TYPE: LT002}
 
@@ -122,6 +122,8 @@ def _gate_inputs(result: CampaignResult) -> dict[str, Any]:
     """The campaign fields ``QualityGate`` reads beyond the results (spec 093 FR-001)."""
     keys = (UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY)
     return {
+        "schema": _GATE_SCHEMA,
+        "attack_count": len(result.attack_results),
         "campaign_id": result.campaign_id,
         "target_agent": result.target_agent,
         "final_trust_score": result.final_trust_score,
@@ -293,7 +295,7 @@ def _sarif_document(
         "tool": {
             "driver": {
                 "name": "ZIRAN",
-                "version": _ZIRAN_VERSION,
+                "version": __version__,
                 "informationUri": "https://github.com/taoq-ai/ziran",
                 "rules": rules,
             }
@@ -320,7 +322,8 @@ def write_sarif(result: CampaignResult, path: Path, gate: GateResult | None = No
     return path
 
 
-_REQUIRED_GATE_INPUTS = ("target_agent", "final_trust_score", "success")
+_GATE_SCHEMA = 1
+_REQUIRED_GATE_INPUTS = ("target_agent", "final_trust_score", "success", "attack_count")
 
 
 def _mapping(value: Any, where: str) -> dict[str, Any]:
@@ -361,6 +364,9 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
             "write it with `ziran ci --sarif` from a scan result"
         )
         raise ValueError(msg)
+    if gate_inputs.get("schema", _GATE_SCHEMA) != _GATE_SCHEMA:
+        msg = f"unsupported ziran SARIF schema {gate_inputs['schema']}; this ziran reads 1"
+        raise ValueError(msg)
 
     driver = _mapping(_mapping(run.get("tool", {}), "tool").get("driver", {}), "tool.driver")
     rules: dict[str, dict[str, Any]] = {}
@@ -400,6 +406,13 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
                 "successful": True,
             }
         )
+
+    # the SARIF lists successful attacks only; the gate counts every attack run (nothing_measured)
+    count = gate_inputs["attack_count"]
+    if not isinstance(count, int) or isinstance(count, bool) or count < len(attacks):
+        msg = f"SARIF attack_count {count!r} must be an integer of at least {len(attacks)}"
+        raise ValueError(msg)
+    attacks += [{"successful": False}] * (count - len(attacks))
 
     phase_vulns = _mapping(gate_inputs.get("phase_vulnerabilities", {}), "phase_vulnerabilities")
     return CampaignResult.model_validate(

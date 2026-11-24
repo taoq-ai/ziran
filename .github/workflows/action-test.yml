@@ -90,24 +90,30 @@ jobs:
         with:
           command: ci
           result-file: results.sarif
-          sarif-output: ""
-          ziran-version: "."
+          ziran-version: "."  # default sarif-output: a SARIF input skips the re-emit
         continue-on-error: true
 
       - name: Verify the SARIF gated like the JSON
         shell: bash
+        env:
+          JSON_STATUS: ${{ steps.json.outputs.status }}
+          SARIF_STATUS: ${{ steps.sarif.outputs.status }}
+          JSON_EXIT: ${{ steps.json.outputs.exit-code }}
+          SARIF_EXIT: ${{ steps.sarif.outputs.exit-code }}
+          JSON_TRUST: ${{ steps.json.outputs.trust-score }}
+          SARIF_TRUST: ${{ steps.sarif.outputs.trust-score }}
+          JSON_TOTAL: ${{ steps.json.outputs.total-findings }}
+          SARIF_TOTAL: ${{ steps.sarif.outputs.total-findings }}
+          JSON_CRITICAL: ${{ steps.json.outputs.critical-findings }}
+          SARIF_CRITICAL: ${{ steps.sarif.outputs.critical-findings }}
         run: |
-          for pair in \
-            "${{ steps.json.outputs.status }}|${{ steps.sarif.outputs.status }}" \
-            "${{ steps.json.outputs.exit-code }}|${{ steps.sarif.outputs.exit-code }}" \
-            "${{ steps.json.outputs.trust-score }}|${{ steps.sarif.outputs.trust-score }}" \
-            "${{ steps.json.outputs.total-findings }}|${{ steps.sarif.outputs.total-findings }}" \
-            "${{ steps.json.outputs.critical-findings }}|${{ steps.sarif.outputs.critical-findings }}"
-          do
-            [ "${pair%%|*}" = "${pair#*|}" ] || { echo "::error::JSON and SARIF differ: $pair"; exit 1; }
+          for name in STATUS EXIT TRUST TOTAL CRITICAL; do
+            json="JSON_$name" sarif="SARIF_$name"
+            [ "${!json}" = "${!sarif}" ] || { echo "::error::$name differs: JSON ${!json}, SARIF ${!sarif}"; exit 1; }
           done
-          [ "${{ steps.sarif.outputs.status }}" = "failed" ] || { echo "::error::status=${{ steps.sarif.outputs.status }}"; exit 1; }
-          [ "${{ steps.sarif.outputs.total-findings }}" = "3" ] || { echo "::error::total-findings=${{ steps.sarif.outputs.total-findings }}"; exit 1; }
+          [ "$SARIF_STATUS" = "failed" ] || { echo "::error::status=$SARIF_STATUS"; exit 1; }
+          [ "$SARIF_TOTAL" = "3" ] || { echo "::error::total-findings=$SARIF_TOTAL"; exit 1; }
+          [ ! -e ziran-results.sarif ] || { echo "::error::a SARIF input re-emitted ziran-results.sarif"; exit 1; }
 
   test-audit-command:
     name: "Test: audit command"
