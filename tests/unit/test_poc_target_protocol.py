@@ -596,7 +596,7 @@ def test_canaries_come_first_and_once() -> None:
     result = _result()
     words = ["alpha", "beta", "gamma", "delta", "epsilon"]
     result.evidence = {"matched_indicators": [*words, CANARY]}
-    result.agent_response = " ".join([*words, CANARY])
+    result.agent_response = " ".join([*words, CANARY, "and no canary-free word"])  # no digit
 
     # Canaries lead, so the cURL PoC's five-indicator cap never cuts one.
     assert _indicators(result) == [CANARY, *words]
