@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.45.0](https://github.com/taoq-ai/ziran/compare/v0.44.0...v0.45.0) (2026-11-24)
+
+
+### Features
+
+* **analysis:** blast radius per chain, demonstrated vs reachable, with what-if ([eee3253](https://github.com/taoq-ai/ziran/commit/eee325312c9490f47370b100ea9a65dc18171b70))
+* **analysis:** blast radius per chain, demonstrated vs reachable, with what-if ([05f6262](https://github.com/taoq-ai/ziran/commit/05f626289e2a52380b1892e8cb804061fe58f931))
+* **analysis:** flag agents that hold the lethal trifecta ([9535c62](https://github.com/taoq-ai/ziran/commit/9535c62aca3251079165ba1379af7da3bd59ae1c)), closes [#537](https://github.com/taoq-ai/ziran/issues/537)
+* **analysis:** lethal trifecta check for audit, scan and traces (LT001) ([7006a23](https://github.com/taoq-ai/ziran/commit/7006a23ac36bd306176efd39943b3b0230ee071e))
+* **attacks:** map vectors to the OWASP Top 10 for Agentic Applications ([753daeb](https://github.com/taoq-ai/ziran/commit/753daebbf12cf02a9463dfdf1fb6d8e866267e90))
+* **attacks:** map vectors to the OWASP Top 10 for Agentic Applications ([dcd83aa](https://github.com/taoq-ai/ziran/commit/dcd83aa2863a5c7aff2e095d5254ab8c0af95e5c)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **attacks:** wire tactic: pair to PairExecutor (spec 081 slice 2) ([99003b7](https://github.com/taoq-ai/ziran/commit/99003b7877a06df8e9d47d45479f761cfec2a6f8))
+* **attacks:** wire tactic: pair, cache skip and docs (spec 081 slice 2) ([56eae94](https://github.com/taoq-ai/ziran/commit/56eae94f757322893bd3a99e643390876923e932))
+* **cicd:** every dangerous chain in scan SARIF, delegated trifecta included ([eee3b53](https://github.com/taoq-ai/ziran/commit/eee3b5361f2ab19d36a3d17665ef2ff1aa754e6e))
+* **cicd:** every dangerous chain in scan SARIF, delegated trifecta included ([1f6ec86](https://github.com/taoq-ai/ziran/commit/1f6ec86f4bb53bb57e6916100fab617fb5c39705))
+* **ci:** gate a ziran SARIF file in ziran ci ([fea7c6c](https://github.com/taoq-ai/ziran/commit/fea7c6c65bf69f40c3d10be0285ef814c620fe32))
+* **ci:** gate a ziran SARIF file in ziran ci ([554644c](https://github.com/taoq-ai/ziran/commit/554644ce5e73ac71f67d43550b7809ac41e75d37))
+* **report:** blast radius data tags, report section and SARIF properties ([ad2b626](https://github.com/taoq-ai/ziran/commit/ad2b626c8203658b0423b125ba1d49d61ebb115a))
+* **report:** blast radius data tags, report section and SARIF properties ([86577da](https://github.com/taoq-ai/ziran/commit/86577da4f790ec007e06262fe036ae309d11006f)), closes [#541](https://github.com/taoq-ai/ziran/issues/541)
+* **scan:** aim chain vectors at the lethal trifecta, refuse credential files, swap whole host names ([70aa0b3](https://github.com/taoq-ai/ziran/commit/70aa0b3f75c4a3efc3ce3acb229460db9791d76e))
+* **scan:** aim chain vectors at the lethal trifecta, refuse credential files, swap whole hosts ([9e48d14](https://github.com/taoq-ai/ziran/commit/9e48d14baa9292dc1466d4e39484dbf07f1fc9e9))
+* **scan:** aim the campaign at the tool chains found at discovery ([2988b9a](https://github.com/taoq-ai/ziran/commit/2988b9a7b389837a462465c825cfc59dbd640cf6))
+* **scan:** aim the campaign at the tool chains found at discovery ([cf7b14d](https://github.com/taoq-ai/ziran/commit/cf7b14d15ae4eb20542a1e16cdf27367f6b2c736)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **traces:** lethal trifecta order rule and delegated variant ([f25a743](https://github.com/taoq-ai/ziran/commit/f25a743144c77ee54cadfa95aa35c7546de37e6c)), closes [#537](https://github.com/taoq-ai/ziran/issues/537)
+* **traces:** lethal trifecta order rule, delegated variant and ground truth ([e98603a](https://github.com/taoq-ai/ziran/commit/e98603aa12dcb693d0a827071cd9e9d09104d3af))
+
+
+### Bug Fixes
+
+* **adapters:** read LangChain agent output given as content blocks ([e253826](https://github.com/taoq-ai/ziran/commit/e25382646f7071217439b3385dc96df34d9da6bc))
+* **adapters:** read LangChain agent output given as content blocks ([17950d3](https://github.com/taoq-ai/ziran/commit/17950d3e69c71e50c5541f09d3f437cc0d7be0f7))
+* **analysis:** keep a trifecta finding at three tool ids ([0d8687f](https://github.com/taoq-ai/ziran/commit/0d8687f59b970155a30432ccd03f6a93c48524b4)), closes [#537](https://github.com/taoq-ai/ziran/issues/537)
+* **analysis:** suppressed trifecta in SARIF, unreadable detector config ([dda557d](https://github.com/taoq-ai/ziran/commit/dda557dfe84ae1b8d8d67c9fd4c192fdafcf7ca5)), closes [#537](https://github.com/taoq-ai/ziran/issues/537)
+* **analysis:** test blast radius call matching and match calls once per build ([69ef918](https://github.com/taoq-ai/ziran/commit/69ef9180fbceb4b6984c2604351db1f2cebddea8)), closes [#541](https://github.com/taoq-ai/ziran/issues/541)
+* **attacks:** carry the Agentic mapping through server-surface and dynamic vectors ([26125c2](https://github.com/taoq-ai/ziran/commit/26125c2bad586665cd136de83bc6c7844fb38a47)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **cicd:** test chain SARIF risk fallback and rule raise, share CC001 ([1a8b41d](https://github.com/taoq-ai/ziran/commit/1a8b41d092f00221436c62118cc9d698da9e3611))
+* **ci:** gate a SARIF with the full attack count ([156a852](https://github.com/taoq-ai/ziran/commit/156a8524e785535464fda2fb02e8332e625f8a29))
+* **ci:** skip --policy on a SARIF and bound attack_count ([84f29b9](https://github.com/taoq-ai/ziran/commit/84f29b9b1fb6ff8af470bc40e741e9bb6502902b))
+* **deps:** put the mcp extra back on the override range, check the lock in CI, pin release.yml actions by SHA ([09a1e32](https://github.com/taoq-ai/ziran/commit/09a1e32825fa21ddc6f9a4f5f4c4714765ff6aff))
+* **deps:** put the mcp extra back on the override range, check the lock in CI, pin release.yml actions by SHA ([53902c3](https://github.com/taoq-ai/ziran/commit/53902c357ad28bb36036a51ff85ea9c36eb3a420))
+* **logging:** keep log lines off stdout when the host has not configured logging ([76ce22f](https://github.com/taoq-ai/ziran/commit/76ce22f6aa1561eeec5044435c3a06af6fcd01ff))
+* **logging:** keep the library default off structlog's global config ([ca88a8e](https://github.com/taoq-ai/ziran/commit/ca88a8ea07dee1809429df267e96be4e17cd617f))
+* **logging:** keep ziran's log lines off stdout when the host has not configured logging ([dfdbe96](https://github.com/taoq-ai/ziran/commit/dfdbe966410c34b7b1f1230ef406912c7f622e57))
+* **logging:** let deepcopy and pickle rebuild a ziran logger ([e7553ae](https://github.com/taoq-ai/ziran/commit/e7553ae5ce494521b7ba00b86082f0e18e8150c4))
+* **report:** pin code span fences and class order, reject bad radii in report ([11d421e](https://github.com/taoq-ai/ziran/commit/11d421e06a70a5c289485372a102cf3c75c338be)), closes [#541](https://github.com/taoq-ai/ziran/issues/541)
+* **scan:** bound target-chosen tool names and the co-resident id length ([9694b53](https://github.com/taoq-ai/ziran/commit/9694b530ce7aa1564dd2ec16f44dbe5a01adf30e)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **scan:** cap co-resident tool sets a target can inflate ([6bb22a3](https://github.com/taoq-ai/ziran/commit/6bb22a3fc008017cad61f830db9a1bc5d86e43fc)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **scan:** find tool chains on flat agents through co-resident tool edges ([bc179ee](https://github.com/taoq-ai/ziran/commit/bc179ee7ef057219cfe2fdb50fe251eac098349c))
+* **scan:** find tool chains on flat agents through co-resident tool edges ([a7e1311](https://github.com/taoq-ai/ziran/commit/a7e1311356321d700a830ce492b5316442fc2fcd)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **scan:** harden chain-targeted prompt rendering after gate review ([b9522cb](https://github.com/taoq-ai/ziran/commit/b9522cb2ee58a5adb472809b534488bd46eae44d)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **scan:** keep co-resident edges out of every walker but the pair rule ([183a2ce](https://github.com/taoq-ai/ziran/commit/183a2ce41b7919dc4f2e962325ec9650de3469e8)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **scan:** keep detection and the resource in step with chain prompts ([6e1a1fd](https://github.com/taoq-ai/ziran/commit/6e1a1fdf1373212c9301596c70c99b8b6f1e0e9f)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **scan:** skip cycles by default on co-resident graphs, link team tools per agent ([c8edac4](https://github.com/taoq-ai/ziran/commit/c8edac4d9d1fd1f83902c730d73e2f35ce4d934b)), closes [#536](https://github.com/taoq-ai/ziran/issues/536)
+* **scan:** sort swapped hosts, read Windows credential paths, prefer plain trifecta source ([f950d68](https://github.com/taoq-ai/ziran/commit/f950d68d2d3222784879b268c142269690d63b35))
+
 ## [0.44.0](https://github.com/taoq-ai/ziran/compare/v0.43.0...v0.44.0) (2026-11-18)
 
 
