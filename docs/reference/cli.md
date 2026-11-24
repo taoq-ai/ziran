@@ -271,7 +271,7 @@ ziran audit PATH [OPTIONS]
 | `--baseline FILE` | Fail when a Claude Code agent's tools or chains widen beyond this baseline (see [Allowlist baseline](#allowlist-baseline)) |
 | `--write-baseline FILE` | Record each Claude Code agent's tools and chains as the accepted baseline, then report as if `--baseline FILE` was given |
 | `--sarif FILE` | Also write the reported findings (after the baseline step and `--severity`) as SARIF v2.1.0 for GitHub code scanning; `json` stdout is unchanged, `SARIF written to FILE` goes to stderr. An unwritable `FILE` exits `2` |
-| `--typed-chains` | Also report typed chains: a tool whose name reads data, paired with a tool whose name sends, runs or changes something (V2 role typing). Off by default; not allowed with `--baseline` or `--write-baseline`, since a baseline holds no typed chains. Reads no config file |
+| `--typed-chains` | Also report typed chains: a tool whose name reads data, paired with a tool whose name sends, runs or changes something. A tool is typed by the first read or write verb of its own name (the part after `mcp__<server>__`); a name with no listed verb counts as one that acts. Off by default; not allowed with `--baseline` or `--write-baseline`, since a baseline holds no typed chains. Reads no config file |
 
 **Examples:**
 
