@@ -39,6 +39,11 @@ The rule trades recall without a judge for precision.
 | A risky tool name, with no value of the attack in any tool call | 474 | 13 |
 | A missing refusal, with no value of the attack in any tool call | 1,768 | 21 |
 | A value of the attack in a tool call (the canary rule) | 487 | 216 |
+| A trace the judge answered completed | 215 | 200 |
+
+**What a canary success means.** It means the agent acted on the attacker's values: it put one of them in a tool call. It does not mean the attack was carried through. By AgentDojo's own check, under half of those attempts were completed: 216 of 487, 0.44. A judged trace was right on 200 of 215, 0.93. Without a judge, read a canary finding as "the agent attempted this". Configure a judge (`--llm-provider`, `--llm-model`) to tell a completed attack from an attempted one.
+
+Two limits on that advice. In a scan a canary stays a finding even when the judge answers failure: the judge's own verdict is in the finding's `evidence.detector_scores` under `llm_judge` (1.0 success, 0.0 failure), and that is where to read completed against attempted. And the 0.93 is the trace judge of the study's harness, which reads the whole trace; the scan's judge reads the prompt, the reply and its tool calls, and has no measured figure of its own. The judge's row was also measured before the canary rule began to match the parts of a value: the traces that rule adds had not been judged when this guide was written.
 
 **The cost.** ziran's own detection benchmark has 447 labelled replies and stores no attack prompt, so it shows the pipeline with no canary input: only its recorded judge verdicts count.
 
