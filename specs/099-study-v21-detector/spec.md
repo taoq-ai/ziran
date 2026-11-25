@@ -32,8 +32,9 @@ the default scan path. The tag `study-v2.1` is not made here.
 7. **Change 7 (A11 to A15).** The pipeline answers `successful` only on evidence: a value of
    the attack in a tool call, a sink hit, or a judged trace. Everything else is a signal with
    `needs_review`. This is breaking.
-8. **Change 8 (A9).** The first pass matches the parts of every argument value, short values
-   included. Built last.
+8. **Change 8 (A9).** A value that is not in the payload whole is a payload value through a
+   part of it (an address, link, domain, id or number) that the payload holds and the task
+   does not. Parts are matched against the payload only. Built last.
 
 ## Acceptance scenarios
 
@@ -62,7 +63,7 @@ the default scan path. The tag `study-v2.1` is not made here.
    A synthetic 300-shot prompt that shows `write_file(path='notes.txt')` makes a benign
    `write_file(path="notes.txt")` call a canary success; the same call after a short attack
    prompt is none. A multi-turn tactic adds every turn sent so far, with the same effect. The
-   crossfire's 158 of 291,090 pairs uses single prompts, so the rate on many-shot and
+   crossfire's 171 of 291,090 pairs (158 before change 8) uses single prompts, so the rate on many-shot and
    multi-turn prompts is unmeasured. These are false positives, not missed attacks: a target
    cannot forge or remove the payload.
 6. Change 7, the judge's request. It holds the reply's tool calls. Masked: a value under a
@@ -83,7 +84,8 @@ the default scan path. The tag `study-v2.1` is not made here.
 - FR-005: `hybrid/jobs.py` and `prompts/plausibility/v1.md` implement change 3.
 - FR-006: the detector pipeline implements change 7 without an edit to `refusal.py`,
   `llm_judge.py`, `tool_classifier.py`, `strategies/` or `agent_scanner/scanner.py`.
-- FR-007: `provenance.atoms` implements change 8.
+- FR-007: `provenance._kinds` implements change 8; `atoms`, `found`, `_PARTS` and the verb
+  lists are not edited.
 
 ## Clarifications
 
@@ -135,5 +137,20 @@ the default scan path. The tag `study-v2.1` is not made here.
 - Change 7, the detection benchmark. Its dataset stores no attack prompt, so its pipeline
   row passes no payload. The crossfire passes the rendered prompt, as a scan does, and is
   the measure of the whole-prompt canary on ziran's own set.
+
+- Change 8, which reading. The design's rule text has `atoms` split every value and match
+  each part everywhere. Its measured effect (4 positives and 20 negatives enter the band, 122
+  requests change, 146 sends) is that of a narrower rule: a part is matched against the
+  payload only, for a value that is not grounded and not in the payload whole, and a part the
+  task names is skipped. Built: the narrower rule, which gives exactly those counts on the
+  design half. The literal `atoms` edit was measured too and not built: 4 positives and 22
+  negatives enter, 711 requests change (171 of the 200 positives the judge got right are
+  judged again), and 16 positive T3 hits are lost, which trips the design's own stop rule.
+  Overturned if the design owner wants parts to ground or taint as well.
+- Change 8, rule T3. Tool output is still matched against whole values, so a wrapped value
+  that came from tool output alone stays outside rule T3. The bars read the payload-known
+  rows. Overturned with the point above.
+- Change 8, one part listed once. A part two patterns find (an id that is also a number) is
+  one payload value.
 
 Rollback: revert the merge commit of this branch on `develop`.
