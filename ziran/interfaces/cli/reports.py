@@ -7,7 +7,6 @@ machine-parseable JSON output.
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -29,6 +28,8 @@ from ziran.domain.entities.attack import (
     get_business_impacts,
 )
 from ziran.domain.entities.capability import BlastRadius, BlastReach, DataTag
+from ziran.domain.text import md_code as _md_code
+from ziran.domain.text import md_text as _md_text
 from ziran.domain.text import printable
 
 if TYPE_CHECKING:
@@ -49,37 +50,6 @@ _BLAST_KINDS = (
     ("high_impact", "High-impact tools"),
     ("agents", "Downstream agents"),
 )
-
-
-#: cmark-gfm opens no code span whose fence is longer than this.
-_MAX_FENCE = 80
-
-
-def _md_text(text: str) -> str:
-    """*text* as inert Markdown text on one line: controls and ASCII punctuation escaped.
-
-    ``|`` is left to the table cell escape, so a cell does not show a stray backslash. GFM
-    links an address even through an escape, so ``@`` becomes a code span that splits it.
-    """
-    return re.sub(
-        r"@+|[!-/:-?\[-`{}~]",
-        lambda m: f"`{m[0]}`" if m[0][0] == "@" else "\\" + m[0],
-        printable(text),
-    )
-
-
-def _md_code(text: str) -> str:
-    """*text* as one Markdown code span: controls escaped, the fence outruns its backticks.
-
-    A backtick run cmark-gfm could not fence falls back to escaped text.
-    """
-    text = printable(text) or " "  # an empty span would fuse with the next one
-    longest = max(map(len, re.findall("`+", text)), default=0)
-    if longest >= _MAX_FENCE:
-        return _md_text(text)
-    fence = "`" * (longest + 1)
-    pad = " " if text.startswith("`") or text.endswith("`") else ""
-    return f"{fence}{pad}{text}{pad}{fence}"
 
 
 def _blast_part(part: BlastReach, demonstrated: bool, esc: Callable[[str], str]) -> list[str]:
@@ -529,7 +499,7 @@ class ReportGenerator:
                     )
 
             if phase_result.error:
-                lines.append(f"- **Error:** {phase_result.error}")
+                lines.append(f"- **Error:** {_md_text(phase_result.error)}")
 
             lines.append("")
 

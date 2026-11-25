@@ -18,7 +18,7 @@ from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
 from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY
-from ziran.domain.text import printable
+from ziran.domain.text import printable, printable_lines
 from ziran.interfaces.cli.reports import BLAST_RADIUS_INTRO, blast_radius_blocks
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
@@ -835,14 +835,14 @@ def _build_attack_log_html(attack_results: list[dict[str, Any]]) -> str:
             )
 
             if prompt_used:
-                esc_prompt = html.escape(prompt_used)
+                esc_prompt = html.escape(printable_lines(prompt_used))
                 parts.append(
                     f'  <div class="attack-section-label">Prompt Sent</div>'
                     f'  <pre class="attack-pre prompt-pre">{esc_prompt}</pre>'
                 )
 
             if display_response:
-                esc_resp = html.escape(display_response)
+                esc_resp = html.escape(printable_lines(display_response))
                 parts.append(
                     f'  <div class="attack-section-label">Agent Response</div>'
                     f'  <pre class="attack-pre response-pre">{esc_resp}</pre>'

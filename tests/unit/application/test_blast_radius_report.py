@@ -35,7 +35,7 @@ from ziran.domain.entities.capability import (
     DangerousChain,
     DataTag,
 )
-from ziran.domain.entities.phase import CampaignResult, ChainTarget
+from ziran.domain.entities.phase import CampaignResult, ChainTarget, PhaseResult, ScanPhase
 from ziran.infrastructure.config.detectors import DetectorConfigError, load_detector_thresholds
 from ziran.interfaces.cli.html_report import _build_node_tooltip, build_html_report
 from ziran.interfaces.cli.main import cli
@@ -669,3 +669,42 @@ class TestSourceTools:
         for chain in chains:
             assert chain.blast_radius is radii["probe_send_email"]
             assert _classes(chain.blast_radius) == {"pii", "secret"}
+
+
+@pytest.mark.unit
+class TestTargetTextElsewhere:
+    def test_phase_error_is_one_inert_line(self) -> None:
+        phase = PhaseResult(
+            phase=ScanPhase.RECONNAISSANCE,
+            success=False,
+            trust_score=0.5,
+            duration_seconds=1.0,
+            error="boom\n# OWNED [c](http://evil.example) ops@evil.example\x1b[2J",
+        )
+        text = _markdown(_result([], {}).model_copy(update={"phases_executed": [phase]}))
+        shown = (
+            "boom\\\\n\\# OWNED \\[c\\]\\(http\\:\\/\\/evil\\.example\\) "
+            "ops`@`evil\\.example\\\\x1b\\[2J"
+        )
+        assert f"- **Error:** {shown}\n" in text
+        assert "\n# OWNED" not in text
+        assert not [c for c in text if c != "\n" and not c.isprintable() and c != "️"]
+
+    def test_reply_block_keeps_lines_and_shows_controls(self) -> None:
+        reply = "line one\nline two‮<b>\x1b[2J\x07"
+        attack = {
+            "vector_id": "v",
+            "vector_name": "n",
+            "category": "prompt_injection",
+            "severity": "high",
+            "successful": True,
+            "prompt_used": "p‮q",
+            "agent_response": reply,
+            "evidence": {},
+        }
+        data = _result([], {}).model_dump(mode="json")
+        data["attack_results"] = [attack]
+        page = build_html_report(data, {"nodes": [], "edges": []})
+        assert "line one\nline two\\u202e&lt;b&gt;\\x1b[2J\\x07</pre>" in page
+        assert "p\\u202eq</pre>" in page
+        assert "‮" not in page and "\x1b" not in page and "\x07" not in page
