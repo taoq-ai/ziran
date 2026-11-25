@@ -58,9 +58,14 @@ _MAX_FENCE = 80
 def _md_text(text: str) -> str:
     """*text* as inert Markdown text on one line: controls and ASCII punctuation escaped.
 
-    ``|`` is left to the table cell escape, so a cell does not show a stray backslash.
+    ``|`` is left to the table cell escape, so a cell does not show a stray backslash. GFM
+    links an address even through an escape, so ``@`` becomes a code span that splits it.
     """
-    return re.sub(r"([!-/:-@\[-`{}~])", r"\\\1", printable(text))
+    return re.sub(
+        r"@+|[!-/:-?\[-`{}~]",
+        lambda m: f"`{m[0]}`" if m[0][0] == "@" else "\\" + m[0],
+        printable(text),
+    )
 
 
 def _md_code(text: str) -> str:

@@ -34,7 +34,9 @@ After the fix:
   keeps one table row and shows `\n` and `\u202e` as text.
 - A value whose longest backtick run is 80 or more cannot be fenced (cmark-gfm opens no code
   span over 80 backticks), so it renders as escaped text instead: controls through
-  `printable`, then every ASCII punctuation mark but `|` backslash-escaped.
+  `printable`, then every ASCII punctuation mark but `|` backslash-escaped. GFM links an
+  email address (and `mailto:`, `xmpp:`) even through escapes or `&#64;`, so each run of `@`
+  becomes its own code span (`` `@` ``), which splits the text the autolink scans.
 - The chain description and remediation hold raw tool ids when typed chains are on, so they
   render as the same escaped text: no heading, link or emphasis can go live.
 - The HTML report passes the same values through `printable` before `html.escape`, the graph
@@ -55,9 +57,11 @@ After the fix:
    the description and remediation show the escaped text.
 6. Given a tool id with a run of 80 or 300 backticks and a Markdown link, when the report
    renders, then the id is escaped text and no fence or link remains.
-7. Given a reply holding an LF and a forged `[+]` line, when each PoC prints it, then the
+7. Given an address, `mailto:` and `xmpp:` in a typed-chain id and in an 80-backtick id, when
+   the report renders, then cmark-gfm links none of them.
+8. Given a reply holding an LF and a forged `[+]` line, when each PoC prints it, then the
    excerpt stays on one line.
-8. The existing hostile-prompt tests (spec 099) stay green.
+9. The existing hostile-prompt tests (spec 099) stay green.
 
 ## Assumptions
 

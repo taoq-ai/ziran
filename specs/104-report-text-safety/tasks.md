@@ -16,3 +16,7 @@ Base: `origin/develop` at b90bfc0. Branch `fix/report-text-safety`. Test first.
   line, warnings, chain-target cells, tooltips and graph labels; `_md_text` escaped-text
   fallback in `_md_code`, description and remediation through `_md_text`, graph labels
   through `printable`. Checked under cmark-gfm: one chain row, no live link or heading.
+- [x] T007 Fix round 3 (security at 335c681): a test with an address, `mailto:` and `xmpp:` in a
+  typed-chain id and an 80-backtick id, run red; `_md_text` wraps each `@` run in a code span.
+  The gate's `break_md_text.py` cases plus `@@` and an 80-backtick address, under cmark-gfm:
+  36 files, 0 non-footer links, and the same checker flags an escaped `\@` address as live.

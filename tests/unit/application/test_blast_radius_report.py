@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -38,7 +39,7 @@ from ziran.domain.entities.phase import CampaignResult, ChainTarget
 from ziran.infrastructure.config.detectors import DetectorConfigError, load_detector_thresholds
 from ziran.interfaces.cli.html_report import _build_node_tooltip, build_html_report
 from ziran.interfaces.cli.main import cli
-from ziran.interfaces.cli.reports import ReportGenerator, _md_code
+from ziran.interfaces.cli.reports import ReportGenerator, _md_code, _md_text
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -384,6 +385,29 @@ class TestMarkdown:
         assert f"data and {inert}" in table  # the description, escaped as text
         assert f"Confirm {inert}" in text  # the remediation, escaped as text
         assert not [c for c in text if c != "\n" and not c.isprintable() and c != "\ufe0f"]
+
+    def test_addresses_in_escaped_text_cannot_autolink(self) -> None:
+        # GFM links an address even through escapes: a code-span @ splits the text node.
+        mail = " ops@evil.example mailto:a@evil.example xmpp:a@evil.example"
+        tools = ["lookup", "post" + mail]
+        graph = AttackKnowledgeGraph()
+        for t in tools:
+            graph.add_tool(t)
+        graph.add_tool_chain(tools, risk_score=0.5)
+        typed = [c.model_dump(mode="json") for c in ToolChainAnalyzer(graph, typed=True).analyze()]
+        long_id = "x" + "`" * 80 + mail
+        text = _markdown(
+            _result([*typed, _chain("a", long_id)], {}, critical_paths=[["a", long_id]])
+        )
+
+        shown = " ops`@`evil\\.example mailto\\:a`@`evil\\.example xmpp\\:a`@`evil\\.example"
+        assert f"data and post{shown} is" in text  # a typed chain's description
+        assert f"Confirm post{shown} cannot" in text  # and its remediation
+        fence = "\\`" * 80
+        assert f"1. a → x{fence}{shown}\n" in text
+        outside_spans = re.sub(r"(?<!\\)(`+)(?!`).*?(?<!`)\1(?!`)", "", text)
+        assert not re.search(r"[\w.+-]@[\w-]", outside_spans)
+        assert _md_text("a@@b.co") == "a`@@`b\\.co"  # one span a run: no stray fence
 
     @pytest.mark.parametrize("run", [80, 300])
     def test_long_backtick_runs_render_as_escaped_text(self, run: int) -> None:
