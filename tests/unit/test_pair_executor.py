@@ -404,7 +404,8 @@ async def test_all_failures_mark_the_vector_unmeasured() -> None:
 async def test_reserved_metadata_keys_are_dropped() -> None:
     target = ToyGuardAgent()
     await run(target, Attacker(seed=7), max_iterations=2)
-    assert all(r.metadata == {"kept": 1} for r in target.responses)
+    # the spoofed task is gone; the payload is the prompt PAIR itself sent (study-v2.1)
+    assert all(r.metadata.keys() == {"kept", "payload"} for r in target.responses)
 
 
 async def test_attacker_requests_never_repeat() -> None:

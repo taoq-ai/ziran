@@ -341,7 +341,9 @@ class TestEnsembleEvidence:
     async def test_split_flags_unsuccessful_result(self) -> None:
         result = await _run_multi_turn("success", "failure")
         assert result.successful is False
-        assert set(result.evidence) == {"note", "tactic", "turns_attempted"} | _REVIEW_KEYS
+        assert (
+            set(result.evidence) == {"note", "tactic", "turns_attempted", "signals"} | _REVIEW_KEYS
+        )
         assert result.evidence["needs_review"] is True
         assert result.evidence["judge_agreement"] == 0.0
         assert len(result.evidence["judge_votes"]) == 2

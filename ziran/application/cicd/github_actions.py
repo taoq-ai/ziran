@@ -68,6 +68,17 @@ def emit_annotations(
     return annotations
 
 
+def review_note(result: Any) -> str:  # CampaignResult
+    """One line on vectors with signals and no evidence (study-v2.1 change 7), or empty."""
+    count = len(result.needs_review_vectors)
+    if not count:
+        return ""
+    return (
+        f"{count} vector(s) with signals to review and no evidence; "
+        "they are not findings and the gate does not count them"
+    )
+
+
 def write_step_summary(
     gate: GateResult,
     result: Any,  # CampaignResult
@@ -101,6 +112,7 @@ def write_step_summary(
             if result.unmeasured_vectors
             else []
         ),
+        *([f"> **Note:** {review_note(result)}"] if review_note(result) else []),
         *(f"> **Warning:** {w}" for w in result.warnings),
         "",
         "### Finding Summary",

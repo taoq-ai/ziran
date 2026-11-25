@@ -189,5 +189,7 @@ vectors:
         )
 
         assert len(result.phases_executed) == 1
-        # The response matches success indicators
-        assert result.total_vulnerabilities == 1
+        # The response matches success indicators: a signal, listed and not counted
+        # (study-v2.1 change 7)
+        assert result.total_vulnerabilities == 0
+        assert result.needs_review_vectors == ["custom_recon_test"]

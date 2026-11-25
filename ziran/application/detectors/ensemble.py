@@ -228,12 +228,16 @@ def build_judge(
 
 
 def review_evidence(verdict: DetectionVerdict) -> dict[str, Any]:
-    """Evidence keys for an ensemble-judged verdict; ``{}`` outside the ensemble."""
+    """Evidence keys for a verdict to review: its signals (study-v2.1) and, for an
+    ensemble-judged one, the votes; ``{}`` when neither applies."""
+    out: dict[str, Any] = {}
+    if verdict.signals:
+        out = {"needs_review": True, "signals": list(verdict.signals)}
     judge = next((r for r in verdict.detector_results if r.detector_name == "llm_judge"), None)
-    if judge is None or not judge.judge_votes:
-        return {}
-    return {
-        "needs_review": verdict.needs_review,
-        "judge_agreement": judge.agreement,
-        "judge_votes": [v.model_dump() for v in judge.judge_votes],
-    }
+    if judge is not None and judge.judge_votes:
+        out |= {
+            "needs_review": verdict.needs_review,
+            "judge_agreement": judge.agreement,
+            "judge_votes": [v.model_dump() for v in judge.judge_votes],
+        }
+    return out

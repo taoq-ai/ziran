@@ -25,7 +25,7 @@ from ziran.domain.entities.attack import (
     TokenUsage,
     get_business_impacts,
 )
-from ziran.domain.interfaces.adapter import drop_reserved
+from ziran.domain.interfaces.adapter import scan_metadata
 from ziran.domain.replies import is_error_response
 from ziran.infrastructure.logging.logger import get_logger
 
@@ -289,7 +289,7 @@ class PairExecutor:
         """Target call and verdict; a raised error gives no response, a sentinel no verdict."""
         try:
             response = await self._adapter.invoke(prompt)
-            response.metadata = drop_reserved(response.metadata)
+            response.metadata = scan_metadata(response.metadata, prompt)
             if is_error_response(response.content):
                 return response, None
             return response, await pipeline.evaluate(prompt, response, spec, attack)

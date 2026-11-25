@@ -289,6 +289,15 @@ class CampaignResult(BaseModel):
         return [str(v) for v in self.metadata.get(UNMEASURED_METADATA_KEY, [])]
 
     @property
+    def needs_review_vectors(self) -> list[str]:
+        """Vectors with a signal and no evidence (study-v2.1): listed, never counted."""
+        return [
+            str(r.get("vector_id"))
+            for r in self.attack_results
+            if not r.get("successful") and (r.get("evidence") or {}).get("needs_review")
+        ]
+
+    @property
     def warnings(self) -> list[str]:
         """Analysis the scan skipped, such as tool chains over the co-resident cap (spec 086)."""
         return [str(w) for w in self.metadata.get(WARNINGS_METADATA_KEY, [])]

@@ -62,6 +62,10 @@ _SEVERITY_RANK: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 
 _TRIFECTA_RULES: dict[str, str] = {TRIFECTA: LT001, DELEGATED_TYPE: LT002}
 
 
+#: SARIF level of a vector with signals and no evidence: shown, below every finding.
+_REVIEW_LEVEL = "note"
+
+
 def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> dict[str, Any]:
     """Generate a SARIF v2.1.0 document from a campaign result.
 
@@ -81,7 +85,8 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
 
     for i, raw in enumerate(result.attack_results):
         ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
-        if not ar.get("successful"):
+        review = not ar.get("successful") and bool((ar.get("evidence") or {}).get("needs_review"))
+        if not ar.get("successful") and not review:
             continue
 
         vector_id = ar.get("vector_id", "unknown")
@@ -94,10 +99,20 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
         if vector_id not in seen_rule_ids:
             seen_rule_ids.add(vector_id)
             rule = _build_rule(vector_id, vector_name, severity, category, owasp)
+            if review:
+                rule["defaultConfiguration"]["level"] = _REVIEW_LEVEL
             rules.append(rule)
 
         # Add result
         sarif_result = _build_result(ar, vector_id, severity)
+        if review:  # signals with no evidence (study-v2.1): visible in CI, never a finding
+            signals = list(ar["evidence"].get("signals", []))
+            sarif_result["level"] = _REVIEW_LEVEL
+            sarif_result["message"]["text"] = (
+                f"Signals to review, not a finding ({', '.join(signals) or 'judge'}): "
+                f"no evidence that attack {vector_id} succeeded"
+            )
+            sarif_result["properties"] |= {"needs_review": True, "signals": signals}
         if i in suppressed:
             sarif_result["suppressions"] = [{"kind": "external", "justification": suppressed[i]}]
         results.append(sarif_result)
@@ -399,6 +414,15 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
             if "graph_path" in props:
                 chain["graph_path"] = _array(props["graph_path"], f"results[{i}] graph_path")
             chains.append(chain)
+            continue
+        if props.get("needs_review") is True:  # a note: listed, counted in no gate
+            attacks.append(
+                {
+                    "vector_id": row["ruleId"],
+                    "successful": False,
+                    "evidence": {"needs_review": True, "signals": props.get("signals", [])},
+                }
+            )
             continue
         rule = rules.get(str(row["ruleId"]), {})
         rule_props = _mapping(rule.get("properties", {}), f"rule {row['ruleId']} properties")

@@ -1710,6 +1710,7 @@ def ci(
     from ziran.application.cicd.gate import QualityGate, load_suppressions
     from ziran.application.cicd.github_actions import (
         emit_annotations,
+        review_note,
         set_output,
         write_step_summary,
     )
@@ -1757,6 +1758,8 @@ def ci(
     _display_gate_result(gate_result)
     if unmeasured_note := _unmeasured_note(result):
         console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
+    if note := review_note(result):  # signals, no evidence: shown, never a gate failure
+        console.print(f"Note: {note}", style="yellow", markup=False)
     for warning in result.warnings:  # analysis the scan skipped (spec 086)
         console.print(f"Warning: {warning}", style="yellow", markup=False)
 
@@ -2143,6 +2146,11 @@ def _display_results(result: CampaignResult) -> None:
     unmeasured = result.unmeasured_vectors
     if unmeasured:
         summary_table.add_row("Unmeasured Vectors", f"[bold yellow]{len(unmeasured)}[/bold yellow]")
+    if result.needs_review_vectors:  # signals with no evidence: listed, never counted
+        summary_table.add_row(
+            "Signals To Review (not counted)",
+            f"[yellow]{len(result.needs_review_vectors)}[/yellow]",
+        )
     summary_table.add_row(
         "Result",
         "[bold red]⚠️  VULNERABLE[/bold red]"

@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.domain.entities.attack import AttackResult, TokenUsage
-from ziran.domain.interfaces.adapter import drop_reserved
+from ziran.domain.interfaces.adapter import scan_metadata
 from ziran.domain.replies import is_no_chat_reply
 from ziran.infrastructure.logging.logger import get_logger
 
@@ -118,13 +118,15 @@ class TacticExecutor:
         review: dict[str, Any] = {}
         prompt_errors = 0  # swallowed turn failures; non-zero blocks caching (spec 049)
         evaluated = 0  # turns that reached the detectors
+        sent: list[str] = []  # every turn so far is the attack: a value may come from any
 
         for i, prompt_spec in enumerate(attack.prompts):
             rendered_prompt = render_fn(prompt_spec)
 
             try:
                 response = await self._adapter.invoke(rendered_prompt)
-                response.metadata = drop_reserved(response.metadata)
+                sent.append(rendered_prompt)
+                response.metadata = scan_metadata(response.metadata, *sent)
 
                 total_tokens = total_tokens + TokenUsage(
                     prompt_tokens=response.prompt_tokens,
