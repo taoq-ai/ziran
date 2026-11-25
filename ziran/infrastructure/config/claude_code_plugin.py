@@ -43,6 +43,34 @@ MAX_FILE_BYTES: Final = 1_048_576
 _AGENT_KEYS = ("name", "description", "tools", "model")
 
 
+def _split_tools(text: str) -> list[str]:
+    """A tool list split at commas and at spaces, never inside "(...)" (spec 099).
+
+    One pass: a file is untrusted and may hold a tools line of 1 MiB, so no regex lookahead.
+    A bracket that is never closed must not swallow the tools after it: the rest of the line,
+    from the entry that opened it, is split at its commas, so the audit still sees each tool.
+    """
+    out, depth, start = [], 0, 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(depth - 1, 0)  # a stray ")" closes nothing
+        elif depth == 0 and (ch == "," or ch.isspace()):
+            out.append(text[start:i])
+            start = i + 1
+    tail = text[start:]
+    return [*out, *(tail.split(",") if depth else [tail])]
+
+
+def _tool_list(value: object) -> object:
+    """A ``tools`` value as a list of entries; any other shape is left for the model to refuse."""
+    entries = [value] if isinstance(value, str) else value
+    if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
+        return value
+    return [t for e in entries for t in _split_tools(e)]
+
+
 def _real(path: Path) -> Path:
     return Path(os.path.realpath(path))  # never raises, even on symlink loops
 
@@ -155,6 +183,12 @@ class _Scanner:
             else {}
         )
         fields = {k: data[k] for k in _AGENT_KEYS if k in data}
+        if "tools" not in data and "allowed-tools" in data:  # the key skills and commands use
+            fields["tools"] = data["allowed-tools"]
+            if "allowed-tools" in key_lines:
+                key_lines["tools"] = key_lines["allowed-tools"]
+        if "tools" in fields:
+            fields["tools"] = _tool_list(fields["tools"])
         try:
             agent = ClaudeCodeAgent.model_validate(
                 fields

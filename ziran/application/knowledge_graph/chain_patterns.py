@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 ChainPatternInfo = dict[str, Any]
 
 _DEFAULT_YAML = Path(__file__).parent / "chain_patterns.yaml"
+_RISKS = ("critical", "high", "medium", "low")
 
 
 class ChainPattern(BaseModel):
@@ -88,11 +89,23 @@ class ChainPatternRegistry(BaseModel):
     def to_dangerous_patterns(self) -> dict[tuple[str, str], ChainPatternInfo]:
         """Convert to the dict format consumed by ``ToolChainAnalyzer``.
 
+        The analyzer takes the first pattern that matches a pair, so the mapping is in a
+        fixed order that does not depend on the file's: the longest pattern (the most
+        specific) first, then the higher risk, then the pattern's text (spec 099).
+
         Returns:
             Mapping of ``(source, target)`` → pattern info dict.
         """
         result: dict[tuple[str, str], ChainPatternInfo] = {}
-        for p in self.patterns:
+        for p in sorted(
+            self.patterns,
+            key=lambda p: (
+                -len(p.source) - len(p.target),
+                _RISKS.index(p.risk),
+                p.source,
+                p.target,
+            ),
+        ):
             result[(p.source, p.target)] = {
                 "type": p.type,
                 "risk": p.risk,

@@ -291,6 +291,15 @@ def _is_seam(name: str) -> bool:
     return any(name == s or name.startswith(s + ".") for s in SEAM)
 
 
+#: The secret mask is a text function with no model step. The scan judge's request uses it
+#: (study-v2.1 change 7), so importing it alone moves no shipped verdict.
+MASK = "ziran.application.hybrid.mask"
+
+
+def _crosses_seam(names: list[str]) -> bool:
+    return any(_is_seam(n) and n != MASK and not n.startswith(MASK + ".") for n in names)
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("source", "package"),
@@ -328,6 +337,17 @@ def test_no_existing_module_imports_the_seam() -> None:
         if hybrid in path.parents or path.name == "replay_client.py":
             continue
         rel = path.relative_to(PACKAGE.parent).with_suffix("")
-        if any(_is_seam(n) for n in _imported(path, ".".join(rel.parts[:-1]))):
+        if _crosses_seam(_imported(path, ".".join(rel.parts[:-1]))):
             importers.append(str(rel))
     assert importers == []
+
+
+@pytest.mark.unit
+def test_the_mask_alone_is_no_seam_import(tmp_path: Path) -> None:
+    path = tmp_path / "m.py"
+    path.write_text("from ziran.application.hybrid.mask import mask\n")
+    assert not _crosses_seam(_imported(path, "ziran.application.detectors"))
+    path.write_text("from ziran.application.hybrid import mask, decide\n")
+    assert _crosses_seam(_imported(path, "ziran.application.detectors"))
+    path.write_text("from ziran.application.hybrid.masking import x\n")
+    assert _crosses_seam(_imported(path, "ziran.application.detectors"))

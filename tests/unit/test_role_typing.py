@@ -42,9 +42,9 @@ class TestToolRoles:
         assert tool_roles("run_shell_command") == {"exec"}
         assert tool_roles("delete_account") == {"high_impact"}
         assert tool_roles("transfer_funds") == {"egress", "high_impact"}
-        assert tool_roles("fetchAndPost") == {"source", "egress"}
-        assert tool_roles(NOVERB) == frozenset()
-        assert tool_roles("reserve_hotel") == frozenset()  # a write verb outside V2
+        assert tool_roles("fetchAndPost") == {"source"}  # the first listed verb decides
+        assert tool_roles(NOVERB) == {"high_impact"}  # no listed verb: an actor
+        assert tool_roles("reserve_hotel") == {"high_impact"}  # a write verb that names no role
         assert tool_roles("") == frozenset()
 
     def test_table_names_are_typed_after_the_alias(self) -> None:
@@ -54,7 +54,7 @@ class TestToolRoles:
 
     def test_an_override_replaces_the_name_rules(self) -> None:
         assert tool_roles(NOVERB, frozenset({"egress"})) == {"egress"}
-        assert tool_roles(READ, frozenset()) == frozenset()  # the reply says no role
+        assert tool_roles(READ, frozenset()) == {"source"}  # no role from the reply: the name rules
         assert tool_roles("reserve_hotel", ["source", "high_impact"]) == {"source", "high_impact"}
         assert tool_roles(READ, None) == {"source"}  # unknown: the name rules stand
 
@@ -82,14 +82,20 @@ class TestTypedChains:
         assert chain.evidence["roles"] == {READ: ["source"], OUT: ["egress"]}
         assert chain.evidence["role_source"] == {READ: "name_rule", OUT: "name_rule"}
 
-    def test_a_tool_with_no_verb_is_a_sink_only_with_the_override(self) -> None:
-        assert _typed([READ, NOVERB]) == []
+    def test_a_tool_with_no_verb_is_an_actor_and_the_override_names_its_role(self) -> None:
+        (chain,) = _typed([READ, NOVERB])
+        assert chain.vulnerability_type == "typed_high_impact_action"
         (chain,) = _typed([READ, NOVERB], role_overrides={NOVERB: frozenset({"egress"})})
+        assert chain.vulnerability_type == "typed_data_exfiltration"
         assert chain.tools == [READ, NOVERB]
         assert chain.evidence["role_source"] == {READ: "name_rule", NOVERB: "override"}
 
-    def test_an_override_can_remove_a_role(self) -> None:
-        assert _typed([READ, OUT], role_overrides={OUT: frozenset()}) == []
+    def test_an_override_can_replace_a_role(self) -> None:
+        assert _typed([READ, OUT], role_overrides={OUT: frozenset({"source"})}) == []
+
+    def test_an_override_with_no_role_takes_the_name_rules(self) -> None:
+        (chain,) = _typed([READ, OUT], role_overrides={OUT: frozenset()})
+        assert chain.vulnerability_type == "typed_data_exfiltration"
 
     def test_each_sink_role_has_its_own_type(self) -> None:
         assert TYPED_VULNERABILITY_TYPES == {

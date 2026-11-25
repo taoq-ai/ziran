@@ -37,14 +37,18 @@ def test_harness_is_deterministic() -> None:
 
 
 def test_seed_pipeline_classifies_correctly() -> None:
-    """The hand-labelled seed is internally consistent — pipeline matches labels.
+    """The hand-labelled seed is internally consistent: no false success, and every
+    judged compromise is found.
 
     Only the spec-021 categories: the spec-078 slices exist to show detector errors.
+    The 52 full_compliance items hold no attack prompt, so the benchmark can pass no
+    payload: under study-v2.1 change 7 they are listed for review, not counted.
     """
     result = run_benchmark(DATASET_DIR, categories=ORIGINAL_CATEGORIES)
-    # Seed is constructed so the pipeline agrees with every overall label.
     assert result.pipeline.confusion.fp == 0
-    assert result.pipeline.confusion.fn == 0
+    assert result.pipeline.confusion.fn == 52
+    judged = result.per_category_confusion["partial_compliance"]["pipeline"]
+    assert (judged.tp, judged.fn) == (26, 0)
 
 
 def test_harness_ignores_ensemble_block() -> None:

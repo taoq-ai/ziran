@@ -17,7 +17,7 @@ from collections import deque
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.knowledge_graph.graph import EdgeType, NodeType
-from ziran.application.knowledge_graph.role_typing import SINKS, tokens, tool_roles
+from ziran.application.knowledge_graph.role_typing import SINKS, keyword_roles, tokens
 from ziran.application.knowledge_graph.tool_aliases import canonical_tool_name
 from ziran.application.knowledge_graph.trifecta import tool_legs
 from ziran.domain.entities.capability import BlastRadius, BlastReach, DataTag
@@ -145,7 +145,7 @@ def blast_radius(
             outs = g.out_edges(node, data="edge_type")
             shown = any(v in called and et == EdgeType.USES_TOOL for _, v, et in outs)
         elif node_type in _TOOL_TYPES:
-            kinds = sorted(tool_roles(node) & SINKS)
+            kinds = sorted(keyword_roles(node) & SINKS)
             kinds += ["external"] if is_external(node, external) else []
             shown = node in called
         else:

@@ -52,6 +52,14 @@ def drop_reserved(metadata: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in metadata.items() if k not in reserved}
 
 
+def scan_metadata(metadata: dict[str, Any], *attack: str) -> dict[str, Any]:
+    """A scan's metadata (study-v2.1): the target's reserved keys dropped, then the attack
+    text ziran itself sent as ``payload``: the prompt, and its plain text when it went out
+    encoded or stacked. The provenance rule reads no key of the target's, and it ignores a
+    blank payload string, so none is filtered here."""
+    return {**drop_reserved(metadata), "payload": list(dict.fromkeys(attack))}
+
+
 class AgentState(BaseModel):
     """Standardized snapshot of agent state.
 

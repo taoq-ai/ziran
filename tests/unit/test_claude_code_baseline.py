@@ -72,7 +72,7 @@ class TestBuildBaseline:
             )
             in r.chains
         )
-        assert ["Bash"] in [c.tools for c in b.agents["generalist"].chains]
+        assert b.agents["generalist"].chains == []  # an inherited set gives no chain (spec 099)
 
     def test_serialisation_deterministic_and_without_prompts(self) -> None:
         def build() -> str:
@@ -175,7 +175,7 @@ class TestApplyBaseline:
             "Agent 'builder' lost its 'tools' key and now inherits every tool"
         )
         assert not _rules(findings, "BL001")
-        assert _rules(findings, "BL003")
+        assert not _rules(findings, "BL003")  # an inherited set gives no chain (spec 099)
         assert _rules(findings, "SA007")
 
     def test_tools_key_added(self) -> None:

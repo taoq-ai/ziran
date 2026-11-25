@@ -409,10 +409,8 @@ class TestAuditCommand:
         assert "Read -> WebFetch" in chain["message"]
         [sa007] = [r for r in rows if r["rule"] == "SA007"]
         assert (sa007["agent"], sa007["line"], sa007["severity"]) == ("generalist", 1, "high")
-        assert any(
-            r["rule"] == "CC001" and r["agent"] == "generalist" and r["tools"] == ["Bash"]
-            for r in rows
-        )
+        # an inherited tool set gives no chain (spec 099): SA007 is its one finding
+        assert not any(r["rule"] == "CC001" and r["agent"] == "generalist" for r in rows)
 
     def test_audit_claude_code_vulnerable_text(self, runner: CliRunner) -> None:
         result = runner.invoke(cli, ["audit", str(CC_FIXTURES / "vulnerable_plugin")])

@@ -538,7 +538,8 @@ class ToolChainAnalyzer:
     ) -> ChainPatternInfo | None:
         """Check whether a (source, target) pair matches any dangerous pattern.
 
-        Uses two matching strategies (first match wins):
+        Uses two matching strategies. The first matching pattern wins, in the
+        registry's order: the longest pattern first, never the order of the file.
 
         1. **Substring** — ``"read_file"`` matches ``"tool_read_file"``.
         2. **Keyword overlap** — pattern ``"http_request"`` matches tool
@@ -574,8 +575,8 @@ class ToolChainAnalyzer:
 
         Strategies:
         1. Substring: ``pattern in tool_lower``
-        2. Keyword overlap: every keyword in the pattern appears in at
-           least one tool keyword (via substring containment).
+        2. Keyword overlap: every keyword in the pattern equals, or is inside,
+           at least one tool keyword.
         """
         # Strategy 1: direct substring
         if pattern in tool_lower:
@@ -590,4 +591,5 @@ class ToolChainAnalyzer:
         if not pat_kw:
             return False
 
-        return all(any(pk in tk or tk in pk for tk in tool_kw) for pk in pat_kw)
+        # a pattern word inside a tool word; never a tool word inside a pattern word (spec 099)
+        return all(any(pk in tk for tk in tool_kw) for pk in pat_kw)

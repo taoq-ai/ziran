@@ -5,6 +5,10 @@
 two-tool agent for each of the 126 pattern pairs; ``specs/066-v2-role-typing/plan.md``
 gives the command that wrote it. With ``typed=True`` typed chains are added beside them,
 never in their place; without it the output is study-v1's.
+
+Since spec 099 (study-v2.1 change 9) a pair takes its longest matching pattern, whatever the
+file's order. Four pairs of the fixture then take the pattern written for them in place of
+a shorter one earlier in the file (``RETYPED``). No chain of the fixture is lost or added.
 """
 
 from __future__ import annotations
@@ -24,6 +28,12 @@ pytestmark = pytest.mark.integration
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "chains" / "study_v1_chains.json"
 KEEP = {"tools", "risk_level", "vulnerability_type", "chain_type", "graph_path", "risk_score"}
+RETYPED = {  # pair: (study-v1's type, the type of the pair's own, longer pattern)
+    ("python_repl", "http_request"): ("code_exfiltration", "repl_exfiltration"),
+    ("mcp_read_file", "mcp_fetch"): ("data_exfiltration", "mcp_file_exfiltration"),
+    ("mcp_read_file", "send_email"): ("data_exfiltration", "mcp_file_to_email"),
+    ("read_dockerfile", "write_file"): ("file_manipulation", "container_manipulation"),
+}
 
 
 def _chains(tools: list[str], *, typed: bool = True) -> tuple[list[dict[str, Any]], list[Any]]:
@@ -38,7 +48,18 @@ def _chains(tools: list[str], *, typed: bool = True) -> tuple[list[dict[str, Any
 
 
 def _key(c: dict[str, Any]) -> str:
+    """A chain as compared; a retyped pair by its tools, its path and one of its two types."""
+    types = RETYPED.get(tuple(c["tools"]))
+    if types is not None:
+        assert c["vulnerability_type"] in types, c["tools"]
+        c = {"tools": c["tools"], "chain_type": c["chain_type"], "graph_path": c["graph_path"]}
     return json.dumps(c, sort_keys=True)
+
+
+def test_a_retyped_pair_takes_its_own_pattern() -> None:
+    for pair, (_, own) in RETYPED.items():
+        (chain,) = _chains(list(pair), typed=False)[0]
+        assert chain["vulnerability_type"] == own, pair
 
 
 def _fixture() -> dict[str, Any]:

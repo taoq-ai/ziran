@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-11-18T11:08:11.798545+00:00",
-  "pipeline_f1": 0.7348,
+  "timestamp": "2026-11-25T06:28:05.081487+00:00",
+  "pipeline_f1": 0.325,
   "tolerance": 0.02,
   "per_detector_f1": {
     "refusal": 0.6948,
@@ -14,81 +14,23 @@
     "prompts": 930,
     "benign_replies": 313,
     "pairs": 291090,
-    "flagged": 14447,
-    "rate": 0.0496,
-    "vectors_with_hit": 677,
-    "indicator_flagged": 540,
-    "vectors_with_indicator_hit": 151,
+    "flagged": 171,
+    "rate": 0.0006,
+    "vectors_with_hit": 132,
+    "indicator_flagged": 2,
+    "vectors_with_indicator_hit": 2,
     "flagged_by_category": {
-      "sensitive_tool_output": 14029,
-      "paraphrased_refusal": 76,
-      "indicator_near_miss": 159,
-      "multilingual": 21,
-      "clear_refusal": 27,
-      "borderline": 94,
-      "full_compliance": 11,
-      "partial_compliance": 30
+      "sensitive_tool_output": 148,
+      "full_compliance": 23
     },
     "top_indicators": [
       [
-        "system prompt",
-        65
+        ".env",
+        1
       ],
       [
-        "password",
-        42
-      ],
-      [
-        "credentials",
-        33
-      ],
-      [
-        "key",
-        24
-      ],
-      [
-        "instructions",
-        21
-      ],
-      [
-        "API keys",
-        15
-      ],
-      [
-        "no",
-        11
-      ],
-      [
-        "users",
-        10
-      ],
-      [
-        "production",
-        10
-      ],
-      [
-        "configured",
-        10
-      ],
-      [
-        "API key",
-        10
-      ],
-      [
-        "bot",
-        10
-      ],
-      [
-        "victim",
-        10
-      ],
-      [
-        "endpoint",
-        9
-      ],
-      [
-        "download",
-        9
+        "SECRET_KEY",
+        1
       ]
     ]
   },
@@ -139,11 +81,11 @@
     },
     "full_compliance": {
       "pipeline": {
-        "tp": 52,
+        "tp": 0,
         "fp": 0,
-        "fn": 0,
+        "fn": 52,
         "tn": 6,
-        "recall": 1.0,
+        "recall": 0.0,
         "fpr": 0.0
       },
       "refusal": {
@@ -199,12 +141,12 @@
     },
     "indicator_near_miss": {
       "pipeline": {
-        "tp": 13,
-        "fp": 24,
-        "fn": 2,
-        "tn": 21,
-        "recall": 0.8667,
-        "fpr": 0.5333
+        "tp": 0,
+        "fp": 0,
+        "fn": 15,
+        "tn": 45,
+        "recall": 0.0,
+        "fpr": 0.0
       },
       "refusal": {
         "tp": 15,
@@ -225,12 +167,12 @@
     },
     "sensitive_tool_output": {
       "pipeline": {
-        "tp": 12,
-        "fp": 28,
-        "fn": 2,
-        "tn": 8,
-        "recall": 0.8571,
-        "fpr": 0.7778
+        "tp": 0,
+        "fp": 0,
+        "fn": 14,
+        "tn": 36,
+        "recall": 0.0,
+        "fpr": 0.0
       },
       "indicator": {
         "tp": 6,
@@ -259,12 +201,12 @@
     },
     "paraphrased_refusal": {
       "pipeline": {
-        "tp": 4,
-        "fp": 10,
-        "fn": 11,
-        "tn": 30,
-        "recall": 0.2667,
-        "fpr": 0.25
+        "tp": 0,
+        "fp": 0,
+        "fn": 15,
+        "tn": 40,
+        "recall": 0.0,
+        "fpr": 0.0
       },
       "refusal": {
         "tp": 14,
@@ -285,12 +227,12 @@
     },
     "multilingual": {
       "pipeline": {
-        "tp": 8,
-        "fp": 2,
-        "fn": 4,
-        "tn": 40,
-        "recall": 0.6667,
-        "fpr": 0.0476
+        "tp": 0,
+        "fp": 0,
+        "fn": 12,
+        "tn": 42,
+        "recall": 0.0,
+        "fpr": 0.0
       },
       "refusal": {
         "tp": 12,
@@ -311,15 +253,15 @@
     }
   },
   "pipeline": {
-    "precision": 0.6425,
-    "recall": 0.8582,
-    "f1": 0.7348,
-    "fpr": 0.2045,
+    "precision": 1.0,
+    "recall": 0.194,
+    "f1": 0.325,
+    "fpr": 0.0,
     "confusion": {
-      "tp": 115,
-      "fp": 64,
-      "fn": 19,
-      "tn": 249
+      "tp": 26,
+      "fp": 0,
+      "fn": 108,
+      "tn": 313
     }
   },
   "per_detector": {

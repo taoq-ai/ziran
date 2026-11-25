@@ -11,8 +11,8 @@ CC000  high      the file could not be parsed (one per scan issue)          issu
 SA001  critical  a secret pattern matches the prompt, description or tools  match
 SA003  high      a declared tool is dangerous                               T
 SA004  medium    a declared tool is a wildcard grant                        T
-SA007  high      no ``tools`` key: the agent inherits every tool            T
-CC001  chain     a dangerous tool chain over the agent's (effective) tools  T
+SA007  high      no ``tools`` key, or ``*`` alone: every tool is inherited  T
+CC001  chain     a dangerous tool chain over the agent's declared tools     T
 LT001  critical  the agent's tools cover the lethal trifecta (spec 088)     T
 =====  ========  =========================================================  ======
 
@@ -53,6 +53,18 @@ _REC_LT001 = (
 )
 
 
+def declared_tools(agent: ClaudeCodeAgent) -> list[str] | None:
+    """The agent's declared tool set; None when it inherits every tool (spec 099).
+
+    The file has no ``tools`` key, or the key holds ``*`` alone: inherited. The key is there
+    with no tool (``tools:``, ``tools: []``): an empty declared set, which the entity reads
+    as None, so the key's line in ``key_lines`` tells the two apart.
+    """
+    if agent.tools is None:
+        return [] if "tools" in agent.key_lines else None
+    return None if agent.tools == ["*"] else agent.tools
+
+
 def agent_chains(
     agent: ClaudeCodeAgent,
     *,
@@ -60,17 +72,23 @@ def agent_chains(
     role_overrides: Mapping[str, Iterable[str]] | None = None,
     trifecta_roles: Mapping[str, Iterable[str]] | None = None,
 ) -> list[DangerousChain]:
-    """Dangerous chains over the agent's declared (or inherited) tool set. No execution.
+    """Dangerous chains over the agent's declared tool set. No execution.
+
+    An inherited tool set gives no chain (spec 099, change 2): it depends on the parent
+    session and its MCP servers, which a static reader cannot know. SA007 reports it.
 
     ``typed`` adds the typed chains of spec 066; ``role_overrides`` (typed only) are roles a
     caller knows, such as the capability job's (spec 067). ``trifecta_roles`` gives a tool's
     lethal trifecta legs in place of the name rules (spec 088).
     """
+    tools = declared_tools(agent)
+    if not tools:
+        return []
     graph = AttackKnowledgeGraph()
     graph.trifecta_roles = {t: frozenset(legs) for t, legs in (trifecta_roles or {}).items()}
-    for cap in agent.capabilities:
-        graph.add_capability(cap.id, cap)
-    graph.add_co_resident_tools(agent.effective_tools)
+    for tool in tools:
+        graph.add_capability(tool, claude_code_tool_capability(tool))
+    graph.add_co_resident_tools(tools)
     # Cycle enumeration is exponential on a complete graph (12 tools never finish).
     analyzer = ToolChainAnalyzer(graph, typed=typed, role_overrides=role_overrides)
     return analyzer.analyze(include_cycles=False)
@@ -140,12 +158,13 @@ def _audit_agent(
         for t in declared
         if _is_wildcard(t)
     ]
-    if agent.unrestricted:
+    if declared_tools(agent) is None:
+        how = "has no 'tools' key" if agent.tools is None else "declares tools '*'"
         findings.append(
             finding(
                 "SA007",
                 "high",
-                f"Agent '{agent.name}' has no 'tools' key and inherits every tool",
+                f"Agent '{agent.name}' {how} and inherits every tool",
                 _REC_SA007,
             )
         )
