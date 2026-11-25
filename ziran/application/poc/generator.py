@@ -517,23 +517,27 @@ _ATTEMPT_NOTE = (
 # ── Python PoC bodies (plain text, never passed through str.format) ──
 
 _PY_HTTP_USAGE = """Usage: python3 <this file> [ENDPOINT]   (needs httpx)
-Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check."""
+Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check.
+Exit 3: the reply could not be read."""
 
 _PY_HTTP_REPRODUCE = (
     '''
 def _texts(value):
-    """Every string in a parsed JSON reply, tool-call arguments included."""
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, dict):
-        value = list(value.values())
-    if not isinstance(value, list):
-        return []
-    return [text for item in value for text in _texts(item)]
+    """Every string in a parsed JSON reply, tool-call arguments included, in order."""
+    texts, stack = [], [value]
+    while stack:  # a loop, not recursion: a reply may nest deeper than the stack
+        item = stack.pop()
+        if isinstance(item, str):
+            texts.append(item)
+        elif isinstance(item, dict):
+            stack.extend(reversed(list(item.values())))
+        elif isinstance(item, list):
+            stack.extend(reversed(item))
+    return texts
 
 
 def reproduce(endpoint=DEFAULT_ENDPOINT):
-    """Send the attack request; return 0 reproduced, 1 not, 2 nothing to check."""
+    """Send the attack request; return 0 reproduced, 1 not, 2 nothing to check, 3 unreadable."""
     print("[*] Sending attack payload to " + endpoint)
     reply = httpx.request(METHOD, endpoint, json=BODY, timeout=120.0)
     print("[*] Agent response (HTTP " + str(reply.status_code) + ", first 200 chars):")
@@ -542,6 +546,9 @@ def reproduce(endpoint=DEFAULT_ENDPOINT):
         data = reply.json()
     except ValueError:
         data = reply.text
+    except RecursionError:
+        print("[-] Unreadable reply: its JSON nests too deep to parse")
+        return 3
     content_lower = "\\n".join(_texts(data)).lower()
     matched = [ind for ind in SUCCESS_INDICATORS if ind.lower() in content_lower]
 
