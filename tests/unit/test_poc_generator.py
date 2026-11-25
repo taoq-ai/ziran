@@ -28,6 +28,7 @@ from ziran.domain.entities.attack import (
     OwaspLlmCategory,
 )
 from ziran.domain.entities.phase import CampaignResult
+from ziran.domain.text import md_block
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -745,3 +746,122 @@ class TestPoCFileNames:
         with pytest.raises(FileExistsError):
             gen._write("poc_v_c.py", "x")
         assert target.read_text() == "keep"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Target text in the Markdown guide renders inert
+# ──────────────────────────────────────────────────────────────────────
+
+_LIVE = "# OWNED\x1b]52;c;Y2xp\x07‮[c](http://evil.example) ops@evil.example"
+_LIVE_SHOWN = "# OWNED\\x1b]52;c;Y2xp\\x07\\u202e[c](http://evil.example) ops@evil.example"
+
+
+def _guide(tmp_path: Path, snippet: str, **evidence: object) -> str:
+    result = AttackResult(
+        vector_id="v",
+        vector_name="n",
+        category=AttackCategory.PROMPT_INJECTION,
+        severity="high",
+        successful=True,
+        evidence={"response_snippet": snippet, **evidence},
+        prompt_used="p",
+    )
+    return PoCGenerator(tmp_path).generate_markdown_guide([result], "c").read_text()
+
+
+@pytest.mark.unit
+class TestGuideTargetText:
+    @pytest.mark.parametrize(
+        ("snippet", "block"),
+        [
+            # a fence in the reply: the block's fence outruns it
+            (f"ok\n```\n{_LIVE}\n```", f"````\nok\n```\n{_LIVE_SHOWN}\n```\n````"),
+            # 300 backticks: no backtick fence opens (cmark-gfm stops at 255), tildes do
+            ("`" * 300 + f"\n{_LIVE}", "~~~\n" + "`" * 300 + f"\n{_LIVE_SHOWN}\n~~~"),
+        ],
+    )
+    def test_reply_snippet_is_one_fenced_block(
+        self, tmp_path: Path, snippet: str, block: str
+    ) -> None:
+        text = _guide(tmp_path, snippet)
+        assert f"\n{block}\n" in text
+        assert not [c for c in text if c != "\n" and not c.isprintable()]
+
+    def test_no_fence_can_hold_it_falls_back_to_escaped_text(self) -> None:
+        # The guide cuts a snippet at 500 characters by default; a larger cap reaches this.
+        text = md_block("`" * 300 + "\n" + "~" * 300 + f"\n{_LIVE}")
+        shown = "\\`" * 300 + "\\\\n" + "\\~" * 300 + "\\\\n\\# OWNED"
+        assert text.startswith(shown)
+        assert "\n" not in text and "](http://evil" not in text
+        assert "ops`@`evil" in text
+        assert not [c for c in text if not c.isprintable()]
+
+    def test_tools_indicators_and_reasoning_are_inert(self, tmp_path: Path) -> None:
+        tool = "sh`[c](http://evil.example)\x1b[2J ops@evil.example"
+        text = _guide(
+            tmp_path,
+            "ok",
+            tool_calls=[{"tool": tool}, {"name": "`" * 300}],
+            matched_indicators=["```", "a@evil.example‮"],
+            detector_reasoning=f"judge said\n{_LIVE}",
+        )
+        assert "- ``sh`[c](http://evil.example)\\x1b[2J ops@evil.example``\n" in text
+        assert "- " + "\\`" * 300 + "\n" in text  # no code span opens over 80 backticks
+        assert "- ```` ``` ````\n" in text
+        assert "- `a@evil.example\\u202e`\n" in text
+        assert "> judge said\\\\n\\# OWNED" in text
+        assert "](http://evil" not in text.split("> judge said")[1]
+        assert not [c for c in text if c != "\n" and not c.isprintable()]
+
+
+@pytest.mark.unit
+class TestBlockFenceLimit:
+    """cmark-gfm opens no fence over 255 characters: the limit must hold exactly."""
+
+    @pytest.mark.parametrize(("run", "fence"), [(253, 254), (254, 255)])
+    def test_backtick_fence_outruns_a_run_up_to_254(self, run: int, fence: int) -> None:
+        text = "`" * run + "\n# OWNED"
+        assert md_block(text) == f"{'`' * fence}\n{text}\n{'`' * fence}"
+
+    @pytest.mark.parametrize(("run", "fence"), [(253, 254), (254, 255)])
+    def test_tilde_fence_outruns_a_run_up_to_254(self, run: int, fence: int) -> None:
+        text = "`" * 255 + "\n" + "~" * run + "\n# OWNED"  # no backtick fence can open
+        assert md_block(text) == f"{'~' * fence}\n{text}\n{'~' * fence}"
+
+    @pytest.mark.parametrize("run", [255, 256])
+    def test_backtick_run_of_255_or_more_takes_tildes(self, run: int) -> None:
+        text = "`" * run + "\n# OWNED"
+        assert md_block(text) == f"~~~\n{text}\n~~~"
+
+    @pytest.mark.parametrize("run", [255, 256])
+    def test_both_runs_of_255_or_more_fall_back(self, run: int) -> None:
+        text = "`" * 255 + "\n" + "~" * run
+        assert md_block(text) == "\\`" * 255 + "\\\\n" + "\\~" * run
+
+    @pytest.mark.parametrize("run", [255, 256])
+    def test_tildes_alone_keep_backticks(self, run: int) -> None:
+        text = "~" * run + "\n# OWNED"
+        assert md_block(text) == f"```\n{text}\n```"
+
+    @pytest.mark.parametrize(("run", "fence"), [(254, "`" * 255), (255, "~~~")])
+    def test_guide_fence_at_the_limit(self, tmp_path: Path, run: int, fence: str) -> None:
+        snippet = "`" * run + "\n# OWNED"
+        assert f"\n{fence}\n{snippet}\n{fence}\n" in _guide(tmp_path, snippet)
+
+    def test_prompt_fence_is_outrun(self, tmp_path: Path) -> None:
+        result = AttackResult(
+            vector_id="v",
+            vector_name="n",
+            category=AttackCategory.PROMPT_INJECTION,
+            severity="high",
+            successful=True,
+            evidence={},
+            prompt_used=f"say\n```\n{_LIVE}",
+        )
+        text = PoCGenerator(tmp_path).generate_markdown_guide([result], "c").read_text()
+        assert f"\n````\nsay\n```\n{_LIVE_SHOWN}\n````\n" in text
+
+    def test_snippet_is_cut_before_it_is_fenced(self, tmp_path: Path) -> None:
+        # A fence past the 500-character cap must not be cut off, or the block stays open.
+        snippet = "a" * 499 + "`" * 10
+        assert "\n```\n" + "a" * 499 + "`\n```\n" in _guide(tmp_path, snippet)

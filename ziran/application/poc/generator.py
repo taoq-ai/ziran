@@ -36,7 +36,7 @@ from mdutils.mdutils import MdUtils
 
 from ziran.application.poc.config import PoCConfig
 from ziran.domain.entities.target import OpenAIConfig, ProtocolType, RestConfig
-from ziran.domain.text import printable
+from ziran.domain.text import md_block, md_code, md_text, printable
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -462,9 +462,7 @@ class PoCGenerator:
                 marked_with="1",
             )
 
-            md.insert_code(
-                result.prompt_used or "(prompt not captured)",
-            )
+            md.write("\n\n" + md_block(result.prompt_used or "(prompt not captured)"))
 
             md.new_list(
                 ["Verify the response contains these indicators:"],
@@ -473,7 +471,7 @@ class PoCGenerator:
 
             indicators = result.evidence.get("matched_indicators", [])
             if indicators:
-                md.new_list([f"`{ind}`" for ind in indicators])
+                md.new_list([md_code(str(ind)) for ind in indicators])
             else:
                 md.new_paragraph(
                     "*(check for tool execution in agent logs)*",
@@ -484,22 +482,24 @@ class PoCGenerator:
             tool_calls = result.evidence.get("tool_calls", [])
             if tool_calls:
                 md.new_header(level=3, title="Observed Tool Executions", add_table_of_contents="n")
-                tool_names = [
-                    f"`{tc.get('tool') or tc.get('name') or 'unknown'}`" for tc in tool_calls
-                ]
-                md.new_list(tool_names)
+                md.new_list(
+                    [
+                        md_code(str(tc.get("tool") or tc.get("name") or "unknown"))
+                        for tc in tool_calls
+                    ]
+                )
 
             # Agent response snippet
             snippet = result.evidence.get("response_snippet", "")
             if snippet:
                 md.new_header(level=3, title="Agent Response (snippet)", add_table_of_contents="n")
-                md.insert_code(snippet[: tpl.max_response_snippet_chars])
+                md.write("\n\n" + md_block(snippet[: tpl.max_response_snippet_chars]))
 
             # Detector reasoning
             reasoning = result.evidence.get("detector_reasoning", "")
             if reasoning:
                 md.new_header(level=3, title="Detection Reasoning", add_table_of_contents="n")
-                md.new_paragraph(f"> {reasoning}")
+                md.new_paragraph(f"> {md_text(str(reasoning))}")
 
             md.new_paragraph("---")
 
