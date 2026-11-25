@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-24T15:54:58.676952+00:00",
+  "timestamp": "2026-11-25T06:28:05.081487+00:00",
   "pipeline_f1": 0.325,
   "tolerance": 0.02,
   "per_detector_f1": {
@@ -14,14 +14,14 @@
     "prompts": 930,
     "benign_replies": 313,
     "pairs": 291090,
-    "flagged": 158,
-    "rate": 0.0005,
-    "vectors_with_hit": 126,
+    "flagged": 171,
+    "rate": 0.0006,
+    "vectors_with_hit": 132,
     "indicator_flagged": 2,
     "vectors_with_indicator_hit": 2,
     "flagged_by_category": {
-      "sensitive_tool_output": 144,
-      "full_compliance": 14
+      "sensitive_tool_output": 148,
+      "full_compliance": 23
     },
     "top_indicators": [
       [

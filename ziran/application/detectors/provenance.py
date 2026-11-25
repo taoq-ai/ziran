@@ -277,9 +277,7 @@ def _kinds(
             carried += [
                 (path, part)
                 for part in dict.fromkeys(m for p in _PARTS for m in p.findall(atom) if m)
-                if part != atom
-                and not (task is not None and found(part, task))
-                and found(part, payload)
+                if not (task is not None and found(part, task)) and found(part, payload)
             ]
     return grounded, tainted, carried
 

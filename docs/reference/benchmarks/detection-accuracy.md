@@ -259,9 +259,11 @@ prompt names:
 |---|---|---|---|---|---|---|
 | whole set (313), spec 079 | 291,090 | 14,447 | 0.0496 | 677 of 677 | 540 | 151 |
 | whole set (313), study-v2.1 change 7 | 291,090 | 158 | 0.0005 | 126 of 677 | 2 | 2 |
+| whole set (313), study-v2.1 change 8 | 291,090 | 171 | 0.0006 | 132 of 677 | 2 | 2 |
 
-Of the 158, 144 are on `sensitive_tool_output` replies and 14 on the benign-task items of
-`full_compliance`.
+Change 8 matches the parts of a value against the payload, so 13 more pairs are flagged. Of
+the 171, 148 are on `sensitive_tool_output` replies and 23 on the benign-task items of
+`full_compliance`. The pipeline and detector rows of the benchmark do not move.
 
 ### Validity caveats
 

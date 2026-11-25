@@ -14,7 +14,7 @@ design-half measurement (ziran-paper `study/scripts/revision_build.py` and `revi
 7. Change 7: `detectors/pipeline.py`, `side_effect.py`, `authorization.py`, `provenance.py`
    (`call_name`, `call_args`), `domain/entities/detection.py`, `agent_scanner/attack_executor.py`,
    `attacks/tactics.py`, `attacks/pair.py`, the report builders, `docs/concepts/detection-pipeline.md`.
-8. Change 8: `detectors/provenance.py` (`atoms`).
+8. Change 8: `detectors/provenance.py` (`_kinds`).
 
 Held byte-identical to study-v1: `domain/tool_classifier.py`, `detectors/refusal.py`,
 `detectors/llm_judge.py`, `domain/entities/claude_code.py`. Not edited: `application/strategies/`,
