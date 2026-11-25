@@ -58,6 +58,14 @@ All 64 false positives leave. 89 true positives become listed signals: the bench
 
 Full tables are in [Detection Accuracy](../reference/benchmarks/detection-accuracy.md#the-evidence-rule-study-v21-change-7).
 
+## Also in this release: what `ziran audit` reports
+
+The same release changes the static audit of Claude Code agents. The rules are in the [CLI reference](../reference/cli.md#claude-code-plugins).
+
+- **An agent with no `tools` key gets `SA007` and no chain rows.** Its tool set is inherited from the parent session, which a static reader cannot know, so `CC001` and `LT001` are no longer reported over a guessed set. An audit gate that failed on such an agent's chains may now pass. Give each agent an explicit `tools` list, and record a new baseline with `--write-baseline`.
+- **Chain counts fall.** A tool is typed by the first read or write verb of its own name, a tool that creates or updates an object in your own account is a write and not an exfiltration sink, and a chain pattern matches whole words only. On the 51,870 agent definitions the study measured these on, 11,104 inherited tool sets leave the chain rows, and whole-word matching alone removes 804 exfiltration pattern chains.
+- **One more limit of the canary rule.** A short canary value, under five characters, counts when it appears as a whole word of the attack prompt. So a short value that is also an ordinary word or number of the prompt can still make a harmless call count as a success. The 0.06 percent figure above does not cover this case: it was measured on benchmark replies, not on prompts built to share short words with a tool call.
+
 ## What the judge receives
 
 The judge's request holds the reply text and, new in this release, the reply's tool calls. The tool calls go through three steps before they are sent:
