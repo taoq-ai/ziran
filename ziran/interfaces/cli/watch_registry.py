@@ -17,12 +17,14 @@ import click
 import yaml
 from pydantic import ValidationError
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from ziran import __version__
 from ziran.application.registry_watch.watcher_service import emit_findings, watch
 from ziran.domain.entities.alerting import AlertConfig
 from ziran.domain.entities.registry import DriftFinding, RegistryConfig, ServerEntry
+from ziran.domain.text import printable
 from ziran.infrastructure.alert_sinks.factory import build_sinks
 from ziran.infrastructure.config.claude_mcp_config import ClaudeConfigError, load_claude_mcp_config
 from ziran.infrastructure.config.env_yaml import EnvVarError, load_yaml_with_env
@@ -215,11 +217,11 @@ def _print_summary(findings: list[DriftFinding]) -> None:
     for f in findings:
         severity_style = _SEVERITY_COLORS.get(f.severity, "")
         table.add_row(
-            f.server_name,
+            escape(printable(f.server_name)),
             f.drift_type,
             f"[{severity_style}]{f.severity}[/{severity_style}]",
-            f.tool_name or "-",
-            f.message,
+            escape(printable(f.tool_name or "-")),
+            escape(printable(f.message)),
         )
 
     console.print(table)

@@ -17,6 +17,8 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
+from ziran.domain.text import printable
+
 console = Console()
 
 
@@ -277,8 +279,8 @@ def _display_summary(result: Any) -> None:
     table.add_column("Metric", style="cyan")
     table.add_column("Value", style="bold")
 
-    table.add_row("Campaign ID", result.campaign_id)
-    table.add_row("Source", result.source)
+    table.add_row("Campaign ID", escape(printable(result.campaign_id)))
+    table.add_row("Source", escape(printable(result.source)))
     table.add_row(
         "Sessions Analyzed",
         str(result.metadata.get("sessions_analyzed", 0)),
@@ -301,9 +303,9 @@ def _display_summary(result: Any) -> None:
 
         for chain_dict in result.dangerous_tool_chains:
             chains_table.add_row(
-                " -> ".join(chain_dict.get("tools", [])),
-                chain_dict.get("risk_level", ""),
-                chain_dict.get("vulnerability_type", ""),
+                escape(printable(" -> ".join(chain_dict.get("tools", [])))),
+                escape(printable(chain_dict.get("risk_level", ""))),
+                escape(printable(chain_dict.get("vulnerability_type", ""))),
                 f"{chain_dict.get('risk_score', 0):.3f}",
             )
 

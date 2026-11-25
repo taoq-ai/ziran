@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import click
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -27,6 +28,7 @@ from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.capability import BlastRadius, BlastRadiusConfig
 from ziran.domain.entities.defence import DefenceProfile
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
+from ziran.domain.text import printable
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli.reports import ReportGenerator
@@ -35,6 +37,12 @@ if TYPE_CHECKING:
     from ziran.domain.entities.target import TargetConfig
 
 console = Console()
+
+
+def _term(value: object) -> str:
+    """Target text for a Rich string: controls and bidi backslash-escaped, markup inert."""
+    return escape(printable(str(value)))
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Banner
@@ -883,11 +891,11 @@ def discover(
 
     for cap in capabilities:
         table.add_row(
-            cap.id,
-            cap.name,
+            _term(cap.id),
+            _term(cap.name),
             cap.type.value,
             "⚠️  YES" if cap.dangerous else "no",
-            (cap.description or "")[:50],
+            _term((cap.description or "")[:50]),
         )
 
     console.print(table)
@@ -1256,7 +1264,7 @@ def _display_policy_verdict(verdict: Any) -> None:
         err_table.add_column("Rule", style="red")
         err_table.add_column("Message", style="white")
         for v in verdict.violations:
-            err_table.add_row(v.rule_type.value, v.message)
+            err_table.add_row(v.rule_type.value, _term(v.message))
         console.print(err_table)
         console.print()
 
@@ -1268,7 +1276,7 @@ def _display_policy_verdict(verdict: Any) -> None:
         warn_table.add_column("Rule", style="yellow")
         warn_table.add_column("Message", style="white")
         for w in verdict.warnings:
-            warn_table.add_row(w.rule_type.value, w.message)
+            warn_table.add_row(w.rule_type.value, _term(w.message))
         console.print(warn_table)
         console.print()
 
@@ -1280,11 +1288,11 @@ def _display_policy_verdict(verdict: Any) -> None:
         info_table.add_column("Rule", style="blue")
         info_table.add_column("Message", style="dim")
         for i in verdict.info:
-            info_table.add_row(i.rule_type.value, i.message)
+            info_table.add_row(i.rule_type.value, _term(i.message))
         console.print(info_table)
         console.print()
 
-    console.print(f"[dim]{verdict.summary}[/dim]")
+    console.print(f"[dim]{_term(verdict.summary)}[/dim]")
 
     if not verdict.passed:
         sys.exit(1)
@@ -1369,7 +1377,6 @@ def audit(
         ziran audit ./my-plugin/ --baseline ziran-baseline.json --sarif audit.sarif
     """
     from pydantic import ValidationError
-    from rich.markup import escape
 
     from ziran.application.static_analysis.analyzer import (
         AnalysisReport,
@@ -1487,7 +1494,7 @@ def audit(
         sys.exit(1 if failed else 0)
 
     if narrowed:
-        lines = [escape(f"{n.agent}: {n.change} {' -> '.join(n.tools)}".rstrip()) for n in narrowed]
+        lines = [_term(f"{n.agent}: {n.change} {' -> '.join(n.tools)}".rstrip()) for n in narrowed]
         lines.append("Re-record with --write-baseline to lock in the narrowing.")
         console.print(Panel("\n".join(lines), title="Baseline narrowed", expand=False))
     _display_audit_report(report)
@@ -1542,8 +1549,8 @@ def _display_audit_report(report: Any) -> None:
         findings_table.add_row(
             f.check_id,
             f"[{sev_style}]{f.severity}[/{sev_style}]",
-            f.message,
-            loc,
+            _term(f.message),
+            _term(loc),
         )
 
     console.print(findings_table)
@@ -1554,7 +1561,7 @@ def _display_audit_report(report: Any) -> None:
         console.print()
         console.print("[bold]Recommendations:[/bold]")
         for check_id, rec in sorted(recs.items()):
-            console.print(f"  [cyan]{check_id}[/cyan]: {rec}")
+            console.print(f"  [cyan]{check_id}[/cyan]: {_term(rec)}")
 
     if not report.passed:
         console.print()
@@ -1791,7 +1798,7 @@ def ci(
     if unmeasured_note := _unmeasured_note(result):
         console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
     for warning in result.warnings:  # analysis the scan skipped (spec 086)
-        console.print(f"Warning: {warning}", style="yellow", markup=False)
+        console.print(f"Warning: {printable(warning)}", style="yellow", markup=False)
 
     # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
     if sarif_path and from_sarif:
@@ -1891,7 +1898,7 @@ def _display_gate_result(gate: Any) -> None:
         viol_table.add_column("Message", style="white")
         viol_table.add_column("Severity", style="yellow")
         for v in gate.violations:
-            viol_table.add_row(v.rule, v.message, v.severity)
+            viol_table.add_row(v.rule, _term(v.message), v.severity)
         console.print(viol_table)
         console.print()
 
@@ -1903,7 +1910,7 @@ def _display_gate_result(gate: Any) -> None:
         )
         for f in unsuppressed:
             console.print(
-                f"  {f.state} {f.kind} {f.label} [{f.severity}] "
+                f"  {f.state} {f.kind} {printable(f.label)} [{f.severity}] "
                 f"fingerprint={f.fingerprint} content_hash={f.content_hash}",
                 markup=False,
                 highlight=False,
@@ -1911,7 +1918,7 @@ def _display_gate_result(gate: Any) -> None:
             )
         console.print()
 
-    console.print(f"[dim]{gate.summary}[/dim]")
+    console.print(f"[dim]{_term(gate.summary)}[/dim]")
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -2152,7 +2159,7 @@ def _display_results(result: CampaignResult) -> None:
     summary_table.add_column("Value", style="white")
 
     summary_table.add_row("Campaign ID", result.campaign_id)
-    summary_table.add_row("Target Agent", result.target_agent)
+    summary_table.add_row("Target Agent", _term(result.target_agent))
     summary_table.add_row("Phases Executed", str(len(result.phases_executed)))
     summary_table.add_row(
         "Prompt-level Vulnerabilities",
@@ -2264,8 +2271,8 @@ def _display_results(result: CampaignResult) -> None:
                 console.print(f"  [bold]{pr.phase.value.replace('_', ' ').title()}:[/bold]")
                 for vuln_id in pr.vulnerabilities_found:
                     artifact = pr.artifacts.get(vuln_id, {})
-                    name = artifact.get("name", vuln_id)
-                    severity = artifact.get("severity", "unknown")
+                    name = _term(artifact.get("name", vuln_id))
+                    severity = _term(artifact.get("severity", "unknown"))
                     console.print(f"    • [red]{name}[/red] ({severity}) — `{vuln_id}`")
                 console.print()
 
@@ -2274,7 +2281,7 @@ def _display_results(result: CampaignResult) -> None:
         console.print("[bold red]🔗 Critical Attack Paths:[/bold red]")
         console.print()
         for i, path in enumerate(result.critical_paths[:5], 1):
-            console.print(f"  {i}. {' → '.join(path)}")
+            console.print(f"  {i}. {_term(' → '.join(path))}")
         if len(result.critical_paths) > 5:
             console.print(f"\n  [dim]...and {len(result.critical_paths) - 5} more paths[/dim]")
         console.print()
@@ -2299,10 +2306,10 @@ def _display_results(result: CampaignResult) -> None:
                 "low": "green",
             }.get(risk, "white")
             chain_table.add_row(
-                f"[{risk_style}]{risk}[/{risk_style}]",
-                chain.get("vulnerability_type", ""),
-                " → ".join(chain.get("tools", [])),
-                chain.get("exploit_description", "")[:50],
+                f"[{risk_style}]{_term(risk)}[/{risk_style}]",
+                _term(chain.get("vulnerability_type", "")),
+                _term(" → ".join(chain.get("tools", []))),
+                _term(chain.get("exploit_description", "")[:50]),
             )
 
         console.print(chain_table)
@@ -2777,7 +2784,7 @@ def _run_interactive_mode(
     # Display initial results
     if session.steps:
         last_step = session.steps[-1]
-        console.print(f"\n[bold cyan]Agent:[/bold cyan] {last_step.result_summary}")
+        console.print(f"\n[bold cyan]Agent:[/bold cyan] {_term(last_step.result_summary)}")
 
     while True:
         try:
@@ -2809,7 +2816,9 @@ def _run_interactive_mode(
             if session.findings:
                 for f in session.findings:
                     console.print(
-                        f"  [{f.severity}] {f.canonical_title} ({', '.join(f.owasp_categories)})"
+                        _term(
+                            f"  [{f.severity}] {f.canonical_title} ({', '.join(f.owasp_categories)})"
+                        )
                     )
             else:
                 console.print("[dim]No deduplicated findings yet.[/dim]")
@@ -2840,7 +2849,7 @@ def _run_interactive_mode(
         # Display agent response
         if session.steps:
             last_step = session.steps[-1]
-            console.print(f"\n[bold cyan]Agent:[/bold cyan] {last_step.result_summary}")
+            console.print(f"\n[bold cyan]Agent:[/bold cyan] {_term(last_step.result_summary)}")
 
     # Final export on quit
     console.print("\n[dim]Session ended. Exporting results...[/dim]")
@@ -2887,8 +2896,8 @@ def _display_session_results(session: Any) -> None:
             steps_table.add_row(
                 str(i),
                 step.step_type.value,
-                step.tool_name or "-",
-                step.result_summary[:60],
+                _term(step.tool_name or "-"),
+                _term(step.result_summary[:60]),
                 f"{step.duration_seconds:.1f}s",
             )
         console.print(steps_table)
@@ -2903,8 +2912,8 @@ def _display_session_results(session: Any) -> None:
 
         for finding in session.findings:
             findings_table.add_row(
-                finding.canonical_title,
-                finding.severity,
+                _term(finding.canonical_title),
+                _term(finding.severity),
                 ", ".join(finding.owasp_categories),
                 str(len(finding.attack_result_ids)),
             )
