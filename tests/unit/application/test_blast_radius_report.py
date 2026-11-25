@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -24,6 +25,7 @@ from ziran.application.agent_scanner.structure_import import import_adapter_stru
 from ziran.application.cicd.sarif import generate_sarif
 from ziran.application.detectors.thresholds import DetectorThresholds
 from ziran.application.knowledge_graph.blast_radius import blast_radius
+from ziran.application.knowledge_graph.chain_analyzer import ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
 from ziran.domain.entities.capability import (
     AgentCapability,
@@ -33,11 +35,11 @@ from ziran.domain.entities.capability import (
     DangerousChain,
     DataTag,
 )
-from ziran.domain.entities.phase import CampaignResult
+from ziran.domain.entities.phase import CampaignResult, ChainTarget
 from ziran.infrastructure.config.detectors import DetectorConfigError, load_detector_thresholds
-from ziran.interfaces.cli.html_report import build_html_report
+from ziran.interfaces.cli.html_report import _build_node_tooltip, build_html_report
 from ziran.interfaces.cli.main import cli
-from ziran.interfaces.cli.reports import ReportGenerator, _md_code
+from ziran.interfaces.cli.reports import ReportGenerator, _md_code, _md_text
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -329,7 +331,7 @@ class TestMarkdown:
     def test_hostile_ids_are_code_spans(self) -> None:
         radius = _radius(reachable={"exec": [HOSTILE], "counts": {"exec": 1}})
         text = _markdown(_result([_chain("a", HOSTILE)], {HOSTILE: radius}))
-        span = "``tool_x`|<script>alert(1)</script>*_[a](b) #``"
+        span = "``tool_x`|<script>alert(1)</script>*_[a](b)\\n#``"
         assert f"#### Chains ending at {span} (1 chain)\n" in text
         assert f"- Exec tools: {span}\n" in text
         assert "\n#\n" not in text
@@ -344,11 +346,92 @@ class TestMarkdown:
             ("a``b`c", "```a``b`c```"),
             ("a", "`a`"),
             ("", "` `"),  # an empty span would fuse with a later backtick run
-            ("\n", "` `"),
+            ("\n", "`\\n`"),  # a control shows escaped, never raw
         ],
     )
     def test_code_span_fences(self, raw: str, span: str) -> None:
         assert _md_code(raw) == span
+
+    def test_control_ids_stay_on_one_table_row(self) -> None:
+        tool = "send\nmail\u202e|x\x1b[2J"
+        radius = _radius(reachable={"tags": {tool: {"data_class": "pii", "owner": "o\r\x9bwn"}}})
+        result = _result([_chain("read", tool)], {tool: radius}, critical_paths=[["read", tool]])
+        text = _markdown(result)
+
+        table = _section(text, "| Risk | Type | Tools | Description |", "\n\n")
+        assert len(table.splitlines()) == 3  # header, rule and one chain row
+        shown = "send\\nmail\\u202e|x\\x1b[2J"
+        cell = shown.replace("|", "\\|")  # a table cell escapes |
+        assert f"| `read → {cell}` |" in table
+        assert f"1. `read → {shown}`\n" in text
+        assert "owner `o\\r\\x9bwn`" in text
+        assert not [c for c in text if c != "\n" and not c.isprintable() and c != "\ufe0f"]
+
+    def test_typed_chain_text_stays_on_one_row_and_inert(self) -> None:
+        # A typed chain puts raw tool ids into its description and remediation text.
+        tools = ["lookup", "post\n# OWNED\x1b]52;c;Y2xp\x07\u202e[c](http://evil.example)"]
+        graph = AttackKnowledgeGraph()
+        for t in tools:
+            graph.add_tool(t)
+        graph.add_tool_chain(tools, risk_score=0.5)
+        chains = ToolChainAnalyzer(graph, typed=True).analyze(include_cycles=False)
+        assert any(c.typed for c in chains)
+        text = _markdown(_result([c.model_dump(mode="json") for c in chains], {}))
+
+        table = _section(text, "| Risk | Type | Tools | Description |", "\n\n")
+        assert len(table.splitlines()) == 2 + len(chains)  # header, rule, one row a chain
+        assert not [line for line in text.splitlines() if line.startswith("# OWNED")]
+        inert = "post\\\\n\\# OWNED\\\\x1b\\]52\\;c\\;Y2xp\\\\x07\\\\u202e\\[c\\]\\(http"
+        assert f"data and {inert}" in table  # the description, escaped as text
+        assert f"Confirm {inert}" in text  # the remediation, escaped as text
+        assert not [c for c in text if c != "\n" and not c.isprintable() and c != "\ufe0f"]
+
+    def test_addresses_in_escaped_text_cannot_autolink(self) -> None:
+        # GFM links an address even through escapes: a code-span @ splits the text node.
+        mail = " ops@evil.example mailto:a@evil.example xmpp:a@evil.example"
+        tools = ["lookup", "post" + mail]
+        graph = AttackKnowledgeGraph()
+        for t in tools:
+            graph.add_tool(t)
+        graph.add_tool_chain(tools, risk_score=0.5)
+        typed = [c.model_dump(mode="json") for c in ToolChainAnalyzer(graph, typed=True).analyze()]
+        long_id = "x" + "`" * 80 + mail
+        text = _markdown(
+            _result([*typed, _chain("a", long_id)], {}, critical_paths=[["a", long_id]])
+        )
+
+        shown = " ops`@`evil\\.example mailto\\:a`@`evil\\.example xmpp\\:a`@`evil\\.example"
+        assert f"data and post{shown} is" in text  # a typed chain's description
+        assert f"Confirm post{shown} cannot" in text  # and its remediation
+        fence = "\\`" * 80
+        assert f"1. a → x{fence}{shown}\n" in text
+        outside_spans = re.sub(r"(?<!\\)(`+)(?!`).*?(?<!`)\1(?!`)", "", text)
+        assert not re.search(r"[\w.+-]@[\w-]", outside_spans)
+        assert _md_text("a@@b.co") == "a`@@`b\\.co"  # one span a run: no stray fence
+
+    @pytest.mark.parametrize("run", [80, 300])
+    def test_long_backtick_runs_render_as_escaped_text(self, run: int) -> None:
+        # cmark-gfm opens no code span over 80 backticks, so such an id is escaped text.
+        tool = "x" + "`" * run + "[click](http://evil.example)"
+        radius = _radius(reachable={"exec": [tool], "counts": {"exec": 1}})
+        result = _result([_chain("a", tool)], {tool: radius}, critical_paths=[["a", tool]])
+        text = _markdown(result)
+
+        shown = "x" + "\\`" * run + "\\[click\\]\\(http\\:\\/\\/evil\\.example\\)"
+        assert _md_code(tool) == shown
+        assert "`" * 2 not in text.replace("\\`", "")  # no fence of any length remains
+        assert "](http://evil" not in text  # every bracket and parenthesis is escaped
+        assert f"1. a → {shown}\n" in text
+
+    def test_warning_and_chain_target_stay_on_one_line(self) -> None:
+        bad = "t\n# OWNED\x1b]0;x\x07\u202e"
+        target = ChainTarget(tools=["a", bad], vulnerability_type="rce", vector_ids=[bad], ran=[])
+        result = _result([], {}, chain_targets=[target], metadata={"warnings": [bad]})
+        text = _markdown(result)
+
+        assert "> **Warning:** t\\n# OWNED\\x1b]0;x\\x07\\u202e\n" in text
+        assert "| `a → t\\n# OWNED\\x1b]0;x\\x07\\u202e` | rce |" in text
+        assert not [c for c in text if c != "\n" and not c.isprintable() and c != "\ufe0f"]
 
     def test_mixed_runs_stay_inside_the_span(self) -> None:
         raw = "a`b``[click](http://evil.example)<img src=x>`c"
@@ -399,6 +482,30 @@ class TestHtml:
         page = build_html_report(data, {"nodes": [], "edges": []})
         section = _section(page, "Blast radius</div>", "<!-- Attack Paths -->")
         assert "<script>" not in section and "&lt;script&gt;" in section
+
+    def test_control_ids_are_escaped_on_one_line(self) -> None:
+        tool = "send\nmail\u202e<b>"
+        radius = _radius(reachable={"exec": [tool], "counts": {"exec": 1}})
+        result = _result([_chain("read", tool)], {tool: radius}, critical_paths=[["read", tool]])
+        page = build_html_report(result.model_dump(mode="json"), {"nodes": [], "edges": []})
+        section = _section(page, "Blast radius</div>", "<!-- Attack Paths -->")
+
+        assert "send\\nmail\\u202e&lt;b&gt;" in section
+        assert "\u202e" not in page and "send\nmail" not in page
+
+    def test_warning_tooltip_and_chain_target_are_escaped(self) -> None:
+        bad = "t\n<b>\u202e"
+        shown = "t\\n&lt;b&gt;\\u202e"
+        target = ChainTarget(tools=["a", bad], vulnerability_type=bad, vector_ids=[bad], ran=[bad])
+        data = _result([], {}, chain_targets=[target], metadata={"warnings": [bad]})
+        page = build_html_report(data.model_dump(mode="json"), {"nodes": [], "edges": []})
+        tip = _build_node_tooltip({"id": "x", "name": bad, "description": bad})
+
+        assert f"Warning: {shown}</p>" in page
+        row = _section(page, "<tr><td><code>", "</tr>")
+        assert row.count(shown) == 4  # tools, vulnerability type, chosen and ran
+        assert tip == f"<b>{shown}</b><br>Type: unknown<br><i>{shown}</i>"
+        assert "\u202e" not in page
 
     def test_no_radius_is_byte_identical(self) -> None:
         data = _result([_chain(READ, HTTP)], {}).model_dump(mode="json")

@@ -18,6 +18,7 @@ from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
 from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY
+from ziran.domain.text import printable
 from ziran.interfaces.cli.reports import BLAST_RADIUS_INTRO, blast_radius_blocks
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
@@ -79,7 +80,7 @@ def _node_to_vis(node: dict[str, Any], spec: GraphStyleSpec) -> dict[str, Any]:
     """Map a single graph node to a vis-network node using the shared spec."""
     node_type = node.get("node_type", "agent_state")
     style = spec.node_style(node_type)
-    label = node.get("name", node["id"])
+    label = printable(str(node.get("name", node["id"])))
     if len(label) > 30:
         label = label[:27] + "…"
 
@@ -145,9 +146,14 @@ def _edge_to_vis(idx: int, edge: dict[str, Any], spec: GraphStyleSpec) -> dict[s
     return vis_edge
 
 
+def _esc(value: object) -> str:
+    """*value* as HTML text on one line, with controls and bidi characters escaped."""
+    return html.escape(printable(str(value)))
+
+
 def _build_node_tooltip(node: dict[str, Any]) -> str:
     """Build a rich HTML tooltip for a graph node."""
-    parts = [f"<b>{html.escape(str(node.get('name', node['id'])))}</b>"]
+    parts = [f"<b>{_esc(node.get('name', node['id']))}</b>"]
     parts.append(f"Type: {node.get('node_type', 'unknown')}")
 
     if node.get("risk_score") is not None:
@@ -162,7 +168,7 @@ def _build_node_tooltip(node: dict[str, Any]) -> str:
         desc = str(node["description"])
         if len(desc) > 120:
             desc = desc[:117] + "…"
-        parts.append(f"<i>{html.escape(desc)}</i>")
+        parts.append(f"<i>{_esc(desc)}</i>")
 
     return "<br>".join(parts)
 
@@ -243,7 +249,7 @@ def build_html_report(
     blocks = blast_radius_blocks(
         result_data.get("dangerous_tool_chains", []),
         result_data.get("blast_radius") or {},
-        html.escape,
+        _esc,
     )
     blast_html_section = (
         "  <!-- Blast radius (spec 091) -->\n"
@@ -272,10 +278,10 @@ def build_html_report(
         '    <table class="owasp-table">\n'
         "    <tr><th>Chain</th><th>Vulnerability type</th><th>Chosen vectors</th><th>Ran</th></tr>\n"
         + "".join(
-            f"    <tr><td><code>{html.escape(' → '.join(t['tools']))}</code></td>"
-            f"<td>{html.escape(t['vulnerability_type'])}</td>"
-            f"<td>{html.escape(', '.join(t['vector_ids']))}</td>"
-            f"<td>{html.escape(', '.join(t['ran'])) or 'none'}</td></tr>\n"
+            f"    <tr><td><code>{_esc(' → '.join(t['tools']))}</code></td>"
+            f"<td>{_esc(t['vulnerability_type'])}</td>"
+            f"<td>{_esc(', '.join(t['vector_ids']))}</td>"
+            f"<td>{_esc(', '.join(t['ran'])) or 'none'}</td></tr>\n"
             for t in targets
         )
         + "    </table>\n  </div>\n"
@@ -299,7 +305,7 @@ def build_html_report(
         else "PASSED",
         success_class="danger" if success else "orange" if unmeasured else "safe",
         warnings_html="".join(
-            f'\n    <p class="muted" style="color:var(--orange)">Warning: {html.escape(str(w))}</p>'
+            f'\n    <p class="muted" style="color:var(--orange)">Warning: {_esc(w)}</p>'
             for w in warnings
         ),
         total_nodes=stats.get("total_nodes", 0),
@@ -480,7 +486,7 @@ def _build_paths_html(paths: list[list[str]]) -> str:
         return '<p class="muted">No critical attack paths found.</p>'
     parts: list[str] = []
     for i, path in enumerate(paths[:_MAX_RENDERED_PATHS]):
-        arrow_path = " → ".join(html.escape(str(n)) for n in path)
+        arrow_path = " → ".join(_esc(n) for n in path)
         parts.append(
             f'<div class="path-item" data-path-index="{i}" onclick="highlightPath({i})">'
             f'  <span class="path-num">#{i + 1}</span> {arrow_path}'
