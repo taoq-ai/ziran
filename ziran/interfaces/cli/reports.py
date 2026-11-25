@@ -51,10 +51,28 @@ _BLAST_KINDS = (
 )
 
 
+#: cmark-gfm opens no code span whose fence is longer than this.
+_MAX_FENCE = 80
+
+
+def _md_text(text: str) -> str:
+    """*text* as inert Markdown text on one line: controls and ASCII punctuation escaped.
+
+    ``|`` is left to the table cell escape, so a cell does not show a stray backslash.
+    """
+    return re.sub(r"([!-/:-@\[-`{}~])", r"\\\1", printable(text))
+
+
 def _md_code(text: str) -> str:
-    """*text* as one Markdown code span: controls escaped, the fence outruns its backticks."""
+    """*text* as one Markdown code span: controls escaped, the fence outruns its backticks.
+
+    A backtick run cmark-gfm could not fence falls back to escaped text.
+    """
     text = printable(text) or " "  # an empty span would fuse with the next one
-    fence = "`" * (max(map(len, re.findall("`+", text)), default=0) + 1)
+    longest = max(map(len, re.findall("`+", text)), default=0)
+    if longest >= _MAX_FENCE:
+        return _md_text(text)
+    fence = "`" * (longest + 1)
     pad = " " if text.startswith("`") or text.endswith("`") else ""
     return f"{fence}{pad}{text}{pad}{fence}"
 
@@ -535,7 +553,7 @@ class ReportGenerator:
                 risk = chain.get("risk_level", "unknown")
                 vtype = chain.get("vulnerability_type", "unknown")
                 tools = _md_code(" → ".join(chain.get("tools", [])))
-                desc = printable(chain.get("exploit_description", ""))
+                desc = _md_text(chain.get("exploit_description", ""))
                 risk_icon = {
                     "critical": "🔴",
                     "high": "🟠",
@@ -555,7 +573,7 @@ class ReportGenerator:
                 lines.append("")
                 for chain in chains_with_remediation:
                     tools = _md_code(" → ".join(chain.get("tools", [])))
-                    lines.append(f"- **{tools}**: {chain['remediation']}")
+                    lines.append(f"- **{tools}**: {_md_text(chain['remediation'])}")
                 lines.append("")
 
             blocks = blast_radius_blocks(

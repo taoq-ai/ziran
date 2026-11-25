@@ -11,3 +11,8 @@ Base: `origin/develop` at b90bfc0. Branch `fix/report-text-safety`. Test first.
 - [x] T003 Markdown and HTML renderers use `printable`; chain table cells escape `|`.
 - [x] T004 Touched tests green (604 passed, 4 skipped); ruff, format and mypy clean.
 - [x] T005 Mutants in an archive copy under `timeout -s KILL 120`, each killed by a new test.
+- [x] T006 Fix round (security and quality gates at 5f28df7): merged develop a4c9c6e, renamed
+  the spec to 104; tests first for typed-chain text, 80 and 300 backtick ids, an LF-forged PoC
+  line, warnings, chain-target cells, tooltips and graph labels; `_md_text` escaped-text
+  fallback in `_md_code`, description and remediation through `_md_text`, graph labels
+  through `printable`. Checked under cmark-gfm: one chain row, no live link or heading.

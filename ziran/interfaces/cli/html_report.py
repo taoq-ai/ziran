@@ -80,7 +80,7 @@ def _node_to_vis(node: dict[str, Any], spec: GraphStyleSpec) -> dict[str, Any]:
     """Map a single graph node to a vis-network node using the shared spec."""
     node_type = node.get("node_type", "agent_state")
     style = spec.node_style(node_type)
-    label = node.get("name", node["id"])
+    label = printable(str(node.get("name", node["id"])))
     if len(label) > 30:
         label = label[:27] + "…"
 

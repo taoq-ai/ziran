@@ -23,7 +23,7 @@ characters.
 After the fix:
 
 - Every reply excerpt and tool name a generated PoC prints is on one line with controls
-  escaped. The Python PoCs backslash-escape every non-printable character (`\x1b`, `‮`,
+  escaped. The Python PoCs backslash-escape every non-printable character (`\x1b`, `\u202e`,
   `\n`). The cURL PoC pipes the excerpt through `LC_ALL=C tr '\n' ' ' | LC_ALL=C cat -vt`, so
   control bytes show as `^[`, `^M` and `M-` text.
 - Matching is unchanged: the PoCs still match indicators against the raw reply, and the exit
@@ -31,8 +31,14 @@ After the fix:
 - The Markdown report renders target-named values (chain tools, critical path nodes,
   blast-radius ids, tag owners, warnings) through one helper, `ziran.domain.text.printable`,
   inside code spans, and escapes `|` in every chain table cell. A tool id with `\n` and U+202E
-  keeps one table row and shows `\n` and `‮` as text.
-- The HTML report passes the same values through `printable` before `html.escape`.
+  keeps one table row and shows `\n` and `\u202e` as text.
+- A value whose longest backtick run is 80 or more cannot be fenced (cmark-gfm opens no code
+  span over 80 backticks), so it renders as escaped text instead: controls through
+  `printable`, then every ASCII punctuation mark but `|` backslash-escaped.
+- The chain description and remediation hold raw tool ids when typed chains are on, so they
+  render as the same escaped text: no heading, link or emphasis can go live.
+- The HTML report passes the same values through `printable` before `html.escape`, the graph
+  node labels included.
 
 ## Acceptance scenarios
 
@@ -44,7 +50,14 @@ After the fix:
 3. Given a tool id with a newline and U+202E, when the Markdown report renders, then the chain
    table keeps one row and shows the escaped id; the critical path and tag owner show escaped.
 4. Given the same id, when the HTML report renders, then it shows the escaped id, HTML-escaped.
-5. The existing hostile-prompt tests (spec 099) stay green.
+5. Given a typed chain whose tool id holds `\n# OWNED`, controls and a Markdown link, when the
+   Markdown report renders, then the table keeps one row a chain, no heading starts a line and
+   the description and remediation show the escaped text.
+6. Given a tool id with a run of 80 or 300 backticks and a Markdown link, when the report
+   renders, then the id is escaped text and no fence or link remains.
+7. Given a reply holding an LF and a forged `[+]` line, when each PoC prints it, then the
+   excerpt stays on one line.
+8. The existing hostile-prompt tests (spec 099) stay green.
 
 ## Assumptions
 
@@ -55,5 +68,9 @@ After the fix:
 - A reply newline is shown as `\n` (Python) or a space (cURL), so the excerpt stays one line.
 - `ziran/domain/text.py` holds `printable`, moved from the PoC generator, because the CLI
   reports and the PoC generator both need it and domain is the layer both may import.
-- The PoC Markdown guide (`generate_markdown_guide`) is out of this item's scope.
-- Spec number 103 is derived from `origin/develop` (highest 102) and the remote branches.
+- Out of this item's scope, as a follow-up: the PoC Markdown guide (`generate_markdown_guide`),
+  the raw `phase_result.error` line in the Markdown report, and bidi characters in the HTML
+  attack log `<pre>`.
+- `printable` shows a real newline and a literal backslash-n the same way; accepted.
+- Spec number 104 is derived from `origin/develop` (highest 103,
+  `103-tag-unreached-warning`) and the remote branches.

@@ -22,8 +22,10 @@ Python 3.11+ (CI matrix 3.11, 3.12, 3.13), stdlib only. No new dependencies.
    `LC_ALL=C tr '\n' ' ' | LC_ALL=C cat -vt`.
 3. `ziran/interfaces/cli/reports.py`: `_md_code` uses `printable` instead of joining lines;
    critical paths, the chain table and remediation tools use `_md_code`; chain table cells
-   escape `|`; warnings go through `printable`.
-4. `ziran/interfaces/cli/html_report.py`: `_esc = html.escape(printable(str(v)))` for node
+   escape `|`; warnings go through `printable`. `_md_text` (printable, then ASCII punctuation
+   but `|` backslash-escaped) renders the chain description and remediation, and is the
+   `_md_code` fallback when a backtick run reaches 80.
+4. `ziran/interfaces/cli/html_report.py`: graph node labels through `printable`; `_esc = html.escape(printable(str(v)))` for node
    tooltips, blast radius, chain targets, warnings and critical paths.
 
 ## Files

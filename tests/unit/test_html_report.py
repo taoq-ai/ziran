@@ -207,6 +207,10 @@ class TestGraphStateToVis:
         vis = graph_state_to_vis(state)
         assert len(vis["nodes"][0]["label"]) == 28  # 27 chars + "…"
 
+    def test_label_shows_controls_escaped(self) -> None:
+        state = {"nodes": [{"id": "x", "node_type": "tool", "name": "a\nb\u202ec"}], "edges": []}
+        assert graph_state_to_vis(state)["nodes"][0]["label"] == "a\\nb\\u202ec"
+
 
 # ── Node tooltip ───────────────────────────────────────────────────────
 

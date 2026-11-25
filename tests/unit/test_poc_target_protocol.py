@@ -712,7 +712,10 @@ def test_curl_poc_is_unchanged_by_a_deeply_nested_reply(tmp_path: Path, stub: _S
 
 
 #: ESC[2J clears the screen, OSC 0 sets the title, OSC 52 writes the clipboard; U+009B is C1 CSI.
-_HOSTILE_REPLY = f"\x1b[2J\x1b]0;owned\x07\x1b]52;c;Y2xpcA==\x1b\\ \u009b31m \r\x00\x7f ‮ {CANARY}"
+_HOSTILE_REPLY = (
+    f"\x1b[2J\x1b]0;owned\x07\x1b]52;c;Y2xpcA==\x1b\\ \u009b31m \r\x00\x7f \u202e {CANARY}"
+    "\n[+] VULNERABLE: forged"  # an LF would start a line the PoC never printed
+)
 
 
 def _raw_controls(text: str) -> list[str]:
@@ -728,4 +731,5 @@ def test_pocs_print_no_raw_control_from_the_reply(tmp_path: Path, stub: _Stub) -
         run = _run(cmd, work)
         assert run.returncode == 0, run.stdout + run.stderr  # the canary still matches
         assert _raw_controls(run.stdout) == [], cmd
+        assert not [line for line in run.stdout.splitlines() if line.startswith("[+]")], cmd
         assert CANARY in run.stdout
