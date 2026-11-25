@@ -111,6 +111,30 @@ class TestTags:
 
 
 @pytest.mark.unit
+class TestUnreachedTags:
+    async def test_tag_on_a_tool_outside_every_chain_is_named(self) -> None:
+        graph = _tagged(await _flat("get_weather"), get_weather=PII)
+        result, chains = _build(graph, [_attack(*CALLS)])
+        assert chains == []
+        assert len(result.warnings) == 1
+        assert "get_weather" in result.warnings[0]
+        page = build_html_report(result.model_dump(mode="json"), {"nodes": [], "edges": []})
+        assert "Warning: " in page and "get_weather" in page
+        assert f"> **Warning:** {result.warnings[0]}" in _markdown(result)
+
+    async def test_reached_tags_are_not_named(self) -> None:
+        result, _ = await _scan(sensitive_data=PII, read_file=PII, sensitve_data=PII)
+        (warning,) = result.warnings
+        assert "sensitve_data" in warning  # a mistyped id
+        assert "sensitive_data" not in warning and "read_file" not in warning
+
+    async def test_no_tags_no_warning(self) -> None:
+        result, _ = await _scan()
+        assert result.warnings == []
+        assert "warnings" not in result.metadata
+
+
+@pytest.mark.unit
 class TestConfig:
     def test_section_loads(self, tmp_path: Path) -> None:
         cfg = tmp_path / "detectors.yaml"
