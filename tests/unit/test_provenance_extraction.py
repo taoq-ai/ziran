@@ -93,17 +93,33 @@ def _text(rng: random.Random) -> str:
 
 
 @pytest.mark.unit
-def test_evidence_equals_develop_on_seeded_random_calls() -> None:
+def test_every_value_matched_at_study_v2_is_still_matched_on_seeded_random_calls() -> None:
+    """study-v2.1 change 8 adds payload values through the parts of a value and moves nothing
+    else: the task and the tool output read as before, and no payload value is lost."""
     rng = random.Random(20261112)
+    gained = 0
     for _ in range(2000):
         task = pv.norm(_text(rng)) if rng.random() < 0.8 else None
         results = [(2 * j + 2, pv.norm(_text(rng))) for j in range(rng.randrange(4))]
         payload = pv.norm(_text(rng))
         for i in range(rng.randrange(1, 4)):
             call = _call(rng, i)
-            assert pv._evidence(i, call, task, results, payload) == _develop_evidence(
-                i, call, task, results, payload
+            new = pv._evidence(i, call, task, results, payload)
+            old = _develop_evidence(i, call, task, results, payload)
+            assert (
+                new.model_copy(
+                    update={"payload_count": old.payload_count, "payload_paths": old.payload_paths}
+                )
+                == old
             )
+            assert new.payload_count >= old.payload_count
+            assert set(old.payload_paths) <= set(new.payload_paths)
+            gained += new.payload_count > old.payload_count
+            # with no payload (rule T3) nothing at all moves
+            assert pv._evidence(i, call, task, results, "") == _develop_evidence(
+                i, call, task, results, ""
+            )
+    assert gained > 20  # the sample holds wrapped values, so the comparison means something
 
 
 @pytest.mark.unit
