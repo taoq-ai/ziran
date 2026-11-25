@@ -48,9 +48,10 @@ ziran scan [OPTIONS]
 
 \* Either `--framework` + `--agent-path` (local) or `--target` (remote) is required.
 
-**Blast radius.** Each dangerous chain gets a blast radius: what its last tool reaches, split
-into demonstrated (the campaign's tool calls touched it) and reachable (the graph reaches it, no
-call touched it). The JSON result keeps one radius per last tool in `blast_radius`; the Markdown
+**Blast radius.** Each dangerous chain gets a blast radius: what its last tool reaches, and
+what the source tools of every chain ending at that tool reach, so data a source tool holds
+shows on the chain. It is split into demonstrated (the campaign's tool calls touched it) and
+reachable (the graph reaches it, no call touched it). The JSON result keeps one radius per last tool in `blast_radius`; the Markdown
 and HTML reports show a "Blast radius" section, and each chain's SARIF result carries
 `properties.blast_radius`: `demonstrated` and `reachable` (each a map of kind to count),
 `external` (true or false) and `data_classes` (a sorted list). To say what a tool or data
@@ -224,14 +225,33 @@ ziran poc RESULT_FILE [OPTIONS]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--output`, `-o` | `.` | Output directory |
+| `--output`, `-o` | `<result dir>/pocs` | Output directory |
 | `--format` | `all` | PoC format: `python`, `curl`, `markdown`, `all` |
+| `--target` | none | Target YAML the scan used. With an `openai` or `rest` protocol, the PoCs send that protocol's request (`openai`: `POST {url}/v1/chat/completions`; `rest`: the configured method, path and body). |
+| `--protocol` | none | Override the target's protocol, as in `scan` (used with `--target`). |
+
+`poc` reads the protocol from the YAML only. A config that says `auto` (the default) is not resolved here, so it falls back to the forms below unless you pass `--protocol`. `ziran scan --target` uses the protocol it detected.
+
+With an `openai` or `rest` target:
+
+- The Python PoC is a standalone script that needs only `httpx`.
+- The cURL PoC sends the same request. `scan --target` writes it beside the Python PoC.
+- Each script takes an optional endpoint as its first argument. It checks the whole reply, tool-call arguments included, for the canaries the scan recorded (a token holding `canary` and a digit, such as `ZX-CANARY-7731`, in the recorded reply or tool-call arguments) and for the matched indicators found there. A token the attack prompt itself sent, and a host or file name such as `canary1.example`, is not a canary. A fixed agent restarted with a fresh canary reads not reproduced.
+- A match shows that the reply carries a recorded canary or indicator, so the agent attempted to send it. A fix at the egress tool is not visible to the PoC: an agent fixed only there, with the same canary, still reads reproduced.
+- Exit codes: `0` reproduced, `1` not reproduced, `2` the finding has no text indicator to check, `3` (Python PoC only) the reply is JSON nested too deep to parse, so it could not be read. A tool call alone does not count as reproduced.
+- Auth headers are not written into the scripts, so add them by hand.
+
+With no target, or another protocol (`mcp`, `a2a`, `browser`, unresolved `auto`):
+
+- The Python PoC defines `reproduce(adapter)`. Run it with `asyncio.run(reproduce(adapter))` and a configured ZIRAN adapter, as before.
+- `--format curl` posts `{"message": ...}` to the target URL, or to `http://localhost:8000/invoke` with no target. `scan` writes no cURL PoC for these targets.
 
 **Examples:**
 
 ```bash
 ziran poc results.json --format python --output ./pocs/
-ziran poc results.json --format curl
+ziran poc results.json --format curl --target target.yaml --protocol openai
+bash pocs/poc_<vector>_<campaign>.sh https://agent.example.com/v1/chat/completions
 ```
 
 ---

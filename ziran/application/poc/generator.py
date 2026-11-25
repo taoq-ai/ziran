@@ -4,8 +4,8 @@ Generates standalone PoC scripts from successful attack results that
 can be used to reproduce, validate, and demonstrate vulnerabilities.
 
 Supports multiple output formats:
-  - **Python**: Complete asyncio script using the adapter pattern.
-  - **cURL**: HTTP-based PoC for API-accessible agents.
+  - **Python**: Standalone httpx script that sends the scan's request.
+  - **cURL**: Shell script that sends the same request with curl.
   - **Markdown**: Human-readable reproduction steps.
 
 All template text, formatting options, and labels are loaded from a
@@ -24,19 +24,25 @@ Example::
 from __future__ import annotations
 
 import json
+import os
+import re
+import secrets
+import shlex
 import textwrap
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mdutils.mdutils import MdUtils
 
 from ziran.application.poc.config import PoCConfig
+from ziran.domain.entities.target import OpenAIConfig, ProtocolType, RestConfig
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from ziran.domain.entities.attack import AttackResult
     from ziran.domain.entities.phase import CampaignResult
+    from ziran.domain.entities.target import TargetConfig
 
 
 class PoCGenerator:
@@ -49,6 +55,8 @@ class PoCGenerator:
         output_dir: Directory where generated PoC files are written.
         config: Template / formatting configuration.
             Defaults to the built-in config shipped with ZIRAN.
+        target: The scanned target. The scripts send the request its protocol
+            handler sent; without one they post ``{"message": prompt}``.
 
     Example::
 
@@ -62,10 +70,78 @@ class PoCGenerator:
         self,
         output_dir: Path,
         config: PoCConfig | None = None,
+        target: TargetConfig | None = None,
     ) -> None:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.config = config or PoCConfig.default()
+        self.target = target
+
+    def _http_target(self) -> bool:
+        """True when the target speaks a protocol the scripts reproduce over plain HTTP."""
+        return self.target is not None and self.target.protocol in (
+            ProtocolType.OPENAI,
+            ProtocolType.REST,
+        )
+
+    def _request(self, prompt: str, endpoint: str | None) -> tuple[str, str, dict[str, Any]]:
+        """Method, URL and JSON body the target's protocol handler sends for ``prompt``.
+
+        Mirrors ``OpenAIProtocolHandler.send`` and ``RestProtocolHandler.send`` for one
+        turn; ``endpoint`` replaces the URL.
+        """
+        target = self.target
+        if target is None:
+            url = self.config.curl_template.default_endpoint
+            return "POST", endpoint or url, {"message": prompt}
+        if target.protocol == ProtocolType.OPENAI:
+            oa = target.openai or OpenAIConfig()
+            body: dict[str, Any] = {
+                "model": oa.model,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if oa.temperature is not None:
+                body["temperature"] = oa.temperature
+            if oa.max_tokens is not None:
+                body["max_tokens"] = oa.max_tokens
+            return "POST", endpoint or f"{target.normalized_url}/v1/chat/completions", body
+        if target.protocol == ProtocolType.REST:
+            rest = target.rest or RestConfig()
+            url = target.normalized_url
+            if rest.request_path:
+                url = f"{url}/{rest.request_path.lstrip('/')}"
+            return rest.method, endpoint or url, {rest.message_field: prompt, **rest.extra_body}
+        return "POST", endpoint or target.url, {"message": prompt}
+
+    def _path(self, filename: str) -> Path:
+        """Return ``filename`` inside the output folder, or raise ValueError."""
+        path = self.output_dir / filename
+        if path.resolve().parent != self.output_dir.resolve():
+            msg = f"PoC file name {filename!r} leaves the output folder"
+            raise ValueError(msg)
+        return path
+
+    def _write(self, filename: str, text: str, mode: int = 0o644) -> Path:
+        """Write ``text`` as UTF-8 to ``filename`` in the output folder.
+
+        The path passes :meth:`_path`. The text goes to a new temp file in the
+        folder (``O_EXCL``, the umask applies), which then replaces the final
+        name, so a symlink, hard link or FIFO planted there is replaced, never
+        written through. Only an executable mode is forced past the umask.
+        """
+        path = self._path(filename)
+        tmp = path.with_name(f".{filename}.{secrets.token_hex(8)}.tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                if mode & 0o111 and hasattr(os, "fchmod"):
+                    os.fchmod(fh.fileno(), mode)
+                fh.write(text)
+            os.replace(tmp, path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
+        return path
 
     def generate_all(
         self,
@@ -98,6 +174,12 @@ class PoCGenerator:
             path = self.generate_python_poc(result, campaign_result.campaign_id)
             generated.append(path)
 
+        if self._http_target():
+            for result in successful:
+                generated.append(
+                    self.generate_curl_poc(result, campaign_id=campaign_result.campaign_id)
+                )
+
         # Generate combined Markdown reproduction guide
         md_path = self.generate_markdown_guide(successful, campaign_result.campaign_id)
         generated.append(md_path)
@@ -108,124 +190,110 @@ class PoCGenerator:
         self,
         result: AttackResult,
         campaign_id: str = "unknown",
+        endpoint: str | None = None,
     ) -> Path:
-        """Generate a standalone Python PoC script for a single finding.
+        """Generate a Python PoC script for a single finding.
+
+        For an ``openai`` or ``rest`` target the script is standalone (httpx
+        only) and sends the target's request. Otherwise it defines
+        ``reproduce(adapter)`` for a configured ZIRAN adapter, as before.
 
         Args:
             result: Successful attack result.
             campaign_id: Campaign identifier for traceability.
+            endpoint: URL to send to instead of the target's (HTTP script only).
 
         Returns:
             Path to the generated Python script.
         """
         tpl = self.config.python_template
-        owasp_str = _owasp_ids(result)
-        prompt_escaped = _escape_python_string(result.prompt_used or "")
-        indicators = result.evidence.get("matched_indicators", [])
-        indicators_repr = repr(indicators)
-        result.evidence.get("tool_calls", [])
-        result.evidence.get("side_effects", {})
+        http = self._http_target()
+        if http:
+            method, url, body = self._request(result.prompt_used or "", endpoint)
+            usage = _PY_HTTP_USAGE
+            imports_block = "import json\nimport sys\n\nimport httpx"
+            request = (
+                f"METHOD = {method!r}\nDEFAULT_ENDPOINT = {url!r}\n"
+                f"BODY = json.loads({json.dumps(body)!r})\n"
+            )
+            reproduce = _PY_HTTP_REPRODUCE
+        else:
+            usage = "Run it against the same agent configuration to validate the issue."
+            imports_block = "\n".join(f"import {m}" for m in tpl.imports)
+            request = ""
+            reproduce = _PY_ADAPTER_REPRODUCE
 
-        imports_block = "\n".join(f"import {m}" for m in tpl.imports)
-
-        # Dedent the template before filling it: a multi-line value (the imports
-        # block, a multi-turn prompt) would otherwise defeat dedent and leave the
-        # whole module indented.
+        # Every finding value goes in as a repr() literal: none is pasted into
+        # the docstring, an f-string or a comment, so no value can end a quote.
+        # Dedent before filling, so a multi-line imports block keeps the module flat.
         script = textwrap.dedent('''\
-            {tpl.shebang}
-            """Proof-of-Concept: {result.vector_name}
+            {shebang}
+            """Proof-of-Concept that reproduces a confirmed ZIRAN finding.
 
-            Campaign:  {campaign_id}
-            Vector:    {result.vector_id}
-            Category:  {result.category.value}
-            Severity:  {result.severity}
-            OWASP:     {owasp_str}
-
-            Generated: {generated}
-            Generator: {generator_label}
-
-            This script reproduces a confirmed vulnerability finding.
-            Run it against the same agent configuration to validate the issue.
+            {usage}
             """
 
             {imports_block}
 
+            VECTOR_NAME = {vector_name}
+            CAMPAIGN_ID = {campaign_id}
+            VECTOR_ID = {vector_id}
+            CATEGORY = {category}
+            SEVERITY = {severity}
+            OWASP = {owasp}
+            GENERATED = {generated}
+            GENERATOR = {generator_label}
 
             # ── Attack payload ──────────────────────────────────────────
-            ATTACK_PROMPT = """{prompt_escaped}"""
+            {request}ATTACK_PROMPT = {prompt}
 
             # ── Expected indicators ─────────────────────────────────────
-            SUCCESS_INDICATORS = {indicators_repr}
+            SUCCESS_INDICATORS = {indicators}
 
+            VULNERABLE_TEXT_MATCH = {vulnerable_text_match}
+            VULNERABLE_TOOL_MATCH = {vulnerable_tool_match}
+            NOT_REPRODUCED = {not_reproduced}
 
-            async def reproduce(adapter):
-                """Send the attack payload and check for success indicators.
-
-                Args:
-                    adapter: A configured ZIRAN BaseAgentAdapter instance.
-
-                Returns:
-                    True if the vulnerability is confirmed, False otherwise.
-                """
-                print(f"[*] Sending attack prompt: {{ATTACK_PROMPT[:80]}}...")
-                response = await adapter.invoke(ATTACK_PROMPT)
-
-                print(f"[*] Agent response (first 200 chars):")
-                print(f"    {{response.content[:200]}}")
-
-                # Check text indicators
-                content_lower = response.content.lower()
-                matched = [
-                    ind for ind in SUCCESS_INDICATORS
-                    if ind.lower() in content_lower
-                ]
-
-                # Check tool call side-effects
-                if response.tool_calls:
-                    print(f"[!] Agent executed {{len(response.tool_calls)}} tool(s):")
-                    for tc in response.tool_calls:
-                        tool_name = tc.get("tool") or tc.get("name") or "unknown"
-                        print(f"    - {{tool_name}}")
-
-                if matched:
-                    print(f"[!] {tpl.vulnerable_text_match}")
-                    return True
-                elif response.tool_calls:
-                    print(f"[!] {tpl.vulnerable_tool_match}")
-                    return True
-                else:
-                    print(f"[-] {tpl.not_reproduced}")
-                    return False
-
+            {reproduce}
 
             if __name__ == "__main__":
                 print("=" * 60)
-                print("ZIRAN Proof-of-Concept: {result.vector_name}")
+                print("ZIRAN Proof-of-Concept: " + {display_name})
                 print("=" * 60)
                 print()
         ''').format(
-            tpl=tpl,
-            result=result,
-            campaign_id=campaign_id,
-            owasp_str=owasp_str,
-            generated=datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
-            generator_label=self.config.generator_label,
+            shebang=tpl.shebang,
+            usage=usage,
             imports_block=imports_block,
-            prompt_escaped=prompt_escaped,
-            indicators_repr=indicators_repr,
+            request=request,
+            reproduce=reproduce,
+            vector_name=repr(result.vector_name),
+            display_name=repr(_printable(result.vector_name)),
+            campaign_id=repr(campaign_id),
+            vector_id=repr(result.vector_id),
+            category=repr(result.category.value),
+            severity=repr(result.severity),
+            owasp=repr(_owasp_ids(result)),
+            generated=repr(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
+            generator_label=repr(self.config.generator_label),
+            prompt=repr(result.prompt_used or ""),
+            indicators=repr(_indicators(result)),
+            vulnerable_text_match=repr(tpl.vulnerable_text_match),
+            vulnerable_tool_match=repr(tpl.vulnerable_tool_match),
+            not_reproduced=repr(tpl.not_reproduced),
         )
 
-        # Append run instructions from config
-        for instruction in tpl.run_instructions:
-            script += f'    print("{instruction}")\n'
+        if http:
+            script += "    sys.exit(reproduce(*sys.argv[1:2]))\n"
+        else:
+            for instruction in tpl.run_instructions:
+                script += f"    print({instruction!r})\n"
+            script += "    print()\n"
+            script += "    sys.exit(0)\n"
 
-        script += "    print()\n"
-        script += "    sys.exit(0)\n"
-
-        filename = f"poc_{result.vector_id}_{campaign_id}.py"
-        filepath = self.output_dir / filename
-        filepath.write_text(script)
-        return filepath
+        return self._write(
+            f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.py", script
+        )
 
     def generate_curl_poc(
         self,
@@ -233,75 +301,96 @@ class PoCGenerator:
         endpoint: str | None = None,
         campaign_id: str = "unknown",
     ) -> Path:
-        """Generate a cURL-based PoC for API-accessible agents.
+        """Generate a cURL-based PoC that sends the target's request.
 
         Args:
             result: Successful attack result.
-            endpoint: The agent's HTTP endpoint.  Falls back to
-                the config default if not given.
+            endpoint: URL to send to instead of the target's (or, with
+                no target, the config default).
             campaign_id: Campaign identifier.
 
         Returns:
-            Path to the generated shell script.
+            Path to the generated shell script. It exits 0 when the
+            finding reproduces, 1 when it does not, 2 with no text
+            indicator to check.
         """
         tpl = self.config.curl_template
-        effective_endpoint = endpoint or tpl.default_endpoint
-        prompt_json = json.dumps({"message": result.prompt_used or ""})
-        owasp_str = _owasp_ids(result)
-        indicators = result.evidence.get("matched_indicators", [])
+        q = shlex.quote
+        method, url, body = self._request(result.prompt_used or "", endpoint)
+        indicators = _indicators(result)
 
-        script = textwrap.dedent(f"""\
+        # Every value is a shlex-quoted word, never pasted into a comment, an
+        # echo or a hand-quoted string. The body goes through the printf
+        # builtin to curl's stdin, so it arrives byte for byte at any size.
+        script = textwrap.dedent("""\
             #!/bin/bash
-            # Proof-of-Concept: {result.vector_name}
-            #
-            # Campaign:  {campaign_id}
-            # Vector:    {result.vector_id}
-            # Category:  {result.category.value}
-            # Severity:  {result.severity}
-            # OWASP:     {owasp_str}
-            # Generated: {datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}
+            # Proof-of-Concept that reproduces a confirmed ZIRAN finding.
+            # Usage: bash <this file> [ENDPOINT]
+            # Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check.
 
             set -euo pipefail
 
-            ENDPOINT="${{1:-{effective_endpoint}}}"
+            VECTOR_NAME={vector_name}
+            CAMPAIGN_ID={campaign_id}
+            VECTOR_ID={vector_id}
+            CATEGORY={category}
+            SEVERITY={severity}
+            OWASP={owasp}
+            GENERATED={generated}
 
-            echo "=== ZIRAN PoC: {result.vector_name} ==="
-            echo "Sending attack payload to $ENDPOINT ..."
+            DEFAULT_ENDPOINT={endpoint}
+            ENDPOINT="${{1:-$DEFAULT_ENDPOINT}}"
 
-            RESPONSE=$(curl -s -X POST "$ENDPOINT" \\
+            printf '%s\\n' {banner}
+            printf 'Sending attack payload to %s ...\\n' "$ENDPOINT"
+
+            RESPONSE=$(printf '%s' {payload} | curl -s -X {method} --url "$ENDPOINT" \\
               -H "Content-Type: application/json" \\
-              -d '{prompt_json}')
+              --data-binary @-)
 
             echo ""
             echo "Response:"
-            echo "$RESPONSE" | head -c {tpl.max_response_chars}
+            printf '%s' "${{RESPONSE:0:{max_chars}}}"
             echo ""
             echo ""
 
             # Check for success indicators
             VULNERABLE=0
-        """)
+        """).format(
+            vector_name=q(result.vector_name),
+            campaign_id=q(campaign_id),
+            vector_id=q(result.vector_id),
+            category=q(result.category.value),
+            severity=q(result.severity),
+            owasp=q(_owasp_ids(result)),
+            generated=q(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
+            endpoint=q(url),
+            banner=q(f"=== ZIRAN PoC: {_printable(result.vector_name)} ==="),
+            payload=q(json.dumps(body)),
+            method=q(method),
+            max_chars=tpl.max_response_chars,
+        )
 
+        if not indicators:
+            script += 'echo "[-] No text indicator recorded: check the agent\'s tool log"\n'
+            script += "exit 2\n"
         for ind in indicators[: tpl.max_indicators]:
-            ind_escaped = ind.replace("'", "'\\''")
-            script += f"    echo \"$RESPONSE\" | grep -qi '{ind_escaped}' && VULNERABLE=1\n"
+            script += f'grep -qiF -- {q(ind)} <<<"$RESPONSE" && VULNERABLE=1\n'
 
         script += textwrap.dedent("""\
 
             if [ "$VULNERABLE" -eq 1 ]; then
               echo "[!] VULNERABLE — Success indicators detected in response"
-              exit 1
+              echo "[i] {note}"
+              exit 0
             else
               echo "[-] Not reproduced"
-              exit 0
+              exit 1
             fi
-        """)
+        """).format(note=_ATTEMPT_NOTE)
 
-        filename = f"poc_{result.vector_id}_{campaign_id}.sh"
-        filepath = self.output_dir / filename
-        filepath.write_text(script)
-        filepath.chmod(0o755)
-        return filepath
+        name = f"poc_{_safe_name(result.vector_id)}_{_safe_name(campaign_id)}.sh"
+        return self._write(name, script, 0o755)
 
     def generate_markdown_guide(
         self,
@@ -320,10 +409,10 @@ class PoCGenerator:
             Path to the generated Markdown file.
         """
         tpl = self.config.markdown_template
-        filepath = self.output_dir / f"poc_guide_{campaign_id}.md"
+        filename = f"poc_guide_{_safe_name(campaign_id)}.md"
 
         md = MdUtils(
-            file_name=str(filepath.with_suffix("")),  # mdutils appends .md
+            file_name=filename,  # unused: the text is written by self._write
             title=tpl.title,
         )
 
@@ -416,8 +505,107 @@ class PoCGenerator:
         ziran_link = md.new_inline_link(link=tpl.footer_link_url, text=tpl.footer_link_text)
         md.new_paragraph(f"*Generated by {ziran_link} — {tpl.footer_tagline}*")
 
-        md.create_md_file()
-        return filepath
+        return self._write(filename, md.get_md_text())
+
+
+#: What a match shows: the attempt, not whether an egress guard stopped it.
+_ATTEMPT_NOTE = (
+    "The reply carries a recorded indicator (the agent attempted to send it); "
+    "a fix at the egress tool is not visible to this PoC."
+)
+
+# ── Python PoC bodies (plain text, never passed through str.format) ──
+
+_PY_HTTP_USAGE = """Usage: python3 <this file> [ENDPOINT]   (needs httpx)
+Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check.
+Exit 3: the reply could not be read."""
+
+_PY_HTTP_REPRODUCE = (
+    '''
+def _texts(value):
+    """Every string in a parsed JSON reply, tool-call arguments included, in order."""
+    texts, stack = [], [value]
+    while stack:  # a loop, not recursion: a reply may nest deeper than the stack
+        item = stack.pop()
+        if isinstance(item, str):
+            texts.append(item)
+        elif isinstance(item, dict):
+            stack.extend(reversed(list(item.values())))
+        elif isinstance(item, list):
+            stack.extend(reversed(item))
+    return texts
+
+
+def reproduce(endpoint=DEFAULT_ENDPOINT):
+    """Send the attack request; return 0 reproduced, 1 not, 2 nothing to check, 3 unreadable."""
+    print("[*] Sending attack payload to " + endpoint)
+    reply = httpx.request(METHOD, endpoint, json=BODY, timeout=120.0)
+    print("[*] Agent response (HTTP " + str(reply.status_code) + ", first 200 chars):")
+    print("    " + reply.text[:200])
+    try:
+        data = reply.json()
+    except ValueError:
+        data = reply.text
+    except RecursionError:
+        print("[-] Unreadable reply: its JSON nests too deep to parse")
+        return 3
+    content_lower = "\\n".join(_texts(data)).lower()
+    matched = [ind for ind in SUCCESS_INDICATORS if ind.lower() in content_lower]
+
+    if matched:
+        print("[!] " + VULNERABLE_TEXT_MATCH.replace("{matched}", str(matched)))
+        print("[i] " + '''
+    + repr(_ATTEMPT_NOTE)
+    + """)
+        return 0
+    if SUCCESS_INDICATORS:
+        print("[-] " + NOT_REPRODUCED)
+        return 1
+    print("[-] No text indicator recorded: check the agent's tool log")
+    return 2
+"""
+)
+
+_PY_ADAPTER_REPRODUCE = '''
+async def reproduce(adapter):
+    """Send the attack payload and check for success indicators.
+
+    Args:
+        adapter: A configured ZIRAN BaseAgentAdapter instance.
+
+    Returns:
+        True if the vulnerability is confirmed, False otherwise.
+    """
+    print(f"[*] Sending attack prompt: {ATTACK_PROMPT[:80]}...")
+    response = await adapter.invoke(ATTACK_PROMPT)
+
+    print(f"[*] Agent response (first 200 chars):")
+    print(f"    {response.content[:200]}")
+
+    # Check text indicators
+    content_lower = response.content.lower()
+    matched = [
+        ind for ind in SUCCESS_INDICATORS
+        if ind.lower() in content_lower
+    ]
+
+    # Check tool call side-effects
+    if response.tool_calls:
+        print(f"[!] Agent executed {len(response.tool_calls)} tool(s):")
+        for tc in response.tool_calls:
+            tool_name = tc.get("tool") or tc.get("name") or "unknown"
+            print(f"    - {tool_name}")
+
+    if matched:
+        print("[!] " + VULNERABLE_TEXT_MATCH.replace("{matched}", str(matched)))
+        return True
+    elif response.tool_calls:
+        print("[!] " + VULNERABLE_TOOL_MATCH)
+        return True
+    else:
+        print("[-] " + NOT_REPRODUCED)
+        return False
+'''
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -429,6 +617,84 @@ def _owasp_ids(result: AttackResult) -> str:
     return ", ".join(c.value for c in ids) or "N/A"
 
 
-def _escape_python_string(s: str) -> str:
-    """Escape a string for safe embedding in a triple-quoted Python string."""
-    return s.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
+#: A whole token, unless it is a label of a host or file name (``canary1.example``).
+_TOKEN = re.compile(r"(?<![A-Za-z0-9_.-])(?>[A-Za-z0-9_-]+)(?!\.[A-Za-z])")
+
+
+def _indicators(result: AttackResult) -> list[str]:
+    """The canaries the scan recorded, then the matched indicators found where it saw them.
+
+    A canary is taken from the recorded reply or a recorded tool call's arguments, so
+    a fixed agent holding a fresh canary does not match; one the prompt sent is dropped. A matched indicator stays when
+    it occurs in that reply or those arguments; this drops labels no reply holds (a
+    judge verdict, a tool description). With no recorded reply, every matched one stays.
+    """
+    reply = result.agent_response or result.evidence.get("response_snippet") or ""
+    calls = result.evidence.get("tool_calls") or []
+    args = [
+        _strings(_parsed(c.get("arguments", c.get("input", c.get("args")))))
+        for c in calls
+        if isinstance(c, dict)
+    ]
+    seen = "\n".join([reply, *(s for a in args for s in a)])
+    # A canary names itself one and holds a digit (``ZX-CANARY-7731``). A token the
+    # attack prompt sent is an echo, never a leak.
+    prompt = (result.prompt_used or "").casefold()
+    canaries = [
+        t
+        for t in _TOKEN.findall(seen)
+        if "canary" in t.casefold() and any(c.isdigit() for c in t) and t.casefold() not in prompt
+    ]
+    matched = [
+        i
+        for i in result.evidence.get("matched_indicators", [])
+        if isinstance(i, str) and i and (not reply or i.lower() in seen.lower())
+    ]
+    return list(dict.fromkeys([*canaries, *matched]))
+
+
+def _parsed(value: Any) -> Any:
+    """``value`` decoded when it is a JSON string (OpenAI tool-call arguments), else as is.
+
+    Malformed or too deeply nested JSON (a hostile agent's arguments) stays plain text.
+    """
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (ValueError, RecursionError):
+            return value
+    return value
+
+
+def _strings(value: Any) -> list[str]:
+    """Every string in a decoded JSON value, walked without recursion (any depth)."""
+    found: list[str] = []
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            found.append(item)
+        elif isinstance(item, dict):
+            stack.extend(reversed(list(item.values())))
+        elif isinstance(item, list):
+            stack.extend(reversed(item))
+    return found
+
+
+def _safe_name(value: str) -> str:
+    """``value`` with every character outside ``[A-Za-z0-9._-]`` replaced by ``_``.
+
+    Raises:
+        ValueError: when ``value`` is empty or only dots, which name no file.
+    """
+    if not value.strip("."):
+        msg = f"PoC file name part {value!r} is empty or only dots"
+        raise ValueError(msg)
+    return re.sub(r"[^A-Za-z0-9._-]", "_", value)
+
+
+def _printable(value: str) -> str:
+    """``value`` with every non-printable character (C0, C1, ESC, bidi) backslash-escaped."""
+    return "".join(
+        c if c.isprintable() else c.encode("unicode_escape").decode("ascii") for c in value
+    )

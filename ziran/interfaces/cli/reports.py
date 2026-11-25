@@ -37,7 +37,8 @@ if TYPE_CHECKING:
     from ziran.domain.entities.phase import CampaignResult
 
 BLAST_RADIUS_INTRO = (
-    "Each chain's radius is its last tool's. Demonstrated: the campaign's tool calls touched it. "
+    "Each chain's radius is what its last tool, and the tools of every chain ending there, "
+    "reach. Demonstrated: the campaign's tool calls touched it. "
     "Reachable: the graph reaches it, but no call touched it."
 )
 _BLAST_KINDS = (
