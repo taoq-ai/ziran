@@ -59,3 +59,20 @@ def test_two_patterns_on_one_pair_give_one_type_whichever_comes_first(
     assert info is not None and info["type"] == "specific_type"  # the longer pattern wins
     info = analyzer._match_pattern("zzfetch_log", "zzmail_now", {})
     assert info is not None and info["type"] == "general_type"
+
+
+@pytest.mark.parametrize("flip", [False, True])
+def test_two_patterns_of_one_length_give_the_higher_risk_whichever_comes_first(
+    tmp_path: Path, flip: bool
+) -> None:
+    patterns = [
+        _pattern("zzfetch", "zzmail", "low_type", "low"),
+        _pattern("zzfetch", "zzmail", "unused", "low"),  # the same key: replaced by the next one
+        _pattern("zzmail", "zzfetch", "other_pair", "medium"),
+        _pattern("zzfet", "zzmailer", "critical_type", "critical"),  # the same combined length
+    ]
+    path = tmp_path / "patterns.yaml"
+    path.write_text(yaml.safe_dump({"patterns": patterns[::-1] if flip else patterns}))
+    analyzer = ToolChainAnalyzer(AttackKnowledgeGraph(), custom_patterns_path=path)
+    info = analyzer._match_pattern("zzfetch", "zzmailer", {})
+    assert info is not None and info["type"] == "critical_type"  # both match: the higher risk wins

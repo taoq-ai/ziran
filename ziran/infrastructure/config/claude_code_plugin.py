@@ -47,17 +47,20 @@ def _split_tools(text: str) -> list[str]:
     """A tool list split at commas and at spaces, never inside "(...)" (spec 099).
 
     One pass: a file is untrusted and may hold a tools line of 1 MiB, so no regex lookahead.
+    A bracket that is never closed must not swallow the tools after it: the rest of the line,
+    from the entry that opened it, is split at its commas, so the audit still sees each tool.
     """
     out, depth, start = [], 0, 0
     for i, ch in enumerate(text):
         if ch == "(":
             depth += 1
         elif ch == ")":
-            depth = max(depth - 1, 0)
+            depth = max(depth - 1, 0)  # a stray ")" closes nothing
         elif depth == 0 and (ch == "," or ch.isspace()):
             out.append(text[start:i])
             start = i + 1
-    return [*out, text[start:]]
+    tail = text[start:]
+    return [*out, *(tail.split(",") if depth else [tail])]
 
 
 def _tool_list(value: object) -> object:

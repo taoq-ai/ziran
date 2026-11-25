@@ -87,6 +87,53 @@ def test_an_unclosed_specifier_is_not_split(tmp_path: Path) -> None:
     assert _agent(tmp_path, "tools: Read, Bash(git status\n").tools == ["Read", "Bash(git status"]
 
 
+@pytest.mark.parametrize(
+    ("line", "tools"),
+    [
+        ("Read, WebFetch(, Bash, Write", ["Read", "WebFetch(", "Bash", "Write"]),
+        ("WebFetch(, Bash, Write", ["WebFetch(", "Bash", "Write"]),  # the open bracket at the start
+        ("Read, Bash, WebFetch(", ["Read", "Bash", "WebFetch("]),  # and at the end
+        (
+            "Read, Bash(a(b, Write, Edit",
+            ["Read", "Bash(a(b", "Write", "Edit"],
+        ),  # nested, none closed
+        (
+            "Read, Bash(a(b), Write, Edit",
+            ["Read", "Bash(a(b)", "Write", "Edit"],
+        ),  # nested, one closed
+        (
+            "Read Bash(git status:*), WebFetch(, Write",
+            ["Read", "Bash(git status:*)", "WebFetch(", "Write"],
+        ),
+    ],
+)
+def test_an_unclosed_bracket_hides_no_tool_after_it(
+    tmp_path: Path, line: str, tools: list[str]
+) -> None:
+    """A stray open bracket must not swallow the rest of the line: the tools after it are split at commas, as
+    before the one-pass split, so the audit still sees them."""
+    assert _agent(tmp_path, f"tools: {line}\n").tools == tools
+
+
+def test_tools_after_an_unclosed_bracket_still_get_their_chain(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, "tools: Read, WebFetch(, Bash, Write\n")
+    assert any(c.tools == ["Read", "Bash"] for c in agent_chains(agent, typed=True))
+
+
+@pytest.mark.parametrize(
+    ("line", "tools"),
+    [
+        ("x), Bash, WebFetch", ["x)", "Bash", "WebFetch"]),
+        ("Read), Bash(git status:*), WebFetch", ["Read)", "Bash(git status:*)", "WebFetch"]),
+        (")), Read Grep", ["))", "Read", "Grep"]),
+    ],
+)
+def test_a_stray_closing_bracket_does_not_join_the_tools_after_it(
+    tmp_path: Path, line: str, tools: list[str]
+) -> None:
+    assert _agent(tmp_path, f"tools: {line}\n").tools == tools
+
+
 def _split_seconds(tokens: int) -> float:
     text = "Read Grep " * tokens
     return min(timeit.repeat(lambda: _split_tools(text), number=1, repeat=5))
