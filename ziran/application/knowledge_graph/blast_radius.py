@@ -1,4 +1,4 @@
-"""Blast radius: what an attacker reaches from a chain's last tool (spec 091).
+"""Blast radius: what an attacker reaches from a chain's tools (spec 091, spec 102).
 
 The walk starts at the given tools and at the agents that hold them (``USES_TOOL``), and follows
 ``USES_TOOL``, ``ACCESSES_DATA``, ``DELEGATES_TO``, ``CAN_CHAIN_TO`` and ``SHARES_CONTEXT``

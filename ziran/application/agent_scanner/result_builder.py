@@ -187,25 +187,28 @@ class ResultBuilder:
     def _fill_blast_radius(
         self, chains: list[Any], attack_results: list[AttackResult]
     ) -> dict[str, BlastRadius]:
-        """Set each chain's blast radius from its last tool (spec 091), one walk per last tool.
+        """Set each chain's blast radius, one walk per last tool (spec 091).
 
-        Returns the radii by last tool: the result JSON keeps each once, not once per chain.
+        The walk starts at the last tool and at the tools of every chain that ends there
+        (spec 102), so data a source tool holds shows on the chain even when no edge leads
+        from the last tool to it. Returns the radii by last tool: the result JSON keeps each
+        once, not once per chain.
         """
         evidence = [r.evidence.get("tool_calls") for r in attack_results]
         calls = [c for e in evidence if isinstance(e, list) for c in e]
         called = called_tools(self._graph, calls)  # once: walks x calls was 10 times slower
         config = self._graph.blast_radius_config
-        radii: dict[str, BlastRadius] = {}
+        starts: dict[str, list[str]] = {}  # last tool first, then the chains' source tools
         for chain in chains:
             if chain.tools:
-                last = chain.tools[-1]
-                if last not in radii:
-                    radii[last] = blast_radius(
-                        self._graph,
-                        [last],
-                        called=called,
-                        external=config.external,
-                        tags=config.tags,
-                    )
-                chain.blast_radius = radii[last]
+                starts.setdefault(chain.tools[-1], [chain.tools[-1]]).extend(chain.tools[:-1])
+        radii = {
+            last: blast_radius(
+                self._graph, tools, called=called, external=config.external, tags=config.tags
+            )
+            for last, tools in starts.items()
+        }
+        for chain in chains:
+            if chain.tools:
+                chain.blast_radius = radii[chain.tools[-1]]
         return radii

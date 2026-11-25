@@ -132,7 +132,7 @@ class BlastReach(BaseModel):
 
 
 class BlastRadius(BaseModel):
-    """What an attacker reaches from a chain's last tool (spec 091).
+    """What an attacker reaches from a chain's tools (spec 091, spec 102).
 
     ``demonstrated`` holds the nodes the campaign's recorded tool calls touched, ``reachable``
     the ones the graph reaches but no call touched. A node is in one of the two, never both.
@@ -186,7 +186,7 @@ class DangerousChain(BaseModel):
     )
     trace_source: str | None = Field(default=None, description="Trace source: 'otel' or 'langfuse'")
     blast_radius: BlastRadius | None = Field(
-        default=None, description="What the chain's last tool reaches, filled after a scan"
+        default=None, description="What the chain's tools reach, filled after a scan"
     )
 
     @property
