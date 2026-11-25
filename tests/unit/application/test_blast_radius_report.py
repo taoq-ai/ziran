@@ -285,7 +285,7 @@ class TestMarkdown:
     def test_hostile_ids_are_code_spans(self) -> None:
         radius = _radius(reachable={"exec": [HOSTILE], "counts": {"exec": 1}})
         text = _markdown(_result([_chain("a", HOSTILE)], {HOSTILE: radius}))
-        span = "``tool_x`|<script>alert(1)</script>*_[a](b) #``"
+        span = "``tool_x`|<script>alert(1)</script>*_[a](b)\\n#``"
         assert f"#### Chains ending at {span} (1 chain)\n" in text
         assert f"- Exec tools: {span}\n" in text
         assert "\n#\n" not in text
@@ -300,11 +300,26 @@ class TestMarkdown:
             ("a``b`c", "```a``b`c```"),
             ("a", "`a`"),
             ("", "` `"),  # an empty span would fuse with a later backtick run
-            ("\n", "` `"),
+            ("\n", "`\\n`"),  # a control shows escaped, never raw
         ],
     )
     def test_code_span_fences(self, raw: str, span: str) -> None:
         assert _md_code(raw) == span
+
+    def test_control_ids_stay_on_one_table_row(self) -> None:
+        tool = "send\nmail\u202e|x\x1b[2J"
+        radius = _radius(reachable={"tags": {tool: {"data_class": "pii", "owner": "o\r\x9bwn"}}})
+        result = _result([_chain("read", tool)], {tool: radius}, critical_paths=[["read", tool]])
+        text = _markdown(result)
+
+        table = _section(text, "| Risk | Type | Tools | Description |", "\n\n")
+        assert len(table.splitlines()) == 3  # header, rule and one chain row
+        shown = "send\\nmail\\u202e|x\\x1b[2J"
+        cell = shown.replace("|", "\\|")  # a table cell escapes |
+        assert f"| `read → {cell}` |" in table
+        assert f"1. `read → {shown}`\n" in text
+        assert "owner `o\\r\\x9bwn`" in text
+        assert not [c for c in text if c != "\n" and not c.isprintable() and c != "\ufe0f"]
 
     def test_mixed_runs_stay_inside_the_span(self) -> None:
         raw = "a`b``[click](http://evil.example)<img src=x>`c"
@@ -355,6 +370,16 @@ class TestHtml:
         page = build_html_report(data, {"nodes": [], "edges": []})
         section = _section(page, "Blast radius</div>", "<!-- Attack Paths -->")
         assert "<script>" not in section and "&lt;script&gt;" in section
+
+    def test_control_ids_are_escaped_on_one_line(self) -> None:
+        tool = "send\nmail\u202e<b>"
+        radius = _radius(reachable={"exec": [tool], "counts": {"exec": 1}})
+        result = _result([_chain("read", tool)], {tool: radius}, critical_paths=[["read", tool]])
+        page = build_html_report(result.model_dump(mode="json"), {"nodes": [], "edges": []})
+        section = _section(page, "Blast radius</div>", "<!-- Attack Paths -->")
+
+        assert "send\\nmail\\u202e&lt;b&gt;" in section
+        assert "\u202e" not in page and "send\nmail" not in page
 
     def test_no_radius_is_byte_identical(self) -> None:
         data = _result([_chain(READ, HTTP)], {}).model_dump(mode="json")

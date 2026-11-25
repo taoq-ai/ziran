@@ -388,7 +388,40 @@ def _run_curl_poc(
     return run, work
 
 
+_PY_HOSTILE_REPLY_DRIVER = """
+import asyncio, runpy, sys, types
+
+class Adapter:
+    async def invoke(self, prompt):
+        return types.SimpleNamespace(
+            content="\\x1b[2J\\x1b]0;owned\\x07 \\x9b31m \\r\\u202e -e",
+            tool_calls=[{"name": "shell\\n\\x1b[31m\\u202e"}],
+        )
+
+module = runpy.run_path(sys.argv[1])
+assert asyncio.run(module["reproduce"](Adapter())) is True
+"""
+
+
 class TestPoCQuoting:
+    def test_adapter_poc_prints_no_raw_control_from_the_reply(
+        self, tmp_path: Path, successful_result: AttackResult
+    ) -> None:
+        successful_result.evidence["matched_indicators"] = ["-e"]
+        successful_result.agent_response = None  # no recorded reply: every indicator stays
+        successful_result.evidence.pop("response_snippet")
+        path = PoCGenerator(tmp_path / "pocs").generate_python_poc(successful_result, "c")
+        driver = tmp_path / "driver.py"
+        driver.write_text(_PY_HOSTILE_REPLY_DRIVER)
+
+        run = subprocess.run(
+            [sys.executable, str(driver), str(path)], capture_output=True, text=True, check=False
+        )
+
+        assert run.returncode == 0, run.stderr
+        assert [c for c in run.stdout if c != "\n" and not c.isprintable()] == []
+        assert "\\x1b[2J" in run.stdout and "- shell\\n\\x1b[31m\\u202e" in run.stdout
+
     def test_python_poc_runs_no_injected_code(
         self, tmp_path: Path, hostile_result: AttackResult
     ) -> None:

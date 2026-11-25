@@ -36,6 +36,7 @@ from mdutils.mdutils import MdUtils
 
 from ziran.application.poc.config import PoCConfig
 from ziran.domain.entities.target import OpenAIConfig, ProtocolType, RestConfig
+from ziran.domain.text import printable
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -268,7 +269,7 @@ class PoCGenerator:
             request=request,
             reproduce=reproduce,
             vector_name=repr(result.vector_name),
-            display_name=repr(_printable(result.vector_name)),
+            display_name=repr(printable(result.vector_name)),
             campaign_id=repr(campaign_id),
             vector_id=repr(result.vector_id),
             category=repr(result.category.value),
@@ -350,7 +351,8 @@ class PoCGenerator:
 
             echo ""
             echo "Response:"
-            printf '%s' "${{RESPONSE:0:{max_chars}}}"
+            # One line, control bytes (ESC, OSC, C1) shown as ^[ and M- text, never sent raw.
+            printf '%s' "${{RESPONSE:0:{max_chars}}}" | LC_ALL=C tr '\\n' ' ' | LC_ALL=C cat -vt
             echo ""
             echo ""
 
@@ -365,7 +367,7 @@ class PoCGenerator:
             owasp=q(_owasp_ids(result)),
             generated=q(datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
             endpoint=q(url),
-            banner=q(f"=== ZIRAN PoC: {_printable(result.vector_name)} ==="),
+            banner=q(f"=== ZIRAN PoC: {printable(result.vector_name)} ==="),
             payload=q(json.dumps(body)),
             method=q(method),
             max_chars=tpl.max_response_chars,
@@ -520,8 +522,19 @@ _PY_HTTP_USAGE = """Usage: python3 <this file> [ENDPOINT]   (needs httpx)
 Exit 0: reproduced. Exit 1: not reproduced. Exit 2: nothing to check.
 Exit 3: the reply could not be read."""
 
+#: Reply text a PoC prints: one line, controls (ESC, OSC, C1, bidi) backslash-escaped.
+_PY_SHOWN = '''
+def _shown(text):
+    """``text`` with every non-printable character escaped, so a reply cannot drive the terminal."""
+    return "".join(
+        c if c.isprintable() else c.encode("unicode_escape").decode("ascii") for c in text
+    )
+
+'''
+
 _PY_HTTP_REPRODUCE = (
-    '''
+    _PY_SHOWN
+    + '''
 def _texts(value):
     """Every string in a parsed JSON reply, tool-call arguments included, in order."""
     texts, stack = [], [value]
@@ -541,7 +554,7 @@ def reproduce(endpoint=DEFAULT_ENDPOINT):
     print("[*] Sending attack payload to " + endpoint)
     reply = httpx.request(METHOD, endpoint, json=BODY, timeout=120.0)
     print("[*] Agent response (HTTP " + str(reply.status_code) + ", first 200 chars):")
-    print("    " + reply.text[:200])
+    print("    " + _shown(reply.text[:200]))
     try:
         data = reply.json()
     except ValueError:
@@ -566,7 +579,9 @@ def reproduce(endpoint=DEFAULT_ENDPOINT):
 """
 )
 
-_PY_ADAPTER_REPRODUCE = '''
+_PY_ADAPTER_REPRODUCE = (
+    _PY_SHOWN
+    + '''
 async def reproduce(adapter):
     """Send the attack payload and check for success indicators.
 
@@ -580,7 +595,7 @@ async def reproduce(adapter):
     response = await adapter.invoke(ATTACK_PROMPT)
 
     print(f"[*] Agent response (first 200 chars):")
-    print(f"    {response.content[:200]}")
+    print("    " + _shown(response.content[:200]))
 
     # Check text indicators
     content_lower = response.content.lower()
@@ -594,7 +609,7 @@ async def reproduce(adapter):
         print(f"[!] Agent executed {len(response.tool_calls)} tool(s):")
         for tc in response.tool_calls:
             tool_name = tc.get("tool") or tc.get("name") or "unknown"
-            print(f"    - {tool_name}")
+            print("    - " + _shown(str(tool_name)))
 
     if matched:
         print("[!] " + VULNERABLE_TEXT_MATCH.replace("{matched}", str(matched)))
@@ -606,6 +621,7 @@ async def reproduce(adapter):
         print("[-] " + NOT_REPRODUCED)
         return False
 '''
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -691,10 +707,3 @@ def _safe_name(value: str) -> str:
         msg = f"PoC file name part {value!r} is empty or only dots"
         raise ValueError(msg)
     return re.sub(r"[^A-Za-z0-9._-]", "_", value)
-
-
-def _printable(value: str) -> str:
-    """``value`` with every non-printable character (C0, C1, ESC, bidi) backslash-escaped."""
-    return "".join(
-        c if c.isprintable() else c.encode("unicode_escape").decode("ascii") for c in value
-    )

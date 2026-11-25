@@ -29,6 +29,7 @@ from ziran.domain.entities.attack import (
     get_business_impacts,
 )
 from ziran.domain.entities.capability import BlastRadius, BlastReach, DataTag
+from ziran.domain.text import printable
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,8 +52,8 @@ _BLAST_KINDS = (
 
 
 def _md_code(text: str) -> str:
-    """*text* as one Markdown code span: newlines become spaces, the fence outruns its backticks."""
-    text = " ".join(text.splitlines()) or " "  # an empty span would fuse with the next one
+    """*text* as one Markdown code span: controls escaped, the fence outruns its backticks."""
+    text = printable(text) or " "  # an empty span would fuse with the next one
     fence = "`" * (max(map(len, re.findall("`+", text)), default=0) + 1)
     pad = " " if text.startswith("`") or text.endswith("`") else ""
     return f"{fence}{pad}{text}{pad}{fence}"
@@ -246,7 +247,7 @@ class ReportGenerator:
         lines.append(f"**Generated:** {datetime.now(tz=UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
         lines.append("")
         for warning in result.warnings:  # analysis the scan skipped (spec 086)
-            lines.extend([f"> **Warning:** {warning}", ""])
+            lines.extend([f"> **Warning:** {printable(warning)}", ""])
 
         # Summary
         lines.append("## Summary")
@@ -514,7 +515,7 @@ class ReportGenerator:
             lines.append("## Critical Attack Paths")
             lines.append("")
             for i, path in enumerate(result.critical_paths[:10], 1):
-                lines.append(f"{i}. `{' → '.join(path)}`")
+                lines.append(f"{i}. {_md_code(' → '.join(path))}")
             if len(result.critical_paths) > 10:
                 lines.append(f"\n_...and {len(result.critical_paths) - 10} more paths_")
             lines.append("")
@@ -533,15 +534,16 @@ class ReportGenerator:
             for chain in result.dangerous_tool_chains:
                 risk = chain.get("risk_level", "unknown")
                 vtype = chain.get("vulnerability_type", "unknown")
-                tools = " → ".join(chain.get("tools", []))
-                desc = chain.get("exploit_description", "")
+                tools = _md_code(" → ".join(chain.get("tools", [])))
+                desc = printable(chain.get("exploit_description", ""))
                 risk_icon = {
                     "critical": "🔴",
                     "high": "🟠",
                     "medium": "🟡",
                     "low": "🟢",
                 }.get(risk, "⚪")
-                lines.append(f"| {risk_icon} {risk} | {vtype} | `{tools}` | {desc} |")
+                cells = (f"{risk_icon} {risk}", vtype, tools, desc)
+                lines.append("| " + " | ".join(c.replace("|", "\\|") for c in cells) + " |")
             lines.append("")
 
             # Remediation summary
@@ -552,7 +554,7 @@ class ReportGenerator:
                 lines.append("### Remediation Guidance")
                 lines.append("")
                 for chain in chains_with_remediation:
-                    tools = " → ".join(chain.get("tools", []))
+                    tools = _md_code(" → ".join(chain.get("tools", [])))
                     lines.append(f"- **{tools}**: {chain['remediation']}")
                 lines.append("")
 

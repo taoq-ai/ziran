@@ -709,3 +709,23 @@ def test_curl_poc_is_unchanged_by_a_deeply_nested_reply(tmp_path: Path, stub: _S
     run = _run(["bash", str(curl)], work)
 
     assert run.returncode == 0, run.stdout + run.stderr  # grep finds the canary in the text
+
+
+#: ESC[2J clears the screen, OSC 0 sets the title, OSC 52 writes the clipboard; U+009B is C1 CSI.
+_HOSTILE_REPLY = f"\x1b[2J\x1b]0;owned\x07\x1b]52;c;Y2xpcA==\x1b\\ \u009b31m \r\x00\x7f ‮ {CANARY}"
+
+
+def _raw_controls(text: str) -> list[str]:
+    """Every control or bidi character in ``text`` except the line breaks a script prints."""
+    return [c for c in text if c != "\n" and not c.isprintable()]
+
+
+def test_pocs_print_no_raw_control_from_the_reply(tmp_path: Path, stub: _Stub) -> None:
+    curl, py, work = _pocs(tmp_path, stub, _result())
+    stub.raw = _HOSTILE_REPLY.encode()  # a plain-text body: JSON would escape the controls
+
+    for cmd in (["bash", str(curl)], [sys.executable, "-I", str(py)]):
+        run = _run(cmd, work)
+        assert run.returncode == 0, run.stdout + run.stderr  # the canary still matches
+        assert _raw_controls(run.stdout) == [], cmd
+        assert CANARY in run.stdout
