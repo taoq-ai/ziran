@@ -708,3 +708,30 @@ class TestTargetTextElsewhere:
         assert "line one\nline two\\u202e&lt;b&gt;\\x1b[2J\\x07</pre>" in page
         assert "p\\u202eq</pre>" in page
         assert "‮" not in page and "\x1b" not in page and "\x07" not in page
+
+    def test_phase_card_error_and_indicators_show_controls(self) -> None:
+        bad = "boom‮<b>\x1b[2J"
+        shown = "boom\\u202e&lt;b&gt;\\x1b[2J"
+        phase = PhaseResult(
+            phase=ScanPhase.RECONNAISSANCE,
+            success=False,
+            trust_score=0.5,
+            duration_seconds=1.0,
+            error=bad,
+        )
+        data = _result([], {}).model_copy(update={"phases_executed": [phase]})
+        data = data.model_dump(mode="json")
+        data["attack_results"] = [
+            {
+                "vector_id": "v",
+                "vector_name": "n",
+                "category": "prompt_injection",
+                "severity": "high",
+                "successful": True,
+                "evidence": {"matched_indicators": [bad]},
+            }
+        ]
+        page = build_html_report(data, {"nodes": [], "edges": []})
+        assert f"<span>{shown}</span>" in page
+        assert f'<div class="attack-indicators">{shown}</div>' in page
+        assert "‮" not in page and "\x1b" not in page

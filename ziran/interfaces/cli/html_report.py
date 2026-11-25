@@ -474,7 +474,7 @@ def _build_phases_html(phases: list[dict[str, Any]]) -> str:
             f"    <span>Trust: {score:.2f}</span>"
             f"    <span>{duration:.1f}s</span>"
             f"    <span>{len(vulns)} vuln{'s' if len(vulns) != 1 else ''}</span>"
-            + (f"    <span>{html.escape(p['error'])}</span>" if p.get("error") else "")
+            + (f"    <span>{_esc(p['error'])}</span>" if p.get("error") else "")
             + "  </div>"
             "</div>"
         )
@@ -849,7 +849,7 @@ def _build_attack_log_html(attack_results: list[dict[str, Any]]) -> str:
                 )
 
             if matched:
-                indicators = ", ".join(html.escape(str(m)) for m in matched)
+                indicators = ", ".join(_esc(m) for m in matched)
                 parts.append(
                     f'  <div class="attack-section-label">Matched Indicators</div>'
                     f'  <div class="attack-indicators">{indicators}</div>'
