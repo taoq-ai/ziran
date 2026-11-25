@@ -253,6 +253,14 @@ def _pentest_repl(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     main._run_interactive_mode(orchestrator, "goal", str(tmp_path))
 
 
+def _traces_error(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(_source: str) -> None:
+        raise ValueError(HOSTILE)
+
+    monkeypatch.setattr(analyze_traces, "_build_ingestor", fail)
+    CliRunner().invoke(analyze_traces.analyze_traces, ["--source", "otel", "--out", str(tmp_path)])
+
+
 def _registry(tmp_path: Any) -> None:
     watch_registry._print_summary(
         [
@@ -282,6 +290,7 @@ def _progress(tmp_path: Any) -> None:
 _RENDERERS: list[Callable[..., Any]] = [
     _scan,
     _traces,
+    _traces_error,
     _audit,
     _audit_narrowed,
     _gate,
