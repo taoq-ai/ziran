@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 from pydantic import ValidationError
 
+from tests.conftest import MockAgentAdapter
 from tests.unit.application.test_blast_radius import (
     CALLS,
     HTTP,
@@ -18,10 +19,20 @@ from tests.unit.application.test_blast_radius import (
     _flat,
     _multi_agent,
 )
+from ziran.application.agent_scanner.result_builder import ResultBuilder
+from ziran.application.agent_scanner.structure_import import import_adapter_structure
 from ziran.application.cicd.sarif import generate_sarif
 from ziran.application.detectors.thresholds import DetectorThresholds
 from ziran.application.knowledge_graph.blast_radius import blast_radius
-from ziran.domain.entities.capability import BlastRadius, BlastRadiusConfig, DataTag
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
+from ziran.domain.entities.capability import (
+    AgentCapability,
+    BlastRadius,
+    BlastRadiusConfig,
+    CapabilityType,
+    DangerousChain,
+    DataTag,
+)
 from ziran.domain.entities.phase import CampaignResult
 from ziran.infrastructure.config.detectors import DetectorConfigError, load_detector_thresholds
 from ziran.interfaces.cli.html_report import build_html_report
@@ -435,3 +446,75 @@ def test_report_command_rejects_a_bad_radius(tmp_path: Path) -> None:
     assert isinstance(run.exception, SystemExit)
     assert "data_class" in run.output
     assert not list(tmp_path.glob("*.md"))
+
+
+SECRET = DataTag(data_class="secret")
+_KIND = {"vulnerability_type": "data_exfiltration", "exploit_description": "x"}
+
+
+async def _probed(**tags: DataTag) -> Any:
+    """An agent as remote-probe discovery maps it (spec 102): only the dangerous tool links to
+    sensitive_data, and no edge reaches the reading tools."""
+    caps = [
+        AgentCapability(id="probe_read_inbox", name="read_inbox", type=CapabilityType.SKILL),
+        AgentCapability(id="probe_get_weather", name="get_weather", type=CapabilityType.SKILL),
+        AgentCapability(
+            id="probe_send_email", name="send_email", type=CapabilityType.TOOL, dangerous=True
+        ),
+    ]
+    graph = AttackKnowledgeGraph()
+    for c in caps:
+        graph.add_capability(c.id, c)
+    graph.add_data_source("sensitive_data")
+    graph.add_edge("probe_send_email", "sensitive_data", EdgeType.ACCESSES_DATA)
+    await import_adapter_structure(MockAgentAdapter(), graph, caps)
+    return _tagged(graph, **tags)
+
+
+def _classes(radius: BlastRadius) -> set[str]:
+    tags = radius.demonstrated.tags | radius.reachable.tags
+    return {t.data_class for t in tags.values()}
+
+
+@pytest.mark.unit
+class TestSourceTools:
+    """A chain's data classes include what its source tools reach (spec 102)."""
+
+    async def test_tagged_source_tool_shows_on_the_chain(self) -> None:
+        result, chains = _build(await _probed(probe_read_inbox=PII), [])
+        (chain,) = [c for c in chains if c.tools == ["probe_read_inbox", "probe_send_email"]]
+        assert chain.blast_radius.reachable.tags == {"probe_read_inbox": PII}
+        stored = result.blast_radius["probe_send_email"]["reachable"]["tags"]
+        assert set(stored) == {"probe_read_inbox"}
+
+    async def test_shared_sensitive_data_gains_no_false_class(self) -> None:
+        tags = {"sensitive_data": SECRET, "probe_get_weather": PII}  # no chain holds get_weather
+        _, chains = _build(await _probed(**tags), [])
+        assert chains
+        for chain in chains:
+            assert _classes(chain.blast_radius) == {"secret"}
+
+    async def test_file_to_http_chain_still_reads_only_secret(self) -> None:
+        _, chains = await _scan(sensitive_data=SECRET)
+        (chain,) = [c for c in chains if c.vulnerability_type == "data_exfiltration"]
+        assert chain.tools == [READ, HTTP]
+        assert chain.blast_radius.demonstrated.tags == {"sensitive_data": SECRET}
+        assert _classes(chain.blast_radius) == {"secret"}
+
+    async def test_tagged_source_tool_is_demonstrated_when_called(self) -> None:
+        graph = await _probed(probe_read_inbox=PII)
+        _, chains = _build(graph, [_attack({"name": "read_inbox"})])
+        (chain,) = [c for c in chains if c.tools[0] == "probe_read_inbox"]
+        assert chain.blast_radius.demonstrated.tags == {"probe_read_inbox": PII}
+
+    async def test_chains_sharing_a_last_tool_share_one_walk(self) -> None:
+        graph = await _probed(probe_read_inbox=PII, probe_get_weather=SECRET)
+        chains = [
+            DangerousChain(tools=[a, "probe_send_email"], risk_level="high", **_KIND)
+            for a in ("probe_read_inbox", "probe_get_weather")
+        ]
+        radii = ResultBuilder(graph, "probed")._fill_blast_radius(chains, [])
+        assert set(radii) == {"probe_send_email"}
+        for chain in chains:
+            assert chain.blast_radius is radii["probe_send_email"]
+            assert _classes(chain.blast_radius) == {"pii", "secret"}

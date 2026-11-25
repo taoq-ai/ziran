@@ -48,9 +48,10 @@ ziran scan [OPTIONS]
 
 \* Either `--framework` + `--agent-path` (local) or `--target` (remote) is required.
 
-**Blast radius.** Each dangerous chain gets a blast radius: what its last tool reaches, split
-into demonstrated (the campaign's tool calls touched it) and reachable (the graph reaches it, no
-call touched it). The JSON result keeps one radius per last tool in `blast_radius`; the Markdown
+**Blast radius.** Each dangerous chain gets a blast radius: what its last tool reaches, and
+what the source tools of every chain ending at that tool reach, so data a source tool holds
+shows on the chain. It is split into demonstrated (the campaign's tool calls touched it) and
+reachable (the graph reaches it, no call touched it). The JSON result keeps one radius per last tool in `blast_radius`; the Markdown
 and HTML reports show a "Blast radius" section, and each chain's SARIF result carries
 `properties.blast_radius`: `demonstrated` and `reachable` (each a map of kind to count),
 `external` (true or false) and `data_classes` (a sorted list). To say what a tool or data
