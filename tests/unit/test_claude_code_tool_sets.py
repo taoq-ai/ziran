@@ -115,6 +115,11 @@ def test_an_unclosed_bracket_hides_no_tool_after_it(
     assert _agent(tmp_path, f"tools: {line}\n").tools == tools
 
 
+def test_a_comma_inside_a_closed_specifier_at_the_end_of_the_line_is_kept(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, "tools: Read, Bash(git add, git commit)\n")
+    assert agent.tools == ["Read", "Bash(git add, git commit)"]
+
+
 def test_tools_after_an_unclosed_bracket_still_get_their_chain(tmp_path: Path) -> None:
     agent = _agent(tmp_path, "tools: Read, WebFetch(, Bash, Write\n")
     assert any(c.tools == ["Read", "Bash"] for c in agent_chains(agent, typed=True))
