@@ -24,6 +24,9 @@ Sites covered:
 - `scan` results (`_display_results`): target agent name, finding names and severities,
   critical path tools, dangerous chain type, tools, risk and description.
 - `discover`: capability id, name and description.
+- `validate`: the URL check detail, which carries the target's HTTP reason phrase.
+- Log lines on stderr: the text-format handler no longer parses Rich markup.
+- `pentest` live progress: the agent event message and the attack name.
 - `audit` (`_display_audit_report` and the baseline-narrowed panel): finding message,
   location and recommendation.
 - `ci` (`_display_gate_result`, the result warnings) and `--policy` (`_display_policy_verdict`):
@@ -44,8 +47,10 @@ Sites covered:
 
 - Operator inputs (paths, CLI options, the target config file, the goal) are not target text
   and stay as they are. Overturned if the gate treats the target YAML as hostile.
-- Exception text printed after a failed load (`Error loading agent: {e}`) is out of scope: it
-  is not a scan result. It is a follow-up candidate, since an HTTP error can carry target text.
+- Exception text printed after a failed load (`Error loading agent: {e}`) is out of scope:
+  `load_remote_adapter` makes no network call, so `e` is operator config text.
+- A stdlib log message with raw target text would still pass ESC to stderr: `markup=False`
+  stops markup only. No ziran log call puts raw target text in the message; structlog key
+  values are repr'd.
 - Vector names, ids, phase names and OWASP categories come from ziran's own library and stay
   as they are.
-- `discover` has no test of its own: it needs a live adapter. Its cells take the same helper.

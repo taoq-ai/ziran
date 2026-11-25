@@ -59,7 +59,7 @@ def _build_handler(fmt: LogFormat, level: str, rich_tracebacks: bool) -> logging
             show_path=True,
             rich_tracebacks=rich_tracebacks,
             tracebacks_show_locals=False,
-            markup=True,
+            markup=False,  # log values carry target text (CWE-150)
         )
         handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
