@@ -13,4 +13,7 @@ Base: `origin/develop` at `1adc751`. Branch `feat/study-v21-detector`. Test firs
 - [x] T009 Change 7 tests red, fix, mutants, detection benchmark before and after.
 - [x] T010 Change 8 tests red, fix, mutants, the early check with no send. The 146 design-half
   requests are recorded and not sent: the sends are the main seat's step.
-- [ ] T011 Ruff, format, strict mypy, the whole test suite.
+- [x] T011 Ruff, format, strict mypy, the whole test suite, at `9f1282f`: `ruff check .`, `ruff format --check .`
+  and `mypy ziran` clean; 5,184 tests passed. The 6 failures and 9 errors are in `test_mcp_hostile_server.py`,
+  `test_many_shot_corpus.py` and `test_promptfoo_integration.py`, which fail the same way on `develop` in the
+  local environment and pass in CI.
