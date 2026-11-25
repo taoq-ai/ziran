@@ -56,8 +56,9 @@ and HTML reports show a "Blast radius" section, and each chain's SARIF result ca
 `properties.blast_radius`: `demonstrated` and `reachable` (each a map of kind to count),
 `external` (true or false) and `data_classes` (a sorted list). To say what a tool or data
 source holds, tag it in `.ziran/detectors.yaml`; the key is the node id or the tool name, and the
-id wins when both are given. `external` corrects whether a tool reaches parties outside the
-organisation:
+id wins when both are given. A tag no chain's radius reaches, such as a mistyped id or a tool in
+no chain, is named in one warning in the result's `warnings` and the reports. `external`
+corrects whether a tool reaches parties outside the organisation:
 
 ```yaml
 blast_radius:
