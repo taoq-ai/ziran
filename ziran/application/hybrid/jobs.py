@@ -9,9 +9,10 @@ registers, and merges a reply with the first pass, so no reply removes a first-p
 2. Capability classifier: the tools ziran's tables do not know, names only (ADR 0007), at most 12
    a request. A usable reply gives role overrides for typed chains. A table tool is never sent,
    so no reply can retype it, and an override never reaches a table chain.
-3. Chain plausibility: one agent and at most 12 pairs, its typed pairs and the
-   exfiltration-class pattern pairs the caller adds (spec 099). Only ``yes`` is a finding; a
-   pair with no usable reply stays listed for review, and a pair past the 12 is not assessed.
+3. Chain plausibility: one agent and its candidate pairs, the typed pairs and the
+   exfiltration-class pattern pairs the caller adds (spec 099): at most 25 exfiltration pairs,
+   then other typed pairs up to 12 in all. Only ``yes`` is a finding; a pair with no usable
+   reply stays listed for review, and a pair the request does not hold is not assessed.
 
 A reply is an untrusted model output (OWASP LLM01): each parse accepts only its closed form.
 Untrusted text is masked (``mask.py``) and rendered as ``| `` data lines between markers it
@@ -53,7 +54,12 @@ CAPABILITY_VERSION = 1  # ADR 0007, rendered names only
 PLAUSIBILITY_VERSION = 1  # the four conditions of a finding (spec 099)
 CUT = 4000  # g11_dev_sets.CUT: the rendering cuts each tool result, the detector never does
 CALLS = 1000  # hybrid_send.CALLS: the judge's call index is below it
-PER_REQUEST = 12  # tools or pairs a request (protocol section 2)
+PER_REQUEST = 12  # tools a capability request; the pairs of a plausibility request with no more
+# The exfiltration pairs a plausibility request asks about: the 99th percentile of such pairs
+# per agent unit that holds one, on the study's design half, so 99 units in 100 have every one
+# asked (spec 099; ziran-paper's design amendment 2). Other typed pairs fill a request only up
+# to PER_REQUEST in total, so a unit with no exfiltration pair is asked as before.
+EXFILTRATION_PAIRS = 25
 # ziran-paper's sender refuses a request over 200,000 characters: the agent's text takes at most
 # half of that, the approval files a quarter, and the rest is left for the prompt and the pairs
 AGENT_CUT = 100_000
@@ -370,7 +376,7 @@ async def classify_tools(
 
 A_BEGIN, A_END = "<<<AGENT_DATA_BEGIN>>>", "<<<AGENT_DATA_END>>>"
 REASONS = ("plausible", "no_untrusted_input", "no_flow", "approval_step", "sink_restricted")
-NOT_ASSESSED = "not_assessed"  # a pair past the request's 12: never a finding, and counted
+NOT_ASSESSED = "not_assessed"  # a pair the request does not hold: never a finding, and counted
 _EXFILTRATION = "typed_data_exfiltration"
 _SPECIFIER = re.compile(r"\w+\(.*\)", re.DOTALL)  # the permission-rule form "Name(specifier)"
 
@@ -399,20 +405,27 @@ def _spread(pairs: set[Pair]) -> list[Pair]:
     return [(a, sinks[i]) for i in range(depth) for a, sinks in by_source.items() if i < len(sinks)]
 
 
-def _candidates(chains: Iterable[DangerousChain], exfil: Iterable[Pair] = ()) -> list[Pair]:
-    """Every pair the job could ask about, each once: the exfiltration pairs (typed, and the
-    caller's pattern pairs), then the other typed pairs, each group spread over its sources.
-    The order reads no label and does not depend on the order of the chains or the file."""
+def _candidates(
+    chains: Iterable[DangerousChain], exfil: Iterable[Pair] = ()
+) -> tuple[list[Pair], list[Pair]]:
+    """Every pair the job could ask about, each once, as (asked, not asked). The exfiltration
+    pairs (typed, and the caller's pattern pairs) come first, then the other typed pairs, each
+    group spread over its sources. A request asks about at most EXFILTRATION_PAIRS of the
+    first group, and fills with the second only up to PER_REQUEST pairs in all. The order reads
+    no label and does not depend on the order of the chains or the file."""
     typed = [c for c in chains if c.typed]
     first = {(c.tools[0], c.tools[1]) for c in typed if c.vulnerability_type == _EXFILTRATION}
     first |= {(a, b) for a, b in exfil}
     rest = {(c.tools[0], c.tools[1]) for c in typed} - first
-    return _spread(first) + _spread(rest)
+    exfiltration, others = _spread(first), _spread(rest)
+    asked = exfiltration[:EXFILTRATION_PAIRS]
+    fill = others[: max(PER_REQUEST - len(asked), 0)]
+    return asked + fill, exfiltration[len(asked) :] + others[len(fill) :]
 
 
 def pairs_of(chains: Iterable[DangerousChain], exfil: Iterable[Pair] = ()) -> list[Pair]:
-    """The pairs a request asks about: the first PER_REQUEST of the candidates."""
-    return _candidates(chains, exfil)[:PER_REQUEST]
+    """The pairs a request asks about."""
+    return _candidates(chains, exfil)[0]
 
 
 def render_pairs(prompt: Prompt, unit: PairUnit | tuple[Any, ...]) -> str:
@@ -480,22 +493,22 @@ async def judge_pairs(
     repeat: int = 0,
 ) -> HybridResult[dict[Pair, str]]:
     """Each agent unit's candidate pairs: ``yes``, ``no`` or ``unsure`` for an asked pair,
-    ``review`` when no usable reply came, ``not_assessed`` for a pair past the request's 12.
+    ``review`` when no usable reply came, ``not_assessed`` for a pair the request does not hold.
     Only ``yes`` is a hybrid finding. An agent with no candidate pair is never sent."""
     prompt = load("plausibility", PLAUSIBILITY_VERSION)
     units = {u: PairUnit(*unit) for u, unit in agents.items()}
     every = {u: _candidates(unit.chains, unit.exfil) for u, unit in units.items()}
-    rest = {u: dict.fromkeys(p[PER_REQUEST:], NOT_ASSESSED) for u, p in every.items()}
+    rest = {u: dict.fromkeys(skipped, NOT_ASSESSED) for u, (_, skipped) in every.items()}
 
     def parse(unit: str, content: str) -> dict[Pair, str] | None:
         answers = _answers(content)
         if answers is None:
             return None
-        return dict(zip(every[unit][:PER_REQUEST], answers, strict=True)) | rest[unit]
+        return dict(zip(every[unit][0], answers, strict=True)) | rest[unit]
 
     return await decide(
-        {u: dict.fromkeys(p[:PER_REQUEST], "review") | rest[u] for u, p in every.items()},
-        [u for u, p in every.items() if p],
+        {u: dict.fromkeys(asked, "review") | rest[u] for u, (asked, _) in every.items()},
+        [u for u, (asked, _) in every.items() if asked],
         client,
         prompt,
         lambda u: render_pairs(prompt, units[u]),

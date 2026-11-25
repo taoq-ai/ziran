@@ -12,7 +12,9 @@ from ziran.application.hybrid import UNUSABLE
 from ziran.application.hybrid.jobs import (
     AGENT_CUT,
     APPROVAL_CUT,
+    EXFILTRATION_PAIRS,
     NOT_ASSESSED,
+    PER_REQUEST,
     PLAUSIBILITY_VERSION,
     PairUnit,
     judge_pairs,
@@ -78,14 +80,14 @@ def test_the_job_uses_prompt_v1() -> None:
 # ── A3: which 12 pairs ───────────────────────────────────────────────
 
 
-def test_the_12_pairs_name_every_source() -> None:
+def test_the_asked_pairs_name_every_source() -> None:
     pairs = pairs_of(_unit(SOURCES + SINKS).chains)
-    assert len(pairs) == 12
+    assert len(pairs) == EXFILTRATION_PAIRS == 25
     assert {a for a, _ in pairs} == set(SOURCES)
     assert pairs[:3] == [(s, SINKS[0]) for s in SOURCES]  # one pair per source in turn, sorted
 
 
-def test_the_12_pairs_do_not_depend_on_the_order_of_the_chains() -> None:
+def test_the_asked_pairs_do_not_depend_on_the_order_of_the_chains() -> None:
     chains = _unit(SOURCES + SINKS).chains
     assert pairs_of(chains[::-1]) == pairs_of(chains)
     assert pairs_of(_unit(SINKS[::-1] + SOURCES[::-1]).chains) == pairs_of(chains)
@@ -103,12 +105,57 @@ def test_exfiltration_pairs_come_first_pattern_pairs_included() -> None:
     assert plain == [("get_cases", "send_report"), ("get_cases", "delete_case")]
 
 
-# ── Parts 2 and 5: past the 12, and no reply ─────────────────────────
+# ── The cap: 25 exfiltration pairs, and the other typed pairs up to 12 in all ──
+
+HIGH = [f"delete_case_{i:02}" for i in range(20)]  # high-impact sinks: typed pairs of another class
 
 
-async def test_a_pair_past_the_12_is_not_assessed(tmp_path: Path) -> None:
+def _classes(unit: PairUnit) -> tuple[int, int]:
+    """(exfiltration pairs asked, other typed pairs asked)."""
+    asked = pairs_of(unit.chains, unit.exfil)
+    egress = sum(b.startswith("send_report") for _, b in asked)
+    return egress, len(asked) - egress
+
+
+def test_the_capability_job_keeps_12_tools_a_request() -> None:
+    assert PER_REQUEST == 12  # the sealed capability replies are keyed on 12 tools a request
+
+
+@pytest.mark.parametrize(
+    ("sources", "egress", "high", "asked"),
+    [
+        (2, 20, 0, (25, 0)),  # 40 exfiltration pairs: 25 asked
+        (1, 20, 20, (20, 0)),  # 20 exfiltration pairs fill the request past 12: no other pair
+        (1, 13, 20, (13, 0)),  # one past 12: still no other pair
+        (1, 5, 20, (5, 7)),  # 5 exfiltration pairs, then other typed pairs up to 12 in all
+        (1, 0, 20, (0, 12)),  # no exfiltration pair: asked exactly as before the cap was raised
+        (1, 25, 0, (25, 0)),  # exactly the cap
+        (1, 26, 0, (25, 0)),  # one past the cap
+    ],
+)
+def test_the_cap_is_25_exfiltration_pairs_and_others_fill_up_to_12(
+    sources: int, egress: int, high: int, asked: tuple[int, int]
+) -> None:
+    sinks = [f"send_report_{i:02}" for i in range(egress)] + HIGH[:high]
+    assert _classes(_unit(SOURCES[:sources] + sinks)) == asked
+
+
+async def test_every_candidate_past_the_asked_ones_is_not_assessed(tmp_path: Path) -> None:
+    unit = _unit(SOURCES[:1] + [f"send_report_{i:02}" for i in range(30)] + HIGH[:4])
+    client = _client(tmp_path, _reply(*[("no", "no_flow")] * 25))
+    verdicts = (await judge_pairs({"u": unit}, client, share=1.0)).verdicts["u"]
+    assert len(verdicts) == 34 and sum(v == "no" for v in verdicts.values()) == 25
+    assert (
+        sum(v == NOT_ASSESSED for v in verdicts.values()) == 5 + 4
+    )  # 5 exfiltration pairs and the 4 others
+
+
+# ── Parts 2 and 5: past the cap, and no reply ────────────────────────
+
+
+async def test_a_pair_past_the_cap_is_not_assessed(tmp_path: Path) -> None:
     unit = _unit(SOURCES + SINKS)
-    client = _client(tmp_path, _reply(*[("yes", "plausible")] * 12))
+    client = _client(tmp_path, _reply(*[("yes", "plausible")] * 25))
     result = await judge_pairs({"u": unit}, client, share=1.0)
     verdicts = result.verdicts["u"]
     assert len(verdicts) == 60
@@ -172,7 +219,7 @@ def test_a_system_prompt_of_a_million_characters_is_cut_under_the_senders_limit(
     text = render_pairs(_prompt(), unit)
     assert len(text) < SENDER_LIMIT
     assert f"\n[cut at {AGENT_CUT} characters]\n" in text
-    assert "[pair 12]" in text  # the pairs are still there
+    assert "[pair 25]" in text  # the pairs are still there
 
 
 def test_a_million_line_breaks_are_cut_under_the_senders_limit() -> None:
