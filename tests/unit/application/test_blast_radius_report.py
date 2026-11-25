@@ -111,6 +111,50 @@ class TestTags:
 
 
 @pytest.mark.unit
+class TestUnreachedTags:
+    async def test_tag_on_a_tool_outside_every_chain_is_named(self) -> None:
+        graph = _tagged(await _flat("get_weather"), get_weather=PII)
+        result, chains = _build(graph, [_attack(*CALLS)])
+        assert chains == []
+        assert len(result.warnings) == 1
+        assert "get_weather" in result.warnings[0]
+        page = build_html_report(result.model_dump(mode="json"), {"nodes": [], "edges": []})
+        assert "Warning: " in page and "get_weather" in page
+        assert f"> **Warning:** {result.warnings[0]}" in _markdown(result)
+
+    async def test_reached_tags_are_not_named(self) -> None:
+        result, _ = await _scan(sensitive_data=PII, read_file=PII, sensitve_data=PII)
+        (warning,) = result.warnings
+        assert "sensitve_data" in warning  # a mistyped id
+        assert "sensitive_data" not in warning and "read_file" not in warning
+
+    async def test_reachable_but_not_demonstrated_tag_is_not_named(self) -> None:
+        result, chains = await _scan(({"name": "get_weather"},), sensitive_data=PII)
+        (chain,) = [c for c in chains if c.vulnerability_type == "data_exfiltration"]
+        assert chain.blast_radius.reachable.tags == {"sensitive_data": PII}
+        assert result.warnings == []
+
+    async def test_unreached_tags_are_sorted(self) -> None:
+        names = ["f_tag", "e_tag", "d_tag", "c_tag", "b_tag", "a_tag"]  # set order is random
+        result, _ = await _scan(**dict.fromkeys(names, PII))
+        (warning,) = result.warnings
+        assert warning.endswith(": " + ", ".join(sorted(names)))
+
+    async def test_follows_the_graph_warnings(self) -> None:
+        graph = _tagged(await _flat("get_weather"), elsewhere=PII)
+        graph.warnings.append("skipped analysis")
+        result, _ = _build(graph, [_attack(*CALLS)])
+        assert result.warnings[0] == "skipped analysis"
+        assert len(result.warnings) == 2 and "elsewhere" in result.warnings[1]
+        assert graph.warnings == ["skipped analysis"]
+
+    async def test_no_tags_no_warning(self) -> None:
+        result, _ = await _scan()
+        assert result.warnings == []
+        assert "warnings" not in result.metadata
+
+
+@pytest.mark.unit
 class TestConfig:
     def test_section_loads(self, tmp_path: Path) -> None:
         cfg = tmp_path / "detectors.yaml"

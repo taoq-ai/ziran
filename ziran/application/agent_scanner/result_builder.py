@@ -136,8 +136,9 @@ class ResultBuilder:
         ]
         if unmeasured:  # no reply measured these vectors (spec 082); absent when none
             metadata[UNMEASURED_METADATA_KEY] = unmeasured
-        if self._graph.warnings:  # analysis the scan skipped (spec 086); absent when none
-            metadata[WARNINGS_METADATA_KEY] = list(self._graph.warnings)
+        warnings = [*self._graph.warnings, *self._unreached_tags_warning(radii)]
+        if warnings:  # analysis the scan skipped (spec 086); absent when none
+            metadata[WARNINGS_METADATA_KEY] = warnings
 
         if baseline_score is not None and post_score is not None:
             metadata["utility"] = _compute_utility(
@@ -183,6 +184,21 @@ class ResultBuilder:
         )
 
         return campaign_result, dangerous_chains
+
+    def _unreached_tags_warning(self, radii: dict[str, BlastRadius]) -> list[str]:
+        """One warning naming configured tags no chain's radius reached (spec 103), else none.
+
+        A tag key is reached when a radius tagged its node id, or the id without ``tool_``.
+        """
+        reached = {n for r in radii.values() for p in (r.demonstrated, r.reachable) for n in p.tags}
+        reached |= {n.removeprefix("tool_") for n in reached}
+        missed = sorted(set(self._graph.blast_radius_config.tags) - reached)
+        if not missed:
+            return []
+        return [
+            "Blast radius tags no chain reached (check the ids, or the tool is in no chain): "
+            + ", ".join(missed)
+        ]
 
     def _fill_blast_radius(
         self, chains: list[Any], attack_results: list[AttackResult]
