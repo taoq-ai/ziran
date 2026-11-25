@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+import timeit
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,7 +15,7 @@ from ziran.application.static_analysis.claude_code_audit import (
     declared_tools,
 )
 from ziran.application.static_analysis.claude_code_baseline import apply_baseline, build_baseline
-from ziran.infrastructure.config.claude_code_plugin import load_claude_code
+from ziran.infrastructure.config.claude_code_plugin import _split_tools, load_claude_code
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -87,11 +87,22 @@ def test_an_unclosed_specifier_is_not_split(tmp_path: Path) -> None:
     assert _agent(tmp_path, "tools: Read, Bash(git status\n").tools == ["Read", "Bash(git status"]
 
 
-def test_a_tools_line_of_a_megabyte_is_read_in_linear_time(tmp_path: Path) -> None:
-    start = time.monotonic()
+def _split_seconds(tokens: int) -> float:
+    text = "Read Grep " * tokens
+    return min(timeit.repeat(lambda: _split_tools(text), number=1, repeat=5))
+
+
+def test_the_tool_list_split_scales_linearly() -> None:
+    """Four times the text takes about four times as long. A lookahead that scans to the end of the line at every
+    separator takes about sixteen times. The bound is a ratio, so a slow runner does not move it."""
+    assert len(_split_tools("Read Grep " * 20_000)) == 40_001
+    small, large = _split_seconds(5_000), _split_seconds(20_000)
+    assert large < 9 * small, (small, large)
+
+
+def test_a_tools_line_of_a_megabyte_is_read(tmp_path: Path) -> None:
     agent = _agent(tmp_path, "tools: " + "Read Grep " * 100_000 + "\n")
     assert agent.tools == ["Read", "Grep"]
-    assert time.monotonic() - start < 5
 
 
 def test_a_yaml_list_entry_with_spaces_is_several_tools(tmp_path: Path) -> None:
