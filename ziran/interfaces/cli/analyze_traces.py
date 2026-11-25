@@ -13,9 +13,10 @@ from typing import Any
 
 import click
 from rich.console import Console
-from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
+
+from ziran.interfaces.cli._text import term
 
 console = Console()
 
@@ -204,7 +205,7 @@ def analyze_traces(
         if hasattr(ingestor, "save_cursor"):
             ingestor.save_cursor()
     except Exception as exc:
-        console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        console.print(f"[red]Error:[/red] {term(exc)}")
         if verbose:
             console.print_exception()
         raise SystemExit(2) from exc
@@ -277,8 +278,8 @@ def _display_summary(result: Any) -> None:
     table.add_column("Metric", style="cyan")
     table.add_column("Value", style="bold")
 
-    table.add_row("Campaign ID", result.campaign_id)
-    table.add_row("Source", result.source)
+    table.add_row("Campaign ID", term(result.campaign_id))
+    table.add_row("Source", term(result.source))
     table.add_row(
         "Sessions Analyzed",
         str(result.metadata.get("sessions_analyzed", 0)),
@@ -301,9 +302,9 @@ def _display_summary(result: Any) -> None:
 
         for chain_dict in result.dangerous_tool_chains:
             chains_table.add_row(
-                " -> ".join(chain_dict.get("tools", [])),
-                chain_dict.get("risk_level", ""),
-                chain_dict.get("vulnerability_type", ""),
+                term(" -> ".join(chain_dict.get("tools", []))),
+                term(chain_dict.get("risk_level", "")),
+                term(chain_dict.get("vulnerability_type", "")),
                 f"{chain_dict.get('risk_score', 0):.3f}",
             )
 

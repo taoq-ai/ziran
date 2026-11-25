@@ -27,6 +27,7 @@ from ziran.infrastructure.alert_sinks.factory import build_sinks
 from ziran.infrastructure.config.claude_mcp_config import ClaudeConfigError, load_claude_mcp_config
 from ziran.infrastructure.config.env_yaml import EnvVarError, load_yaml_with_env
 from ziran.infrastructure.snapshot_stores.json_file_store import JsonFileStore
+from ziran.interfaces.cli._text import term
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -215,11 +216,11 @@ def _print_summary(findings: list[DriftFinding]) -> None:
     for f in findings:
         severity_style = _SEVERITY_COLORS.get(f.severity, "")
         table.add_row(
-            f.server_name,
+            term(f.server_name),
             f.drift_type,
             f"[{severity_style}]{f.severity}[/{severity_style}]",
-            f.tool_name or "-",
-            f.message,
+            term(f.tool_name or "-"),
+            term(f.message),
         )
 
     console.print(table)
