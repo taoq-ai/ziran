@@ -47,6 +47,7 @@ class _Stub(ThreadingHTTPServer):
         super().__init__(("127.0.0.1", 0), _Handler)
         self.protocol = protocol
         self.reply = ""
+        self.raw: bytes | None = None  # a whole reply body, sent as is
         self.tool_calls: list[dict[str, Any]] = []
         self.seen: list[tuple[str, str, Any]] = []
 
@@ -68,7 +69,7 @@ class _Handler(BaseHTTPRequestHandler):
             data: Any = {"choices": [{"message": message, "finish_reason": "stop"}]}
         else:
             data = {"result": {"text": self.server.reply}}
-        raw = json.dumps(data).encode()
+        raw = self.server.raw if self.server.raw is not None else json.dumps(data).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(raw)))
@@ -663,3 +664,48 @@ def test_deeply_nested_tool_arguments_still_generate_both_pocs(
     assert gen.generate_curl_poc(result, campaign_id="c").is_file()
     assert gen.generate_python_poc(result, "c").is_file()
     assert _indicators(result) == [CANARY]  # read as text, or walked, never dropped
+
+
+def _nested(depth: int) -> bytes:
+    """A JSON reply ``depth`` lists deep around the canary."""
+    return ("[" * depth + json.dumps(CANARY) + "]" * depth).encode()
+
+
+@pytest.mark.parametrize("depth", [5000, 100000])
+def test_python_poc_reads_a_deeply_nested_reply_without_a_traceback(
+    tmp_path: Path, stub: _Stub, depth: int
+) -> None:
+    _, py, work = _pocs(tmp_path, stub, _result())
+    stub.raw = _nested(depth)
+
+    run = _run([sys.executable, "-I", str(py)], work)
+
+    assert "Traceback" not in run.stderr, run.stderr
+    # No Python decodes 100000 deep; 3.12 and later decode 5000 deep, and the walk
+    # must then find the canary without recursing.
+    if depth == 100000 or sys.version_info < (3, 12):
+        assert run.returncode == 3, run.stdout + run.stderr
+        assert "Unreadable reply" in run.stdout
+    else:
+        assert run.returncode == 0, run.stdout + run.stderr
+
+
+def test_python_poc_walks_a_reply_deeper_than_the_recursion_limit(
+    tmp_path: Path, stub: _Stub
+) -> None:
+    import runpy
+
+    _, py, _ = _pocs(tmp_path, stub, _result())
+    texts = runpy.run_path(str(py))["_texts"]  # not __main__: defines, sends nothing
+
+    assert texts(_deep(5000)) == [CANARY]
+    assert texts({"a": ["x", {"b": "y"}], "c": 1, "d": "z"}) == ["x", "y", "z"]
+
+
+def test_curl_poc_is_unchanged_by_a_deeply_nested_reply(tmp_path: Path, stub: _Stub) -> None:
+    curl, _, work = _pocs(tmp_path, stub, _result())
+    stub.raw = _nested(100000)
+
+    run = _run(["bash", str(curl)], work)
+
+    assert run.returncode == 0, run.stdout + run.stderr  # grep finds the canary in the text
