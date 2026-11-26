@@ -1,4 +1,4 @@
-"""In-process fake MCP servers, one per protocol era, on ``httpx.MockTransport`` (spec 109).
+"""In-process fake MCP servers, one per protocol era, on ``httpx.MockTransport`` (spec 110).
 
 Each fake records the requests it got and answers the way its revision's Streamable HTTP binding
 says, closely enough that a client speaking the wrong era gets nothing useful back.

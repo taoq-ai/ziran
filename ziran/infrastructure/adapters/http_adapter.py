@@ -466,7 +466,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
             )
 
             try:
-                # the handler's own era probe: server/discover, then initialize (spec 109)
+                # the handler's own era probe: server/discover, then initialize (spec 110)
                 if await MCPProtocolHandler(client, self._config).health_check():
                     logger.info("Detected MCP protocol")
                     return ProtocolType.MCP

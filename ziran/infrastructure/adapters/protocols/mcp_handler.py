@@ -4,7 +4,7 @@ Communicates with MCP-compliant tool servers using JSON-RPC 2.0
 over HTTP. Discovers tools/resources and invokes them.
 
 The server's era is decided once, before the first request, as the 2026-07-28 Streamable HTTP
-binding says (spec 109): a ``server/discover`` probe with the modern per-request ``_meta``; a
+binding says (spec 110): a ``server/discover`` probe with the modern per-request ``_meta``; a
 ``DiscoverResult`` or ``UnsupportedProtocolVersionError`` means a modern server, anything else a
 legacy one, which gets the ``initialize`` handshake.
 """
@@ -226,7 +226,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
         }
 
     async def _negotiate(self) -> None:
-        """Decide the server's era once, from a ``server/discover`` probe (spec 109)."""
+        """Decide the server's era once, from a ``server/discover`` probe (spec 110)."""
         async with self._lock:
             if self._era is None:
                 await self._probe()

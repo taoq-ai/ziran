@@ -1,4 +1,4 @@
-"""MCP version negotiation, the 2026-07-28 request shape and input_required (spec 109)."""
+"""MCP version negotiation, the 2026-07-28 request shape and input_required (spec 110)."""
 
 from __future__ import annotations
 
