@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import weakref
+from collections import Counter
 from contextlib import asynccontextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -60,6 +61,7 @@ class _SessionGate:
         self._shared = 0
         self._exclusive = False
         self._waiting = 0
+        self._wakers: set[asyncio.Future[None]] = set()
 
     @asynccontextmanager
     async def hold(self, exclusive: bool) -> AsyncIterator[None]:
@@ -78,12 +80,20 @@ class _SessionGate:
         try:
             yield
         finally:
-            async with self._cond:
-                if exclusive:
-                    self._exclusive = False
-                else:
-                    self._shared -= 1
-                self._cond.notify_all()
+            # Release first, with no await, so a cancel cannot leave the gate held; the wake-up
+            # runs in its own task, so a second cancel cannot drop it either.
+            if exclusive:
+                self._exclusive = False
+            else:
+                self._shared -= 1
+            wake = asyncio.ensure_future(self._wake())
+            self._wakers.add(wake)
+            wake.add_done_callback(self._wakers.discard)
+            await asyncio.shield(wake)
+
+    async def _wake(self) -> None:
+        async with self._cond:
+            self._cond.notify_all()
 
 
 _GATES: weakref.WeakKeyDictionary[BaseAgentAdapter, _SessionGate] = weakref.WeakKeyDictionary()
@@ -189,14 +199,14 @@ class TacticExecutor:
     def _shared(self, session: dict[str, Any]) -> bool:
         """True when the adapter's history holds a user or assistant message this session did
         not send or receive: another run's turn landed in it (spec 113)."""
-        own = {("user", t["prompt"]) for t in session["turns"]}
-        own |= {("assistant", t["reply"]) for t in session["turns"]}
-        history = self._adapter.get_state().conversation_history
-        return any(
-            (m.get("role"), m.get("content")) not in own
-            for m in history
-            if m.get("role") in ("user", "assistant")
+        own: Counter[tuple[str | None, str | None]] = Counter(
+            ("user", t["prompt"]) for t in session["turns"]
         )
+        own += Counter(("assistant", t["reply"]) for t in session["turns"])
+        history = self._adapter.get_state().conversation_history
+        roles = ("user", "assistant")
+        seen = Counter((m.get("role"), m.get("content")) for m in history if m.get("role") in roles)
+        return bool(seen - own)  # counts, not membership: a stray copy of an own reply is foreign
 
     async def _run(
         self,

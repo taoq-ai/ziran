@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ziran.application.attacks.tactics import TacticExecutor, TacticType
+from ziran.application.attacks.tactics import TacticExecutor, TacticType, _SessionGate
 
 if TYPE_CHECKING:
     from ziran.application.attacks.library import AttackLibrary
@@ -517,3 +518,76 @@ class TestNewSession:
         assert [p.new_session for p in vector.prompts] == [False, True]
         assert "AML.T0080.000" in vector.atlas_mapping
         assert "ASI06" in vector.owasp_agentic_mapping
+
+
+async def _settle() -> None:
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+
+@pytest.mark.unit
+class TestSessionGate:
+    async def test_shared_hold_waits_while_a_two_session_run_is_inside(self) -> None:
+        gate, log, release = _SessionGate(), [], asyncio.Event()
+
+        async def exclusive() -> None:
+            async with gate.hold(True):
+                log.append("E in")
+                await release.wait()
+                log.append("E out")
+
+        async def shared() -> None:
+            async with gate.hold(False):
+                log.append("S in")
+
+        tasks = [asyncio.create_task(exclusive())]
+        await _settle()
+        tasks.append(asyncio.create_task(shared()))
+        await _settle()
+        assert log == ["E in"]
+        release.set()
+        await asyncio.gather(*tasks)
+        assert log == ["E in", "E out", "S in"]
+
+    async def test_waiting_two_session_run_blocks_new_shared_holders(self) -> None:
+        gate, log = _SessionGate(), []
+        first_done, exclusive_done = asyncio.Event(), asyncio.Event()
+
+        async def hold(name: str, exclusive: bool, until: asyncio.Event | None) -> None:
+            async with gate.hold(exclusive):
+                log.append(name)
+                if until is not None:
+                    await until.wait()
+
+        tasks = [asyncio.create_task(hold("S1", False, first_done))]
+        await _settle()
+        tasks.append(asyncio.create_task(hold("E", True, exclusive_done)))
+        await _settle()
+        tasks.append(asyncio.create_task(hold("S2", False, None)))
+        await _settle()
+        assert log == ["S1"]
+        first_done.set()
+        await _settle()
+        assert log == ["S1", "E"]
+        exclusive_done.set()
+        await asyncio.gather(*tasks)
+        assert log == ["S1", "E", "S2"]
+
+    async def test_release_survives_a_double_cancel_while_the_lock_is_busy(self) -> None:
+        gate, inside = _SessionGate(), asyncio.Event()
+
+        async def holder() -> None:
+            async with gate.hold(True):
+                inside.set()
+                await asyncio.Event().wait()
+
+        task = asyncio.create_task(holder())
+        await inside.wait()
+        await gate._cond.acquire()  # busy when the holder releases
+        task.cancel()
+        await _settle()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        gate._cond.release()
+        async with asyncio.timeout(1), gate.hold(True):
+            pass

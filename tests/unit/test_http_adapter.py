@@ -351,6 +351,35 @@ class TestA2AProtocolHandler:
         handler.reset_context()
         assert handler._context_id != old_context
 
+    @pytest.mark.asyncio()
+    async def test_late_reply_keeps_the_reset_context(
+        self, config: TargetConfig, mock_client: AsyncMock
+    ) -> None:
+        """A reply sent before a reset must not put the next session in the old context."""
+        import asyncio
+
+        from ziran.domain.entities.a2a import A2ASendMessageResponse, A2ATask
+        from ziran.infrastructure.adapters.protocols.a2a_handler import A2AProtocolHandler
+
+        handler = A2AProtocolHandler(mock_client, config)
+        old_context, reply = handler._context_id, asyncio.Event()
+
+        async def late(request: object) -> A2ASendMessageResponse:
+            await reply.wait()
+            return A2ASendMessageResponse(task=A2ATask(id="t-old", context_id=old_context))
+
+        handler._send_message = late  # type: ignore[method-assign]
+        in_flight = asyncio.create_task(handler.send("sent in session 1"))
+        await asyncio.sleep(0)
+        handler.reset_context()
+        new_context = handler._context_id
+        reply.set()
+        await in_flight
+
+        assert new_context != old_context
+        assert handler._context_id == new_context
+        assert handler._task_id is None
+
 
 # ──────────────────────────────────────────────────────────────────────
 # HttpAgentAdapter
