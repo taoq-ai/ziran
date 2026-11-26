@@ -36,7 +36,8 @@ Python 3.11+ (CI matrix 3.11, 3.12, 3.13), Pydantic v2, stdlib `zipfile`, `zlib`
 - Adapters: `AnthropicAdapter` sends `image` and `document` base64 blocks; `HttpAgentAdapter`
   reports `image/png` on the OpenAI protocol and `OpenAIProtocolHandler.send` adds `image_url`
   data-URI parts. Both refuse a media type they do not list.
-- CLI: `ziran scan --carriers <yaml>` loads `CarrierSites` and turns carrier vectors on.
+- CLI: `ziran scan --carriers <yaml>` loads `CarrierSites` and turns carrier vectors on; a bad
+  file is a usage error.
 
 ## Test plan
 

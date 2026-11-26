@@ -107,12 +107,12 @@ class CarrierExecutor:
         return None
 
     def _ref(self, delivery: str, file: Attachment, planted: Path | None) -> str:
-        if planted is None:
-            return file.filename
-        if delivery == "page":
-            assert self._sites is not None and self._sites.page_url is not None
-            return f"{self._sites.page_url.rstrip('/')}/{planted.name}"
-        return str(planted) if delivery == "workspace" else planted.name
+        # a file name, not a host path: the agent may see the folder under another path
+        name = planted.name if planted is not None else file.filename
+        if delivery != "page":
+            return name
+        assert self._sites is not None and self._sites.page_url is not None
+        return f"{self._sites.page_url.rstrip('/')}/{name}"
 
     async def execute(
         self,

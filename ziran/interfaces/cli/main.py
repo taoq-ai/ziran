@@ -34,6 +34,7 @@ from ziran.interfaces.cli._text import term
 from ziran.interfaces.cli.reports import ReportGenerator
 
 if TYPE_CHECKING:
+    from ziran.application.attacks.carrier_executor import CarrierSites
     from ziran.domain.entities.target import TargetConfig
 
 console = Console()
@@ -363,6 +364,14 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     help="Share of uncertain traces sent to the hybrid's model judge, 0.0 to 1.0. Default 0.0 "
     "(deterministic mode, no model call); it overrides hybrid_route_share in .ziran/detectors.yaml.",
 )
+@click.option(
+    "--carriers",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="YAML file of folders the target's tools read (workspace_dir, knowledge_base_dir, "
+    "page_dir with page_url). Turns on the document and image carrier vectors (spec 112); "
+    "an empty file runs only the attachment vectors.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -398,6 +407,7 @@ def scan(
     dry_run: bool,
     defence_profile: str | None,
     hybrid_route_share: float | None,
+    carriers: str | None,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -539,7 +549,8 @@ def scan(
 
     # Build attack library
     custom_dirs = [Path(custom_attacks)] if custom_attacks else None
-    attack_library = AttackLibrary(custom_dirs=custom_dirs)
+    carrier_sites = _carrier_sites(Path(carriers)) if carriers else None
+    attack_library = AttackLibrary(custom_dirs=custom_dirs, carriers=carrier_sites is not None)
 
     console.print(
         f"[dim]Loaded {attack_library.vector_count} attack vectors "
@@ -595,6 +606,7 @@ def scan(
         "usage_ledger": ledger,
         "max_campaign_tokens": max_campaign_tokens,
         "max_cost": max_cost,
+        "carriers": carrier_sites,
     }
 
     # Initialize LLM client if provider/model specified
@@ -1962,6 +1974,19 @@ def _blast_radius_config() -> BlastRadiusConfig:
     except DetectorConfigError as exc:
         click.echo(f"Warning: blast_radius not read: {exc}", err=True)
         return BlastRadiusConfig()
+
+
+def _carrier_sites(path: Path) -> CarrierSites:
+    """Load ``--carriers``: the folders carrier vectors plant files in (spec 112)."""
+    import yaml
+    from pydantic import ValidationError
+
+    from ziran.application.attacks.carrier_executor import CarrierSites
+
+    try:
+        return CarrierSites.model_validate(yaml.safe_load(path.read_text()) or {})
+    except (yaml.YAMLError, ValidationError) as exc:
+        raise click.ClickException(f"--carriers {path}: {exc}") from None
 
 
 def _config_share() -> float:

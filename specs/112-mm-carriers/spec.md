@@ -20,8 +20,8 @@ only:
 - a PNG whose injection is rendered as faint pixels, or sits in a `tEXt` chunk.
 
 The scan then delivers the file one of four ways. It writes it into the target's workspace
-folder, its knowledge-base folder, or a folder served as web pages (the prompt names the path or
-URL), or it sends it with the message as an attachment when the adapter accepts that media type.
+folder, its knowledge-base folder, or a folder served as web pages (the prompt names the file, or
+its URL for a page; never a host path, which the agent may see elsewhere), or it sends it with the message as an attachment when the adapter accepts that media type.
 The Anthropic adapter sends PNG and PDF as content blocks; the HTTP adapter on the
 OpenAI-compatible protocol sends PNG as an `image_url` part. Every other adapter sends text only
 and skips attachment vectors.
@@ -51,7 +51,7 @@ so a default scan does not turn INCOMPLETE.
 - FR-001: `AttackVector.carrier` (optional) declares format, placement, delivery, a file stem,
   the visible cover text and the hidden injection text. Text is printable ASCII, at most 2000
   characters; the stem is `[A-Za-z0-9][A-Za-z0-9_-]{0,63}`. Every prompt of a carrier vector
-  names `{carrier}`, which the executor replaces with the path, URL or file name.
+  names `{carrier}`, which the executor replaces with the file name, or the URL for a page.
 - FR-002: the builders are stdlib only and deterministic; each target format escapes the text
   for itself (PDF string escapes, XML escapes, HTML escapes).
 - FR-003: planting never overwrites: the file gets a random suffix and is created exclusively,

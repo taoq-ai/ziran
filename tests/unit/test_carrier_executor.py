@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -61,7 +61,7 @@ class FileAgent(MockAgentAdapter):
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         self.invocations.append(message)
         (path,) = self.workspace.iterdir()
-        assert str(path) in message  # the prompt names the planted file
+        assert path.name in message and str(path.parent) not in message  # named, no host path
         self.seen.append(path.read_bytes())
         calls: list[dict[str, Any]] = [{"tool": "read_file", "input": {"path": str(path)}}]
         if self.mode == "obey":
@@ -242,3 +242,52 @@ class TestSitesAndLibrary:
         assert all(v.references for v in shipped)
         assert not ids(AttackLibrary()) & {v.id for v in shipped}
         assert {v.id for v in shipped} <= ids(AttackLibrary(carriers=True))
+
+
+@pytest.mark.unit
+class TestScanFlag:
+    """`ziran scan --carriers` turns carrier vectors on and passes the folders."""
+
+    def _scan(self, tmp_path: Path, *extra: str) -> tuple[Any, MagicMock, MagicMock]:
+        from click.testing import CliRunner
+
+        from tests.unit.test_cli_main import _minimal_campaign_result
+        from ziran.domain.entities.phase import CampaignResult
+        from ziran.interfaces.cli.main import cli
+
+        agent = tmp_path / "agent.py"
+        agent.write_text("agent_executor = None\n", encoding="utf-8")
+        args = ["scan", "--framework", "langchain", "--agent-path", str(agent), *extra]
+        with (
+            patch("ziran.interfaces.cli.main.load_agent_adapter"),
+            patch("ziran.interfaces.cli.main.AgentScanner") as scanner,
+            patch("ziran.interfaces.cli.main.AttackLibrary") as library,
+            patch("ziran.interfaces.cli.main.asyncio") as aio,
+        ):
+            library.return_value.vector_count = 0
+            library.return_value.load_error_count = 0
+            aio.run.return_value = CampaignResult.model_validate(_minimal_campaign_result())
+            result = CliRunner().invoke(cli, [*args, "--output", str(tmp_path / "out")])
+        return result, scanner, library
+
+    def test_flag_loads_sites_and_opts_in(self, tmp_path: Path) -> None:
+        sites = tmp_path / "carriers.yaml"
+        sites.write_text(f"workspace_dir: {tmp_path}\n", encoding="utf-8")
+        result, scanner, library = self._scan(tmp_path, "--carriers", str(sites))
+        assert result.exit_code == 0, result.output
+        assert library.call_args.kwargs["carriers"] is True
+        config = scanner.call_args.kwargs["config"]
+        assert config["carriers"] == CarrierSites(workspace_dir=tmp_path)
+
+    def test_without_flag_carriers_stay_off(self, tmp_path: Path) -> None:
+        result, scanner, library = self._scan(tmp_path)
+        assert result.exit_code == 0, result.output
+        assert library.call_args.kwargs["carriers"] is False
+        assert scanner.call_args.kwargs["config"]["carriers"] is None
+
+    def test_bad_file_is_a_usage_error(self, tmp_path: Path) -> None:
+        sites = tmp_path / "carriers.yaml"
+        sites.write_text("page_dir: /srv/pages\n", encoding="utf-8")
+        result, scanner, _ = self._scan(tmp_path, "--carriers", str(sites))
+        assert result.exit_code != 0 and "page_dir and page_url go together" in result.output
+        scanner.assert_not_called()

@@ -182,6 +182,13 @@ class TestModel:
     def test_vector_accepts_carrier(self) -> None:
         assert _vector().carrier == _carrier()
 
+    @pytest.mark.parametrize("text", ["a" * 2000, "-" * 2000, "a-" * 1000, "(" * 2000])
+    def test_builders_at_the_text_bound_are_fast(self, text: str) -> None:
+        for fmt in ("pdf", "docx", "html", "png"):  # textwrap's regex on the longest text
+            started = time.perf_counter()
+            build(_carrier(format=fmt, cover=text, text=text))
+            assert time.perf_counter() - started < 1.0
+
     def test_name_pattern_redos_probe(self) -> None:
         # A long valid run, a repeated prefix and a bad tail: each answered at once.
         for name in ["a" * 100_000, "a-" * 50_000 + "!", "_" * 100_000]:
