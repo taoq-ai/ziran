@@ -256,7 +256,11 @@ class TestHostileInput:
     def test_tag_with_trailing_newline_is_dropped(self) -> None:
         raw = copy.deepcopy(_RESULT)
         raw["attack_results"][0]["atlas_mapping"] = ["AML.T0086\n"]
-        docs = list(yaml.safe_load_all(_export(raw)[0].content))
+        policy = _export(raw)[0]
+        assert not policy.skipped, policy.skip_reason
+        docs = list(yaml.safe_load_all(policy.content))
+        assert len(docs) == 3
+        assert all("owasp.llm02" in d["tags"] for d in docs)
         assert all(not t.startswith("atlas.") for d in docs for t in d["tags"])
 
 
