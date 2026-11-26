@@ -101,14 +101,15 @@ prompt, no LLM and no detector. They run only on an A2A target.
 | `a2a_delegated_token_replay` | A token recorded from an earlier session is accepted in a new context. |
 | `a2a_lookalike_card` | A card on another origin has the target's name, or a near copy, and one of its skills. |
 
-They read these optional keys of the target YAML. A probe without its input reads unmeasured,
-so the scan reports INCOMPLETE:
+They read these optional keys of the target YAML. A probe whose key is unset does not run, and
+the scan lists it in a warning, so its outcome is unchanged. A probe that runs and gets no usable
+answer (no answer, 429 or 5xx, no `cryptography` to check a signature) reads unmeasured:
 
 ```yaml
 a2a:
   jwks_url: https://keys.example.com/jwks.json  # the key the card must verify against;
                                                 # unset uses the signature's jku on the target's origin
-  peer_auth:                                    # client B; needed when the target has auth
+  peer_auth:                                    # client B, a second credential
     type: bearer
     env_var: A2A_SECOND_CLIENT_TOKEN
   replay_auth:                                  # a token that should no longer work
@@ -119,7 +120,9 @@ a2a:
 ```
 
 A request as client B, as the replayed token or for a look-alike card or JWKS never carries the
-target's `auth` or `headers`. The evidence holds a sha256 prefix of the replayed token, never the
+target's `auth`, `headers` or client certificate, and never follows a redirect. `oauth2`
+credentials are not sent, so a probe given one does not run. JWS algorithms other than ES256,
+ES384, RS256 and EdDSA read as not allowed. The evidence holds a sha256 prefix of the replayed token, never the
 token.
 
 ## Install

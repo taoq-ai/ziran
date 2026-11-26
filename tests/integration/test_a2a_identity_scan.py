@@ -15,12 +15,20 @@ from tests.a2a_servers import A2AServer
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
-from ziran.domain.entities.target import ProtocolType, RestConfig, TargetConfig
+from ziran.domain.entities.target import (
+    A2AConfig,
+    AuthConfig,
+    AuthType,
+    ProtocolType,
+    RestConfig,
+    TargetConfig,
+)
 from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 from ziran.interfaces.cli.main import cli
 
 if TYPE_CHECKING:
     from pathlib import Path
+from typing import Any
 
 pytestmark = pytest.mark.integration
 
@@ -52,10 +60,19 @@ def test_scan_of_an_unsigned_card_raises_a2a_card_unsigned(tmp_path: Path) -> No
     assert row["evidence"]["card_sha256"] == hashlib.sha256(server.card_bytes).hexdigest()
 
 
+_TOKENS = {"tok-a": "alice", "tok-b": "bob"}
+
+
+def _config(server: A2AServer, **a2a: Any) -> TargetConfig:
+    auth = AuthConfig(type=AuthType.BEARER, token="tok-a")
+    return TargetConfig(url=server.url, protocol=ProtocolType.A2A, auth=auth, a2a=A2AConfig(**a2a))
+
+
 async def test_scan_finds_the_cross_client_context_leak() -> None:
-    with A2AServer(vulnerable=True) as server:
-        config = TargetConfig(url=server.url, protocol=ProtocolType.A2A)
-        scanner = AgentScanner(adapter=HttpAgentAdapter(config), attack_library=AttackLibrary())
+    peer = AuthConfig(type=AuthType.BEARER, token="tok-b")
+    with A2AServer(vulnerable=True, tokens=_TOKENS) as server:
+        adapter = HttpAgentAdapter(_config(server, peer_auth=peer))
+        scanner = AgentScanner(adapter=adapter, attack_library=AttackLibrary())
         result = await scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY], coverage=CoverageLevel.STANDARD
         )
@@ -64,6 +81,24 @@ async def test_scan_finds_the_cross_client_context_leak() -> None:
     assert row["successful"] is True and row["severity"] == "high"
     assert len(row["evidence"]["requests"]) == 2
     assert "a2a_cross_client_context" in result.phases_executed[0].vulnerabilities_found
+
+
+@pytest.mark.parametrize("tokens", [_TOKENS, {}], ids=["bearer", "no-auth"])
+async def test_a_safe_target_with_unset_probe_inputs_stays_passed(tokens: dict[str, str]) -> None:
+    with A2AServer(vulnerable=False, signed=True, tokens=tokens) as server:
+        config = _config(server)
+        if not tokens:
+            config.auth = None
+        scanner = AgentScanner(adapter=HttpAgentAdapter(config), attack_library=AttackLibrary())
+        result = await scanner.run_campaign(
+            phases=[ScanPhase.RECONNAISSANCE, ScanPhase.VULNERABILITY_DISCOVERY],
+            coverage=CoverageLevel.STANDARD,
+        )
+    ran = {r["vector_id"] for r in result.attack_results}
+    assert {"a2a_card_unsigned", "a2a_card_signature_invalid"} <= ran
+    assert not ran & {"a2a_cross_client_context", "a2a_delegated_token_replay"}
+    assert result.success is False and result.unmeasured_vectors == []  # PASSED
+    assert any("a2a_lookalike_card (set a2a.lookalike_cards)" in w for w in result.warnings)
 
 
 async def test_probes_do_not_run_on_another_protocol() -> None:

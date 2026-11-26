@@ -2,7 +2,7 @@
 # Protocol probes, not prompts: each vector names an `a2a_probe` that sends its own A2A
 # requests and decides with fixed rules (no LLM, no detector). They run only on an A2A target.
 # Target YAML inputs (all optional): a2a.jwks_url, a2a.peer_auth, a2a.replay_auth,
-# a2a.lookalike_cards. A probe without its input reads unmeasured.
+# a2a.lookalike_cards. A probe whose input is unset does not run (the scan warns).
 
 vectors:
   - id: a2a_card_unsigned
@@ -51,8 +51,8 @@ vectors:
     target_phase: vulnerability_discovery
     severity: high
     description: >
-      Client A plants a random code in a new context. Client B, another credential or none,
-      sends a message with A's contextId. B getting the code back means the server keys
+      Client A plants a random code in a new context. Client B, a second credential
+      (a2a.peer_auth), sends a message with A's contextId. B getting the code back means the server keys
       conversation state by contextId alone, so any peer that learns an id reads and writes
       another client's session.
     tags: [a2a, context, session, isolation, bola, authorization, protocol, spec-118]

@@ -1,7 +1,8 @@
 """The A2A identity probes (spec 118): fixed rules over raw A2A answers, no LLM, no detector.
 
-Each probe returns ``(successful, evidence)``. A probe that lacks its input or gets no usable
-answer is unmeasured (``outcome: unmeasured``, the reason under ``skipped`` or ``error``).
+Each probe returns ``(successful, evidence)``. A probe whose input the target YAML leaves unset
+does not run (``not_run``, no outcome). One that runs and gets no usable answer is unmeasured
+(``outcome: unmeasured``, the reason under ``error``).
 """
 
 from __future__ import annotations
@@ -19,11 +20,12 @@ from ziran.application.a2a_probe.jws import ALGORITHMS, b64decode, verify_card
 from ziran.application.registry_watch.typosquat_detector import detect
 from ziran.domain.entities.a2a import A2AAgentCard, A2AAgentCardSignature
 from ziran.domain.entities.attack import AttackResult, AttackVector, get_business_impacts
+from ziran.domain.entities.target import A2AConfig, AuthConfig, AuthType
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from ziran.domain.interfaces.a2a_wire import A2AClient, A2AReply, A2AWire
+    from ziran.domain.interfaces.a2a_wire import A2AReply, A2AWire
 
 Verdict = tuple[bool, dict[str, Any]]
 
@@ -36,8 +38,9 @@ async def run_a2a_probe(attack: AttackVector, wire: A2AWire | None) -> AttackRes
     """Run *attack*'s probe through *wire*; no wire (not an A2A target) is unmeasured."""
     if attack.a2a_probe is None:
         raise ValueError(f"vector {attack.id} has no a2a_probe")
-    if wire is None:
-        successful, evidence = False, _unmeasured("the target does not speak A2A")
+    key = "an A2A target" if wire is None else missing_input(attack.a2a_probe, wire.a2a)
+    if wire is None or key is not None:  # not run: no outcome, so no INCOMPLETE (spec 118)
+        successful, evidence = False, {"not_run": f"needs {key}"}
     else:
         successful, evidence = await _PROBES[attack.a2a_probe](wire)
     return AttackResult(
@@ -55,6 +58,40 @@ async def run_a2a_probe(attack: AttackVector, wire: A2AWire | None) -> AttackRes
     )
 
 
+_INPUTS = {
+    "cross_client_context": "peer_auth",
+    "cross_client_task": "peer_auth",
+    "delegated_token_replay": "replay_auth",
+    "lookalike_card": "lookalike_cards",
+}
+
+
+def missing_input(probe: str, a2a: A2AConfig) -> str | None:
+    """The ``a2a`` key *probe* needs that the target YAML leaves unset, or None."""
+    key = _INPUTS.get(probe)
+    value = getattr(a2a, key) if key else True
+    if isinstance(value, AuthConfig) and value.type == AuthType.OAUTH2:
+        return f"a2a.{key} as bearer, api_key or basic (oauth2 is not sent)"
+    return None if value else f"a2a.{key}"
+
+
+def runnable(attacks: list[Any], wire: A2AWire | None, warnings: list[str]) -> list[Any]:
+    """*attacks* without the probe vectors that cannot run: all of them off A2A, and on A2A those
+    whose input is unset, which one line in *warnings* lists as not run (opt-in, like carriers)."""
+    kept, unset = [], []
+    for attack in attacks:
+        probe = getattr(attack, "a2a_probe", None)
+        key = None if probe is None or wire is None else missing_input(probe, wire.a2a)
+        if probe is None or (wire is not None and key is None):
+            kept.append(attack)
+        elif key is not None:
+            unset.append(f"{attack.id} (set {key})")
+    warning = "A2A probes not run, their input is unset: " + ", ".join(unset)
+    if unset and warning not in warnings:
+        warnings.append(warning)
+    return kept
+
+
 # -- the card -------------------------------------------------------------
 
 
@@ -63,13 +100,13 @@ async def _card(wire: A2AWire) -> tuple[dict[str, Any], A2AAgentCard | None, dic
     reply = await wire.get(wire.card_url, "target")
     evidence: dict[str, Any] = {"card_url": wire.card_url, "card_status": reply.status}
     if not reply.accepted:
-        return evidence | _unmeasured(f"agent card not fetched: {_why(reply)}", "error"), None, {}
+        return evidence | _unmeasured(f"agent card not fetched: {_why(reply)}"), None, {}
     evidence["card_sha256"] = hashlib.sha256(reply.text.encode()).hexdigest()
     try:
         card = A2AAgentCard.model_validate(reply.body)
     except ValidationError as exc:
         reason = f"agent card does not parse ({exc.error_count()} errors)"
-        return evidence | _unmeasured(reason, "error"), None, {}
+        return evidence | _unmeasured(reason), None, {}
     return evidence | {"card_name": card.name}, card, reply.body
 
 
@@ -90,8 +127,10 @@ async def _card_signature(wire: A2AWire) -> Verdict:
     results = [c["result"] for c in checks]
     if not checks or "valid" in results:
         return False, evidence
-    if all(r.startswith("unverifiable") for r in results):
-        return False, evidence | _unmeasured("no signature could be checked", "error")
+    if all(r.startswith("not checked") for r in results):  # no trusted key: not run, not a gap
+        return False, evidence | {"not_run": "no trusted key: set a2a.jwks_url"}
+    if all(r.startswith(("unverifiable", "not checked")) for r in results):
+        return False, evidence | _unmeasured("no signature could be checked")
     return True, evidence
 
 
@@ -109,14 +148,14 @@ async def _check(
         return {"result": "malformed protected header"}
     alg, kid, jku = header.get("alg"), header.get("kid"), header.get("jku")
     check: dict[str, Any] = {"alg": alg, "kid": kid, "jku": jku}
-    if alg not in ALGORITHMS:
+    if not isinstance(alg, str) or alg not in ALGORITHMS:  # a list or object alg is refused too
         return check | {"result": f"alg not allowed: {alg}"}
     if wire.a2a.jwks_url:
         url, check["key_source"] = wire.a2a.jwks_url, "pinned"
     elif isinstance(jku, str) and _origin(jku) == _origin(wire.config.url):
         url, check["key_source"] = jku, "jku"
     else:  # a jku elsewhere is the signer's own claim, and fetching it lets the card aim ziran
-        return check | {"result": "unverifiable: no pinned JWKS and no jku on the target's origin"}
+        return check | {"result": "not checked: no pinned JWKS and no jku on the target's origin"}
     if url not in jwks:
         reply = await wire.get(url)
         keys = reply.body.get("keys") if reply.accepted else None
@@ -130,7 +169,7 @@ async def _check(
     if not matches:
         return check | {"result": f"kid not in the JWKS: {kid}"}
     try:
-        valid = verify_card(raw, str(alg), matches[0], signature.protected, signature.signature)
+        valid = verify_card(raw, alg, matches[0], signature.protected, signature.signature)
     except ImportError:
         return check | {"result": "unverifiable: cryptography is not installed"}
     except ValueError as exc:
@@ -139,8 +178,6 @@ async def _check(
 
 
 async def _lookalike_card(wire: A2AWire) -> Verdict:
-    if not wire.a2a.lookalike_cards:
-        return False, _unmeasured("set a2a.lookalike_cards to Agent Card URLs from a registry")
     evidence, card, _ = await _card(wire)
     if card is None:
         return False, evidence
@@ -174,7 +211,7 @@ async def _lookalike_card(wire: A2AWire) -> Verdict:
             )
     evidence |= {"lookalikes": hits, "unreachable": failed}
     if not hits and len(failed) == len(others):
-        return False, evidence | _unmeasured("no other card could be read", "error")
+        return False, evidence | _unmeasured("no other card could be read")
     return bool(hits), evidence
 
 
@@ -189,33 +226,27 @@ async def _plant(wire: A2AWire) -> tuple[str, str, A2AReply]:
 
 
 async def _cross_client_context(wire: A2AWire) -> Verdict:
-    peer = _peer(wire)
-    if peer is None:
-        return False, _unmeasured(_NO_PEER)
     canary, sent, a = await _plant(wire)
     if not a.accepted:
-        return False, _unmeasured(f"client A's message failed: {_why(a)}", "error")
+        return False, _unmeasured(f"client A's message failed: {_why(a)}")
     context_id = _get(a.body, "task", "contextId") or _get(a.body, "message", "contextId") or sent
-    b = await wire.send(peer, _ASK, context_id=context_id)
+    b = await wire.send("peer", _ASK, context_id=context_id)
     requests = [
         {"client": "target", "context_id": sent, "text": _PLANT.format(canary=canary)},
-        {"client": peer, "context_id": context_id, "text": _ASK},
+        {"client": "peer", "context_id": context_id, "text": _ASK},
     ]
     return _leak(b, canary, {"context_id": context_id, "requests": requests})
 
 
 async def _cross_client_task(wire: A2AWire) -> Verdict:
-    peer = _peer(wire)
-    if peer is None:
-        return False, _unmeasured(_NO_PEER)
     canary, sent, a = await _plant(wire)
     task_id = _get(a.body, "task", "id")
     if not a.accepted or not task_id:
-        return False, _unmeasured(f"client A's message gave no task: {_why(a)}", "error")
-    b = await wire.get_task(peer, task_id)
+        return False, _unmeasured(f"client A's message gave no task: {_why(a)}")
+    b = await wire.get_task("peer", task_id)
     requests = [
         {"client": "target", "context_id": sent, "text": _PLANT.format(canary=canary)},
-        {"client": peer, "get_task": task_id},
+        {"client": "peer", "get_task": task_id},
     ]
     return _leak(b, canary, {"task_id": task_id, "requests": requests})
 
@@ -230,19 +261,9 @@ def _leak(b: A2AReply, canary: str, evidence: dict[str, Any]) -> Verdict:
         "leaked_in": leaked_in,
         "reply_excerpt": b.text[:500],
     }
-    if b.status in (0, 401):
-        return False, evidence | _unmeasured(f"client B got no answer: {_why(b)}", "error")
+    if _no_verdict(b) or b.status == 401:  # 401: B's own credential failed
+        return False, evidence | _unmeasured(f"client B got no answer: {_why(b)}")
     return bool(leaked_in), evidence
-
-
-_NO_PEER = "the target has auth: set a2a.peer_auth to a second client's credential"
-
-
-def _peer(wire: A2AWire) -> A2AClient | None:
-    """Client B: the operator's second credential, or no credential on a target with no auth."""
-    if wire.a2a.peer_auth is not None:
-        return "peer"
-    return "anonymous" if wire.config.auth is None else None
 
 
 # -- delegated token ------------------------------------------------------
@@ -250,9 +271,8 @@ def _peer(wire: A2AWire) -> A2AClient | None:
 
 async def _delegated_token_replay(wire: A2AWire) -> Verdict:
     auth = wire.a2a.replay_auth
-    if auth is None:
-        reason = "set a2a.replay_auth to a delegated token recorded from an earlier session"
-        return False, _unmeasured(reason)
+    if auth is None:  # runnable() leaves this probe out first
+        return False, {"not_run": "needs a2a.replay_auth"}
     try:
         secret = auth.get_resolved_token()
     except ValueError:  # basic auth carries no token
@@ -268,16 +288,21 @@ async def _delegated_token_replay(wire: A2AWire) -> Verdict:
         "task_state": state,
         "error": reply.error,
     }
-    if reply.status == 0:
-        return False, evidence | _unmeasured(f"no answer: {_why(reply)}", "error")
+    if _no_verdict(reply):
+        return False, evidence | _unmeasured(f"no answer: {_why(reply)}")
     return reply.accepted and state not in _REFUSED_STATES, evidence
 
 
 # -- helpers --------------------------------------------------------------
 
 
-def _unmeasured(reason: str, key: str = "skipped") -> dict[str, Any]:
-    return {key: reason, "outcome": "unmeasured"}
+def _unmeasured(reason: str) -> dict[str, Any]:
+    return {"error": reason, "outcome": "unmeasured"}
+
+
+def _no_verdict(reply: A2AReply) -> bool:
+    """No answer, rate limited or a server error: the server never judged the request."""
+    return reply.status == 0 or reply.status == 429 or reply.status >= 500
 
 
 def _why(reply: A2AReply) -> str:

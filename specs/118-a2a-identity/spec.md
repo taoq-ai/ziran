@@ -19,7 +19,8 @@ with a new `a2a_probe` key and no prompt, and it yields a normal `AttackResult`.
 2. `a2a_card_signature_invalid`: the card has signatures, a key is found for them, and none
    verifies over the card (RFC 7515 JWS over the RFC 8785 canonical card without `signatures`,
    as A2A 1.0 says). The key comes from a JWKS the operator pins (`a2a.jwks_url`), or from the
-   signature's `jku` when it has the target's origin. With no key, the probe is unmeasured.
+   signature's `jku` when it has the target's origin. With no such key the check does not run
+   (`not_run`). ES256 needs a P-256 key and ES384 a P-384 key.
 3. `a2a_cross_client_context`: client A plants a random code in a new context. Client B sends a
    message with A's `contextId`. B getting the code back (history, artifact or reply) is a
    finding, with both requests as proof.
@@ -32,13 +33,20 @@ with a new `a2a_probe` key and no prompt, and it yields a normal `AttackResult`.
    registry), a card on another origin whose name matches or nearly matches the target's and that
    declares one of its skills is a finding.
 
-Client B is the operator's second credential (`a2a.peer_auth`). On a target with no auth it is a
-fresh client with no credential: the `contextId` or task id is then the only thing that guards a
-session, and B reading it back is the finding. On a target with auth and no `peer_auth`, the two
-cross-client probes are unmeasured: the same credential cannot show a cross-client leak. B
-refused with 401 (or no answer) is unmeasured; 403, 404 or a fresh context is isolation held. A probe that lacks
-its input, or gets no usable answer, is unmeasured (`outcome: unmeasured`, with the reason under
-`skipped` or `error`), never a pass. The probes run only on a target that speaks A2A.
+Client B is always the operator's second credential (`a2a.peer_auth`). Without it the two
+cross-client probes do not run: with no auth, the same credential or the same client
+certificate, A and B are one principal to the server, and a leak would prove nothing.
+
+Probes are opt-in by input, like carrier vectors. The phase executor leaves out a probe whose
+`a2a` key is unset (`peer_auth`, `replay_auth`, `lookalike_cards`; an `oauth2` credential, which
+the wire does not send, counts as unset) and the scan lists them in one warning ("A2A probes not
+run, their input is unset: ..."). Such a probe has no outcome, so a safe target stays PASSED.
+A probe that runs and gets no usable answer is unmeasured (`outcome: unmeasured`, the reason
+under `error`): no answer, a redirect off the pinned URL, 429 or 5xx, B refused with 401, client
+A refused, no task id, an unreadable card or JWKS, a malformed or unsupported key, or no
+`cryptography` installed. 403, 404 or a fresh context for B is isolation held. An error keeps
+only the exception type, since an httpx message can quote a header, token included. The probes
+run only on a target that speaks A2A.
 
 **Acceptance (the item's).**
 
@@ -53,10 +61,13 @@ In my words, as tests on an in-process A2A server (`tests/a2a_servers.py`, a rea
 - `ziran scan --target t.yaml --protocol a2a --phases reconnaissance` on the server with an
   unsigned card writes a report whose `a2a_card_unsigned` row is successful and whose
   `card_sha256` equals the sha256 of the card bytes the server sent.
-- On the server in its vulnerable mode, with no auth, B's request with A's `contextId` gets A's
-  message back in the task history. The `a2a_cross_client_context` row is successful, high, and
-  its evidence lists A's request and B's request with their context ids. In its safe mode, with
-  two credentials (contexts bound to the client), the row is not successful.
+- On the server in its vulnerable mode, with two bearer credentials (`auth` for A, `peer_auth`
+  for B), B's request with A's `contextId` gets A's message back in the task history. The
+  `a2a_cross_client_context` row is successful, high, and its evidence lists A's request and B's
+  request with their context ids. In its safe mode (contexts bound to the client) the row is not
+  successful.
+- A safe server (signed card, isolated contexts), scanned with bearer auth or none and no probe
+  input set, stays PASSED: no unmeasured vector, and a warning lists the probes not run.
 
 ## Requirements
 
@@ -72,8 +83,9 @@ In my words, as tests on an in-process A2A server (`tests/a2a_servers.py`, a rea
 - **FR-005** Signature check: algorithms ES256, ES384, RS256 and EdDSA. `none`, HMAC and any other
   algorithm are invalid. A key whose type does not match the algorithm is invalid. A `kid` that
   is not in the JWKS is invalid. A `jku` on another origin is never fetched.
-- **FR-006** Requests as another client never carry the target's `auth` or `headers`. Look-alike
-  cards and the JWKS are fetched with no credential.
+- **FR-006** Requests as another client never carry the target's `auth`, `headers` or TLS client
+  certificate, and never follow a redirect. Look-alike cards and the JWKS are fetched with no
+  credential. A response over 1 MiB is not parsed.
 - **FR-007** Probe vectors carry the tags of their category (`authorization`, `bola` or
   `impersonation` on `authorization_bypass`), and the tests that require every vector to have a
   prompt skip `a2a_probe` vectors.
@@ -95,13 +107,10 @@ In my words, as tests on an in-process A2A server (`tests/a2a_servers.py`, a rea
 - No side-effect goal is attached. Why: these probes' signals are protocol answers (a leaked
   code, an accepted token), not tool calls, and `judge_goal` reads tool calls. Overturned when a
   probe makes the agent run a tool.
-- Unconfigured probes (`replay_auth`, `lookalike_cards`, `peer_auth` on an authenticated target)
-  read unmeasured, so such a scan reports INCOMPLETE, as spec 113 does for memory vectors on a
-  target without memory. Overturned if opt-in probes should be left out of the run instead.
-- On a target with no auth, a leak to a fresh anonymous client is a finding. Why: the server then
-  treats the id as a bearer capability, which is the A2ABreak cross-client injection; a server
-  that wants isolation must bind contexts to an authenticated client. Overturned if anonymous
-  targets should read unmeasured instead.
+- Gate round 1 (arch) settled two choices: probes whose input is unset are left out of the run
+  and listed as not run, so no outcome changes for an operator who never opted in; and the
+  cross-client probes need `peer_auth` on every target, because an anonymous second client is
+  the same principal as the first.
 - The phase executor drops probe vectors on another protocol, rather than the library. Why:
   only the executor knows the adapter; `scanner.py` is at its 750-line cap. Two test helpers that
   count a phase's vectors on a mock target now leave probe vectors out.

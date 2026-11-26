@@ -63,12 +63,20 @@ class A2AServer:
         revoked: set[str] | None = None,
         name: str = "Travel Agent",
         skills: list[dict[str, str]] | None = None,
+        fail: dict[str, int] | None = None,
+        reply_message: bool = False,
+        revoked_state: str | None = None,
+        jwks: dict[str, Any] | None = None,
     ) -> None:
         self.vulnerable, self.signed, self.tamper, self.header = vulnerable, signed, tamper, header
         self.extra_signatures, self.raw_card = extra_signatures or [], raw_card
         self.tokens = tokens or {}  # bearer token -> client; empty means the server has no auth
         self.revoked = revoked or set()
         self.name, self.skills = name, SKILLS if skills is None else skills
+        self.fail = fail or {}  # bearer token -> HTTP status for every A2A call it makes
+        self.reply_message = reply_message  # answer with a message, not a task
+        self.revoked_state = revoked_state  # refuse a revoked token with HTTP 200 and this state
+        self.jwks = jwks
         self.key = ec.generate_private_key(ec.SECP256R1())
         self.contexts: dict[str, tuple[str, list[dict[str, Any]]]] = {}
         self.tasks: dict[str, tuple[str, dict[str, Any]]] = {}
@@ -103,7 +111,7 @@ class A2AServer:
             return "anonymous"
         token = (headers.get("Authorization") or "").removeprefix("Bearer ")
         if token in self.revoked:
-            return "revoked" if self.vulnerable else None
+            return "revoked" if self.vulnerable or self.revoked_state else None
         return self.tokens.get(token)
 
     def send_message(self, client: str, params: dict[str, Any]) -> tuple[int, dict[str, Any]]:
@@ -115,6 +123,8 @@ class A2AServer:
             owner, history = self.contexts.setdefault(context_id, (client, []))
         reply = {"role": "ROLE_AGENT", "parts": [{"text": "Noted."}], "contextId": context_id}
         history += [message, reply]
+        if self.reply_message:
+            return 200, {"message": reply}
         task = {
             "id": str(uuid.uuid4()),
             "contextId": context_id,
@@ -122,6 +132,8 @@ class A2AServer:
             "history": list(history),
             "artifacts": [{"artifactId": "a1", "parts": [{"text": "Noted."}]}],
         }
+        if client == "revoked" and self.revoked_state:
+            task["status"] = {"state": self.revoked_state}
         self.tasks[task["id"]] = (client, task)
         return 200, {"task": task}
 
@@ -150,15 +162,29 @@ class A2AServer:
 
             def _record(self, body: Any = None) -> str | None:
                 auth = self.headers.get("Authorization")
-                server.requests.append({"path": self.path, "authorization": auth, "body": body})
+                record = {"path": self.path, "authorization": auth, "body": body}
+                server.requests.append(record | {"headers": dict(self.headers)})
                 return server._client(self.headers)
+
+            def _failed(self) -> bool:
+                token = (self.headers.get("Authorization") or "").removeprefix("Bearer ")
+                if token in server.fail:
+                    self._send(server.fail[token], {"error": "unavailable"})
+                return token in server.fail
 
             def do_GET(self) -> None:
                 client = self._record()
                 if self.path == CARD_PATH:
                     return self._send(200, server.card_bytes)
                 if self.path == "/jwks.json":
-                    return self._send(200, {"keys": [es256_jwk(server.key)]})
+                    return self._send(200, server.jwks or {"keys": [es256_jwk(server.key)]})
+                if self.path == "/redirect":
+                    self.send_response(302)
+                    self.send_header("Location", "/jwks.json")
+                    self.send_header("Content-Length", "0")
+                    return self.end_headers()
+                if self._failed():
+                    return None
                 if client is None:
                     return self._send(401, {"error": "unauthorized"})
                 if self.path.startswith("/tasks/"):
@@ -169,6 +195,11 @@ class A2AServer:
             def do_POST(self) -> None:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 client = self._record(body)
+                if self._failed():
+                    return None
+                if client is None and self.path == "/":  # JSON-RPC refuses in the body
+                    error = {"code": -32007, "message": "Unauthenticated"}
+                    return self._send(200, {"jsonrpc": "2.0", "id": body["id"], "error": error})
                 if client is None:
                     return self._send(401, {"error": "unauthorized"})
                 if self.path == "/message:send":

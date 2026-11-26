@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ziran.domain.entities.target import TargetConfig
 
 _HISTORY = 50
+_MAX_BYTES = 1 << 20
 
 
 class HttpA2AWire(A2AWire):
@@ -36,15 +37,24 @@ class HttpA2AWire(A2AWire):
     def _client(self, client: A2AClient) -> httpx.AsyncClient:
         if client == "target":
             return self._build(self.config)
+        # another client is another principal: none of the target's auth, headers or client cert
         auth = {"peer": self.a2a.peer_auth, "replay": self.a2a.replay_auth}.get(client)
-        return self._build(self.config.model_copy(update={"auth": auth, "headers": {}}))
+        tls = self.config.tls.model_copy(update={"client_cert": None, "client_key": None})
+        return self._build(self.config.model_copy(update={"auth": auth, "headers": {}, "tls": tls}))
+
+    async def _request(self, client: A2AClient, method: str, url: str, **kwargs: Any) -> A2AReply:
+        try:
+            async with self._client(client) as http:
+                # only the target's own requests follow redirects, so a JWKS or a look-alike
+                # card cannot send ziran to another host
+                kwargs.setdefault("follow_redirects", client == "target")
+                response = await http.request(method, url, **kwargs)
+        except (httpx.HTTPError, ValueError) as exc:  # the type only: a message can quote a token
+            return A2AReply(error=type(exc).__name__)
+        return _reply(response)
 
     async def get(self, url: str, client: A2AClient = "anonymous") -> A2AReply:
-        async with self._client(client) as http:
-            try:
-                return _reply(await http.get(url))
-            except httpx.HTTPError as exc:
-                return A2AReply(error=f"{type(exc).__name__}: {exc}")
+        return await self._request(client, "GET", url)
 
     async def send(
         self, client: A2AClient, text: str, *, context_id: str, task_id: str | None = None
@@ -70,35 +80,33 @@ class HttpA2AWire(A2AWire):
         url = self.config.normalized_url
         headers = {"A2A-Version": self.a2a.a2a_version}
         rpc = self.a2a.protocol_binding == "JSONRPC"
-        async with self._client(client) as http:
-            try:
-                if rpc:
-                    self._rpc_id += 1
-                    body = {"jsonrpc": "2.0", "id": self._rpc_id, "method": method}
-                    response = await http.post(
-                        url, json={**body, "params": params}, headers=headers
-                    )
-                elif method == "GetTask":
-                    query = {"historyLength": _HISTORY}
-                    response = await http.get(url + path, params=query, headers=headers)
-                else:
-                    response = await http.post(url + path, json=params, headers=headers)
-            except httpx.HTTPError as exc:
-                return A2AReply(error=f"{type(exc).__name__}: {exc}")
-        reply = _reply(response)
+        if rpc:
+            self._rpc_id += 1
+            body = {"jsonrpc": "2.0", "id": self._rpc_id, "method": method, "params": params}
+            reply = await self._request(client, "POST", url, json=body, headers=headers)
+        elif method == "GetTask":
+            query = {"historyLength": _HISTORY}
+            reply = await self._request(client, "GET", url + path, params=query, headers=headers)
+        else:
+            reply = await self._request(client, "POST", url + path, json=params, headers=headers)
         if rpc and reply.status == 200:
             error = reply.body.get("error")
             result = reply.body.get("result")
             if error is not None or not isinstance(result, dict):
-                return reply.model_copy(update={"body": {}, "error": f"JSON-RPC error: {error}"})
+                code = error.get("code") if isinstance(error, dict) else error
+                return reply.model_copy(update={"body": {}, "error": f"JSON-RPC error {code}"})
             return reply.model_copy(update={"body": result})
         return reply
 
 
 def _reply(response: httpx.Response) -> A2AReply:
+    # ponytail: the cap is checked after the read, so it bounds parsing, not memory; stream
+    # the body if a hostile target sending gigabytes matters
+    if len(response.content) > _MAX_BYTES:
+        return A2AReply(status=response.status_code, error=f"response over {_MAX_BYTES} bytes")
     try:
         data = response.json()
-    except ValueError:
+    except (ValueError, RecursionError):
         data = None
     body = data if isinstance(data, dict) else {}
     return A2AReply(status=response.status_code, body=body, text=response.text)

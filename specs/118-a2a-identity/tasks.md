@@ -11,3 +11,4 @@
 - [x] T007 Update the tests of the old contract (every vector has a prompt; phase vector counts on a mock target)
 - [x] T008 Regenerate benchmarks and baseline; update README, attack-library and atlas-mapping counts; document the field and the probes
 - [x] T009 Run ruff check, ruff format --check and mypy strict; run the new, touched and fitness tests
+- [x] T010 Gate round 1 (arch, security, quality): unset-input probes left out and listed as not run; cross-client probes need `peer_auth`; `cryptography` declared in the `a2a` extra and in the mypy override; non-string `alg` refused; errors keep the exception type only; other clients drop the target's headers and client certificate and follow no redirect; 429/5xx read unmeasured; ES256/ES384 curve check; 1 MiB read cap; tests for each guard

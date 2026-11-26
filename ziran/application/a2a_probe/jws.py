@@ -1,7 +1,7 @@
 """JWS check of an A2A Agent Card signature (spec 118).
 
 A2A 1.0 signs the RFC 8785 (JCS) form of the card without ``signatures`` as an RFC 7515 JWS
-with a detached payload. ``cryptography`` (installed with the ``a2a`` extra) is imported only
+with a detached payload. ``cryptography`` (declared in the ``a2a`` extra) is imported only
 here, when a card carries a signature.
 """
 
@@ -64,7 +64,8 @@ def verify_card(
     for payload in canonical_forms(card):
         signed = f"{protected}.{_b64encode(payload)}".encode()
         try:
-            if alg in ("ES256", "ES384") and isinstance(key, ec.EllipticCurvePublicKey):
+            curve = {"ES256": "secp256r1", "ES384": "secp384r1"}.get(alg)  # RFC 7518 3.4
+            if isinstance(key, ec.EllipticCurvePublicKey) and key.curve.name == curve:
                 half = len(raw) // 2
                 der = encode_dss_signature(
                     int.from_bytes(raw[:half], "big"), int.from_bytes(raw[half:], "big")
