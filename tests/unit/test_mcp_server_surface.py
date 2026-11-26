@@ -328,7 +328,11 @@ def test_scan_dry_run_counts_no_server_surface_vector(
     from ziran.interfaces.cli import main
 
     out = StringIO()
-    sent = [v for v in shared_attack_library.vectors if v.mcp_server_request is None]
+    sent = [
+        v
+        for v in shared_attack_library.vectors
+        if v.mcp_server_request is None and v.carrier is None  # carriers are opt-in (spec 112)
+    ]
     with (
         patch.object(main, "console", Console(file=out, width=200)),
         patch.object(main.asyncio, "run", return_value=[]),
