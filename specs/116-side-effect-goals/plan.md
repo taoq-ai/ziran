@@ -16,8 +16,10 @@ from role typing, unchanged.
 2. `ziran/domain/entities/attack.py`: `AttackVector.goal: SideEffectGoal | None`;
    `AttackResult.goal_met: bool | None` and `goal_evidence: list[GoalCall]`, both defaulted, so
    stored results and cache entries still load.
-3. `ziran/application/goals/judge.py`: `judge_goal(attack, result, turns)` sets the two result
-   fields from the recorded turns and returns the result. No goal or no turn leaves them unset.
+3. `ziran/application/goals/judge.py`: `goal_status(goal, turns)` returns `(met, evidence)`, pure,
+   with one branch per goal kind (`assert_never` on the rest), so a caller can ask mid-run.
+   `judge_goal(attack, result, turns)` sets the two result fields from it. No turn gives null.
+   `AttackLibrary._parse_vector` passes `goal` (and `pair`, which it dropped before) to the model.
 4. Hook: `AttackExecutor.execute` makes a `Turns` dict, runs the existing body (now `_run`), and
    passes the result through `judge_goal`. The single path records each reply that is not an
    error; `TacticExecutor`, `PairExecutor` and `CarrierExecutor` take an optional `turns` dict

@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.interfaces.adapter import scan_metadata
-from ziran.domain.replies import is_no_chat_reply
+from ziran.domain.replies import is_error_response, is_no_chat_reply
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
@@ -267,7 +267,8 @@ class TacticExecutor:
                 if is_no_chat_reply(response.content):  # no prompt reached the target (spec 082)
                     prompt_errors += 1
                     continue
-                turns[i + 1] = response.tool_calls
+                if not is_error_response(response.content):
+                    turns[i + 1] = response.tool_calls
 
                 if response.content:
                     last_response_content = response.content
