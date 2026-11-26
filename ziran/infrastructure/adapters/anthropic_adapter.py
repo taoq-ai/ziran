@@ -12,12 +12,19 @@ Requires the ``anthropic`` extra::
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any
 
 from ziran.domain.entities.capability import AgentCapability, CapabilityType
-from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+from ziran.domain.interfaces.adapter import (
+    AgentResponse,
+    AgentState,
+    Attachment,
+    BaseAgentAdapter,
+    check_attachments,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -25,6 +32,13 @@ if TYPE_CHECKING:
     from ziran.domain.entities.streaming import AgentResponseChunk
 
 logger = logging.getLogger(__name__)
+
+
+def _block(attachment: Attachment) -> dict[str, Any]:
+    kind = "image" if attachment.media_type.startswith("image/") else "document"
+    data = base64.b64encode(attachment.data).decode("ascii")
+    source = {"type": "base64", "media_type": attachment.media_type, "data": data}
+    return {"type": kind, "source": source}
 
 
 class AnthropicAdapter(BaseAgentAdapter):
@@ -98,17 +112,31 @@ class AnthropicAdapter(BaseAgentAdapter):
             and asyncio.iscoroutinefunction(getattr(client.messages, "create", None))
         )
 
+    @property
+    def attachment_types(self) -> frozenset[str]:
+        """PNG as an ``image`` block, PDF as a ``document`` block (spec 112)."""
+        return frozenset({"image/png", "application/pdf"})
+
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
-        """Send a message to Claude and return the response."""
+        """Send a message to Claude and return the response.
+
+        ``attachments`` (``list[Attachment]``) go before the text in this turn only.
+        """
+        attachments: list[Attachment] = kwargs.get("attachments") or []
+        check_attachments(self, attachments)
         self._conversation_history.append({"role": "user", "content": message})
 
         # Build request kwargs.
+        messages: list[dict[str, Any]] = [
+            {"role": m["role"], "content": m["content"]} for m in self._conversation_history
+        ]
+        if attachments:
+            parts = [_block(a) for a in attachments]
+            messages[-1]["content"] = [*parts, {"type": "text", "text": message}]
         req_kwargs: dict[str, Any] = {
             "model": self._model,
             "max_tokens": self._max_tokens,
-            "messages": [
-                {"role": m["role"], "content": m["content"]} for m in self._conversation_history
-            ],
+            "messages": messages,
         }
         if self._system_prompt:
             req_kwargs["system"] = self._system_prompt

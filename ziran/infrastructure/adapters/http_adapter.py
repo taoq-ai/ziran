@@ -25,6 +25,7 @@ from ziran.domain.interfaces.adapter import (
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
+    check_attachments,
     drop_reserved,
 )
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
@@ -177,12 +178,17 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     # ── BaseAgentAdapter Implementation ──────────────────────────
 
+    @property
+    def attachment_types(self) -> frozenset[str]:
+        """PNG as an ``image_url`` part on the OpenAI protocol; none on the others (spec 112)."""
+        return frozenset({"image/png"}) if self.protocol == ProtocolType.OPENAI else frozenset()
+
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         """Send a message to the remote agent.
 
         Args:
             message: The prompt text.
-            **kwargs: Protocol-specific options.
+            **kwargs: Protocol-specific options; ``attachments`` as ``attachment_types`` lists.
 
         Returns:
             Standardized response.
@@ -190,6 +196,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         await self._ensure_initialized()
         if self._handler is None:
             raise RuntimeError("Handler not initialized — call initialize() first")
+        check_attachments(self, kwargs.get("attachments") or [])
 
         self._conversation.append({"role": "user", "content": message})
 

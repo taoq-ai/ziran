@@ -7,6 +7,7 @@ Ollama, LiteLLM proxies, and similar.
 
 from __future__ import annotations
 
+import base64
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -62,10 +63,15 @@ class OpenAIProtocolHandler(BaseProtocolHandler):
         self._conversation.append({"role": "user", "content": message})
 
         url = f"{self._config.normalized_url}/v1/chat/completions"
-        body: dict[str, Any] = {
-            "model": self._model,
-            "messages": list(self._conversation),
-        }
+        messages: list[dict[str, Any]] = list(self._conversation)
+        if attachments := kwargs.get("attachments"):  # this turn only (spec 112)
+            urls = [
+                f"data:{a.media_type};base64,{base64.b64encode(a.data).decode()}"
+                for a in attachments
+            ]
+            images = [{"type": "image_url", "image_url": {"url": u}} for u in urls]
+            messages[-1] = {"role": "user", "content": [{"type": "text", "text": message}, *images]}
+        body: dict[str, Any] = {"model": self._model, "messages": messages}
         if self._temperature is not None:
             body["temperature"] = self._temperature
         if self._max_tokens is not None:
