@@ -19,7 +19,7 @@ from typing import Any
 from ziran.domain.entities.alerting import SEVERITY_RANK
 from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY
 from ziran.domain.text import printable, printable_lines
-from ziran.interfaces.cli.reports import BLAST_RADIUS_INTRO, blast_radius_blocks
+from ziran.interfaces.cli.reports import BLAST_RADIUS_INTRO, blast_radius_blocks, trial_label
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
 # vis-network CDN version used by the self-contained report.
@@ -510,6 +510,7 @@ def _build_vulns_html(phases: list[dict[str, Any]]) -> str:
                     "severity": art.get("severity", "unknown"),
                     "category": art.get("category", "unknown"),
                     "phase": p.get("phase", "unknown"),
+                    "trials": trial_label(art.get("evidence")),
                 }
             )
 
@@ -533,8 +534,8 @@ def _build_vulns_html(phases: list[dict[str, Any]]) -> str:
             f'    <span class="sev-badge {sev_cls}">{html.escape(v["severity"])}</span>'
             f"    <span>{html.escape(v['category'])}</span>"
             f'    <span class="muted">in {html.escape(v["phase"].replace("_", " ").title())}</span>'
-            f"  </div>"
-            f"</div>"
+            + (f"    <span>reproduced {html.escape(v['trials'])}</span>" if v["trials"] else "")
+            + "  </div></div>"
         )
     return "\n".join(parts)
 

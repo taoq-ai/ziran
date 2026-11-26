@@ -544,5 +544,14 @@ def _build_result(
     evidence = ar.get("evidence", {})
     if evidence:
         sarif_result["properties"]["evidence"] = evidence
+    trials = evidence.get("trials") if isinstance(evidence, dict) else None
+    if trials:  # repeat trials (spec 121): successes out of k, flaky when some but not all
+        sarif_result["properties"] |= {
+            "successes": trials["successes"],
+            "trials": trials["k"],
+            "measured": trials.get("measured", trials["k"]),
+            "success_rate": trials["success_rate"],
+            "flaky": trials["flaky"],
+        }
 
     return sarif_result

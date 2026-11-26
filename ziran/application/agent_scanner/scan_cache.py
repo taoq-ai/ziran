@@ -4,7 +4,8 @@ The cache is **opt-in only** (``ziran scan --incremental``). A stale cache hides
 remote target can change (model, server-side prompt, tools behind an API) without any change to
 the inputs hashed here, so never enable it for release gates or scheduled CI scans.
 
-One JSON file per vector lives at ``<root>/<campaign_key>/<vector_id>.json``. The campaign key
+One JSON file per vector lives at ``<root>/<campaign_key>/<vector_id>.json``; a repeat trial
+(spec 121) has its own, ``<vector_id>~trial<N>.json``. The campaign key
 hashes every campaign-wide input that can change a vector's result (:class:`CacheContext`: the
 target file bytes, protocol, framework, streaming, encodings, many-shot settings, quality scoring,
 judge model, effective detector settings and judge models, ZIRAN version) plus the sorted
@@ -197,18 +198,23 @@ class ScanCache:
         self.stats = ScanCacheStats()
 
     def _entry(
-        self, vector: AttackVector, capabilities: Sequence[AgentCapability]
+        self, vector: AttackVector, capabilities: Sequence[AgentCapability], trial: int
     ) -> tuple[Path, str] | None:
         if not _SAFE_ID.fullmatch(vector.id):
             return None
         ck = campaign_key(self.context, capabilities)
-        return self.root / ck / f"{vector.id}.json", vector_key(ck, vector)
+        if not trial:  # trial 0 keeps the single-run file and key
+            return self.root / ck / f"{vector.id}.json", vector_key(ck, vector)
+        # "~" is outside _SAFE_ID, so a repeat trial's file never names another vector's
+        name, key = f"{vector.id}~trial{trial}.json", f"{vector_key(ck, vector)}\ntrial={trial}"
+        return self.root / ck / name, _sha256(key)
 
     async def lookup(
-        self, vector: AttackVector, capabilities: Sequence[AgentCapability]
+        self, vector: AttackVector, capabilities: Sequence[AgentCapability], trial: int = 0
     ) -> AttackResult | None:
-        """Cached result for *vector* (marked ``evidence["cached"]``, zero tokens), or None."""
-        entry = self._entry(vector, capabilities)
+        """Cached result for *vector*'s *trial* (spec 121) (marked ``evidence["cached"]``, zero
+        tokens), or None."""
+        entry = self._entry(vector, capabilities, trial)
         if entry is None:
             return None
         path, key = entry
@@ -237,10 +243,11 @@ class ScanCache:
         vector: AttackVector,
         capabilities: Sequence[AgentCapability],
         result: AttackResult,
+        trial: int = 0,
     ) -> None:
-        """Count an executed vector and store its result when cacheable. Never raises."""
+        """Count an executed trial and store its result when cacheable. Never raises."""
         self.stats.executed += 1
-        entry = self._entry(vector, capabilities)
+        entry = self._entry(vector, capabilities, trial)
         if entry is None or not is_cacheable(result):
             return
         path, key = entry
