@@ -6,57 +6,101 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
+  # A docs-only PR skips the work; classify.sh fails closed (see .github/ci). Required
+  # jobs gate by step, so a skipped matrix never leaves a required check unreported.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.f.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/ci
+          persist-credentials: false
+
+      - name: Test the classifier
+        run: bash .github/ci/test_classify.sh
+
+      - id: f
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: bash .github/ci/classify.sh >> "$GITHUB_OUTPUT"
+
   lint:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        if: needs.changes.outputs.code == 'true'
 
       - name: Install uv
+        if: needs.changes.outputs.code == 'true'
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Set up Python
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       # Spec 097: fail a PR whose pyproject.toml no longer matches uv.lock.
       - name: Lockfile check
+        if: needs.changes.outputs.code == 'true'
         run: uv lock --check
 
       - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
         run: uv sync --frozen --group lint
 
       - name: Ruff check
+        if: needs.changes.outputs.code == 'true'
         run: uv run ruff check .
 
       - name: Ruff format check
+        if: needs.changes.outputs.code == 'true'
         run: uv run ruff format --check .
 
   typecheck:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        if: needs.changes.outputs.code == 'true'
 
       - name: Install uv
+        if: needs.changes.outputs.code == 'true'
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Set up Python
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
         run: uv sync --frozen --group dev
 
       - name: Mypy
+        if: needs.changes.outputs.code == 'true'
         run: uv run mypy ziran
 
   dependency-audit:
@@ -68,6 +112,8 @@ jobs:
     # — keep the two lists in sync.
     # --disable-pip (spec 056): audit the exact exported lock versions without
     # pip re-resolving them; pip rejects the uv mcp override against crewai's pin.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
