@@ -6,39 +6,37 @@ on:
     branches: [main, develop]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  # A docs-only PR skips the work but every required job still reports: a skipped
-  # job (or a skipped matrix) leaves its required check pending, so gate by step.
+  # A docs-only PR skips the work; classify.sh fails closed (see .github/ci). Required
+  # jobs gate by step, so a skipped matrix never leaves a required check unreported.
   changes:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
     outputs:
       code: ${{ steps.f.outputs.code }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/ci
+
+      - name: Test the classifier
+        run: bash .github/ci/test_classify.sh
+
       - id: f
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-        run: |
-          code=true
-          if [ "$EVENT" = pull_request ]; then
-            if gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' \
-              | grep -vE '^(docs/|specs/|\.specify/|\.claude/|mkdocs\.yml$|LICENSE)|\.md$' >/dev/null; then
-              code=true
-            else
-              code=false
-            fi
-          fi
-          echo "code=$code" >> "$GITHUB_OUTPUT"
+        run: bash .github/ci/classify.sh >> "$GITHUB_OUTPUT"
 
   test:
     needs: changes
