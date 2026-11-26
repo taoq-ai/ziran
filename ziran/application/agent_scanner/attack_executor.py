@@ -24,6 +24,7 @@ from ziran.domain.entities.attack import (
     get_business_impacts,
 )
 from ziran.domain.interfaces.adapter import scan_metadata
+from ziran.domain.probe_markers import probe_scope
 from ziran.domain.replies import ERROR_SENTINELS as _ERROR_SENTINELS
 from ziran.domain.replies import is_error_response as _is_error_response
 from ziran.infrastructure.logging.context import bind_vector
@@ -57,6 +58,7 @@ class AttackExecutor:
         encoding: Optional list of encoding types to apply.
         attacker / budget: PAIR attacker client and campaign budget (spec 081).
         carriers: Folders where carrier vectors plant files (spec 112).
+        campaign_id: Seeds each attack's probe-marker trace id (spec 117).
     """
 
     def __init__(
@@ -72,6 +74,7 @@ class AttackExecutor:
         attacker: BaseLLMClient | None = None,
         budget: CampaignBudget | None = None,
         carriers: CarrierSites | None = None,
+        campaign_id: str = "",
     ) -> None:
         self._adapter = adapter
         # Bounded-cardinality provider label for metrics (e.g. "anthropic",
@@ -89,14 +92,20 @@ class AttackExecutor:
         self._attacker = attacker
         self._budget = budget or CampaignBudget(UsageLedger(), UsageBudget())
         self._carrier = CarrierExecutor(adapter, carriers)
+        self._campaign_id = campaign_id
 
     # -- public API --------------------------------------------------------
 
     async def execute(self, attack: AttackVector, *, deadline: float | None = None) -> AttackResult:
         """Execute *attack*; *deadline* is a PAIR vector's event-loop stop time (spec 081).
-        Its side-effect goal is judged on each reply's recorded tool calls (spec 116)."""
+        Its side-effect goal is judged on each reply's recorded tool calls (spec 116), and
+        the probe markers its requests carried are recorded on it (spec 117)."""
         turns: Turns = {}
-        return judge_goal(attack, await self._run(attack, deadline, turns), turns)
+        with probe_scope(self._campaign_id, attack.id) as markers:
+            result = judge_goal(attack, await self._run(attack, deadline, turns), turns)
+        if markers:
+            result.probe_markers = markers
+        return result
 
     async def _run(
         self, attack: AttackVector, deadline: float | None, turns: Turns

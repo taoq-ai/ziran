@@ -6,6 +6,7 @@ attack results (what happened when we tested it).
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -968,6 +969,16 @@ class AttackVector(BaseModel):
         return len(self.prompts)
 
 
+class ProbeMarker(BaseModel):
+    """One request's correlation marker (spec 117): join it to the target's traces or SIEM."""
+
+    probe_id: str = Field(
+        description="``<campaign id>/<vector id>/<turn>``, as sent in X-Ziran-Probe"
+    )
+    trace_id: str = Field(description="The W3C trace id in the request's traceparent")
+    sent_at: datetime = Field(description="When the request was sent (UTC)")
+
+
 class AttackResult(BaseModel):
     """Result of executing an attack vector against an agent.
 
@@ -1027,4 +1038,8 @@ class AttackResult(BaseModel):
     )
     goal_evidence: list[GoalCall] = Field(
         default_factory=list, description="The tool calls the goal verdict rests on, in order"
+    )
+    probe_markers: list[ProbeMarker] = Field(
+        default_factory=list,
+        description="One marker per request when the target sets ``probe_markers`` (spec 117)",
     )

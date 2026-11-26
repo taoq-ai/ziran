@@ -216,6 +216,25 @@ It does not see a protocol handler's own copy of the conversation, for example o
 retry, or context the target keeps on its side. `--concurrency 1` avoids sharing. Vectors queued behind a two-session run wait for it,
 and the wait counts toward the per-attack timeout.
 
+## Probe Markers
+
+Set `probe_markers` so the target's own traces and SIEM can tell scan traffic apart and join it
+to each attack. It is off by default, and then requests are unchanged.
+
+```yaml
+probe_markers: both   # traceparent | header | both
+```
+
+- `traceparent` adds a W3C `traceparent` header. The trace id is one per attack (derived from
+  the campaign id and vector id); the parent id is one per turn. An OpenTelemetry-instrumented
+  agent continues that trace, so its own spans carry the attack's trace id.
+- `header` adds `X-Ziran-Probe: <campaign id>/<vector id>/<turn>`.
+- `both` adds both.
+
+Every request an attack turn sends carries the turn's markers, on the REST, OpenAI, MCP and A2A
+protocols, streamed or not. Discovery probes carry none. Each attack result lists
+`probe_markers`: the probe id, trace id and send time of each turn.
+
 ## Discovery Mode
 
 Before running a full scan, discover what the agent can do:
