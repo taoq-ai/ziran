@@ -61,6 +61,20 @@ In my words, as tests on the real `MultiAgentScanner` with in-process fake adapt
 - **FR-003** Every adapter is reset before each plant, so evidence belongs to that plant.
 - **FR-004** `run_multi_agent_campaign(trace_hops=True)` runs the tracing after the cross-agent
   campaign; `trace_hops=False` skips it.
+- **FR-006** Tracing fails closed (review round 1). Only an adapter whose
+  `observes_delegated_traffic` is true (new `BaseAgentAdapter` property, default false) is read
+  for agents other than the planted one. Every other adapter, and every topology agent without
+  an adapter, is listed as unobserved. The summary's `beyond_hop_0` is `unmeasured` when no plant
+  had another agent able to report, and the CLI prints "unmeasured beyond hop 0".
+- **FR-007** A reset that raises makes that plant an unmeasured trace (`error: reset <agent>:
+  ...`), never a lost campaign. Tool calls are read from `observed_tool_calls`, else the HTTP
+  adapter's `tool_observations`, else the planted agent's reply calls.
+- **FR-008** Leak precision: a capability counts only when identifier-shaped (5 or more
+  characters with `_`, `-`, `.`, a digit or camelCase); a system-prompt sentence shared by two
+  agents, or in a short boilerplate list, does not count.
+- **FR-009** Cost: each reply's target tokens go on the campaign budget's ledger (spec 047);
+  once `max_campaign_tokens` or `max_cost` is reached, the remaining plants are skipped as
+  unmeasured. `ziran multi-agent-scan --no-trace-hops` skips the stage.
 - **FR-005** No change to detectors, the hybrid judge, role typing, tool aliases,
   `chain_patterns.yaml` or any vector file.
 
@@ -72,8 +86,8 @@ In my words, as tests on the real `MultiAgentScanner` with in-process fake adapt
 - Hop order is not inferred from timing. When the topology has a shorter edge than the one the
   canary may have taken, the shorter path is reported (a lower bound). Overturned if adapters
   start reporting the sender of each message.
-- Only `get_state()` is read, so no adapter or interface changes. Today the Anthropic adapter
-  puts `observed_tool_calls` in `memory`; the other adapters report history only until they do
-  the same.
-- Planting at every adapter costs one request per vector per agent (10 vectors today), run one
+- Only `get_state()` is read; the one interface change is the defaulted
+  `observes_delegated_traffic` property, which no shipped adapter sets yet. So every shipped
+  adapter reads unmeasured beyond hop 0 until it observes delegated traffic and says so.
+- Planting at every adapter costs one request per vector per agent (11 vectors in the `multi_agent` category today), run one
   at a time because each plant resets shared state.

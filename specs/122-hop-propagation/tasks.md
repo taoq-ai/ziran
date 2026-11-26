@@ -11,3 +11,4 @@
 - [x] T007 Run the new and touched tests green
 - [x] T008 Document hop tracing in `docs/concepts/multi-agent.md`
 - [x] T009 Run ruff check, ruff format --check and mypy strict
+- [x] T010 Review round 1: graph-style entry and docs row for `propagates_to`; fail-closed `observes_delegated_traffic` and unobserved agents without adapters; guarded reset; HTTP `tool_observations`; leak precision; budget and `--no-trace-hops`; live multi-agent count in the docs under `test_doc_counts`; tests for each (red first: 7 failed)

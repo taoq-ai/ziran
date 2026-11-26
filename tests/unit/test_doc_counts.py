@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from ziran.application.attacks.library import AttackLibrary
-from ziran.domain.entities.attack import AtlasTechnique
+from ziran.domain.entities.attack import AtlasTechnique, AttackCategory
 
 pytestmark = pytest.mark.unit
 
@@ -18,6 +18,7 @@ README = "README.md"
 ROADMAP = "docs/community/roadmap.md"
 LIBRARY = "docs/reference/attack-library.md"
 ATLAS = "docs/reference/benchmarks/atlas-mapping.md"
+MULTI_AGENT = "docs/concepts/multi-agent.md"
 
 
 def _lines(doc: str) -> list[str]:
@@ -41,6 +42,7 @@ def test_doc_counts_match_library() -> None:
     files = len(list((ROOT / "ziran/application/attacks/vectors").glob("*.yaml")))
     n, cats = len(vectors), len(lib.categories)
     covered, enum = len(live), len(AtlasTechnique)
+    multi_agent = len(lib.get_attacks_by_category(AttackCategory.MULTI_AGENT))
 
     # (doc, anchored phrase, expected tuple of numbers)
     expected = [
@@ -54,6 +56,7 @@ def test_doc_counts_match_library() -> None:
         ),
         (ATLAS, r"the enum holds (\d+) techniques", (enum,), False),
         (ATLAS, r"for a (\d+)-vector library", (n,), False),
+        (MULTI_AGENT, r"ships with (\d+) multi-agent attack vectors", (multi_agent,), False),
     ]
     problems = []
     for doc, pattern, want, joined in expected:

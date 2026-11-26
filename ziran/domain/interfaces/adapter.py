@@ -124,6 +124,16 @@ class BaseAgentAdapter(ABC):
         """
         return False
 
+    @property
+    def observes_delegated_traffic(self) -> bool:
+        """:meth:`get_state` shows the messages and tool calls other agents pass to this one
+        (spec 122).
+
+        False by default: an adapter that sees only what ziran sent it leaves hop tracing
+        unmeasured beyond the agent it planted at.
+        """
+        return False
+
     @abstractmethod
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         """Send a message to the agent and get a response.

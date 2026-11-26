@@ -21,6 +21,7 @@ from ziran.application.attacks.library import AttackLibrary
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
 from ziran.application.multi_agent.discoverer import TopologyDiscoverer
 from ziran.application.multi_agent.propagation import trace_propagation
+from ziran.application.usage import CampaignBudget
 from ziran.domain.entities.attack import AttackCategory
 from ziran.domain.entities.phase import (
     CampaignResult,
@@ -155,7 +156,8 @@ class MultiAgentScanner:
             scan_individual: Run individual agent scans.
             scan_cross_agent: Run cross-agent attacks.
             trace_hops: Plant each multi-agent vector at every agent with a hop-tagged canary
-                and trace where it appears (spec 122). Needs ``scan_cross_agent``.
+                and trace where it appears (spec 122). Needs ``scan_cross_agent``; stops once
+                the config's ``max_campaign_tokens`` or ``max_cost`` is reached.
 
         Returns:
             Combined campaign result.
@@ -249,6 +251,7 @@ class MultiAgentScanner:
                 self._topology,
                 self._attack_library.get_attacks_by_category(AttackCategory.MULTI_AGENT),
                 new_campaign_id(),
+                budget=CampaignBudget.from_config(self._config),
             )
             for trace in propagation:
                 for hop, (src, dst) in enumerate(zip(trace.path, trace.path[1:], strict=False), 1):
@@ -360,6 +363,13 @@ class MultiAgentCampaignResult:
             return self.cross_agent_result.total_vulnerabilities
         return 0
 
+    def _measured_beyond_hop_0(self) -> bool:
+        """Some plant had another agent able to report the canary."""
+        agents = {a.id for a in self.topology.agents}
+        return any(
+            agents - {t.planted_at} - set(t.unobserved) for t in self.propagation if not t.error
+        )
+
     def summary(self) -> dict[str, Any]:
         """Generate a summary of the multi-agent campaign."""
         return {
@@ -389,5 +399,6 @@ class MultiAgentCampaignResult:
                     if t.furthest_hop or t.leaked
                 ],
                 "unmeasured": sum(1 for t in self.propagation if t.error or t.unobserved),
+                "beyond_hop_0": "measured" if self._measured_beyond_hop_0() else "unmeasured",
             },
         }

@@ -39,6 +39,7 @@ ZIRAN uses a **NetworkX-based directed multigraph** to track all discoveries, re
 | `delegates_to` | One agent delegates work to another (multi-agent) |
 | `shares_context` | One agent shares context/data with another (multi-agent) |
 | `trust_boundary` | A trust boundary between two agents (multi-agent) |
+| `propagates_to` | A planted canary reached the next agent on its path (multi-agent hop tracing) |
 
 ## Visualization
 

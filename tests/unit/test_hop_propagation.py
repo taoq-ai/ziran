@@ -29,6 +29,10 @@ class FakeAgent(BaseAgentAdapter):
         self.history: list[dict[str, str]] = []
         self.calls: list[dict[str, Any]] = []
 
+    @property
+    def observes_delegated_traffic(self) -> bool:
+        return True
+
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         self.history.append({"role": "user", "content": message})
         if self.tool:
@@ -277,3 +281,274 @@ def test_malformed_reported_calls_give_no_tool_evidence(calls: Any) -> None:
         session_id="s", conversation_history=agent.history, memory={"observed_tool_calls": calls}
     )
     assert _observe(agent, canary, []) == ([0], [])
+
+
+# -- fix round: fail-closed reporting, guards and precision ----------------------------------
+
+
+class Remote(FakeAgent):
+    """An HTTP-style endpoint: the backend delegates server-side, unseen by its adapter."""
+
+    def __init__(self, backend: Remote | None = None) -> None:
+        super().__init__()
+        self.backend = backend
+        self.server_log: list[str] = []
+
+    @property
+    def observes_delegated_traffic(self) -> bool:
+        return False
+
+    async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+        self.history.append({"role": "user", "content": message})
+        if self.backend is not None:
+            self.backend.server_log.append(message)
+        return AgentResponse(content="ok")
+
+    def get_state(self) -> AgentState:
+        return AgentState(
+            session_id="s",
+            conversation_history=list(self.history),
+            memory={"protocol": "rest", "tool_observations": list(self.calls)},
+        )
+
+
+def _vector(lib: AttackLibrary, vector_id: str = "ma_cross_agent_injection") -> list[Any]:
+    return [lib.get_vector(vector_id)]
+
+
+@pytest.mark.asyncio
+async def test_blind_adapters_read_unmeasured_beyond_hop_0(
+    shared_attack_library: AttackLibrary, tmp_path: Any
+) -> None:
+    b = Remote()
+    a = Remote(backend=b)
+    adapters: dict[str, BaseAgentAdapter] = {"supervisor": Remote(backend=a), "worker_a": a}
+    traces = await trace_propagation(
+        adapters, "supervisor", _topology(), _vector(shared_attack_library), "c"
+    )
+    planted = _trace(traces, "ma_cross_agent_injection")
+    # worker_a cannot see delegated traffic; worker_b has no adapter at all
+    assert sorted(planted.unobserved) == ["worker_a", "worker_b"]
+    from ziran.application.multi_agent.scanner import MultiAgentCampaignResult
+
+    result = MultiAgentCampaignResult(
+        topology=_topology(), individual_results={}, propagation=traces
+    )
+    summary = result.summary()["propagation"]
+    assert summary["beyond_hop_0"] == "unmeasured"
+    assert summary["unmeasured"] == len(traces)
+
+
+@pytest.mark.asyncio
+async def test_reset_failure_is_an_unmeasured_trace(shared_attack_library: AttackLibrary) -> None:
+    class ResetFails(FakeAgent):
+        def reset_state(self) -> None:
+            raise RuntimeError("boom")
+
+    adapters = _system()
+    adapters["worker_b"] = ResetFails(tool=True)
+    traces = await trace_propagation(
+        adapters, "supervisor", _topology(), _vector(shared_attack_library), "c"
+    )
+    assert len(traces) == 3
+    assert all(t.error == "reset worker_b: RuntimeError: boom" and not t.reached for t in traces)
+
+
+@pytest.mark.asyncio
+async def test_reset_clears_leftover_evidence(shared_attack_library: AttackLibrary) -> None:
+    adapters = _system()
+    adapters["supervisor"].next = None  # the supervisor forwards nothing
+    canary = hop_canary("c", "ma_cross_agent_injection", "supervisor", 0)
+    adapters["worker_a"].history.append({"role": "user", "content": canary})
+    traces = await trace_propagation(
+        adapters, "supervisor", _topology(), _vector(shared_attack_library), "c"
+    )
+    trace = _trace(traces, "ma_cross_agent_injection")
+    assert trace.canary == canary
+    assert [h.agent_id for h in trace.reached] == ["supervisor"]
+
+
+def test_canary_differs_across_vectors_and_campaigns() -> None:
+    base = hop_canary("c1", "v1", "a", 0)
+    assert base != hop_canary("c1", "v2", "a", 0)
+    assert base != hop_canary("c2", "v1", "a", 0)
+
+
+@pytest.mark.asyncio
+async def test_path_is_shortest_through_agents_that_saw_it(
+    shared_attack_library: AttackLibrary,
+) -> None:
+    # sup -> C -> B is shorter, but C never saw the canary: sup -> A -> D -> B is reported
+    b = FakeAgent(tool=True)
+    d = FakeAgent(nxt=b)
+    a = FakeAgent(nxt=d)
+    adapters: dict[str, BaseAgentAdapter] = {
+        "supervisor": FakeAgent(nxt=a),
+        "worker_a": a,
+        "worker_d": d,
+        "worker_c": FakeAgent(),
+        "worker_b": b,
+    }
+    topology = MultiAgentTopology(
+        agents=[AgentNode(id=k, name=k) for k in adapters],
+        edges=[
+            AgentEdge(source_id=s, target_id=t)
+            for s, t in [
+                ("supervisor", "worker_c"),
+                ("worker_c", "worker_b"),
+                ("supervisor", "worker_a"),
+                ("worker_a", "worker_d"),
+                ("worker_d", "worker_b"),
+            ]
+        ],
+        entry_point_id="supervisor",
+    )
+    trace = _trace(
+        await trace_propagation(
+            adapters, "supervisor", topology, _vector(shared_attack_library), "c"
+        ),
+        "ma_cross_agent_injection",
+    )
+    assert trace.path == ["supervisor", "worker_a", "worker_d", "worker_b"]
+    assert trace.furthest_hop == 3
+
+    # with a direct edge, the shortest observed path wins over the longer one through A
+    shortcut = _topology(AgentEdge(source_id="supervisor", target_id="worker_b"))
+    trace = _trace(
+        await trace_propagation(
+            _system(), "supervisor", shortcut, _vector(shared_attack_library), "c"
+        ),
+        "ma_cross_agent_injection",
+    )
+    assert {h.agent_id: h.hop for h in trace.reached}["worker_b"] == 1
+    assert trace.furthest_hop == 1
+
+
+@pytest.mark.asyncio
+async def test_bidirectional_edge_counts_both_ways(shared_attack_library: AttackLibrary) -> None:
+    a = FakeAgent()
+    adapters: dict[str, BaseAgentAdapter] = {"supervisor": FakeAgent(), "worker_a": a}
+    adapters["worker_b"] = FakeAgent(nxt=a)
+    bidir = MultiAgentTopology(
+        agents=_topology().agents,
+        edges=[
+            AgentEdge(source_id="supervisor", target_id="worker_a"),
+            AgentEdge(source_id="worker_a", target_id="worker_b", bidirectional=True),
+        ],
+        entry_point_id="supervisor",
+    )
+    traces = await trace_propagation(
+        adapters, "supervisor", bidir, _vector(shared_attack_library), "c"
+    )
+    trace = _trace(traces, "ma_cross_agent_injection", "worker_b")
+    assert trace.path == ["worker_b", "worker_a"] and trace.furthest_hop == 1
+
+
+@pytest.mark.parametrize("key", [None, "tool_observations"])
+def test_planted_reply_calls_and_http_observations_are_evidence(key: str | None) -> None:
+    from ziran.application.multi_agent.propagation import _observe
+
+    canary = hop_canary("c", "v", "a", 0)
+    call = {"tool": "send_mail", "input": {"to": canary}}
+    agent = FakeAgent()
+    memory = {} if key is None else {key: [call]}
+    agent.get_state = lambda: AgentState(  # type: ignore[method-assign]
+        session_id="s", conversation_history=[], memory=memory
+    )
+    _, calls = _observe(agent, canary, [call] if key is None else [])
+    assert [(c.tool, c.argument) for c in calls] == [("send_mail", "$.to")]
+
+
+def _leak_topology(**worker: Any) -> MultiAgentTopology:
+    return MultiAgentTopology(
+        agents=[
+            AgentNode(id="supervisor", name="Supervisor", system_prompt="You lead the team now."),
+            AgentNode(id="worker_a", name="Billing Worker", **worker),
+            AgentNode(id="sql", name="sql", system_prompt="You are a helpful assistant."),
+        ],
+        entry_point_id="supervisor",
+    )
+
+
+def test_leak_matching_guards() -> None:
+    from ziran.application.multi_agent.propagation import _leaks
+
+    def kinds(reply: str, **worker: Any) -> set[tuple[str, str]]:
+        return {(p.agent_id, p.text) for p in _leaks(reply, _leak_topology(**worker), "supervisor")}
+
+    # the planted agent's own name and prompt are not a leak of another agent
+    assert kinds("Supervisor here. You lead the team now.") == set()
+    # empty prompt and short sentences never match
+    assert kinds("Be concise. Anything at all.", system_prompt="Be concise.") == set()
+    # word boundaries: "sql" is not in "squeaky"
+    assert kinds("a squeaky wheel") == set()
+    # a plain-word capability is ordinary text; an identifier-shaped one is a leak
+    assert kinds("I can search the web", capabilities=["search"]) == set()
+    assert kinds("it calls lookup_invoice", capabilities=["lookup_invoice"]) == {
+        ("worker_a", "lookup_invoice")
+    }
+    # generic or shared sentences are not one agent's prompt
+    generic = "You are a helpful assistant."
+    assert kinds(generic, system_prompt=generic) == set()
+    shared = "Always check the order status first."
+    assert kinds(shared, system_prompt=shared) == {("worker_a", shared)}
+    topo = _leak_topology(system_prompt=shared)
+    topo.agents[2].system_prompt = shared
+    assert _leaks(shared, topo, "supervisor") == []
+
+
+@pytest.mark.asyncio
+async def test_budget_exceeded_skips_plants_and_records_usage(
+    shared_attack_library: AttackLibrary,
+) -> None:
+    from ziran.application.usage import CampaignBudget, UsageLedger
+
+    ledger = UsageLedger()
+    budget = CampaignBudget.from_config({"usage_ledger": ledger, "max_campaign_tokens": 100})
+    adapters = _system()
+    traces = await trace_propagation(
+        adapters, "supervisor", _topology(), _vector(shared_attack_library), "c", budget=budget
+    )
+    assert all(t.error is None for t in traces)
+    assert sum(e.calls for e in ledger.entries() if e.stage == "target") == 3
+
+    ledger.record("target", "unknown", 100, 0)
+    adapters["supervisor"].history.clear()
+    traces = await trace_propagation(
+        adapters, "supervisor", _topology(), _vector(shared_attack_library), "c", budget=budget
+    )
+    assert all(t.error == "skipped: campaign budget exceeded" for t in traces)
+    assert adapters["supervisor"].history == []
+
+
+def test_cli_no_trace_hops_and_unmeasured_line(tmp_path: Any) -> None:
+    from click.testing import CliRunner
+
+    from ziran.application.multi_agent.scanner import MultiAgentCampaignResult
+    from ziran.domain.entities.multi_agent import PropagationTrace
+    from ziran.interfaces.cli.main import cli
+
+    target = tmp_path / "supervisor.yaml"
+    target.write_text("url: https://agent.example.com\n")
+    trace = PropagationTrace(
+        vector_id="v",
+        planted_at="supervisor",
+        planted_hop=0,
+        canary="ZIRAN-H0-0123456789",
+        unobserved=["worker_a", "worker_b"],
+    )
+    result = MultiAgentCampaignResult(
+        topology=_topology(), individual_results={}, propagation=[trace]
+    )
+    with patch(
+        "ziran.application.multi_agent.scanner.MultiAgentScanner.run_multi_agent_campaign",
+        new_callable=AsyncMock,
+        return_value=result,
+    ) as run:
+        out = CliRunner().invoke(
+            cli,
+            ["multi-agent-scan", "-t", str(target), "-o", str(tmp_path / "o"), "--no-trace-hops"],
+        )
+    assert out.exit_code == 0, out.output
+    assert run.call_args.kwargs["trace_hops"] is False
+    assert "unmeasured beyond hop 0" in out.output

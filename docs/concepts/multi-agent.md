@@ -67,21 +67,30 @@ before each plant.
 Each adapter then reports where the canary appeared, through `get_state()`:
 
 - the `conversation_history` entries that hold it;
-- the tool calls in `memory["observed_tool_calls"]` (and the planted agent's reply calls) whose
-  arguments hold it, with the tool and the argument path.
+- the tool calls in `memory["observed_tool_calls"]` or `memory["tool_observations"]` (and the
+  planted agent's reply calls) whose arguments hold it, with the tool and the argument path.
 
 Each trace in `result.propagation` gives the path from the planted agent to the furthest agent
 reached, the furthest hop, and each agent's evidence. The path goes through agents that saw the
 canary when the topology allows it; otherwise it is the shortest delegation path, so the hop is a
-lower bound. The planted agent's reply is also matched against the known topology of the other
-agents (ids, names, capabilities, system-prompt sentences), and each match is a leaked part.
+lower bound.
 
-An agent whose adapter fails to report is listed as `unobserved`, and a plant whose request
-fails records its `error`: both are unmeasured, not clean. An adapter reports only the traffic it
-carries. A remote worker reached through its own endpoint sees only what ZIRAN sent it, so
-evidence beyond the entry agent needs adapters that observe the delegated traffic.
+The planted agent's reply is also matched against the known topology of the other agents. Each
+match is a leaked part: an id or name, an identifier-shaped capability (`lookup_invoice`, not
+`search`), or a system-prompt sentence of four words or more. Sentences shared by two agents,
+and boilerplate such as "You are a helpful assistant.", are not counted.
 
-Pass `trace_hops=False` to `run_multi_agent_campaign` to skip this stage.
+Tracing fails closed. An adapter reads the other agents' traffic only when its
+`observes_delegated_traffic` property is true; the default is false. An adapter without it, a
+topology agent with no adapter, and an adapter whose `get_state` fails are listed as
+`unobserved`. A plant whose reset or request fails records its `error`. All of these are
+unmeasured, not clean. A remote worker reached through its own endpoint sees only what ZIRAN sent
+it, so an HTTP-only scan reports "unmeasured beyond hop 0".
+
+Tracing costs one request per multi-agent vector (11 today) per adapter, sent one at a time.
+It records target usage, and once the configured `max_campaign_tokens` or `max_cost` is reached,
+the remaining plants are skipped as unmeasured. Pass `trace_hops=False` to
+`run_multi_agent_campaign`, or `--no-trace-hops` to `ziran multi-agent-scan`, to skip the stage.
 
 ## Usage
 
@@ -119,7 +128,7 @@ print(f"Cross-agent vulnerabilities: {result.cross_agent_vulnerabilities}")
 
 ## Attack Vectors
 
-ZIRAN ships with 327 multi-agent attack vectors in `ziran/application/attacks/vectors/multi_agent.yaml`, covering:
+ZIRAN ships with 11 multi-agent attack vectors (category `multi_agent`, most in `ziran/application/attacks/vectors/multi_agent.yaml`), covering:
 
 - **Cross-agent prompt injection** — Injected content that propagates through delegation
 - **Delegation chain manipulation** — Exploiting trust between supervisor and worker agents
