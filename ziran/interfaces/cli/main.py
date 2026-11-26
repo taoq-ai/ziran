@@ -2448,6 +2448,14 @@ def _save_results(
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _hop_line(propagation: dict[str, Any]) -> str:
+    """The furthest hop, flagged when no agent past the planted one could report (spec 122)."""
+    if not propagation["traces"]:
+        return "not traced"
+    hop = str(propagation["furthest_hop"])
+    return hop if propagation["beyond_hop_0"] == "measured" else f"{hop} (unmeasured beyond hop 0)"
+
+
 @cli.command("multi-agent-scan")
 @click.option(
     "--targets",
@@ -2487,6 +2495,12 @@ def _save_results(
     default=False,
     help="Skip individual agent scans (only run cross-agent tests).",
 )
+@click.option(
+    "--trace-hops / --no-trace-hops",
+    default=True,
+    help="Plant each multi-agent vector at every agent with a hop-tagged canary "
+    "(one request per vector per agent).",
+)
 def multi_agent_scan(
     targets: tuple[str, ...],
     entry_point: str | None,
@@ -2494,6 +2508,7 @@ def multi_agent_scan(
     coverage: str,
     concurrency: int,
     skip_individual: bool,
+    trace_hops: bool,
 ) -> None:
     """Run a multi-agent security scan campaign.
 
@@ -2560,6 +2575,7 @@ def multi_agent_scan(
                 max_concurrent_attacks=concurrency,
                 scan_individual=not skip_individual,
                 scan_cross_agent=True,
+                trace_hops=trace_hops,
             )
         )
 
@@ -2571,7 +2587,8 @@ def multi_agent_scan(
             f"[bold]Topology:[/bold] {summary['topology_type']}\n"
             f"[bold]Agents Scanned:[/bold] {summary['agents_scanned']}\n"
             f"[bold]Total Vulnerabilities:[/bold] {summary['total_vulnerabilities']}\n"
-            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}",
+            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}\n"
+            f"[bold]Furthest Canary Hop:[/bold] {_hop_line(summary['propagation'])}",
             title="Multi-Agent Campaign Results",
             style="bold green" if summary["total_vulnerabilities"] == 0 else "bold red",
         )
@@ -2591,6 +2608,12 @@ def multi_agent_scan(
     summary_path = output_dir / "multi_agent_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
     console.print(f"[dim]Summary saved to {summary_path}[/dim]")
+
+    propagation_path = output_dir / "propagation.json"
+    propagation_path.write_text(
+        json.dumps([t.model_dump(mode="json") for t in result.propagation], indent=2)
+    )
+    console.print(f"[dim]Hop traces saved to {propagation_path}[/dim]")
 
 
 # ──────────────────────────────────────────────────────────────────────

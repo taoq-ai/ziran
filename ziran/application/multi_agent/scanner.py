@@ -11,14 +11,18 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.agent_scanner.campaign_id import new_campaign_id
 from ziran.application.agent_scanner.scanner import (
     AgentScanner,
     ProgressEvent,
     ProgressEventType,
 )
 from ziran.application.attacks.library import AttackLibrary
-from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph, EdgeType
 from ziran.application.multi_agent.discoverer import TopologyDiscoverer
+from ziran.application.multi_agent.propagation import trace_propagation
+from ziran.application.usage import CampaignBudget
+from ziran.domain.entities.attack import AttackCategory
 from ziran.domain.entities.phase import (
     CampaignResult,
     CoverageLevel,
@@ -30,7 +34,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from ziran.domain.entities.multi_agent import MultiAgentTopology
+    from ziran.domain.entities.multi_agent import MultiAgentTopology, PropagationTrace
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = get_logger(__name__)
@@ -133,6 +137,7 @@ class MultiAgentScanner:
         max_concurrent_attacks: int = 5,
         scan_individual: bool = True,
         scan_cross_agent: bool = True,
+        trace_hops: bool = True,
     ) -> MultiAgentCampaignResult:
         """Execute a multi-agent security campaign.
 
@@ -150,6 +155,9 @@ class MultiAgentScanner:
             max_concurrent_attacks: Max parallel attacks.
             scan_individual: Run individual agent scans.
             scan_cross_agent: Run cross-agent attacks.
+            trace_hops: Plant each multi-agent vector at every agent with a hop-tagged canary
+                and trace where it appears (spec 122). Needs ``scan_cross_agent``; stops once
+                the config's ``max_campaign_tokens`` or ``max_cost`` is reached.
 
         Returns:
             Combined campaign result.
@@ -228,12 +236,39 @@ class MultiAgentScanner:
                 max_concurrent_attacks=max_concurrent_attacks,
             )
 
+        propagation: list[PropagationTrace] = []
+        if scan_cross_agent and trace_hops:
+            _emit(
+                ProgressEvent(
+                    event=ProgressEventType.PHASE_START,
+                    phase="propagation",
+                    message="Tracing hop-tagged canaries...",
+                )
+            )
+            propagation = await trace_propagation(
+                self._adapters,
+                self._entry_point,
+                self._topology,
+                self._attack_library.get_attacks_by_category(AttackCategory.MULTI_AGENT),
+                new_campaign_id(),
+                budget=CampaignBudget.from_config(self._config),
+            )
+            for trace in propagation:
+                for hop, (src, dst) in enumerate(zip(trace.path, trace.path[1:], strict=False), 1):
+                    self._graph.add_edge(
+                        src,
+                        dst,
+                        EdgeType.PROPAGATES_TO,
+                        {"vector_id": trace.vector_id, "canary": trace.canary, "hop": hop},
+                    )
+
         # Build combined result
         return MultiAgentCampaignResult(
             topology=self._topology,
             individual_results=dict(self._agent_results),
             cross_agent_result=cross_agent_result,
             graph_state=self._graph.export_state(),
+            propagation=propagation,
         )
 
     async def _run_cross_agent_campaign(
@@ -300,11 +335,13 @@ class MultiAgentCampaignResult:
         individual_results: dict[str, CampaignResult],
         cross_agent_result: CampaignResult | None = None,
         graph_state: dict[str, Any] | None = None,
+        propagation: list[PropagationTrace] | None = None,
     ) -> None:
         self.topology = topology
         self.individual_results = individual_results
         self.cross_agent_result = cross_agent_result
         self.graph_state = graph_state or {}
+        self.propagation = propagation or []
 
     @property
     def total_vulnerabilities(self) -> int:
@@ -326,6 +363,13 @@ class MultiAgentCampaignResult:
             return self.cross_agent_result.total_vulnerabilities
         return 0
 
+    def _measured_beyond_hop_0(self) -> bool:
+        """Some plant had another agent able to report the canary."""
+        agents = {a.id for a in self.topology.agents}
+        return any(
+            agents - {t.planted_at} - set(t.unobserved) for t in self.propagation if not t.error
+        )
+
     def summary(self) -> dict[str, Any]:
         """Generate a summary of the multi-agent campaign."""
         return {
@@ -339,5 +383,22 @@ class MultiAgentCampaignResult:
                     "attacks_run": len(result.attack_results),
                 }
                 for agent_id, result in self.individual_results.items()
+            },
+            "propagation": {
+                "traces": len(self.propagation),
+                "furthest_hop": max((t.furthest_hop for t in self.propagation), default=0),
+                "spread": [
+                    {
+                        "vector_id": t.vector_id,
+                        "planted_at": t.planted_at,
+                        "path": t.path,
+                        "furthest_hop": t.furthest_hop,
+                        "leaked": len(t.leaked),
+                    }
+                    for t in self.propagation
+                    if t.furthest_hop or t.leaked
+                ],
+                "unmeasured": sum(1 for t in self.propagation if t.error or t.unobserved),
+                "beyond_hop_0": "measured" if self._measured_beyond_hop_0() else "unmeasured",
             },
         }
