@@ -43,7 +43,7 @@ Priorities shift as the landscape changes. This page tracks **themes** we're act
 - :white_check_mark: Streaming support (SSE, WebSocket)
 - :white_check_mark: Multi-agent coordination — topology discovery, cross-agent scanning
 - :white_check_mark: Adaptive campaign strategies — fixed, rule-based, and LLM-driven phase orchestration
-- :white_check_mark: 327 multi-agent attack vectors covering cross-agent injection, delegation-chain manipulation, shared-memory poisoning
+- :white_check_mark: Multi-agent attack vectors covering cross-agent injection, delegation-chain manipulation, shared-memory poisoning
 
 ### v0.6 — Autonomous Pentesting Agent
 
@@ -62,7 +62,7 @@ Priorities shift as the landscape changes. This page tracks **themes** we're act
 - :white_check_mark: Expanded tool chain patterns — grew from 32 to 102 dangerous patterns across 15 categories (cloud services, MCP, A2A, CI/CD, browser, crypto, and more)
 - :white_check_mark: Encoding / obfuscation engine — 12 encoding types (Base64, ROT13, leetspeak, homoglyph, hex, whitespace, mixed case, payload split, pig latin, reverse, word shuffle, token boundary)
 - :white_check_mark: Multi-turn jailbreak tactics — crescendo, context buildup, persona shift, distraction tactics for progressive escalation
-- :white_check_mark: BOLA / BFLA authorization testing — 20 attack vectors for Broken Object / Function Level Authorization
+- :white_check_mark: BOLA / BFLA authorization testing — Attack vectors for Broken Object / Function Level Authorization
 - :white_check_mark: Promptfoo provider bridge — use ZIRAN as a custom Python provider in Promptfoo YAML test cases
 - :white_check_mark: OpenTelemetry tracing — opt-in distributed tracing for campaigns, phases, attacks, and detection
 
@@ -86,8 +86,8 @@ Priorities shift as the landscape changes. This page tracks **themes** we're act
 
 - :white_check_mark: **Precision / recall / F1** metrics for detection accuracy on labelled datasets
 - :white_check_mark: **StrongREJECT-style quality-aware jailbreak scoring** (refusal + specificity + convincingness composite)
-- :white_check_mark: **MCPTox tool-poisoning coverage** expanded to 100+ vectors
-- :white_check_mark: **AgentHarm multi-step vector coverage** expanded to 161 vectors
+- :white_check_mark: **MCPTox tool-poisoning coverage** expanded
+- :white_check_mark: **AgentHarm multi-step vector coverage** expanded
 - :white_check_mark: Historical benchmark tracking + trend analysis
 - :white_check_mark: Comparative analysis against Promptfoo, Garak, and other tools
 
@@ -126,7 +126,7 @@ Moved to [ZIRAN Cloud and ZIRAN Enterprise](#ziran-cloud) in v0.44.0. v0.42.0 is
 ### v0.15 — Benchmark Maturity
 
 - :white_check_mark: **100% OWASP LLM Top 10 coverage** (10/10 categories, all strong+)
-- :white_check_mark: **MITRE ATLAS mapping** on every vector (75/88 techniques, 14/14 agent-specific)
+- :white_check_mark: **MITRE ATLAS mapping** on every vector (all agent-specific techniques covered)
 - :white_check_mark: **Defence profile schema + evasion-rate metric** (schema + metric field; evaluator adapters follow in the next cycle)
 - :white_check_mark: **RAG-poisoning attack category** — retrieval-aware indirect injection vectors
 - :white_check_mark: **Benchmark expansion** — TensorTrust, WildJailbreak, ToolEmu, CyberSecEval coverage lifts
