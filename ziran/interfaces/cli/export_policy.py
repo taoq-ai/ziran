@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -9,12 +10,14 @@ import click
 from rich.console import Console
 
 from ziran.application.policy_export.export_service import ExportService
+from ziran.domain.entities.phase import CampaignResult
 from ziran.domain.entities.policy import GuardrailPolicyFormat
 from ziran.infrastructure.policy_renderers import (
     CedarRenderer,
     ColangRenderer,
     InvariantRenderer,
     RegoRenderer,
+    SigmaRenderer,
 )
 from ziran.interfaces.cli._text import term
 
@@ -25,6 +28,7 @@ _FORMAT_EXT: dict[str, str] = {
     "cedar": ".cedar",
     "nemo": ".co",
     "invariant": ".invariant",
+    "sigma": ".yml",
 }
 
 _FORMAT_TO_RENDERER: dict[
@@ -47,7 +51,7 @@ _FORMAT_TO_RENDERER: dict[
 @click.option(
     "--format",
     "fmt",
-    type=click.Choice(["rego", "cedar", "nemo", "invariant"]),
+    type=click.Choice(["rego", "cedar", "nemo", "invariant", "sigma"]),
     required=True,
     help="Guardrail policy format to generate.",
 )
@@ -66,6 +70,12 @@ _FORMAT_TO_RENDERER: dict[
     help="Minimum severity to include.",
 )
 @click.option(
+    "--exclude-probes",
+    is_flag=True,
+    default=False,
+    help="Sigma only: leave out spans in this scan's probe trace ids (probe_markers).",
+)
+@click.option(
     "--verbose",
     is_flag=True,
     default=False,
@@ -76,14 +86,21 @@ def export_policy(
     fmt: str,
     out: Path,
     severity_floor: str,
+    exclude_probes: bool,
     verbose: bool,
 ) -> None:
-    """Export scan findings as runtime guardrail policies."""
-    renderer_cls = _FORMAT_TO_RENDERER[fmt]
-    renderer = renderer_cls()
-    service = ExportService(renderer)
-
-    policies = service.export_from_file(result, severity_floor)
+    """Export scan findings as runtime guardrail policies or Sigma detection rules."""
+    if exclude_probes and fmt != "sigma":
+        raise click.UsageError("--exclude-probes applies only to --format sigma")
+    campaign = CampaignResult.model_validate(json.loads(result.read_text(encoding="utf-8")))
+    renderer = (
+        SigmaRenderer(campaign, exclude_probes=exclude_probes)
+        if fmt == "sigma"
+        else _FORMAT_TO_RENDERER[fmt]()
+    )
+    if exclude_probes and not any(ar.get("probe_markers") for ar in campaign.attack_results):
+        console.print("[yellow]The result holds no probe markers: no probe filter added.[/yellow]")
+    policies = ExportService(renderer).export(campaign, severity_floor)
 
     if not policies:
         console.print(
@@ -120,6 +137,9 @@ def export_policy(
         f"[bold green]Exported {written} {display_format} policies[/bold green] to {out}",
     )
     if skipped:
-        console.print(
-            f"[yellow]{skipped} chains skipped (not expressible in {display_format})[/yellow]",
+        why = (
+            "not proven by a recorded attack, or failed the self-check"
+            if fmt == "sigma"
+            else f"not expressible in {display_format}"
         )
+        console.print(f"[yellow]{skipped} chains skipped ({why})[/yellow]")

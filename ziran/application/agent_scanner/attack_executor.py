@@ -104,16 +104,24 @@ class AttackExecutor:
         wire = getattr(self._adapter, "a2a_wire", None)
         return wire if isinstance(wire, A2AWire) else None
 
-    async def execute(self, attack: AttackVector, *, deadline: float | None = None) -> AttackResult:
+    async def execute(
+        self, attack: AttackVector, *, deadline: float | None = None, trial: int = 0
+    ) -> AttackResult:
         """Execute *attack*; *deadline* is a PAIR vector's event-loop stop time (spec 081).
         Its side-effect goal is judged on each reply's recorded tool calls (spec 116), and
-        the probe markers its requests carried are recorded on it (spec 117)."""
+        the probe markers its requests carried are recorded on it (spec 117). A repeat
+        *trial* (spec 121) gets its own turns and probe trace."""
         turns: Turns = {}
-        with probe_scope(self._campaign_id, attack.id) as markers:
+        scope_id = f"{attack.id}/trial-{trial + 1}" if trial else attack.id
+        with probe_scope(self._campaign_id, scope_id) as markers:
             result = judge_goal(attack, await self._run(attack, deadline, turns), turns)
         if markers:
             result.probe_markers = markers
         return result
+
+    def reset_state(self) -> None:
+        """Reset the target before a repeat trial (spec 121)."""
+        self._adapter.reset_state()
 
     async def _run(
         self, attack: AttackVector, deadline: float | None, turns: Turns

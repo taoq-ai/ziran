@@ -102,6 +102,20 @@ def blast_radius_blocks(
     return blocks
 
 
+def trial_label(evidence: Any) -> str:
+    """``"2 of 3, flaky"`` for a vector run more than once (spec 121), else ``""``."""
+    trials = evidence.get("trials") if isinstance(evidence, dict) else None
+    if not trials:
+        return ""
+    measured, k = trials.get("measured", trials["k"]), trials["k"]
+    unmeasured = f" ({k - measured} unmeasured)" if measured < k else ""
+    if not measured:
+        return f"no measured trials{unmeasured}"
+    return f"{trials['successes']} of {measured}{unmeasured}" + (
+        ", flaky" if trials["flaky"] else ""
+    )
+
+
 def _dump_campaign_result(result: CampaignResult) -> dict[str, Any]:
     """Serialise a CampaignResult, stripping only the spec 012 US5 fields when unset.
 
@@ -512,9 +526,11 @@ class ReportGenerator:
                     name = artifact.get("name", vuln_id)
                     severity = artifact.get("severity", "unknown")
                     category = artifact.get("category", "unknown")
+                    reproduced = trial_label(artifact.get("evidence"))
                     lines.append(
                         f"- **{name}** (`{vuln_id}`) — "
                         f"Severity: `{severity}`, Category: `{category}`"
+                        + (f", Reproduced: {reproduced}" if reproduced else "")
                     )
 
             if phase_result.error:
