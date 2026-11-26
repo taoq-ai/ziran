@@ -549,6 +549,7 @@ def _build_result(
         sarif_result["properties"] |= {
             "successes": trials["successes"],
             "trials": trials["k"],
+            "measured": trials.get("measured", trials["k"]),
             "success_rate": trials["success_rate"],
             "flaky": trials["flaky"],
         }

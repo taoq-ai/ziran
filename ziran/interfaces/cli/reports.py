@@ -107,7 +107,11 @@ def trial_label(evidence: Any) -> str:
     trials = evidence.get("trials") if isinstance(evidence, dict) else None
     if not trials:
         return ""
-    return f"{trials['successes']} of {trials['k']}" + (", flaky" if trials["flaky"] else "")
+    measured, k = trials.get("measured", trials["k"]), trials["k"]
+    unmeasured = f" ({k - measured} unmeasured)" if measured < k else ""
+    return f"{trials['successes']} of {measured}{unmeasured}" + (
+        ", flaky" if trials["flaky"] else ""
+    )
 
 
 def _dump_campaign_result(result: CampaignResult) -> dict[str, Any]:

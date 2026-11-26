@@ -318,14 +318,15 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     default=None,
     help="Stop scheduling new attacks once the campaign has used this many tokens across all "
     "stages (judge, ensemble, prefilter, strategy, target). Cooperative: attacks already "
-    "running finish, so the total can overshoot by up to --concurrency attacks.",
+    "running finish, so the total can overshoot by up to --concurrency attack runs (one run with --trials above 1).",
 )
 @click.option(
     "--max-cost",
     type=click.FloatRange(min=0, min_open=True),
     default=None,
     help="Stop scheduling new attacks once the estimated LLM cost reaches this many USD. "
-    "Only models with a price (shipped table or .ziran/prices.yaml) count. Cooperative.",
+    "Only models with a price (shipped table or .ziran/prices.yaml) count. Cooperative: the "
+    "total can overshoot by up to --concurrency attack runs (one run with --trials above 1).",
 )
 @click.option(
     "--incremental",

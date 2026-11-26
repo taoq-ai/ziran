@@ -7,9 +7,7 @@ execution within a single campaign phase.
 from __future__ import annotations
 
 import asyncio
-import functools
 from datetime import UTC, datetime
-from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 from ziran.application.agent_scanner.chain_targeting import steer
@@ -18,9 +16,8 @@ from ziran.application.agent_scanner.progress import (
     ProgressEvent,
     ProgressEventType,
 )
-from ziran.application.agent_scanner.trials import run_trials
-from ziran.application.attacks.pair import is_pair, queue_pair_last, run_in_phase
-from ziran.application.usage import TARGET_MODEL
+from ziran.application.agent_scanner.trials import TrialRunner
+from ziran.application.attacks.pair import is_pair, queue_pair_last
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
 from ziran.infrastructure.logging.context import bind_phase
@@ -29,7 +26,7 @@ from ziran.infrastructure.telemetry import metrics
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Sequence
+    from collections.abc import Callable, Sequence
 
     from ziran.application.agent_scanner.attack_executor import AttackExecutor
     from ziran.application.agent_scanner.chain_targeting import ChainSteering
@@ -186,8 +183,12 @@ class PhaseExecutor:
             if decision.max_attacks is not None:
                 attacks = attacks[: decision.max_attacks]
 
-        attacks, phase_timeout = queue_pair_last(attacks, self._phase_timeout, max_concurrent)
-        if phase_timeout != self._phase_timeout:
+        if self._trials > 1 and max_concurrent > 1:  # a reset must not cut another conversation
+            logger.warning("trials_run_serially", trials=self._trials, concurrency=max_concurrent)
+            max_concurrent = 1
+        base_timeout = self._phase_timeout * self._trials  # k runs per vector
+        attacks, phase_timeout = queue_pair_last(attacks, base_timeout, max_concurrent)
+        if phase_timeout != base_timeout:
             pair_count = sum(map(is_pair, attacks))
             logger.info(
                 "phase_timeout_extended",
@@ -222,38 +223,16 @@ class PhaseExecutor:
         completed_count = 0
         lock = asyncio.Lock()
         semaphore = asyncio.Semaphore(max_concurrent)
-
-        async def _once(attack: AttackVector, trial: int) -> AttackResult:
-            kw: dict[str, Any] = {"trial": trial} if trial else {}  # trial 0: as before
-            cache = self._cache  # incremental cache (spec 049): a hit replaces execution only
-            result = await cache.lookup(attack, capabilities, **kw) if cache is not None else None
-            if result is not None:
-                return result
-            metrics.attack_started(phase.value)
-            started = perf_counter()
-            executor: Callable[..., Awaitable[AttackResult]] = self._attack_executor.execute
-            execute = functools.partial(executor, **kw)
-            try:
-                if is_pair(attack):  # deadline taken here, after the acquire
-                    result = await run_in_phase(execute, attack, phase_deadline)
-                else:
-                    async with asyncio.timeout(self._attack_timeout):
-                        result = await execute(attack)
-            finally:
-                metrics.attack_finished(phase.value)
-            # Refused = a reply came back but the attack did not succeed (not an error/timeout).
-            metrics.record_attack(
-                phase=phase.value,
-                vector_id=result.vector_id,
-                provider=getattr(self._attack_executor, "provider", "unknown"),
-                coverage_level=coverage.value,
-                successful=result.successful,
-                refused=not result.successful and result.agent_response is not None,
-                duration_seconds=perf_counter() - started,
-            )
-            if cache is not None:
-                await cache.record(attack, capabilities, result, **kw)
-            return result
+        runner = TrialRunner(
+            self._attack_executor,
+            self._trials,
+            phase,
+            coverage.value,
+            self._attack_timeout,
+            cache=self._cache,
+            capabilities=capabilities,
+            budget=self._budget,
+        )
 
         async def _run_attack(attack_idx: int, attack: AttackVector) -> None:
             nonlocal completed_count, phase_tokens
@@ -276,11 +255,8 @@ class PhaseExecutor:
                             message=f"Running: {attack.name}",
                         )
                     )
-                    result = await run_trials(
-                        self._trials,
-                        functools.partial(_once, attack),
-                        lambda: self._attack_executor.reset_state(),  # only from trial 2
-                    )
+                    result = await runner.run(attack)
+
                 # Tag result with the phase for reporting
                 result.evidence.setdefault("phase", phase.value)
 
@@ -288,12 +264,7 @@ class PhaseExecutor:
                     if len(attack_results) < max_results:
                         attack_results.append(result)
                     tested_vector_ids.add(result.vector_id)
-                    phase_tokens = phase_tokens + result.token_usage
-                    if self._budget is not None:
-                        tu = result.token_usage
-                        self._budget.ledger.record(
-                            "target", TARGET_MODEL, tu.prompt_tokens, tu.completion_tokens
-                        )
+                    phase_tokens = phase_tokens + result.token_usage  # ledger: per trial
 
                     if result.successful:
                         vulnerabilities.append(result.vector_id)
@@ -348,9 +319,9 @@ class PhaseExecutor:
 
         # Run attacks concurrently with bounded parallelism
         tasks = [_run_attack(idx, atk) for idx, atk in enumerate(attacks)]
-        phase_deadline = asyncio.get_running_loop().time() + phase_timeout
+        runner.phase_deadline = asyncio.get_running_loop().time() + phase_timeout
         try:
-            async with asyncio.timeout_at(phase_deadline):
+            async with asyncio.timeout_at(runner.phase_deadline):
                 await asyncio.gather(*tasks)
         except TimeoutError:
             logger.warning(

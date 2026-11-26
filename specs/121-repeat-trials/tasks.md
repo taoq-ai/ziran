@@ -5,3 +5,4 @@
 - [x] T003 SARIF properties and Markdown and HTML labels
 - [x] T004 Check consumers; docs row in `docs/reference/cli.md`
 - [x] T005 ruff check, ruff format --check, mypy strict, size caps
+- [x] T006 Gate round 1: serial phase and k-scaled timeout at k > 1, per-run unmeasured on error or timeout, cost cap per run; tests for each (red, then green)
