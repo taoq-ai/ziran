@@ -464,6 +464,7 @@ class AttackLibrary:
             carrier=data.get("carrier"),
             pair=data.get("pair"),
             goal=data.get("goal"),
+            a2a_probe=data.get("a2a_probe"),
         )
 
 

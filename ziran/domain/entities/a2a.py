@@ -77,6 +77,14 @@ class A2AAgentInterface(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class A2AAgentCardSignature(BaseModel):
+    """One JWS signature of an Agent Card (A2A 1.0): base64url protected header and signature."""
+
+    protected: str
+    signature: str
+    header: dict[str, Any] | None = None
+
+
 class A2AAgentCard(BaseModel):
     """An A2A Agent Card — the self-describing manifest of an agent.
 
@@ -103,6 +111,7 @@ class A2AAgentCard(BaseModel):
         default_factory=dict, alias="securitySchemes"
     )
     security: list[dict[str, list[str]]] = Field(default_factory=list)
+    signatures: list[A2AAgentCardSignature] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
 
