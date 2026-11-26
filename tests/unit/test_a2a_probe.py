@@ -260,13 +260,11 @@ _DEEP = b'{"a":' * 20000 + b"1" + b"}" * 20000
 
 async def _bounded(vector_id: str, server: A2AServer, **config: Any) -> AttackResult:
     """The probe, failing fast if a RecursionError escapes (pytest would render every frame)."""
-    escaped = False
     try:
         return await _probe(vector_id, server, **config)
     except RecursionError:
-        escaped = True
-    assert not escaped, "RecursionError escaped the probe"
-    raise AssertionError  # unreachable
+        pass  # fail outside the handler, so no frame of the recursion is rendered
+    pytest.fail("RecursionError escaped the probe", pytrace=False)
 
 
 async def test_a_card_nested_too_deep_is_unmeasured_not_dropped() -> None:
