@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
-    from ziran.domain.entities.goal import Turns
+    from ziran.domain.entities.goal import Replies, Turns
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = get_logger(__name__)
@@ -146,6 +146,7 @@ class TacticExecutor:
         detector_pipeline: DetectorPipeline,
         render_fn: Callable[[AttackPrompt], str],
         turns: Turns | None = None,
+        replies: Replies | None = None,
     ) -> AttackResult:
         """Execute a multi-turn attack sequence.
 
@@ -158,6 +159,7 @@ class TacticExecutor:
             detector_pipeline: Pipeline for evaluating responses.
             render_fn: Function to render prompt templates.
             turns: Filled with each reply's tool calls by turn, for a side-effect goal.
+            replies: Filled with each reply's text by turn, for a secret goal (spec 124).
 
         Returns:
             Attack result from the multi-turn sequence.
@@ -193,12 +195,12 @@ class TacticExecutor:
                 atlas_mapping=attack.atlas_mapping,
                 harm_category=attack.harm_category,
             )
-        turns = {} if turns is None else turns
+        log = ({} if turns is None else turns, {} if replies is None else replies)
         if not self._adapter.memory_persists_across_reset:
-            return await self._run(attack, detector_pipeline, render_fn, False, turns)
+            return await self._run(attack, detector_pipeline, render_fn, False, *log)
         gate = _GATES.setdefault(self._adapter, _SessionGate())
         async with gate.hold(exclusive=two_session):
-            return await self._run(attack, detector_pipeline, render_fn, two_session, turns)
+            return await self._run(attack, detector_pipeline, render_fn, two_session, *log)
 
     def _shared(self, session: dict[str, Any]) -> bool:
         """True when the adapter's history holds a user or assistant message this session did
@@ -219,6 +221,7 @@ class TacticExecutor:
         render_fn: Callable[[AttackPrompt], str],
         two_session: bool,
         turns: Turns,
+        replies: Replies,
     ) -> AttackResult:
         sessions: list[dict[str, Any]] = []  # one record per session, two-session vectors only
         unmeasured_reason: str | None = None
@@ -268,7 +271,7 @@ class TacticExecutor:
                     prompt_errors += 1
                     continue
                 if not is_error_response(response.content):
-                    turns[i + 1] = response.tool_calls
+                    turns[i + 1], replies[i + 1] = response.tool_calls, response.content
 
                 if response.content:
                     last_response_content = response.content

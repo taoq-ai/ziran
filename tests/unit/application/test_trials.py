@@ -237,7 +237,9 @@ async def test_cache_keys_on_trial_index(tmp_path: Path) -> None:
 
 
 async def test_each_trial_carries_its_own_probe_markers(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def run(self: Any, attack: AttackVector, deadline: Any, turns: Any) -> AttackResult:
+    async def run(
+        self: Any, attack: AttackVector, deadline: Any, turns: Any, _: Any
+    ) -> AttackResult:
         mark_probe("traceparent")
         return _result(attack, False)
 
@@ -376,7 +378,9 @@ async def test_scanner_passes_trials_from_config(monkeypatch: pytest.MonkeyPatch
 async def test_each_trial_judges_its_own_goal_turns(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
 
-    async def run(self: Any, attack: AttackVector, deadline: Any, turns: Any) -> AttackResult:
+    async def run(
+        self: Any, attack: AttackVector, deadline: Any, turns: Any, _: Any
+    ) -> AttackResult:
         nonlocal calls
         calls += 1
         turns[1] = [{"name": "transfer_funds", "args": {}}] if calls == 1 else []
