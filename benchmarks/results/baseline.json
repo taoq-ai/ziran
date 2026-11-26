@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-18T08:22:21.673510+00:00",
+  "timestamp": "2026-11-26T08:45:41.806646+00:00",
   "total_vectors": 677,
   "categories": 11,
   "owasp_coverage_pct": 100.0,
@@ -302,9 +302,9 @@
         },
         {
           "dimension": "ATLAS techniques mapped",
-          "implemented": 75,
-          "target": 88,
-          "pct": 85.2
+          "implemented": 85,
+          "target": 100,
+          "pct": 85.0
         },
         {
           "dimension": "Agent-specific techniques covered",

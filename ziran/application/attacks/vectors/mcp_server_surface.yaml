@@ -84,6 +84,7 @@ vectors:
       - https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
       - https://github.com/taoq-ai/ziran/issues/394
     owasp_mapping: [LLM06, LLM07]
+    owasp_agentic_mapping: [ASI09]
     atlas_mapping: [AML.T0052, AML.T0055]
     protocol_filter: [mcp]
     mcp_server_request:
@@ -109,6 +110,7 @@ vectors:
       - https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
       - https://github.com/taoq-ai/ziran/issues/394
     owasp_mapping: [LLM06, LLM07]
+    owasp_agentic_mapping: [ASI09]
     atlas_mapping: [AML.T0012, AML.T0052, AML.T0055]
     protocol_filter: [mcp]
     mcp_server_request:
@@ -137,6 +139,7 @@ vectors:
       - https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
       - https://github.com/taoq-ai/ziran/issues/394
     owasp_mapping: [LLM06, LLM08]
+    owasp_agentic_mapping: [ASI09]
     atlas_mapping: [AML.T0052, AML.T0057]
     protocol_filter: [mcp]
     mcp_server_request:
@@ -164,6 +167,7 @@ vectors:
       - https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
       - https://github.com/taoq-ai/ziran/issues/394
     owasp_mapping: [LLM06, LLM08]
+    owasp_agentic_mapping: [ASI09]
     atlas_mapping: [AML.T0052, AML.T0057]
     protocol_filter: [mcp]
     mcp_server_request:
@@ -193,7 +197,7 @@ vectors:
       - https://modelcontextprotocol.io/specification/2025-06-18/client/roots
       - https://github.com/taoq-ai/ziran/issues/394
     owasp_mapping: [LLM06, LLM08]
-    atlas_mapping: [AML.T0037, AML.T0053]
+    atlas_mapping: [AML.T0037, AML.T0053, AML.T0110, AML.T0110.002]
     protocol_filter: [mcp]
     mcp_server_request:
       method: roots
@@ -217,7 +221,7 @@ vectors:
       - https://modelcontextprotocol.io/specification/2025-06-18/client/roots
       - https://github.com/taoq-ai/ziran/issues/394
     owasp_mapping: [LLM06, LLM08]
-    atlas_mapping: [AML.T0037, AML.T0055]
+    atlas_mapping: [AML.T0037, AML.T0055, AML.T0110, AML.T0110.002]
     protocol_filter: [mcp]
     mcp_server_request:
       method: roots

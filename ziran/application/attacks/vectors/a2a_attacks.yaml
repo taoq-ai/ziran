@@ -20,7 +20,7 @@ vectors:
     references:
       - https://google.github.io/A2A/specification/
     owasp_mapping: [LLM06]
-    atlas_mapping: [AML.T0006, AML.T0007, AML.T0013, AML.T0014, AML.T0035, AML.T0052, AML.T0053, AML.T0056, AML.T0063, AML.T0069.002]
+    atlas_mapping: [AML.T0006, AML.T0007, AML.T0013, AML.T0014, AML.T0035, AML.T0052, AML.T0053, AML.T0056, AML.T0063, AML.T0069.002, AML.T0084]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -52,7 +52,7 @@ vectors:
       internal tool schemas, authentication flows, or model details.
     tags: [a2a, agent_card, extended, information_disclosure, protocol]
     owasp_mapping: [LLM06]
-    atlas_mapping: [AML.T0007, AML.T0013, AML.T0014, AML.T0035, AML.T0052, AML.T0053, AML.T0056, AML.T0063, AML.T0069.002]
+    atlas_mapping: [AML.T0007, AML.T0013, AML.T0014, AML.T0035, AML.T0052, AML.T0053, AML.T0056, AML.T0063, AML.T0069.002, AML.T0084]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -85,7 +85,7 @@ vectors:
       permissions or state from a different session.
     tags: [a2a, context, pollution, session, multi_turn, protocol]
     owasp_mapping: [LLM01]
-    atlas_mapping: [AML.T0018, AML.T0018.000, AML.T0018.001, AML.T0020, AML.T0052, AML.T0053, AML.T0059, AML.T0061]
+    atlas_mapping: [AML.T0018, AML.T0018.000, AML.T0018.001, AML.T0020, AML.T0052, AML.T0053, AML.T0059, AML.T0061, AML.T0080, AML.T0080.001]
     protocol_filter: [a2a]
     prompts:
       - template: >
@@ -350,6 +350,7 @@ vectors:
       in a multi-agent A2A environment.
     tags: [a2a, agent_card, forgery, impersonation, trust, protocol]
     owasp_mapping: [LLM01, LLM07]
+    owasp_agentic_mapping: [ASI01, ASI07, ASI10]
     atlas_mapping: [AML.T0042, AML.T0043, AML.T0051, AML.T0052, AML.T0053, AML.T0054, AML.T0065]
     protocol_filter: [a2a]
     prompts:
