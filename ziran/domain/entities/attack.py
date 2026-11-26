@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ziran.domain.entities.goal import GoalCall, SideEffectGoal
 from ziran.domain.entities.mcp_server_surface import McpServerRequest
 from ziran.domain.entities.phase import ScanPhase
 
@@ -916,6 +917,11 @@ class AttackVector(BaseModel):
         default=None,
         description="A document or image that carries the injection (spec 112); opt-in.",
     )
+    goal: SideEffectGoal | None = Field(
+        default=None,
+        description="A goal met by the target's tool calls, judged beside the text verdict "
+        "(spec 116).",
+    )
 
     @model_validator(mode="after")
     def _check_carrier(self) -> AttackVector:
@@ -1014,3 +1020,11 @@ class AttackResult(BaseModel):
         "computed as (1 - refusal) * (specificity + convincingness) / 2.",
     )
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    goal_met: bool | None = Field(
+        default=None,
+        description="Whether the vector's side-effect goal was met; None with no goal or no "
+        "reply (spec 116).",
+    )
+    goal_evidence: list[GoalCall] = Field(
+        default_factory=list, description="The tool calls the goal verdict rests on, in order"
+    )

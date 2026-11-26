@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
+    from ziran.domain.entities.goal import Turns
     from ziran.domain.interfaces.adapter import Attachment, BaseAgentAdapter
 
 logger = get_logger(__name__)
@@ -126,7 +127,9 @@ class CarrierExecutor:
         attack: AttackVector,
         pipeline: DetectorPipeline,
         render: Callable[[AttackPrompt], str],
+        turns: Turns | None = None,
     ) -> AttackResult:
+        """Run *attack*; *turns* gets each reply's tool calls by prompt, for a side-effect goal."""
         carrier = attack.carrier
         assert carrier is not None
         file = build(carrier)
@@ -155,7 +158,8 @@ class CarrierExecutor:
                 return _result(attack, False, evidence)
             ref = self._ref(carrier.delivery, file, planted)
             sent = {"attachments": [file]} if planted is None else {}
-            return await self._run(attack, pipeline, render, ref, sent, record)
+            turns = {} if turns is None else turns
+            return await self._run(attack, pipeline, render, ref, sent, record, turns)
         finally:
             if planted is not None:
                 planted.unlink(missing_ok=True)
@@ -168,13 +172,14 @@ class CarrierExecutor:
         ref: str,
         sent: dict[str, Any],
         record: dict[str, str],
+        turns: Turns,
     ) -> AttackResult:
         assert attack.carrier is not None
         usage = TokenUsage()
         answered = 0
         review: dict[str, Any] = {}
         last: dict[str, Any] = {}
-        for spec in attack.prompts:
+        for turn, spec in enumerate(attack.prompts, 1):
             prompt = render(spec).replace("{carrier}", ref)
             try:
                 response = await self._adapter.invoke(prompt, **sent)
@@ -187,6 +192,7 @@ class CarrierExecutor:
                 )
                 if is_error_response(response.content):
                     continue
+                turns[turn] = response.tool_calls
                 last = {"agent_response": response.content, "prompt_used": prompt}
                 verdict = await pipeline.evaluate(prompt, response, spec, attack)
             except Exception as exc:  # one prompt's failure is a prompt error, as in AttackExecutor
