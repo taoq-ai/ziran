@@ -5,12 +5,12 @@
 [![License](https://img.shields.io/badge/License-FSL--1.1--ALv2-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
-ZIRAN tests AI agents for the vulnerabilities that come from tools combining, not from any single
-prompt. It maps each tool an agent can call to a capability, puts the capabilities in a graph and
-walks it for dangerous chains, such as a file read that can feed an outbound HTTP request. Against
-a live agent it then attacks the chains it found and checks what the tools actually did, not only
-what the agent replied. It reads Claude Code agents and plugins, LangChain, CrewAI, MCP and A2A
-agents, and any agent served over HTTPS.
+ZIRAN tests AI agents for vulnerabilities that appear when their tools combine. It maps each tool
+an agent can call to a capability, puts the capabilities in a graph and walks it for dangerous
+chains, such as a file read that can feed an outbound HTTP request. Against a live agent it then
+attacks those chains and checks what the tools did, as well as what the agent replied. It reads
+Claude Code agents and plugins, LangChain, CrewAI, MCP and A2A agents, and any agent served over
+HTTPS.
 
 ## Install
 
@@ -58,11 +58,11 @@ can tell it to send that file to a URL the attacker picks. A per-tool check pass
 
 ## What it finds
 
-- **Dangerous tool chains**: 30+ patterns, such as `read_file -> http_request`.
-- **The lethal trifecta**: private data, untrusted content and egress in one agent.
-- **Side effects**: a tool call fired while the reply says "I can't do that".
-- **Trust between agents**: peer messages accepted without validation in multi-agent systems.
-- **Attack coverage**: 677 vectors, 10/10 OWASP LLM Top 10 categories, 75/88 MITRE ATLAS
+- Dangerous tool chains: 30+ patterns, such as `read_file -> http_request`.
+- The lethal trifecta: private data, untrusted content and egress in one agent.
+- Side effects: a tool call fired while the reply says "I can't do that".
+- Trust between agents: peer messages accepted without validation in multi-agent systems.
+- Attack coverage: 677 vectors, 10/10 OWASP LLM Top 10 categories and 75/88 MITRE ATLAS
   techniques.
 
 ## Documentation
