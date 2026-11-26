@@ -70,7 +70,7 @@ AGENTIC_DEFAULTS: dict[AttackCategory, list[OwaspAgenticCategory]] = {
     _C.PRIVILEGE_ESCALATION: [_A.ASI03],
     _C.AUTHORIZATION_BYPASS: [_A.ASI03],
     _C.MEMORY_POISONING: [_A.ASI06],
-    _C.MULTI_AGENT: [_A.ASI07],
+    _C.MULTI_AGENT: [_A.ASI07, _A.ASI08],
 }
 
 # Built-in vectors directory (relative to this file)

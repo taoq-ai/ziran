@@ -185,7 +185,9 @@ class AtlasTechnique(StrEnum):
 
     Snapshot pinned to the October 2025 ATLAS release. This enum includes
     the techniques referenced by at least one ZIRAN attack vector, plus all
-    agent-specific techniques (see AGENT_SPECIFIC_TECHNIQUES).
+    agent-specific techniques (see AGENT_SPECIFIC_TECHNIQUES). Later techniques
+    note the release that named them; the v2026.10 agent techniques include two
+    no vector tests (AML.T0110.001, AML.T0118), kept so coverage shows the gap.
     See: https://atlas.mitre.org/techniques/
     """
 
@@ -246,6 +248,15 @@ class AtlasTechnique(StrEnum):
     LLM_PROMPT_SELF_REPLICATION = "AML.T0061"
     RAG_POISONING = "AML.T0070"
     EVENT_TRIGGERED_EXECUTION = "AML.T0142"  # ATLAS v2026.10
+    # Agent techniques, names and tactics as in ATLAS v2026.10 (spec 109).
+    AI_AGENT_CONTEXT_POISONING = "AML.T0080"
+    AI_AGENT_CONTEXT_POISONING_MEMORY = "AML.T0080.000"
+    AI_AGENT_CONTEXT_POISONING_THREAD = "AML.T0080.001"
+    MODIFY_AI_AGENT_CONFIGURATION = "AML.T0081"
+    AI_AGENT_TOOL_POISONING = "AML.T0110"
+    AI_AGENT_TOOL_POISONING_DEFINITION = "AML.T0110.000"
+    AI_AGENT_TOOL_POISONING_IMPLEMENTATION = "AML.T0110.001"
+    AI_AGENT_TOOL_POISONING_RUNTIME_RESPONSE = "AML.T0110.002"
 
     # ── Privilege Escalation (AML.TA0012) ────────────────────────────
     LLM_JAILBREAK = "AML.T0054"
@@ -268,6 +279,8 @@ class AtlasTechnique(StrEnum):
     DISCOVER_AI_MODEL_OUTPUTS = "AML.T0063"
     DISCOVER_LLM_SYSTEM_INFORMATION = "AML.T0069"
     DISCOVER_LLM_SYSTEM_PROMPT = "AML.T0069.002"
+    DISCOVER_AI_AGENT_CONFIGURATION = "AML.T0084"  # ATLAS v2026.10
+    DISCOVER_AI_AGENT_RUNTIME_CAPABILITIES = "AML.T0133"  # ATLAS v2026.10
 
     # ── Collection (AML.TA0009) ──────────────────────────────────────
     COLLECTION = "AML.T0009"
@@ -279,6 +292,7 @@ class AtlasTechnique(StrEnum):
     CREATE_PROXY_AI_MODEL = "AML.T0005"
     VERIFY_ATTACK = "AML.T0042"
     CRAFT_ADVERSARIAL_DATA = "AML.T0043"
+    AUTONOMOUS_AI_AGENT_COMMUNICATION = "AML.T0118"  # ATLAS v2026.10
 
     # ── Command and Control (AML.TA0014) ─────────────────────────────
     REVERSE_SHELL = "AML.T0072"
@@ -291,6 +305,7 @@ class AtlasTechnique(StrEnum):
     EXFILTRATION_VIA_CYBER_MEANS = "AML.T0025"
     EXTRACT_LLM_SYSTEM_PROMPT = "AML.T0056"
     LLM_DATA_LEAKAGE = "AML.T0057"
+    EXFILTRATION_VIA_AI_AGENT_TOOL_INVOCATION = "AML.T0086"  # ATLAS v2026.10
 
     # ── Impact (AML.TA0011) ──────────────────────────────────────────
     DENIAL_OF_AI_SERVICE = "AML.T0029"
@@ -356,6 +371,18 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: "LLM Prompt Self-Replication",
     AtlasTechnique.RAG_POISONING: "RAG Poisoning",
     AtlasTechnique.EVENT_TRIGGERED_EXECUTION: "Event Triggered Execution",
+    AtlasTechnique.AI_AGENT_CONTEXT_POISONING: "AI Agent Context Poisoning",
+    AtlasTechnique.AI_AGENT_CONTEXT_POISONING_MEMORY: "AI Agent Context Poisoning: Memory",
+    AtlasTechnique.AI_AGENT_CONTEXT_POISONING_THREAD: "AI Agent Context Poisoning: Thread",
+    AtlasTechnique.MODIFY_AI_AGENT_CONFIGURATION: "Modify AI Agent Configuration",
+    AtlasTechnique.AI_AGENT_TOOL_POISONING: "AI Agent Tool Poisoning",
+    AtlasTechnique.AI_AGENT_TOOL_POISONING_DEFINITION: (
+        "AI Agent Tool Poisoning: Definition and Instructions"
+    ),
+    AtlasTechnique.AI_AGENT_TOOL_POISONING_IMPLEMENTATION: "AI Agent Tool Poisoning: Implementation",
+    AtlasTechnique.AI_AGENT_TOOL_POISONING_RUNTIME_RESPONSE: (
+        "AI Agent Tool Poisoning: Runtime Response"
+    ),
     AtlasTechnique.LLM_JAILBREAK: "LLM Jailbreak",
     AtlasTechnique.ESCAPE_TO_HOST: "Escape to Host",
     AtlasTechnique.LLM_TRUSTED_OUTPUT_COMPONENTS_MANIPULATION: (
@@ -372,6 +399,8 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.DISCOVER_AI_MODEL_OUTPUTS: "Discover AI Model Outputs",
     AtlasTechnique.DISCOVER_LLM_SYSTEM_INFORMATION: "Discover LLM System Information",
     AtlasTechnique.DISCOVER_LLM_SYSTEM_PROMPT: "Discover LLM System Prompt",
+    AtlasTechnique.DISCOVER_AI_AGENT_CONFIGURATION: "Discover AI Agent Configuration",
+    AtlasTechnique.DISCOVER_AI_AGENT_RUNTIME_CAPABILITIES: "Discover AI Agent Runtime Capabilities",
     AtlasTechnique.COLLECTION: "Collection",
     AtlasTechnique.AI_ARTIFACT_COLLECTION: "AI Artifact Collection",
     AtlasTechnique.DATA_FROM_INFORMATION_REPOSITORIES: "Data from Information Repositories",
@@ -379,6 +408,7 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.CREATE_PROXY_AI_MODEL: "Create Proxy AI Model",
     AtlasTechnique.VERIFY_ATTACK: "Verify Attack",
     AtlasTechnique.CRAFT_ADVERSARIAL_DATA: "Craft Adversarial Data",
+    AtlasTechnique.AUTONOMOUS_AI_AGENT_COMMUNICATION: "Autonomous AI Agent Communication",
     AtlasTechnique.REVERSE_SHELL: "Reverse Shell",
     AtlasTechnique.EXFILTRATION_VIA_AI_INFERENCE_API: "Exfiltration via AI Inference API",
     AtlasTechnique.INFER_TRAINING_DATA_MEMBERSHIP: "Infer Training Data Membership",
@@ -387,6 +417,9 @@ ATLAS_TECHNIQUE_DESCRIPTIONS: dict[AtlasTechnique, str] = {
     AtlasTechnique.EXFILTRATION_VIA_CYBER_MEANS: "Exfiltration via Cyber Means",
     AtlasTechnique.EXTRACT_LLM_SYSTEM_PROMPT: "Extract LLM System Prompt",
     AtlasTechnique.LLM_DATA_LEAKAGE: "LLM Data Leakage",
+    AtlasTechnique.EXFILTRATION_VIA_AI_AGENT_TOOL_INVOCATION: (
+        "Exfiltration via AI Agent Tool Invocation"
+    ),
     AtlasTechnique.DENIAL_OF_AI_SERVICE: "Denial of AI Service",
     AtlasTechnique.ERODE_AI_MODEL_INTEGRITY: "Erode AI Model Integrity",
     AtlasTechnique.COST_HARVESTING: "Cost Harvesting",
@@ -475,6 +508,17 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     AtlasTechnique.LLM_PROMPT_SELF_REPLICATION: [AtlasTactic.PERSISTENCE],
     AtlasTechnique.RAG_POISONING: [AtlasTactic.PERSISTENCE],
     AtlasTechnique.EVENT_TRIGGERED_EXECUTION: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.AI_AGENT_CONTEXT_POISONING: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.AI_AGENT_CONTEXT_POISONING_MEMORY: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.AI_AGENT_CONTEXT_POISONING_THREAD: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.MODIFY_AI_AGENT_CONFIGURATION: [
+        AtlasTactic.PERSISTENCE,
+        AtlasTactic.DEFENSE_EVASION,
+    ],
+    AtlasTechnique.AI_AGENT_TOOL_POISONING: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.AI_AGENT_TOOL_POISONING_DEFINITION: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.AI_AGENT_TOOL_POISONING_IMPLEMENTATION: [AtlasTactic.PERSISTENCE],
+    AtlasTechnique.AI_AGENT_TOOL_POISONING_RUNTIME_RESPONSE: [AtlasTactic.PERSISTENCE],
     AtlasTechnique.ESCAPE_TO_HOST: [AtlasTactic.PRIVILEGE_ESCALATION],
     AtlasTechnique.LLM_JAILBREAK: [
         AtlasTactic.PRIVILEGE_ESCALATION,
@@ -492,6 +536,8 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     AtlasTechnique.DISCOVER_AI_MODEL_OUTPUTS: [AtlasTactic.DISCOVERY],
     AtlasTechnique.DISCOVER_LLM_SYSTEM_INFORMATION: [AtlasTactic.DISCOVERY],
     AtlasTechnique.DISCOVER_LLM_SYSTEM_PROMPT: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_AI_AGENT_CONFIGURATION: [AtlasTactic.DISCOVERY],
+    AtlasTechnique.DISCOVER_AI_AGENT_RUNTIME_CAPABILITIES: [AtlasTactic.DISCOVERY],
     AtlasTechnique.COLLECTION: [AtlasTactic.COLLECTION],
     AtlasTechnique.AI_ARTIFACT_COLLECTION: [AtlasTactic.COLLECTION],
     AtlasTechnique.DATA_FROM_INFORMATION_REPOSITORIES: [AtlasTactic.COLLECTION],
@@ -499,6 +545,7 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     AtlasTechnique.CREATE_PROXY_AI_MODEL: [AtlasTactic.AI_ATTACK_STAGING],
     AtlasTechnique.VERIFY_ATTACK: [AtlasTactic.AI_ATTACK_STAGING],
     AtlasTechnique.CRAFT_ADVERSARIAL_DATA: [AtlasTactic.AI_ATTACK_STAGING],
+    AtlasTechnique.AUTONOMOUS_AI_AGENT_COMMUNICATION: [AtlasTactic.AI_ATTACK_STAGING],
     AtlasTechnique.REVERSE_SHELL: [AtlasTactic.COMMAND_AND_CONTROL],
     AtlasTechnique.EXFILTRATION_VIA_AI_INFERENCE_API: [AtlasTactic.EXFILTRATION],
     AtlasTechnique.INFER_TRAINING_DATA_MEMBERSHIP: [AtlasTactic.EXFILTRATION],
@@ -507,6 +554,7 @@ ATLAS_TECHNIQUE_TO_TACTIC: dict[AtlasTechnique, list[AtlasTactic]] = {
     AtlasTechnique.EXFILTRATION_VIA_CYBER_MEANS: [AtlasTactic.EXFILTRATION],
     AtlasTechnique.EXTRACT_LLM_SYSTEM_PROMPT: [AtlasTactic.EXFILTRATION],
     AtlasTechnique.LLM_DATA_LEAKAGE: [AtlasTactic.EXFILTRATION],
+    AtlasTechnique.EXFILTRATION_VIA_AI_AGENT_TOOL_INVOCATION: [AtlasTactic.EXFILTRATION],
     AtlasTechnique.DENIAL_OF_AI_SERVICE: [AtlasTactic.IMPACT],
     AtlasTechnique.ERODE_AI_MODEL_INTEGRITY: [AtlasTactic.IMPACT],
     AtlasTechnique.COST_HARVESTING: [AtlasTactic.IMPACT],
