@@ -10,6 +10,7 @@ fields Ziran needs as a *client* (scanner), not a server implementation.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -173,6 +174,13 @@ class A2AMessage(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+    def extract_text(self) -> str:
+        """Text parts, and data parts as JSON: both reach the other side (spec 124)."""
+        texts = [
+            p.text or json.dumps(p.data, sort_keys=True) for p in self.parts if p.text or p.data
+        ]
+        return "\n".join(texts)
+
 
 class A2AArtifact(BaseModel):
     """An output artifact from a task."""
@@ -228,17 +236,21 @@ class A2ATask(BaseModel):
         return self.status.state == "TASK_STATE_AUTH_REQUIRED"
 
     def extract_text(self) -> str:
-        """Extract text content from all artifacts.
+        """Extract text content from all artifacts, then the agent's status message.
 
         Returns:
-            Combined text from all artifact parts.
+            Combined text from all artifact parts and the status message: an input-required
+            turn answers there (spec 124).
         """
         texts: list[str] = []
         for artifact in self.artifacts:
             for part in artifact.parts:
                 if part.text:
                     texts.append(part.text)
-        return "\n".join(texts)
+        message = self.status.message
+        if message is not None and message.role not in ("ROLE_USER", "user"):
+            texts.append(message.extract_text())
+        return "\n".join(t for t in texts if t)
 
 
 # ── Request / Response Wrappers ──────────────────────────────────
@@ -283,5 +295,5 @@ class A2ASendMessageResponse(BaseModel):
         if self.task:
             return self.task.extract_text()
         if self.message:
-            return "\n".join(p.text for p in self.message.parts if p.text)
+            return self.message.extract_text()
         return ""

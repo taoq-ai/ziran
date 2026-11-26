@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ziran.domain.entities.goal import GoalCall, SideEffectGoal
+from ziran.domain.entities.goal import GoalCall, SecretLeakGoal, SideEffectGoal
 from ziran.domain.entities.mcp_server_surface import McpServerRequest
 from ziran.domain.entities.phase import ScanPhase
 
@@ -931,8 +931,8 @@ class AttackVector(BaseModel):
     )
     goal: SideEffectGoal | None = Field(
         default=None,
-        description="A goal met by the target's tool calls, judged beside the text verdict "
-        "(spec 116).",
+        description="A goal met by the target's tool calls, or a secret in its replies, judged "
+        "beside the text verdict (specs 116, 124).",
     )
     a2a_probe: A2AProbe | None = Field(
         default=None,
@@ -953,6 +953,16 @@ class AttackVector(BaseModel):
     def _check_a2a_probe(self) -> AttackVector:
         if self.a2a_probe is not None and self.prompts:
             raise ValueError(f"A2A probe vector {self.id} sends its own requests: no prompts")
+        return self
+
+    @model_validator(mode="after")
+    def _check_secret(self) -> AttackVector:
+        # A reply that echoes the counterpart's words, or the PAIR goal text, is no leak.
+        if isinstance(self.goal, SecretLeakGoal):
+            sent = [self.description, *(p.template for p in self.prompts)]
+            sent += [v for p in self.prompts for v in p.variables.values()]
+            if any(self.goal.found_in(text) for text in sent):
+                raise ValueError(f"vector {self.id}: its prompts or description hold the secret")
         return self
 
     @model_validator(mode="after")
