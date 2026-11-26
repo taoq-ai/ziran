@@ -56,6 +56,33 @@ Using the entry-point agent, ZIRAN executes attacks that exploit inter-agent com
 - Privilege escalation through capability gaps between agents
 - Data exfiltration via cross-agent context leakage
 
+### Stage 4: Hop Tracing
+
+After the cross-agent campaign, ZIRAN plants each multi-agent vector at every agent it has an
+adapter for. The planted prompt is the vector's first prompt with a canary appended, such as
+`ZIRAN-H0-3f9a1c2b7e`: `H0` is the hop it was planted at (its delegation distance from the
+entry agent) and the hash ties it to the campaign, vector and agent. Every adapter is reset
+before each plant.
+
+Each adapter then reports where the canary appeared, through `get_state()`:
+
+- the `conversation_history` entries that hold it;
+- the tool calls in `memory["observed_tool_calls"]` (and the planted agent's reply calls) whose
+  arguments hold it, with the tool and the argument path.
+
+Each trace in `result.propagation` gives the path from the planted agent to the furthest agent
+reached, the furthest hop, and each agent's evidence. The path goes through agents that saw the
+canary when the topology allows it; otherwise it is the shortest delegation path, so the hop is a
+lower bound. The planted agent's reply is also matched against the known topology of the other
+agents (ids, names, capabilities, system-prompt sentences), and each match is a leaked part.
+
+An agent whose adapter fails to report is listed as `unobserved`, and a plant whose request
+fails records its `error`: both are unmeasured, not clean. An adapter reports only the traffic it
+carries. A remote worker reached through its own endpoint sees only what ZIRAN sent it, so
+evidence beyond the entry agent needs adapters that observe the delegated traffic.
+
+Pass `trace_hops=False` to `run_multi_agent_campaign` to skip this stage.
+
 ## Usage
 
 ### CLI
@@ -102,7 +129,10 @@ ZIRAN ships with 327 multi-agent attack vectors in `ziran/application/attacks/ve
 
 ## Knowledge Graph
 
-Discovered topologies are imported into the attack knowledge graph. Each agent becomes a node, each delegation or trust boundary becomes an edge. This enables cross-agent attack path analysis — finding multi-hop exploitation chains that span agent boundaries.
+Discovered topologies are imported into the attack knowledge graph. Each agent becomes a node, each delegation or trust boundary becomes an edge. This enables cross-agent attack path analysis — finding multi-hop exploitation chains that span agent boundaries. Each step of a traced canary path is a `propagates_to` edge between agent nodes, carrying the vector, the canary and the hop.
+
+`ziran multi-agent-scan` prints the furthest canary hop, adds a `propagation` block to
+`multi_agent_summary.json`, and writes every trace to `propagation.json`.
 
 ## See Also
 

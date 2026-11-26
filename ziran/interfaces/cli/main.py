@@ -2537,7 +2537,8 @@ def multi_agent_scan(
             f"[bold]Topology:[/bold] {summary['topology_type']}\n"
             f"[bold]Agents Scanned:[/bold] {summary['agents_scanned']}\n"
             f"[bold]Total Vulnerabilities:[/bold] {summary['total_vulnerabilities']}\n"
-            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}",
+            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}\n"
+            f"[bold]Furthest Canary Hop:[/bold] {summary['propagation']['furthest_hop']}",
             title="Multi-Agent Campaign Results",
             style="bold green" if summary["total_vulnerabilities"] == 0 else "bold red",
         )
@@ -2557,6 +2558,12 @@ def multi_agent_scan(
     summary_path = output_dir / "multi_agent_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
     console.print(f"[dim]Summary saved to {summary_path}[/dim]")
+
+    propagation_path = output_dir / "propagation.json"
+    propagation_path.write_text(
+        json.dumps([t.model_dump(mode="json") for t in result.propagation], indent=2)
+    )
+    console.print(f"[dim]Hop traces saved to {propagation_path}[/dim]")
 
 
 # ──────────────────────────────────────────────────────────────────────

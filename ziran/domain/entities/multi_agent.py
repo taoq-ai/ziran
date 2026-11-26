@@ -10,9 +10,12 @@ to generate cross-agent attack campaigns.
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from ziran.domain.entities.attack import ProbeMarker
+from ziran.domain.entities.goal import GoalCall
 
 
 class TopologyType(StrEnum):
@@ -243,3 +246,46 @@ class MultiAgentTopology(BaseModel):
     def get_full_context_edges(self) -> list[AgentEdge]:
         """Return edges where full context is shared (high-risk for injection)."""
         return [e for e in self.edges if e.delegation == DelegationPattern.FULL_CONTEXT]
+
+
+class HopEvidence(BaseModel):
+    """Where a planted canary appeared at one agent (spec 122)."""
+
+    agent_id: str
+    hop: int | None = Field(
+        description="Delegation hops from the agent it was planted at; None off the topology"
+    )
+    messages: list[int] = Field(
+        default_factory=list, description="Indexes of conversation_history entries holding it"
+    )
+    tool_calls: list[GoalCall] = Field(
+        default_factory=list, description="Tool calls whose arguments hold it"
+    )
+
+
+class LeakedPart(BaseModel):
+    """A part of another agent's known topology found in the planted agent's reply."""
+
+    agent_id: str
+    kind: Literal["name", "capability", "system_prompt"]
+    text: str
+
+
+class PropagationTrace(BaseModel):
+    """How far one vector's canary, planted at one agent, travelled (spec 122)."""
+
+    vector_id: str
+    planted_at: str
+    planted_hop: int | None = Field(description="Delegation hops from the entry agent")
+    canary: str
+    reached: list[HopEvidence] = Field(default_factory=list)
+    path: list[str] = Field(
+        default_factory=list, description="Planted agent to the furthest agent reached"
+    )
+    furthest_hop: int = 0
+    leaked: list[LeakedPart] = Field(default_factory=list)
+    unobserved: list[str] = Field(
+        default_factory=list, description="Agents whose adapter failed to report (unmeasured)"
+    )
+    probe_markers: list[ProbeMarker] = Field(default_factory=list)
+    error: str | None = Field(default=None, description="The plant failed: nothing measured")

@@ -680,6 +680,7 @@ class TestMultiAgentScanner:
             result = await scanner.run_multi_agent_campaign(
                 scan_individual=False,
                 scan_cross_agent=True,
+                trace_hops=False,
             )
 
         assert result.individual_results == {}
@@ -706,6 +707,7 @@ class TestMultiAgentScanner:
                 scan_individual=True,
                 scan_cross_agent=True,
                 on_progress=events.append,
+                trace_hops=False,
             )
 
         # Should have received progress events
