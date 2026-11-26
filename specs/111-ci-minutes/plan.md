@@ -18,8 +18,8 @@
 
 | Case | Before | After |
 |---|---|---|
-| Docs-only PR (#560), without CodeQL | 9 jobs, 25 min | 8 jobs, about 9 min (estimate) |
-| Python PR (#568), without CodeQL | 12 jobs, 30 min | 13 jobs, about 32 min, plus one superseded run cancelled per extra push |
+| Docs-only PR (#560), without CodeQL | 9 jobs, 25 min | 9 jobs (two `changes`), 10 with the docs build, about 10 min (estimate) |
+| Python PR (#568), without CodeQL | 12 jobs, 30 min | 14 jobs (two `changes`), about 32 min (estimate), plus one superseded run cancelled per extra push |
 
 Method: `gh run list --commit <sha>`, then `gh run view <id> --json jobs`, rounding each job up
 to a minute. The after figures are an estimate: the gated jobs run only checkout-free steps.

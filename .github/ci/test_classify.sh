@@ -47,6 +47,9 @@ check "tested guide" true ok 1 '[{"filename":"docs/guides/adapters.md"}]'
 check "license lookalike" true ok 1 '[{"filename":"LICENSE.py"}]'
 check "empty list" true ok 0 '[]'
 check "empty list, one changed" true ok 1 '[]'
+check "python in specs" true ok 1 '[{"filename":"specs/999-x/spike.py"}]'
+check "python in .claude" true ok 1 '[{"filename":".claude/hooks/h.py"}]'
+check "python in docs" true ok 1 '[{"filename":"docs/hooks.py"}]'
 check "root SECURITY.md" true ok 1 '[{"filename":"SECURITY.md"}]'
 
 [ "$fail" = 0 ] && echo "classify: all cases pass"

@@ -15,7 +15,8 @@ After this change:
 1. A pull request that touches only docs (`docs/` except `docs/guides/`, `specs/`, `.specify/`,
    `.claude/`, root-level `*.md`, `mkdocs.yml`, `LICENSE`) does no install and no test work, and
    the docs build runs on it. Shipped Markdown (prompts, plugin skills, test fixtures) and
-   `docs/guides/` pages that tests execute count as code. Lint, typecheck and the three test jobs
+   `docs/guides/` pages that tests execute count as code, as do root `SECURITY.md` (a test reads it)
+   and any `.py`, `.pyi` or `.ipynb` file under a docs folder (lint runs over the whole tree). Lint, typecheck and the three test jobs
    still start and report success, because the `main-protection` ruleset (refs/heads/main) requires
    `lint`, `typecheck`, `test (3.11)`, `test (3.12)` and `test (3.13)`. `on.paths` is not used for
    them, and no job-level `if` guards a required matrix job: a skipped matrix job leaves its
