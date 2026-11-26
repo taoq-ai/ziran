@@ -65,6 +65,10 @@ change.
   prompts and replies; otherwise the result is unmeasured with `unmeasured_reason`
   "session 2 shared". A plant with no reply stops the run before session 2, unmeasured with
   "session 1 got no reply".
+- **FR-008a** (review round 2) The history check compares counts, so a stray copy of an own
+  message is foreign. The A2A handler keeps a reset context when a reply sent before the reset
+  arrives late. The gate releases with no await before its wake-up, so a cancel cannot leave it
+  held.
 - **FR-009** Each session record lists its turns (`turn`, `prompt`, `reply`, `tool_calls`), so a
   failed turn cannot misalign prompts and replies.
 - **FR-006** The new vector, mapped as above; the ATLAS agent-technique fitness test lists it.
@@ -87,6 +91,9 @@ change.
 - The gate is shared/exclusive rather than one mutex for every multi-turn run: a mutex would
   serialise all multi-turn vectors on a declared target and push queued ones past the 60 s
   per-attack timeout. Overturned if serialising all of them is preferred.
+- Vectors queued behind a two-session run wait for it inside their 60 s per-attack timeout
+  (phase_executor). One that times out gets no result row: lost coverage, never counted as
+  resisted. `--concurrency 1` limits it.
 - Single-prompt vectors do not take the gate (their path is `attack_executor.py`, which has no
   room); the history check catches their turns landing in session 2.
 - `compute_resilience` still counts the skip as resisted, as it does every spec 082 unmeasured

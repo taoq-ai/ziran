@@ -19,3 +19,6 @@
   per-turn session records, a race regression test beside a multi-turn vector with a 429 retry
   (red on the old head: a false finding), and the ATLAS table, field table, target key and
   REST session docs.
+- [x] T010 Review round 2: count-based history check with a single-prompt race test, the A2A
+  late-reply context guard with a test, gate tests for both wait rules and a double cancel, and
+  the remote-agents guide limited to what the check guarantees.
