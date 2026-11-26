@@ -2,6 +2,8 @@
 
 `ziran export-policy` renders guardrail policy bundles (OPA/Rego, Cedar, NeMo Colang, Invariant Labs) from scan findings. Run once, those bundles drift stale as the attack library or your agent changes. The **export-policy composite Action** keeps them fresh: it re-scans, regenerates the bundle, and opens (or updates) a single PR when the result differs from what is committed.
 
+Exported Rego modules use OPA 1.0 syntax (`import rego.v1`, `deny contains msg if`), so they need OPA 1.x, or OPA 0.x from 0.59 onward.
+
 ## Quick start
 
 Copy [`examples/07-cicd-quality-gate/policy-refresh.yml`](../../examples/07-cicd-quality-gate/policy-refresh.yml) into `.github/workflows/`:

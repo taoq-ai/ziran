@@ -16,10 +16,11 @@ emits `deny[msg] {`, which OPA 1.x refuses to load.
 
 After the fix every value placed in policy text is escaped for the language it lands in:
 
-- Rego and Invariant strings: JSON string literals (`json.dumps`, ASCII, so U+2028 and U+2029
-  are escaped too).
-- Colang strings: the same JSON literal, which escapes the quote and the backslash and keeps
-  controls off the line.
+- Rego strings: JSON string literals. Printable characters stay raw; the quote, the backslash
+  and every non-printable character (U+2028, U+2029 and NEL included) are JSON-escaped.
+- Invariant and Colang strings: `quoted` from `ziran/domain/text.py`. Printable characters stay
+  raw (an astral one too, so it never becomes a surrogate pair), the quote and the backslash
+  take a backslash, and every non-printable character is escaped as `printable` does.
 - Cedar strings and entity ids: Cedar's escapes, `\"` and `\\`, with every non-printable
   character as `\u{..}`.
 - Comment lines: the value goes through `printable` from `ziran/domain/text.py`, so C0, DEL,
@@ -28,7 +29,17 @@ After the fix every value placed in policy text is escaped for the language it l
 The Rego module moves to OPA 1.0 syntax: `package ziran.guardrails`, `import rego.v1`,
 `deny contains msg if { ... }`. It loads in OPA 1.x, and in OPA 0.x from 0.59.
 
-Cedar keeps its two-tool limit and its skip reason.
+Cedar keeps its two-tool limit and its skip reason. A lone surrogate (only reachable through a
+JSON escape) becomes `\u{d800}`, which Cedar refuses: the policy fails closed.
+
+Security fix round at 84e7935:
+
+- The exporter skips a chain with no tools: it would render a Rego rule that denies every
+  request and an Invariant rule with an empty `if:`.
+- `export-policy` writes each file under a name with only `[A-Za-z0-9._-]` (other characters
+  become `_`), since `finding_id` carries the result file's `campaign_id` (CWE-22). Verbose
+  lines print the id through `term()`.
+- `docs/guides/policy-refresh-automation.md` states the OPA version the Rego output needs.
 
 ## Acceptance scenarios
 
@@ -58,8 +69,7 @@ options.
 - Colang 2.0 string literals accept JSON's `\uXXXX` escapes as Python literals do. No Colang
   parser is installed here, so the tests decode the literal with `ast.literal_eval`.
   Overturned by a NeMo Guardrails parse that rejects `\u` escapes.
-- `json.dumps` writes a character above U+FFFF as a surrogate pair. OPA decodes the pair to the
-  one character; `ast.literal_eval` would not. Scanned tool names outside the BMP are left as a
-  known limit for Invariant and Colang.
+- Colang and Invariant accept Python's `\xNN`, `\uXXXX` and `\UXXXXXXXX` escapes for
+  non-printable characters. Overturned by either engine's parser rejecting them.
 - The opa tests skip without the binary locally and fail when `CI` is set, so `release.yml`,
   which runs the unit tests too, installs OPA beside `test.yml`.

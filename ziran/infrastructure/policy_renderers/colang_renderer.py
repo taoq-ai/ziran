@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import re
 from typing import TYPE_CHECKING
 
 from ziran.domain.entities.policy import GuardrailPolicy, GuardrailPolicyFormat
 from ziran.domain.ports.policy_renderer import PolicyRenderer
-from ziran.domain.text import printable
+from ziran.domain.text import printable, quoted
 
 if TYPE_CHECKING:
     from ziran.domain.entities.capability import DangerousChain
@@ -46,11 +45,11 @@ class ColangRenderer(PolicyRenderer):
         for idx, tool in enumerate(tools):
             var = f"$step{idx}"
             lines.append(
-                f"    match ToolCall(tool_name={json.dumps(tool)}) as {var}",
+                f"    match ToolCall(tool_name={quoted(tool)}) as {var}",
             )
 
         blocked_msg = f"Blocked: {chain_label} sequence is forbidden (Ziran {finding_id})."
-        lines.append(f"    await bot say {json.dumps(blocked_msg)}")
+        lines.append(f"    await bot say {quoted(blocked_msg)}")
         lines.append("    abort")
 
         content = "\n".join(lines) + "\n"

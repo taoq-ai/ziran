@@ -24,10 +24,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 # A double quote, a backslash, a newline, a closing brace, a whole Rego rule, a Cedar `};`,
-# U+2028 and NEL (both line breaks to str.splitlines) in one scanned tool name.
+# U+2028 and NEL (both line breaks to str.splitlines) and an astral U+1F50D in one tool name.
 HOSTILE = (
     'evil"\\\n}\ndeny contains "pwned" if { true }\n'
-    "}; forbid (principal, action, resource);\u2028# after U+2028\x85tail"
+    "}; forbid (principal, action, resource);\u2028# after U+2028\x85tail search_\U0001f50d"
 )
 HOSTILE_ID = 'ZIRAN-x"\n# id-\u2028line-000'
 HOSTILE_VULN = 'exfil"\n}\u2029vuln'
@@ -101,6 +101,14 @@ def test_cedar_hostile_chain_parses_as_one_forbid() -> None:
     assert policy["resource"]["entity"] == {"type": "Tool", "id": HOSTILE}
     (condition,) = policy["conditions"]
     assert condition["body"]["=="]["right"] == {"Value": "read_file"}
+
+
+@pytest.mark.unit
+def test_cedar_lone_surrogate_fails_closed() -> None:
+    """A lone surrogate (only reachable through a JSON escape) makes the policy fail to load."""
+    content = CedarRenderer().render(_chain(["read_file", "x\ud800"]), "ZIRAN-c-000").content
+    with pytest.raises(ValueError):
+        cedarpy.policies_to_json_str(content)
 
 
 @pytest.mark.unit

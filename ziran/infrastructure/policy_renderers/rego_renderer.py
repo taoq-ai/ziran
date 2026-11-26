@@ -13,11 +13,17 @@ if TYPE_CHECKING:
     from ziran.domain.entities.capability import DangerousChain
 
 
+def _rego_str(value: str) -> str:
+    """*value* as a Rego (JSON) string: printable characters raw, the rest JSON-escaped."""
+    body = "".join(c if c.isprintable() and c not in '"\\' else json.dumps(c)[1:-1] for c in value)
+    return f'"{body}"'
+
+
 class RegoRenderer(PolicyRenderer):
     """Render DangerousChain findings as Rego deny rules in OPA 1.0 syntax.
 
     ``import rego.v1`` keeps the module loadable in OPA 0.x from 0.59. Values go in as JSON
-    string literals, which Rego strings share; ``json.dumps`` also escapes U+2028 and U+2029.
+    string literals, which Rego strings share.
     """
 
     @property
@@ -50,11 +56,11 @@ class RegoRenderer(PolicyRenderer):
         for idx, tool in enumerate(tools):
             offset = f"i + {idx}" if idx > 0 else "i"
             lines.append(
-                f"    input.trace[{offset}].tool == {json.dumps(tool)}",
+                f"    input.trace[{offset}].tool == {_rego_str(tool)}",
             )
 
         msg_text = f"Ziran finding {finding_id}: {chain_label} ({vuln})"
-        lines.append(f"    msg := {json.dumps(msg_text)}")
+        lines.append(f"    msg := {_rego_str(msg_text)}")
         lines.append("}")
 
         content = "\n".join(lines) + "\n"

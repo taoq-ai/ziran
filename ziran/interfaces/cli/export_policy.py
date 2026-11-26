@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import click
@@ -15,6 +16,7 @@ from ziran.infrastructure.policy_renderers import (
     InvariantRenderer,
     RegoRenderer,
 )
+from ziran.interfaces.cli._text import term
 
 console = Console()
 
@@ -99,16 +101,17 @@ def export_policy(
             skipped += 1
             if verbose:
                 console.print(
-                    f"[dim]SKIP {policy.finding_id}: {policy.skip_reason}[/dim]",
+                    f"[dim]SKIP {term(policy.finding_id)}: {term(policy.skip_reason)}[/dim]",
                 )
             continue
 
-        file_path = out / f"{policy.finding_id}{ext}"
+        # finding_id carries the result file's campaign_id: keep it one name inside --out
+        file_path = out / f"{re.sub(r'[^A-Za-z0-9._-]', '_', policy.finding_id)}{ext}"
         file_path.write_text(policy.content, encoding="utf-8")
         written += 1
         if verbose:
             console.print(
-                f"[green]WRITE[/green] {file_path}",
+                f"[green]WRITE[/green] {term(file_path)}",
             )
 
     # Map CLI format name to the enum for display

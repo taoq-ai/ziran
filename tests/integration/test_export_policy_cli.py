@@ -224,3 +224,30 @@ class TestExportPolicyCli:
 
         assert result.exit_code == 0
         assert "nothing exported" in result.output.lower()
+
+    def test_finding_id_cannot_leave_out_dir(self, tmp_path: Path) -> None:
+        """A campaign id holding ``../`` stays a file name inside --out (CWE-22)."""
+        result_file = tmp_path / "result.json"
+        result_file.write_text(
+            json.dumps({**_CAMPAIGN_RESULT, "campaign_id": "../../escape/x"}),
+            encoding="utf-8",
+        )
+        out_dir = tmp_path / "a" / "policies"
+        result = CliRunner().invoke(
+            cli,
+            [
+                "export-policy",
+                "--result",
+                str(result_file),
+                "--format",
+                "rego",
+                "--out",
+                str(out_dir),
+                "--verbose",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        names = sorted(p.name for p in tmp_path.rglob("*.rego"))
+        assert names == [f"ZIRAN-.._.._escape_x-00{i}.rego" for i in range(3)]
+        assert all(p.parent == out_dir for p in tmp_path.rglob("*.rego"))
