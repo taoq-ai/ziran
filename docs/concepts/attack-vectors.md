@@ -108,6 +108,7 @@ vectors:
 | `prompts[].template` | Yes | Prompt with `{variable}` placeholders |
 | `prompts[].success_indicators` | Yes | Strings indicating a successful attack |
 | `prompts[].failure_indicators` | No | Strings indicating the agent resisted |
+| `prompts[].new_session` | No | Reset the conversation before this prompt; runs only on a target with memory across sessions ([two-session vectors](../guides/custom-attacks.md#two-session-vectors)) |
 | `tags` | No | Searchable tags |
 | `references` | No | Links to research/CVEs |
 

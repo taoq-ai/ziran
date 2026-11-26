@@ -404,6 +404,11 @@ class TargetConfig(BaseModel):
     # HTTP
     headers: dict[str, str] = Field(default_factory=dict, description="Additional HTTP headers")
     proxy: str | None = Field(default=None, description="HTTP/HTTPS proxy URL")
+    memory_persists_across_reset: bool = Field(
+        default=False,
+        description="The agent keeps memory across sessions (keyed by user, not session); "
+        "enables two-session memory vectors (spec 113)",
+    )
 
     @model_validator(mode="after")
     def _ensure_protocol_config(self) -> TargetConfig:

@@ -87,8 +87,9 @@ class A2AProtocolHandler(BaseProtocolHandler):
 
         response = await self._send_message(request)
 
-        # Update context for multi-turn
-        if response.task:
+        # Update context for multi-turn, unless the context was reset while this was in flight:
+        # a late reply must not put the next session back in the old context (spec 113).
+        if response.task and self._context_id == msg.context_id:
             self._context_id = response.task.context_id or self._context_id
             self._task_id = response.task.id
 
