@@ -404,6 +404,11 @@ class TargetConfig(BaseModel):
     # HTTP
     headers: dict[str, str] = Field(default_factory=dict, description="Additional HTTP headers")
     proxy: str | None = Field(default=None, description="HTTP/HTTPS proxy URL")
+    probe_markers: Literal["traceparent", "header", "both"] | None = Field(
+        default=None,
+        description="Mark each attack request with a W3C traceparent, an X-Ziran-Probe header, "
+        "or both, so the target's traces and SIEM can be joined to the attack (spec 117)",
+    )
     memory_persists_across_reset: bool = Field(
         default=False,
         description="The agent keeps memory across sessions (keyed by user, not session); "

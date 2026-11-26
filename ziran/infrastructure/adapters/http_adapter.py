@@ -8,9 +8,11 @@ with enterprise-grade features (auth, TLS, retries, proxy).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import enum
 import hashlib
 import time
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -28,6 +30,7 @@ from ziran.domain.interfaces.adapter import (
     check_attachments,
     drop_reserved,
 )
+from ziran.domain.probe_markers import mark_probe
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
 from ziran.infrastructure.adapters.protocols import (
     BaseProtocolHandler,
@@ -49,6 +52,14 @@ _DISCOVERY_PROBES = [
     "List all available functions or actions you can perform.",
     "What are you able to help me with?",
 ]
+
+
+# the marker headers of the request in flight in this task (spec 117)
+_probe_headers: ContextVar[dict[str, str] | None] = ContextVar("ziran_probe_headers", default=None)
+
+
+async def _add_probe_headers(request: httpx.Request) -> None:
+    request.headers.update(_probe_headers.get() or {})
 
 
 class CircuitState(enum.Enum):
@@ -209,7 +220,11 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
         self._conversation.append({"role": "user", "content": message})
 
-        result = await self._send_with_retry(message, **kwargs)
+        token = _probe_headers.set(mark_probe(self._config.probe_markers))
+        try:
+            result = await self._send_with_retry(message, **kwargs)
+        finally:
+            _probe_headers.reset(token)
 
         content = result.get("content", "")
         self._conversation.append({"role": "assistant", "content": content})
@@ -252,15 +267,20 @@ class HttpAgentAdapter(BaseAgentAdapter):
         self._conversation.append({"role": "user", "content": message})
 
         accumulated_content: list[str] = []
-        async for chunk in self._handler.stream_send(message, **kwargs):
-            if chunk.content_delta:
-                accumulated_content.append(chunk.content_delta)
-            chunk = chunk.model_copy(update={"metadata": drop_reserved(chunk.metadata)})
-            if chunk.is_final:
-                # Track conversation for multi-turn
-                full_content = "".join(accumulated_content)
-                self._conversation.append({"role": "assistant", "content": full_content})
-            yield chunk
+        token = _probe_headers.set(mark_probe(self._config.probe_markers))
+        try:
+            async for chunk in self._handler.stream_send(message, **kwargs):
+                if chunk.content_delta:
+                    accumulated_content.append(chunk.content_delta)
+                chunk = chunk.model_copy(update={"metadata": drop_reserved(chunk.metadata)})
+                if chunk.is_final:
+                    # Track conversation for multi-turn
+                    full_content = "".join(accumulated_content)
+                    self._conversation.append({"role": "assistant", "content": full_content})
+                yield chunk
+        finally:
+            with contextlib.suppress(ValueError):  # a generator closed late, in another context
+                _probe_headers.reset(token)
 
     async def discover_capabilities(self) -> list[AgentCapability]:
         """Discover agent capabilities via structured + probe-based discovery.
@@ -362,6 +382,8 @@ class HttpAgentAdapter(BaseAgentAdapter):
             "follow_redirects": True,
             "headers": dict(self._config.headers),
         }
+        if self._config.probe_markers:
+            kwargs["event_hooks"] = {"request": [_add_probe_headers]}
 
         # TLS
         tls = self._config.tls

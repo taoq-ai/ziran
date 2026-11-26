@@ -274,6 +274,7 @@ class AgentScanner:
             attacker=self.config.get("attacker_llm_client"),
             budget=self._budget,
             carriers=self.config.get("carriers"),
+            campaign_id=campaign_id,
         )
         phase_executor = PhaseExecutor(
             attack_executor,
