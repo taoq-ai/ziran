@@ -119,6 +119,7 @@ class GuardrailPolicyFormat(StrEnum):
     CEDAR = "cedar"
     COLANG = "colang"
     INVARIANT = "invariant"
+    SIGMA = "sigma"
 
 
 class GuardrailPolicy(BaseModel):

@@ -75,6 +75,7 @@ nav:
     - CI Integrations: guides/ci-integrations.md
     - Promptfoo Integration: guides/promptfoo-integration.md
     - OpenTelemetry Tracing: guides/otel-tracing.md
+    - Sigma Detection Rules: guides/detection-rules.md
     - Static Analysis: guides/static-analysis.md
     - Claude Code Plugins: guides/claude-code.md
     - Hostile MCP Server: guides/mcp-hostile-server.md

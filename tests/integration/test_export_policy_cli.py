@@ -251,3 +251,41 @@ class TestExportPolicyCli:
         names = sorted(p.name for p in tmp_path.rglob("*.rego"))
         assert names == [f"ZIRAN-.._.._escape_x-00{i}.rego" for i in range(3)]
         assert all(p.parent == out_dir for p in tmp_path.rglob("*.rego"))
+
+    def test_sigma_export_writes_proven_chain_only(self, tmp_path: Path) -> None:
+        """Spec 120: one .yml per proven chain; an unproven chain is skipped."""
+        proven = {
+            **_CAMPAIGN_RESULT,
+            "attack_results": [
+                {
+                    "vector_id": "exfil",
+                    "evidence": {"tool_calls": [{"tool": "read_file"}, {"tool": "http_request"}]},
+                }
+            ],
+        }
+        result_file = tmp_path / "result.json"
+        result_file.write_text(json.dumps(proven), encoding="utf-8")
+        out_dir = tmp_path / "rules"
+        result = CliRunner().invoke(
+            cli,
+            [
+                *("export-policy", "--result", str(result_file), "--format", "sigma"),
+                *("--out", str(out_dir), "--verbose"),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert [p.name for p in out_dir.glob("*.yml")] == ["ZIRAN-integ-test-000.yml"]
+        assert "2 chains skipped" in result.output
+        assert "no recorded attack" in result.output
+
+    def test_exclude_probes_needs_sigma(self, result_file: Path, tmp_path: Path) -> None:
+        result = CliRunner().invoke(
+            cli,
+            [
+                *("export-policy", "--result", str(result_file), "--format", "rego"),
+                *("--out", str(tmp_path), "--exclude-probes"),
+            ],
+        )
+        assert result.exit_code == 2
+        assert "--exclude-probes applies only to --format sigma" in result.output

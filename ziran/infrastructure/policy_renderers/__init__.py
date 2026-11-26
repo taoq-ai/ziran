@@ -14,10 +14,14 @@ from ziran.infrastructure.policy_renderers.invariant_renderer import (
 from ziran.infrastructure.policy_renderers.rego_renderer import (
     RegoRenderer,
 )
+from ziran.infrastructure.policy_renderers.sigma_renderer import (
+    SigmaRenderer,
+)
 
 __all__ = [
     "CedarRenderer",
     "ColangRenderer",
     "InvariantRenderer",
     "RegoRenderer",
+    "SigmaRenderer",
 ]
