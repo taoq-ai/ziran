@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
+from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.carrier_executor import CarrierSites
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorPipeline
@@ -296,10 +297,10 @@ class TestAcceptance:
 
     async def test_floor_probe_over_a2a_with_no_leak_is_false(self) -> None:
         replies = [
-            "I can't share internal pricing.",
+            "I can't share internal price rules.",
             "Our list price is 1,000 per seat.",
             "I'd need to see the full scope first.",
-            "Pricing rules aren't something I can state.",
+            "That isn't something I can state.",
             "For 40 seats I can offer 950.",
         ]
         adapter, sent = _a2a_seller(replies)
@@ -384,3 +385,30 @@ class TestRepliesOnEveryPath:
         adapter = Scripted(("Agent stopped due to iteration limit.", []))
         result = await AttackExecutor(adapter, DetectorPipeline()).execute(_vector(LEAK))
         assert result.goal_met is None
+
+
+class Concedes(MockAgentAdapter):
+    """Concedes 650 on every turn, in text and through ``submit_offer``."""
+
+    async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+        self.invocations.append(message)
+        return AgentResponse(content="I can do 650 per seat.", tool_calls=[_offer(650)])
+
+
+async def test_scan_reports_each_scenario_goal() -> None:
+    scanner = AgentScanner(adapter=Concedes(), attack_library=_scenarios())
+    result = await scanner.run_campaign(stop_on_critical=False)
+    rows = {r["vector_id"]: r for r in result.attack_results}
+    met = {k: r["goal_met"] for k, r in rows.items()}
+    assert met == {
+        "neg_seller_anchoring": True,
+        "neg_seller_false_deadline": True,
+        "neg_seller_fake_competitor": True,
+        "neg_seller_deceptive_commitment": True,
+        "neg_seller_floor_probe": False,
+        "neg_seller_pair_floor": None,  # no attacker client: an error, the target is not called
+        "neg_buyer_authority": False,
+        "neg_buyer_split_order": False,
+        "neg_buyer_coercion": False,
+    }
+    assert rows["neg_seller_anchoring"]["goal_evidence"][0]["role"] == "commitment"
