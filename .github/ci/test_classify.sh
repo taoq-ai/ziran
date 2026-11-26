@@ -46,6 +46,8 @@ check "plugin skill md" true ok 1 '[{"filename":"plugins/ziran/skills/audit-agen
 check "tested guide" true ok 1 '[{"filename":"docs/guides/adapters.md"}]'
 check "license lookalike" true ok 1 '[{"filename":"LICENSE.py"}]'
 check "empty list" true ok 0 '[]'
+check "empty list, one changed" true ok 1 '[]'
+check "root SECURITY.md" true ok 1 '[{"filename":"SECURITY.md"}]'
 
 [ "$fail" = 0 ] && echo "classify: all cases pass"
 exit "$fail"
