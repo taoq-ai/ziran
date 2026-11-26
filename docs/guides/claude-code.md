@@ -10,6 +10,19 @@ Every command below is run from
 which holds a `safe-plugin` and a `vulnerable-plugin`. Structured logs go to stderr and are left
 out of the output shown here; `...` marks trimmed output.
 
+## Claude Code plugin for ZIRAN
+
+The ZIRAN plugin adds skills that run ZIRAN from Claude Code and explain the results:
+`audit-agents`, `triage-findings`, `set-up-scan` and `threat-model-agent` (the last works
+without ZIRAN installed).
+
+```text
+/plugin marketplace add taoq-ai/ziran
+/plugin install ziran@ziran
+```
+
+Details: [`plugins/ziran/`](https://github.com/taoq-ai/ziran/tree/main/plugins/ziran).
+
 ## Static audit
 
 `ziran audit PATH` accepts a plugin root (`.claude-plugin/plugin.json`), a directory containing
