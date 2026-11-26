@@ -15,7 +15,7 @@
 
 - The vector is successful when any run succeeded (pass@k). The first successful run's result carries the evidence, goal verdict and response; with no success, the last measured run's.
 - `evidence["trials"]` = `{k, measured, successes, success_rate (over measured, 2 decimals), pass_at_k, pass_hat_k (all k succeeded), flaky (0 < successes < measured), outcomes}`; `outcomes` has `None` for an unmeasured run.
-- A run that raises (timeout, adapter or reset failure), returns `error`, or is skipped by the cost cap is unmeasured; the vector keeps the other runs. When no run comes back the vector is dropped, as a failed single run is today.
+- A run that raises (timeout, adapter or reset failure), returns `error`, gets no reply (evidence `outcome: unmeasured`), or is skipped by the cost cap is unmeasured; with no measured run, `success_rate` is `None` and the reports read "no measured trials"; the vector keeps the other runs. When no run comes back the vector is dropped, as a failed single run is today.
 - With k > 1 the phase runs one vector at a time (a warning names the requested concurrency), so a reset never clears another vector's conversation, and the phase timeout is multiplied by k.
 - The cost cap is checked before each run after the first; target tokens reach the ledger per run, so the overshoot is at most one run. A run skipped by the cap marks the phase interrupted.
 - Token usage and probe markers add up over all runs.

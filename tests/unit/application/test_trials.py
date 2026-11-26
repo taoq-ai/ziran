@@ -64,9 +64,17 @@ def _result(attack: AttackVector, successful: bool) -> AttackResult:
 class _Scripted:
     """Complies on the listed runs (1-based), times out on *raises*; records calls and resets."""
 
-    def __init__(self, complies: set[int], raises: set[int] | None = None) -> None:
+    def __init__(
+        self,
+        complies: set[int],
+        raises: set[int] | None = None,
+        unanswered: set[int] | None = None,
+        errored: set[int] | None = None,
+    ) -> None:
         self.complies = complies
         self.raises = raises or set()
+        self.unanswered = unanswered or set()  # the executor's swallowed prompt failures
+        self.errored = errored or set()
         self.calls: list[dict[str, Any]] = []
         self.returned: list[AttackResult] = []
         self.resets = 0
@@ -77,6 +85,13 @@ class _Scripted:
         if len(self.calls) in self.raises:
             raise TimeoutError
         result = _result(attack, len(self.calls) in self.complies)
+        if len(self.calls) in self.unanswered:
+            result.evidence = {
+                "note": "All prompts were blocked or failed",
+                "outcome": "unmeasured",
+            }
+        if len(self.calls) in self.errored:
+            result.error = "adapter failed"
         trace = f"{attack.id}-{len(self.calls)}"
         result.probe_markers = [ProbeMarker(probe_id=trace, trace_id=trace, sent_at=_NOW)]
         self.returned.append(result)
@@ -374,3 +389,49 @@ async def test_each_trial_judges_its_own_goal_turns(monkeypatch: pytest.MonkeyPa
     first = await executor.execute(attack)
     second = await executor.execute(attack, trial=1)
     assert (first.goal_met, second.goal_met) == (True, False)
+
+
+def _markdown(phase: Any, result: AttackResult) -> str:
+    return ReportGenerator._format_markdown(
+        ReportGenerator.__new__(ReportGenerator), _campaign(phase, [result])
+    )
+
+
+async def test_unanswered_trials_are_unmeasured_not_failures() -> None:
+    phase, [result] = await _run(_Scripted(complies={1}, unanswered={2, 3}), trials=3)
+    trials = result.evidence["trials"]
+    assert trials["outcomes"] == [True, None, None]
+    assert (trials["measured"], trials["successes"], trials["flaky"]) == (1, 1, False)
+    assert trials["success_rate"] == 1.0
+    assert "Reproduced: 1 of 1 (2 unmeasured)" in _markdown(phase, result)
+
+
+@pytest.mark.parametrize("how", ["raises", "errored"])
+async def test_an_unmeasured_middle_trial_leaves_the_others_counted(how: str) -> None:
+    executor = _Scripted(complies={1, 3}, **{how: {2}})
+    phase, [result] = await _run(executor, trials=3)
+    trials = result.evidence["trials"]
+    assert trials["outcomes"] == [True, None, True]
+    assert (trials["measured"], trials["successes"], trials["success_rate"]) == (2, 2, 1.0)
+    assert (trials["flaky"], trials["pass_hat_k"]) == (False, False)
+    [sarif_result] = generate_sarif(_campaign(phase, [result]))["runs"][0]["results"]
+    props = sarif_result["properties"]
+    assert (props["measured"], props["success_rate"], props["flaky"]) == (2, 1.0, False)
+
+
+async def test_no_measured_trial_says_so() -> None:
+    phase, [result] = await _run(_Scripted(complies=set(), unanswered={1, 2}), trials=2)
+    trials = result.evidence["trials"]
+    assert (trials["measured"], trials["success_rate"], trials["flaky"]) == (0, None, False)
+    phase.vulnerabilities_found = ["vec"]  # the label shows on any listed finding
+    phase.artifacts["vec"] = {"name": "Vector vec", "evidence": result.evidence}
+    assert "Reproduced: no measured trials (2 unmeasured)" in _markdown(phase, result)
+
+
+async def test_concurrency_above_one_warns_when_trials_run_serially() -> None:
+    from structlog.testing import capture_logs
+
+    with capture_logs() as logs:
+        await _run(_Scripted(complies=set()), max_concurrent=3, trials=2)
+    [warning] = [e for e in logs if e["event"] == "trials_run_serially"]
+    assert (warning["trials"], warning["concurrency"]) == (2, 3)

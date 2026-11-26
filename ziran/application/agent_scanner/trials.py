@@ -5,8 +5,8 @@ first, and the phase runs its vectors one at a time so a reset never cuts anothe
 conversation. The vector reads successful when any trial succeeded (pass@k);
 ``evidence["trials"]`` records successes out of the measured trials, pass@k, pass^k (all k
 succeeded) and ``flaky`` (some measured trials succeeded, not all). A trial that raises, times
-out, returns an error or is skipped by the cost cap is unmeasured. With k = 1 the single
-trial's result (or exception) is returned untouched, so the output is unchanged.
+out, returns an error or no reply, or is skipped by the cost cap is unmeasured. With k = 1 the
+single trial's result (or exception) is returned untouched, so the output is unchanged.
 """
 
 from __future__ import annotations
@@ -114,19 +114,24 @@ class TrialRunner:
         return result
 
 
+def _measured(result: AttackResult) -> bool:
+    """A reply came back: no error, and not the executor's all-prompts-failed outcome."""
+    return result.error is None and result.evidence.get("outcome") != "unmeasured"
+
+
 def combine(results: list[AttackResult | None], k: int) -> AttackResult:
     """One result for the vector: the first successful trial (else the last measured one)
     carries the evidence; tokens and probe markers add up over every trial that returned."""
     ran = [r for r in results if r is not None]
-    measured = [r for r in ran if r.error is None]
+    measured = [r for r in ran if _measured(r)]
     successes = sum(r.successful for r in measured)
     shown = next((r for r in ran if r.successful), measured[-1] if measured else ran[-1])
-    outcomes = [r.successful if r is not None and r.error is None else None for r in results]
+    outcomes = [r.successful if r is not None and _measured(r) else None for r in results]
     summary: dict[str, Any] = {
         "k": k,
         "measured": len(measured),
         "successes": successes,
-        "success_rate": round(successes / len(measured), 2) if measured else 0.0,
+        "success_rate": round(successes / len(measured), 2) if measured else None,
         "pass_at_k": successes > 0,
         "pass_hat_k": successes == k,
         "flaky": 0 < successes < len(measured),

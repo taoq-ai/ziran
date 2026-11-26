@@ -109,6 +109,8 @@ def trial_label(evidence: Any) -> str:
         return ""
     measured, k = trials.get("measured", trials["k"]), trials["k"]
     unmeasured = f" ({k - measured} unmeasured)" if measured < k else ""
+    if not measured:
+        return f"no measured trials{unmeasured}"
     return f"{trials['successes']} of {measured}{unmeasured}" + (
         ", flaky" if trials["flaky"] else ""
     )
