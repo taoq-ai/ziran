@@ -126,7 +126,7 @@ Moved to [ZIRAN Cloud and ZIRAN Enterprise](#ziran-cloud) in v0.44.0. v0.42.0 is
 ### v0.15 — Benchmark Maturity
 
 - :white_check_mark: **100% OWASP LLM Top 10 coverage** (10/10 categories, all strong+)
-- :white_check_mark: **MITRE ATLAS mapping** on every vector (75/88 techniques, 14/14 agent-specific, 687 vectors)
+- :white_check_mark: **MITRE ATLAS mapping** on every vector (75/88 techniques, 14/14 agent-specific)
 - :white_check_mark: **Defence profile schema + evasion-rate metric** (schema + metric field; evaluator adapters follow in the next cycle)
 - :white_check_mark: **RAG-poisoning attack category** — retrieval-aware indirect injection vectors
 - :white_check_mark: **Benchmark expansion** — TensorTrust, WildJailbreak, ToolEmu, CyberSecEval coverage lifts
