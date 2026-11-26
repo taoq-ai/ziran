@@ -246,6 +246,8 @@ class TestMCPHandler:
         async def _handler(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
             method = body.get("method", "")
+            if "id" not in body:  # notifications/initialized (spec 110)
+                return httpx.Response(202)
 
             if method == "completion/complete":
                 return httpx.Response(
@@ -341,8 +343,11 @@ class TestMCPHandler:
         async def _err(request: httpx.Request) -> httpx.Response:
             return httpx.Response(500)
 
-        client = _mock_client(_err)
-        h = MCPProtocolHandler(client, _target_config())
+        from ziran.domain.entities.target import TargetConfig
+
+        # a 500 on server/discover is retried with backoff (spec 110); no retries here
+        config = TargetConfig(url="https://agent.example.com", retry={"max_retries": 0})
+        h = MCPProtocolHandler(_mock_client(_err), config)
         assert await h.health_check() is False
 
     async def test_send_fallback_no_completion(self, caplog: pytest.LogCaptureFixture) -> None:

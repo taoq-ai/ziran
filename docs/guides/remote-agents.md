@@ -101,6 +101,10 @@ auth:
 
 **How it works:** ZIRAN discovers available tools via the MCP protocol and tests each one for vulnerabilities.
 
+**Protocol versions:** ZIRAN first sends `server/discover` with MCP 2026-07-28 in the per-request `_meta`. A server that supports 2026-07-28 gets every request in that shape, with the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers. Any other answer means an older server. ZIRAN then sends `initialize` with 2025-11-25 (or the newest older version the server lists), uses the version the server answers (2025-11-25, 2025-06-18, 2025-03-26 or 2024-11-05) and keeps the session id the server hands out. A server that lists only versions ZIRAN does not know fails with an error that names them, and its vectors read unmeasured. A busy answer to `server/discover` (a status in `retry.retry_on`) waits and retries as other requests do; no answer at all means an older server. Tool parameters marked `x-mcp-header` are not mirrored into `Mcp-Param-*` headers yet, so a 2026 server that requires them rejects those calls.
+
+**Input requests:** when a tool call or prompt returns `resultType: "input_required"`, ZIRAN records each elicitation in the response metadata (`mcp_input_required`), declines it and retries the request once. It never opens the URL. A URL elicitation is added to the recorded reply, flagged when its host is not the MCP server's host.
+
 A prompt goes to the server's `completion/complete` method. When the server rejects it, ZIRAN logs one warning and counts each prompt as an error, not a reply: the vector is unmeasured, the report reads INCOMPLETE and `ziran ci` fails when no vector was measured.
 
 ### A2A (Agent-to-Agent)

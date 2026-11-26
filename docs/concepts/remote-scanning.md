@@ -123,7 +123,7 @@ When `protocol: auto`, ZIRAN probes the endpoint to determine the protocol:
 
 1. **A2A** — Fetches `/.well-known/agent.json` for an Agent Card
 2. **OpenAI** — Sends a test request to `/v1/chat/completions`
-3. **MCP** — Looks for MCP handshake headers
+3. **MCP** — Sends `server/discover` (MCP 2026-07-28), then `initialize` for older servers
 4. **REST** — Falls back to generic HTTP
 
 ## Authentication Types
