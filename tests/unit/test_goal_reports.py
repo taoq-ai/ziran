@@ -98,6 +98,17 @@ class TestReports:
         assert "| `floor_unread` | unmeasured | `no reply recorded` |" in md
         assert "`plain`" not in md
 
+    def test_markdown_keeps_hostile_target_text_inert(self) -> None:
+        tool = "`x` | <img src=x onerror=alert(1)>\n# forged"
+        hostile = _row("h", True, [COMMIT.model_copy(update={"tool": tool})])
+        md = ReportGenerator._format_markdown(
+            ReportGenerator.__new__(ReportGenerator), _campaign(hostile)
+        )
+        [row] = [line for line in md.splitlines() if line.startswith("| `h` |")]
+        assert row.endswith(" |") and "\\|" in row  # one table row, the pipe escaped
+        assert "\n# forged" not in md and "\\n# forged" in row  # the newline is shown, inert
+        assert "``" in row  # the backticks sit inside a longer code fence
+
     def test_markdown_without_goal_vectors_is_unchanged(self) -> None:
         md = ReportGenerator._format_markdown(
             ReportGenerator.__new__(ReportGenerator), _campaign(PLAIN)
@@ -135,7 +146,7 @@ class TestGate:
         gated = QualityGate(QualityGateConfig(fail_on_goal_met=True)).evaluate(campaign)
         assert not gated.passed
         [violation] = gated.violations
-        assert violation.rule == "goal_met"
+        assert (violation.rule, violation.severity) == ("goal_met", "critical")
         assert "floor_breach" in violation.message and "turn 3" in violation.message
         assert "floor_unread" not in violation.message
 
@@ -166,6 +177,38 @@ class TestGate:
         assert run.exit_code == 1
         assert "fail_on_goal_met needs the scan result JSON" in run.output
         assert CliRunner().invoke(main.cli, args[:2] + args[4:]).exit_code == 0
+
+    def test_ci_stdout_never_starts_a_workflow_command(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(main, "console", Console(width=80))  # a CI runner's non-tty width
+        key = "$." + "note " * 9 + "::error title=forged::ZIRAN gate passed"
+        forged = COMMIT.model_copy(update={"argument": key})
+        campaign = _campaign(_row("h", True, [forged]), _row("u", None, [forged]))
+        campaign.metadata["warnings"] = ["warn " * 15 + "::stop-commands::x"]
+        result = tmp_path / "result.json"
+        result.write_text(campaign.model_dump_json())
+        gate = tmp_path / "gate.yaml"
+        gate.write_text("fail_on_goal_met: true\n")
+        args = ["ci", str(result), "-g", str(gate), "--no-github-annotations"]
+        args.append("--no-github-summary")
+        out = CliRunner().invoke(main.cli, args).output
+        assert "::error title=forged::" in out
+        assert not [line for line in out.splitlines() if line.lstrip().startswith("::")]
+
+    def test_step_summary_keeps_a_goal_violation_inert(self, tmp_path: Path) -> None:
+        from ziran.application.cicd.github_actions import write_step_summary
+
+        tool = "a|b\n## forged `x` <b>"
+        campaign = _campaign(_row("h", True, [COMMIT.model_copy(update={"tool": tool})]))
+        gate = QualityGate(QualityGateConfig(fail_on_goal_met=True)).evaluate(campaign)
+        summary = write_step_summary(gate, campaign, summary_path=str(tmp_path / "summary.md"))
+        [row] = [line for line in summary.splitlines() if line.startswith("| goal_met |")]
+        assert "\n## forged" not in summary and "<b>" not in summary and "a\\|b" in row
+
+    def test_a_malformed_evidence_entry_is_skipped(self) -> None:
+        row = {**MET, "goal_evidence": ["turn 3", COMMIT.model_dump(mode="json")]}
+        assert goal_rows([row])[0].evidence == "turn 3: submit_offer commitment at $.price"
 
 
 class TestRecording:

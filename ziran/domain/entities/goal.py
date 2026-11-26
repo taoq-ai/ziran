@@ -147,7 +147,8 @@ def goal_rows(attack_results: list[dict[str, Any]]) -> list[GoalRow]:
         met = r.get("goal_met")
         if not r.get("goal_type") and met is None:
             continue
-        calls = "; ".join(_call_text(c) for c in r.get("goal_evidence") or [])
+        evidence = [c for c in r.get("goal_evidence") or [] if isinstance(c, dict)]
+        calls = "; ".join(_call_text(c) for c in evidence)
         rows.append(
             GoalRow(
                 vector_id=str(r.get("vector_id", "")),

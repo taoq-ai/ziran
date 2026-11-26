@@ -1808,10 +1808,20 @@ def ci(
         from_sarif = isinstance(data, dict) and "runs" in data
         result = campaign_from_sarif(data) if from_sarif else CampaignResult.model_validate(data)
     except (OSError, ValueError) as e:
-        console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        console.print(
+            f"Error loading result: {printable(str(e))}",
+            style="bold red",
+            markup=False,
+            soft_wrap=True,
+        )
         sys.exit(1)
     except Exception as e:
-        console.print(f"[bold red]Unexpected error loading result:[/bold red] {e}")
+        console.print(
+            f"Unexpected error loading result: {printable(str(e))}",
+            style="bold red",
+            markup=False,
+            soft_wrap=True,
+        )
         sys.exit(1)
 
     # 2. Build quality gate
@@ -1855,11 +1865,14 @@ def ci(
                 f"Goal {g.state}: {printable(f'{g.vector_id} ({g.evidence})')}",
                 style="yellow",
                 markup=False,
+                soft_wrap=True,  # a wrapped line could start with a workflow command
             )
     if note := review_note(result):  # signals, no evidence: shown, never a gate failure
         console.print(f"Note: {note}", style="yellow", markup=False)
     for warning in result.warnings:  # analysis the scan skipped (spec 086)
-        console.print(f"Warning: {printable(warning)}", style="yellow", markup=False)
+        console.print(
+            f"Warning: {printable(warning)}", style="yellow", markup=False, soft_wrap=True
+        )
 
     # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
     if sarif_path and from_sarif:

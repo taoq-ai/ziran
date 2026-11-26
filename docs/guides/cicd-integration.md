@@ -67,8 +67,8 @@ require_owasp_coverage:           # Required OWASP categories
 | Code | Meaning |
 |------|---------|
 | 0 | Gate passed — safe to deploy |
-| 1 | Gate failed — vulnerabilities exceed thresholds |
-| 2 | Configuration error |
+| 1 | Gate failed: findings exceed a threshold, or a goal was met under `fail_on_goal_met: true`. Also an input `ziran ci` refused: an unreadable result or gate config, or a SARIF with `fail_on_goal_met: true` |
+| 2 | Usage error: an unknown option or a missing file (Click) |
 
 ## Suppressing Accepted Findings
 
