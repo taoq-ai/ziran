@@ -25,6 +25,7 @@ from ziran.application.agent_scanner.attack_executor import (
 from ziran.application.agent_scanner.attack_executor import (
     _is_error_response as _is_error_response,
 )
+from ziran.application.agent_scanner.campaign_id import new_campaign_id
 from ziran.application.agent_scanner.chain_targeting import campaign_context, plan_steering
 from ziran.application.agent_scanner.checkpoint import (
     DEFAULT_FLUSH_INTERVAL_SECONDS,
@@ -228,7 +229,7 @@ class AgentScanner:
         if strategy is None:
             strategy = FixedStrategy(stop_on_critical=stop_on_critical)
 
-        campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
+        campaign_id = new_campaign_id()
         campaign_start = datetime.now(tz=UTC)
 
         # Resume from checkpoint if available.
