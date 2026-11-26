@@ -88,10 +88,18 @@ class TestLoader:
             ("c", "other"),
         ]
 
-    def test_name_defaults_to_folder(self, tmp_path: Path) -> None:
-        _skill(tmp_path, "my-skill", "description: x\n")
-        [skill] = load_claude_code(tmp_path).skills
-        assert skill.name == "my-skill"
+    @pytest.mark.parametrize("front", ["description: x\n", "", "name:\n"])
+    def test_name_defaults_to_folder(self, tmp_path: Path, front: str) -> None:
+        _skill(tmp_path, "my-skill", front)
+        scan = load_claude_code(tmp_path)
+        assert [s.name for s in scan.skills] == ["my-skill"]
+        assert audit_claude_code(scan).findings == []
+
+    def test_non_string_name_is_cc000(self, tmp_path: Path) -> None:
+        _skill(tmp_path, "s", "name: [a]\n")
+        [issue] = load_claude_code(tmp_path).issues
+        assert issue.message.startswith("skill 's': invalid frontmatter field 'name'")
+        assert issue.line == 2
 
     @pytest.mark.parametrize("where", [".claude/skills", "skills"])
     def test_project_and_bare_skills_dirs(self, tmp_path: Path, where: str) -> None:
@@ -110,9 +118,8 @@ class TestLoader:
 
     def test_manifest_skills_paths(self, tmp_path: Path) -> None:
         root = tmp_path / "p"
-        _write(
-            root / ".claude-plugin" / "plugin.json", json.dumps({"name": "p", "skills": "extra"})
-        )
+        manifest = {"name": "p", "skills": ["extra", "extra/b", "./extra"]}
+        _write(root / ".claude-plugin" / "plugin.json", json.dumps(manifest))
         _write(root / "extra" / "b" / "SKILL.md", "---\nname: b\n---\n")
         assert [s.name for s in load_claude_code(root).skills] == ["b"]
 
