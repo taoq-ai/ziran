@@ -196,10 +196,11 @@ class TestHostileInputs:
 
     def test_deep_folder_nesting(self, tmp_path: Path) -> None:
         _skill(tmp_path, "s", "name: s\n")
-        deep = tmp_path / "skills" / "s" / "/".join("d" * 10)
-        _write(deep / "run.sh", "echo\n")
+        eight = tmp_path / "skills" / "s" / "/".join("d" * 8)
+        _write(eight / "ok.sh", "echo\n")
+        _write(eight / "d" / "deep.sh", "echo\n")
         scan = load_claude_code(tmp_path)
-        assert scan.skills[0].bundled == []
+        assert [Path(b.path).name for b in scan.skills[0].bundled] == ["ok.sh"]
         [issue] = scan.issues
         assert issue.message == "folders nested deeper than 8 levels are not read"
 
@@ -255,10 +256,17 @@ class TestAudit:
         assert report.files_analyzed == 4  # plugin.json, two SKILL.md, send.py
 
     def test_baseline_never_accepts_skill_rows(self, tmp_path: Path) -> None:
-        scan = load_claude_code(_plugin(tmp_path))
+        # an agent and a skill share a name; the baseline accepts the agent's grants only
+        _write(tmp_path / "agents" / "r.md", "---\nname: r\ntools: Read, WebFetch, Bash\n---\n")
+        _skill(tmp_path, "r", "name: r\nallowed-tools: Read, WebFetch, Bash\n")
+        _write(tmp_path / "skills" / "r" / "x.py", SEND_PY)
+        scan = load_claude_code(tmp_path)
         findings = audit_claude_code(scan).findings
         kept, _ = apply_baseline(findings, scan, build_baseline(scan))
-        assert kept == findings
+        skill_rows = [f for f in findings if f.atlas]
+        assert {"SA003", "CC001", "LT001"} <= {f.check_id for f in skill_rows}
+        assert [f for f in kept if f.atlas] == skill_rows
+        assert not [f for f in kept if not f.atlas and f.check_id in ("SA003", "CC001")]
 
 
 @pytest.mark.unit

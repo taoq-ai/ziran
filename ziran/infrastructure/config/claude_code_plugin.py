@@ -268,7 +268,6 @@ class _Scanner:
         fields = {k: data[k] for k in ("name", "description", "model") if k in data}
         if fields.get("name") is None:
             fields["name"] = folder.name
-        key_lines.pop("tools", None)  # a skill's tools are its pre-approvals only
         if "allowed-tools" in data:
             fields["tools"] = _tool_list(data["allowed-tools"])
             if "allowed-tools" in key_lines:
