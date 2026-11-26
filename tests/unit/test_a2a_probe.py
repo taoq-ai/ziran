@@ -20,6 +20,8 @@ from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import httpx
+
     from ziran.domain.entities.attack import AttackResult
 
 pytestmark = pytest.mark.unit
@@ -253,6 +255,26 @@ async def test_a_signature_that_cannot_be_checked_is_unmeasured(
     assert result.evidence["signatures"][0]["result"].startswith("unverifiable")
 
 
+async def test_a_card_nested_too_deep_is_unmeasured_not_dropped() -> None:
+    # Python 3.12+ parses it and the canonical form recurses; 3.11 refuses it at parse
+    deep = b'{"a":' * 20000 + b"1" + b"}" * 20000
+    header = b64url(json.dumps({"alg": "ES256", "kid": "k1"}).encode())
+    signatures = json.dumps([{"protected": header, "signature": "AAAA"}]).encode()
+    raw = b'{"name":"Agent","deep":' + deep + b',"signatures":' + signatures + b"}"
+    with A2AServer(raw_card=raw) as server, A2AServer() as keys:
+        result = await _probe(
+            "a2a_card_signature_invalid", server, jwks_url=f"{keys.url}/jwks.json"
+        )
+    assert _unmeasured(result)
+
+
+async def test_a_card_over_one_mebibyte_is_unmeasured() -> None:
+    raw = b'{"name":"Agent","pad":"' + b"x" * (1 << 20) + b'"}'
+    with A2AServer(raw_card=raw) as server:
+        result = await _probe("a2a_card_unsigned", server)
+    assert _unmeasured(result) and "over" in result.evidence["error"]
+
+
 def test_es256_needs_a_p256_key() -> None:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
@@ -410,6 +432,22 @@ async def test_replay_refused_by_json_rpc_is_no_finding() -> None:
     assert result.evidence["error"] == "JSON-RPC error -32007"
 
 
+@pytest.mark.parametrize(
+    "error", ["Bearer tok-old is revoked", {"code": "Bearer tok-old", "message": "tok-old"}]
+)
+async def test_a_json_rpc_error_text_is_never_kept(error: Any) -> None:
+    with A2AServer(tokens=_OLD, revoked={"tok-old"}, vulnerable=False, rpc_error=error) as server:
+        result = await _probe(
+            "a2a_delegated_token_replay",
+            server,
+            protocol_binding="JSONRPC",
+            replay_auth=_bearer("tok-old"),
+            **_A,
+        )
+    assert not result.successful and result.evidence["error"] == "JSON-RPC error"
+    assert "tok-old" not in json.dumps(result.model_dump(mode="json"))
+
+
 @pytest.mark.parametrize("status", [429, 500, 503])
 async def test_replay_without_a_verdict_is_unmeasured(status: int) -> None:
     with A2AServer(tokens=_OLD, revoked={"tok-old"}, fail={"tok-old": status}) as server:
@@ -452,6 +490,44 @@ async def test_target_headers_reach_no_other_client() -> None:
     assert others and target and all("HDRSECRET" in json.dumps(r["headers"]) for r in target)
     for r in [*others, *twin.requests, *keys.requests]:
         assert "HDRSECRET" not in json.dumps(r["headers"]), r["path"]
+
+
+async def test_target_client_certificate_reaches_no_other_client() -> None:
+    from ziran.domain.entities.target import TlsConfig
+    from ziran.infrastructure.adapters.protocols.a2a_wire import HttpA2AWire
+
+    with (
+        A2AServer(vulnerable=True, tokens=_TOKENS, revoked={"tok-old"}, signed=True) as server,
+        A2AServer(name="Trave1 Agent") as twin,
+        A2AServer() as keys,
+    ):
+        tls = TlsConfig(client_cert="/certs/ziran.pem", client_key="/certs/ziran.key")
+        a2a = A2AConfig(
+            peer_auth=_bearer("tok-b"),
+            replay_auth=_bearer("tok-old"),
+            jwks_url=f"{keys.url}/jwks.json",
+            lookalike_cards=[f"{twin.url}/.well-known/agent-card.json"],
+        )
+        target = TargetConfig(
+            url=server.url, protocol=ProtocolType.A2A, auth=_A["auth"], tls=tls, a2a=a2a
+        )
+        built: list[TargetConfig] = []
+
+        def build(config: TargetConfig) -> httpx.AsyncClient:  # no cert loaded: the files are fake
+            built.append(config)
+            plain = config.model_copy(update={"tls": TlsConfig()})
+            return HttpAgentAdapter(plain)._build_client()
+
+        wire = HttpA2AWire(target, build)
+        for vector_id in PROBES:
+            vector = _LIB.get_vector(vector_id)
+            assert vector is not None
+            await run_a2a_probe(vector, wire)
+    certs = {(c.auth.token if c.auth else None, c.tls.client_cert) for c in built}
+    assert ("tok-a", "/certs/ziran.pem") in certs  # the target's own requests keep it
+    others = {c for c in certs if c[0] != "tok-a"}
+    assert {t for t, _ in others} == {"tok-b", "tok-old", None}  # peer, replay, anonymous
+    assert all(cert is None for _, cert in others)
 
 
 # -- look-alike cards ---------------------------------------------------------

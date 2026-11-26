@@ -93,8 +93,10 @@ class HttpA2AWire(A2AWire):
             error = reply.body.get("error")
             result = reply.body.get("result")
             if error is not None or not isinstance(result, dict):
-                code = error.get("code") if isinstance(error, dict) else error
-                return reply.model_copy(update={"body": {}, "error": f"JSON-RPC error {code}"})
+                code = error.get("code") if isinstance(error, dict) else None
+                # an int code only: a server's text can quote the credential it refused
+                label = f"JSON-RPC error {code}" if type(code) is int else "JSON-RPC error"
+                return reply.model_copy(update={"body": {}, "error": label})
             return reply.model_copy(update={"body": result})
         return reply
 

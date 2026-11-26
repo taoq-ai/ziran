@@ -67,6 +67,7 @@ class A2AServer:
         reply_message: bool = False,
         revoked_state: str | None = None,
         jwks: dict[str, Any] | None = None,
+        rpc_error: Any = None,
     ) -> None:
         self.vulnerable, self.signed, self.tamper, self.header = vulnerable, signed, tamper, header
         self.extra_signatures, self.raw_card = extra_signatures or [], raw_card
@@ -77,6 +78,7 @@ class A2AServer:
         self.reply_message = reply_message  # answer with a message, not a task
         self.revoked_state = revoked_state  # refuse a revoked token with HTTP 200 and this state
         self.jwks = jwks
+        self.rpc_error = rpc_error  # the JSON-RPC error a refused client gets
         self.key = ec.generate_private_key(ec.SECP256R1())
         self.contexts: dict[str, tuple[str, list[dict[str, Any]]]] = {}
         self.tasks: dict[str, tuple[str, dict[str, Any]]] = {}
@@ -175,35 +177,43 @@ class A2AServer:
             def do_GET(self) -> None:
                 client = self._record()
                 if self.path == CARD_PATH:
-                    return self._send(200, server.card_bytes)
+                    self._send(200, server.card_bytes)
+                    return
                 if self.path == "/jwks.json":
-                    return self._send(200, server.jwks or {"keys": [es256_jwk(server.key)]})
+                    self._send(200, server.jwks or {"keys": [es256_jwk(server.key)]})
+                    return
                 if self.path == "/redirect":
                     self.send_response(302)
                     self.send_header("Location", "/jwks.json")
                     self.send_header("Content-Length", "0")
-                    return self.end_headers()
+                    self.end_headers()
+                    return
                 if self._failed():
-                    return None
+                    return
                 if client is None:
-                    return self._send(401, {"error": "unauthorized"})
+                    self._send(401, {"error": "unauthorized"})
+                    return
                 if self.path.startswith("/tasks/"):
                     task_id = self.path.removeprefix("/tasks/").split("?")[0]
-                    return self._send(*server.get_task(client, task_id))
+                    self._send(*server.get_task(client, task_id))
+                    return
                 self._send(404, {"error": "not found"})
 
             def do_POST(self) -> None:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 client = self._record(body)
                 if self._failed():
-                    return None
+                    return
                 if client is None and self.path == "/":  # JSON-RPC refuses in the body
-                    error = {"code": -32007, "message": "Unauthenticated"}
-                    return self._send(200, {"jsonrpc": "2.0", "id": body["id"], "error": error})
+                    error = server.rpc_error or {"code": -32007, "message": "Unauthenticated"}
+                    self._send(200, {"jsonrpc": "2.0", "id": body["id"], "error": error})
+                    return
                 if client is None:
-                    return self._send(401, {"error": "unauthorized"})
+                    self._send(401, {"error": "unauthorized"})
+                    return
                 if self.path == "/message:send":
-                    return self._send(*server.send_message(client, body))
+                    self._send(*server.send_message(client, body))
+                    return
                 if self.path == "/":  # JSON-RPC binding
                     params, rid = body["params"], body["id"]
                     if body["method"] == "SendMessage":
@@ -212,8 +222,10 @@ class A2AServer:
                         status, result = server.get_task(client, params["id"])
                     if status != 200:
                         error = {"code": -32001, "message": "Task not found"}
-                        return self._send(200, {"jsonrpc": "2.0", "id": rid, "error": error})
-                    return self._send(200, {"jsonrpc": "2.0", "id": rid, "result": result})
+                        self._send(200, {"jsonrpc": "2.0", "id": rid, "error": error})
+                        return
+                    self._send(200, {"jsonrpc": "2.0", "id": rid, "result": result})
+                    return
                 self._send(404, {"error": "not found"})
 
         return Handler

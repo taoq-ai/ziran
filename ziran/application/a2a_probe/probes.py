@@ -174,6 +174,8 @@ async def _check(
         return check | {"result": "unverifiable: cryptography is not installed"}
     except ValueError as exc:
         return check | {"result": f"unverifiable: {exc}"}
+    except RecursionError:  # a card nested too deep to canonicalize
+        return check | {"result": "unverifiable: card nested too deep"}
     return check | {"result": "valid" if valid else "invalid"}
 
 
@@ -253,7 +255,11 @@ async def _cross_client_task(wire: A2AWire) -> Verdict:
 
 def _leak(b: A2AReply, canary: str, evidence: dict[str, Any]) -> Verdict:
     """Client B's answer holding A's code is the leak; B refused as unauthenticated is unmeasured."""
-    leaked_in = _paths(b.body, canary) if b.accepted else []
+    try:
+        leaked_in = _paths(b.body, canary) if b.accepted else []
+    except RecursionError:  # a reply nested too deep to search
+        b = b.model_copy(update={"status": 0, "error": "reply nested too deep"})
+        leaked_in = []
     evidence |= {
         "canary": canary,
         "b_status": b.status,

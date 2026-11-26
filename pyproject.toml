@@ -45,7 +45,7 @@ crewai = [
 a2a = [
     "a2a-sdk>=0.3,<2",
     # Agent Card signature checks (spec 118)
-    "cryptography>=43,<51",
+    "cryptography>=44.0.1,<51",
 ]
 bedrock = [
     "boto3>=1.28,<2",
