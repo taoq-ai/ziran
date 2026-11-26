@@ -164,16 +164,16 @@ class StaticAnalyzer:
 
         Args:
             directory: Root directory to scan.
-            exclude: Folders whose files another pass analyses (Agent Skills folders).
+            exclude: Files another pass analyses (a skill's bundled Python files).
 
         Returns:
             An :class:`AnalysisReport` with aggregated findings.
         """
         report = AnalysisReport()
         skip = set(self.config.skip_directories)
-        excluded = tuple(exclude)
+        excluded = set(exclude)
         for path in sorted(directory.rglob("*.py")):
-            if _should_skip(path, skip) or any(path.is_relative_to(e) for e in excluded):
+            if _should_skip(path, skip) or path in excluded:
                 continue
             file_findings = self.analyze_file(path)
             report.findings.extend(file_findings)

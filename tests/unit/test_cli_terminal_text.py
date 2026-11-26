@@ -209,7 +209,9 @@ def _policy(tmp_path: Any) -> None:
 
 def _audit_narrowed(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     narrowed = [claude_code_baseline.BaselineNarrowing(agent=HOSTILE, change="tool_removed")]
-    monkeypatch.setattr(claude_code_plugin, "load_claude_code", lambda _p: MagicMock(detected=True))
+    monkeypatch.setattr(
+        claude_code_plugin, "load_claude_code", lambda *_a: MagicMock(detected=True)
+    )
     monkeypatch.setattr(
         claude_code_audit,
         "audit_claude_code",

@@ -391,8 +391,10 @@ finds them under `skills/` and `.claude/skills/` of `PATH`, in the manifest's `s
   gets no `SA007`, `CC001` or `LT001` row. `allowed-tools: "*"` alone keeps `SA007`. Granted
   tools go through `SA003`, `SA004`, `CC001` and `LT001` as for an agent; messages start with
   `Skill '<name>'` (the `name` key, or the folder name).
-- Every bundled file is listed. A `.py` file runs through the Python checks (once: a directory
-  audit skips it in its own Python pass). A script in another language (by suffix, the
+- Every bundled file is listed, except under the folders the Python checks skip (`.git`,
+  `node_modules`, `.venv` and the rest of `skip_directories`). A `.py` file runs through the
+  Python checks once: a directory audit's own Python pass skips each file the skill audit
+  analysed, and still reads every other `.py` file. A script in another language (by suffix, the
   executable bit or a `#!` first line) gets a `CC002` (low) row: it is bundled and not analysed,
   so the report never reads clean. Other files (notes, templates) give no row.
 - Each skill row, bundled-file rows included, has the skill name in `agent` and
@@ -401,9 +403,10 @@ finds them under `skills/` and `.claude/skills/` of `PATH`, in the manifest's `s
 - `CC000` covers what cannot be read safely, and the audit goes on: invalid or too deeply nested
   frontmatter (the message starts with `skill '<folder>':`), a file or symlinked folder that
   resolves outside `PATH`, a symlinked folder inside it (not followed), a `.py` file over 1 MiB,
-  more than 1000 bundled files, folders nested more than 8 levels, or a file that is not a
-  regular file.
-- `--baseline` does not cover skills: skill rows are always reported in full.
+  more than 1000 bundled files (refused files count), folders nested more than 8 levels, a
+  file that is not a regular file, or a `.mcp.json` nested too deeply.
+- `--baseline` does not cover skills: skill rows are always reported in full. `--aibom`,
+  `--baseline` and `--write-baseline` still need a plugin or an agent: skills alone exit `2`.
 
 ##### Lethal trifecta (`LT001`)
 

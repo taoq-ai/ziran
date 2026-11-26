@@ -9,8 +9,13 @@ Discovery for ``load_claude_code(path)``:
   named ``agents``, then the manifest's ``agents`` paths. Directories contribute sorted ``*.md``
   (non-recursive); duplicates are dropped by resolved path. A ``.md`` file is an agent file only
   when its first line is ``---``; other ``.md`` files are skipped silently.
+* Skills (spec 125), in order: ``root/SKILL.md``, ``root/skills``, ``root/.claude/skills``, the
+  manifest's ``skills`` paths, then ``root`` itself when it is named ``skills``. A source is a
+  ``SKILL.md``, a skill folder, or a folder of skill folders; a ``SKILL.md`` counts only when its
+  first line is ``---``. Each skill's bundled files are walked without following symlinks, with
+  the file, size and depth bounds below; folders in ``skip_dirs`` are skipped.
 * Hooks (``root/hooks/hooks.json`` + manifest ``hooks``) and MCP config (``root/.mcp.json`` +
-  manifest ``mcpServers``) are read only when a manifest or an agent file exists.
+  manifest ``mcpServers``) are read only when a manifest, an agent file or a skill exists.
 
 Nothing in a file makes this raise: problems become value-free ``ClaudeCodeParseIssue``s. Never
 ``model_dump()`` a scan wholesale into a report: ``system_prompt`` and MCP ``url``/``args``/
@@ -23,7 +28,7 @@ import json
 import os
 import stat
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 import yaml
 from pydantic import ValidationError
@@ -39,6 +44,9 @@ from ziran.domain.entities.claude_code import (
 )
 from ziran.infrastructure.config.claude_mcp_config import ClaudeConfigError, load_claude_mcp_config
 from ziran.infrastructure.logging.logger import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = get_logger(__name__)
 
@@ -94,8 +102,9 @@ def _first_error(exc: ValidationError) -> tuple[str, str]:
 
 
 class _Scanner:
-    def __init__(self, root: Path, scan: ClaudeCodeScan) -> None:
+    def __init__(self, root: Path, scan: ClaudeCodeScan, skip_dirs: Iterable[str] = ()) -> None:
         self.root = root
+        self.skip_dirs = frozenset(skip_dirs)
         self.base = _real(root)
         self.scan = scan
         self.names: dict[str, ClaudeCodeAgent] = {}
@@ -293,9 +302,11 @@ class _Scanner:
     def bundled(self, folder: Path, skill_md: Path) -> list[ClaudeCodeSkillFile]:
         """Every file under *folder* but *skill_md*: symlinked folders not followed, bounded."""
         out: list[ClaudeCodeSkillFile] = []
+        seen = 0  # every file counts toward the bound, refused ones included
         top = len(folder.parts)
         for dirpath, dirnames, filenames in os.walk(folder):
             here = Path(dirpath)
+            dirnames[:] = [d for d in dirnames if d not in self.skip_dirs]
             for name in sorted(dirnames):
                 sub = here / name
                 if os.path.islink(sub):  # os.walk does not descend into it
@@ -311,11 +322,12 @@ class _Scanner:
                 file = here / name
                 if file == skill_md:
                     continue
-                if len(out) == MAX_SKILL_FILES:
+                if seen == MAX_SKILL_FILES:
                     self.issue(
                         folder, f"more than {MAX_SKILL_FILES} bundled files; the rest are not read"
                     )
                     return out
+                seen += 1
                 entry = self.bundled_file(file)
                 if entry is not None:
                     out.append(entry)
@@ -332,7 +344,7 @@ class _Scanner:
             if not stat.S_ISREG(st.st_mode):  # never open a FIFO or device
                 self.issue(file, "not a regular file")
                 return None
-            if file.suffix == ".py":
+            if file.suffix.lower() == ".py":
                 if st.st_size > MAX_FILE_BYTES:
                     self.issue(file, f"file is larger than {MAX_FILE_BYTES} bytes")
                     return None
@@ -424,8 +436,10 @@ def _unique(paths: list[Path]) -> list[Path]:
     return out
 
 
-def load_claude_code(path: Path) -> ClaudeCodeScan:
-    """Discover and parse Claude Code agent definitions under *path*.
+def load_claude_code(path: Path, skip_dirs: Iterable[str] = ()) -> ClaudeCodeScan:
+    """Discover and parse Claude Code agent and skill definitions under *path*.
+
+    A skill's bundled-file walk skips folders named in *skip_dirs* (``.git``, ``node_modules``).
 
     Never raises for file content, missing or unreadable files; problems are returned in
     ``scan.issues``.
@@ -433,14 +447,14 @@ def load_claude_code(path: Path) -> ClaudeCodeScan:
     scan = ClaudeCodeScan(root=str(path))
     if os.path.isfile(path):
         if path.name == "SKILL.md":
-            _Scanner(path.parent, scan).skill_files([path])
+            _Scanner(path.parent, scan, skip_dirs).skill_files([path])
         elif path.suffix == ".md":
             _Scanner(path.parent, scan).agent_files([path])
         return scan
     if not os.path.isdir(path):
         return scan
 
-    scanner = _Scanner(path, scan)
+    scanner = _Scanner(path, scan, skip_dirs)
     manifest = path / ".claude-plugin" / "plugin.json"
     data = scanner.read_json(manifest) if os.path.isfile(manifest) else None
     if data is not None:

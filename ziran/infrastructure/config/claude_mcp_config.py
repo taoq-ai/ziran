@@ -70,6 +70,8 @@ def load_claude_mcp_config(path: Path, *, expand_env: bool = True) -> list[Serve
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ClaudeConfigError(f"{path}: invalid JSON at line {exc.lineno}") from None
+    except RecursionError:
+        raise ClaudeConfigError(f"{path}: JSON is nested too deeply") from None
     if not isinstance(data, dict):
         raise ClaudeConfigError(f"{path}: expected a JSON object")
 
