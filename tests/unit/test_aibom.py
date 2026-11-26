@@ -361,6 +361,7 @@ class TestLoadBom:
         ("change", "message"),
         [
             ({"services": "x"}, "'services' must be a list of objects"),
+            ({"services": None}, "'services' must be a list of objects"),
             ({"components": [1]}, "'components' must be a list of objects"),
             ({"metadata": None}, "'metadata' must be an object"),
             ({"version": "abc"}, "'version' must be a positive integer"),
