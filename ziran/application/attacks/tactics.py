@@ -3,7 +3,8 @@
 Controls how multi-prompt attack vectors are executed against agents.
 Instead of treating each prompt independently (single tactic), multi-turn
 tactics send all prompts sequentially within the same conversation to
-build context progressively.
+build context progressively. A prompt with ``new_session`` starts a new
+conversation first (``reset_state()``), for memory that outlives a session.
 
 Tactic types:
     - **single**: Each prompt independent, stop on first success (default).
@@ -37,6 +38,9 @@ if TYPE_CHECKING:
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = get_logger(__name__)
+
+#: Why a two-session vector did not run against a target without memory across resets.
+NO_MEMORY_REASON = "no memory across sessions"
 
 
 class TacticType(StrEnum):
@@ -112,6 +116,25 @@ class TacticExecutor:
                 harm_category=attack.harm_category,
             )
 
+        # Two-session memory vectors (spec 113): skip a target that forgets on reset, else one
+        # record per session of what was sent, replied and called.
+        two_session = any(p.new_session for p in attack.prompts)
+        if two_session and not self._adapter.memory_persists_across_reset:
+            logger.info("new_session_skipped", vector_id=attack.id, reason=NO_MEMORY_REASON)
+            return AttackResult(
+                vector_id=attack.id,
+                vector_name=attack.name,
+                category=attack.category,
+                severity=attack.severity,
+                successful=False,
+                evidence={"skipped": NO_MEMORY_REASON, "outcome": "unmeasured"},
+                owasp_mapping=attack.owasp_mapping,
+                owasp_agentic_mapping=attack.owasp_agentic_mapping,
+                atlas_mapping=attack.atlas_mapping,
+                harm_category=attack.harm_category,
+            )
+        sessions: list[dict[str, Any]] = []
+
         total_tokens = TokenUsage()
         last_response_content: str | None = None
         last_prompt_used: str | None = None
@@ -122,9 +145,25 @@ class TacticExecutor:
 
         for i, prompt_spec in enumerate(attack.prompts):
             rendered_prompt = render_fn(prompt_spec)
+            if two_session:
+                if prompt_spec.new_session:
+                    self._adapter.reset_state()
+                if prompt_spec.new_session or not sessions:
+                    sessions.append(
+                        {
+                            "session": len(sessions) + 1,
+                            "prompts": [],
+                            "replies": [],
+                            "tool_calls": [],
+                        }
+                    )
+                sessions[-1]["prompts"].append(rendered_prompt)
 
             try:
                 response = await self._adapter.invoke(rendered_prompt)
+                if two_session:
+                    sessions[-1]["replies"].append(response.content)
+                    sessions[-1]["tool_calls"].extend(response.tool_calls)
                 sent.append(rendered_prompt)
                 response.metadata = scan_metadata(response.metadata, *sent)
 
@@ -188,6 +227,7 @@ class TacticExecutor:
                             "turn": i + 1,
                             "total_turns": len(attack.prompts),
                             **review_evidence(verdict),
+                            **({"sessions": sessions} if two_session else {}),
                         },
                         agent_response=response.content,
                         prompt_used=rendered_prompt,
@@ -226,6 +266,7 @@ class TacticExecutor:
                 **review,
                 **({"prompt_errors": prompt_errors} if prompt_errors else {}),
                 **({"outcome": "unmeasured"} if prompt_errors and not evaluated else {}),
+                **({"sessions": sessions} if two_session else {}),
             },
             agent_response=last_response_content,
             prompt_used=last_prompt_used,

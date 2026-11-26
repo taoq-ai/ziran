@@ -146,6 +146,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     def __init__(self, config: TargetConfig) -> None:
         self._config = config
+        self.memory_persists_across_reset = config.memory_persists_across_reset
         self.protocol: ProtocolType = config.protocol
         """The protocol in use: the configured one, or the detected one once ``auto`` resolves."""
         self._conversation: list[dict[str, str]] = []

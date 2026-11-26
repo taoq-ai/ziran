@@ -487,6 +487,14 @@ class TestHttpAgentAdapter:
         mock_client.aclose.assert_called_once()
         assert adapter._client is None
 
+    def test_memory_persists_across_reset_from_config(self, rest_config: TargetConfig) -> None:
+        """The target YAML declares memory that survives reset_state (spec 113)."""
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        assert HttpAgentAdapter(rest_config).memory_persists_across_reset is False
+        rest_config.memory_persists_across_reset = True
+        assert HttpAgentAdapter(rest_config).memory_persists_across_reset is True
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Attack Library Protocol Filtering

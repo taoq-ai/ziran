@@ -426,6 +426,7 @@ class AttackLibrary:
                     variables=prompt_data.get("variables", {}),
                     success_indicators=prompt_data.get("success_indicators", []),
                     failure_indicators=prompt_data.get("failure_indicators", []),
+                    new_session=prompt_data.get("new_session", False),
                 )
             )
 

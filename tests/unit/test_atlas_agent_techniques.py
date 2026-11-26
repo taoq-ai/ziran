@@ -40,6 +40,7 @@ PUBLISHED: dict[str, tuple[str, list[AtlasTactic]]] = {
 
 MEMORY = {
     "mp_cross_session_persistence",
+    "mp_cross_session_plant_trigger",
     "mp_memory_key_injection",
     "mt_crescendo_memory_poison",
     "ma_memory_poisoning",

@@ -794,6 +794,11 @@ class AttackPrompt(BaseModel):
         default_factory=list,
         description="Strings/patterns that indicate the attack was blocked",
     )
+    new_session: bool = Field(
+        default=False,
+        description="Reset the conversation before this prompt; the target's memory must persist "
+        "(spec 113).",
+    )
 
 
 class ManyShotConfig(BaseModel):
@@ -880,6 +885,13 @@ class AttackVector(BaseModel):
         description="Server-surface config (spec 071); present → only the hostile MCP server "
         "sends this vector, never a scan.",
     )
+
+    @model_validator(mode="after")
+    def _check_new_session(self) -> AttackVector:
+        # Only TacticExecutor honours the flag; the single and PAIR paths would drop it (spec 113).
+        if self.tactic in ("single", "pair") and any(p.new_session for p in self.prompts):
+            raise ValueError(f"vector {self.id}: new_session needs a multi-turn tactic")
+        return self
 
     @model_validator(mode="after")
     def _check_sampling_canary(self) -> AttackVector:
