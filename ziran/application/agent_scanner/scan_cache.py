@@ -152,8 +152,9 @@ def vector_key(campaign_key: str, vector: AttackVector) -> str:
 
 def is_cacheable(result: AttackResult) -> bool:
     """Errors, swallowed prompt/turn failures and response-less failures are never
-    cached (they would hide findings). Nor is a PAIR result: the key has no attacker (spec 081)."""
-    if result.error is not None or "pair" in result.evidence:
+    cached (they would hide findings). Nor is an attacker-driven result: the key has no
+    attacker (specs 081, 128)."""
+    if result.error is not None or {"pair", "campaign"} & result.evidence.keys():
         return False
     if result.successful:
         return True

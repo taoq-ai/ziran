@@ -20,6 +20,7 @@ from ziran.application.attacks.many_shot import estimate_tokens
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
 from ziran.domain.entities.attack import (
+    ATTACKER_TACTICS,
     AttackResult,
     PairConfig,
     TokenUsage,
@@ -54,7 +55,12 @@ _NO_REPLY = "(no reply)"  # what the attacker sees after a failed or sentinel ta
 
 
 def is_pair(attack: AttackVector) -> bool:
-    return getattr(attack, "tactic", None) == "pair"  # phase-executor test stubs carry no tactic
+    """True for every attacker-driven vector: pair, tap and crescendo_live (spec 128)."""
+    return getattr(attack, "tactic", None) in ATTACKER_TACTICS  # test stubs carry no tactic
+
+
+def _timeout(attack: AttackVector) -> float:
+    return (attack.campaign or attack.pair or PairConfig()).timeout_seconds
 
 
 def queue_pair_last(
@@ -66,7 +72,7 @@ def queue_pair_last(
     pair = [a for a in attacks if is_pair(a)]
     if not pair:
         return attacks, phase_timeout
-    longest = max((a.pair or PairConfig()).timeout_seconds for a in pair)
+    longest = max(map(_timeout, pair))
     rest = [a for a in attacks if not is_pair(a)]
     return rest + pair, phase_timeout + math.ceil(len(pair) / max_concurrent) * longest
 
@@ -78,8 +84,7 @@ async def run_in_phase(
     not eat PAIR time, and ends ``PAIR_GRACE_SECONDS`` before *phase_deadline*; the deadline
     plus the grace is a backstop only. Always returns a result, so the vector is recorded."""
     now = asyncio.get_running_loop().time()
-    config = attack.pair or PairConfig()
-    deadline = min(now + config.timeout_seconds, phase_deadline - PAIR_GRACE_SECONDS)
+    deadline = min(now + _timeout(attack), phase_deadline - PAIR_GRACE_SECONDS)
     if deadline <= now:
         error = "PAIR vector skipped: the phase deadline leaves no time to run it"
         return PairExecutor._result(attack, error=error)
@@ -263,18 +268,19 @@ class PairExecutor:
     async def _ask(
         self, goal: str, i: int, last: tuple[str, str, float], best: tuple[str, str, float]
     ) -> str | None:
-        """One attacker call, recorded under ``attacker``; None for a pending reply (spec 064)."""
-        assert self._attacker is not None
+        """One PAIR attacker call (see ``_send``)."""
         # The iteration number keeps a deterministic attacker from seeing a request twice.
         text = (
             f"GOAL:\n{goal}\n\nITERATION:\n{i}\n\nLAST PROMPT:\n{last[0]}\n\n"
             f"LAST RESPONSE:\n{last[1]}\n\nLAST SCORE:\n{last[2]}\n\n"
             f"BEST PROMPT:\n{best[0]}\n\nBEST SCORE:\n{best[2]}\n\n"
         )
-        messages = [
-            {"role": "system", "content": ATTACKER_SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ]
+        return await self._send(ATTACKER_SYSTEM_PROMPT, text)
+
+    async def _send(self, system: str, text: str) -> str | None:
+        """One attacker call, recorded under ``attacker``; None for a pending reply (spec 064)."""
+        assert self._attacker is not None
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": text}]
         reply = await self._attacker.complete(messages)
         if hasattr(reply, "reason"):  # PendingResponse, without importing infrastructure
             return None
@@ -282,7 +288,7 @@ class PairExecutor:
         self._budget.ledger.record(
             "attacker",
             self._attacker.config.model,
-            reply.prompt_tokens or estimate_tokens(ATTACKER_SYSTEM_PROMPT + text),
+            reply.prompt_tokens or estimate_tokens(system + text),
             reply.completion_tokens or estimate_tokens(reply.content),
             estimated=not (reply.prompt_tokens and reply.completion_tokens),
         )
@@ -294,11 +300,13 @@ class PairExecutor:
         spec: AttackPrompt,
         attack: AttackVector,
         pipeline: DetectorPipeline,
+        sent: tuple[str, ...] = (),
     ) -> tuple[AgentResponse | None, DetectionVerdict | None]:
-        """Target call and verdict; a raised error gives no response, a sentinel no verdict."""
+        """Target call and verdict; a raised error gives no response, a sentinel no verdict.
+        *sent* is the earlier turns of the same conversation, attack text too (spec 128)."""
         try:
             response = await self._adapter.invoke(prompt)
-            response.metadata = scan_metadata(response.metadata, prompt)
+            response.metadata = scan_metadata(response.metadata, *sent, prompt)
             if is_error_response(response.content):
                 return response, None
             return response, await pipeline.evaluate(prompt, response, spec, attack)
