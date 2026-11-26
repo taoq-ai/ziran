@@ -176,10 +176,16 @@ class A2AMessage(BaseModel):
 
     def extract_text(self) -> str:
         """Text parts, and data parts as JSON: both reach the other side (spec 124)."""
-        texts = [
-            p.text or json.dumps(p.data, sort_keys=True) for p in self.parts if p.text or p.data
-        ]
-        return "\n".join(texts)
+        return _parts_text(self.parts)
+
+
+def _parts_text(parts: list[A2APart]) -> str:
+    """Text parts, and data parts as JSON (kept as written, not ASCII-escaped)."""
+    return "\n".join(
+        p.text or json.dumps(p.data, sort_keys=True, ensure_ascii=False)
+        for p in parts
+        if p.text or p.data
+    )
 
 
 class A2AArtifact(BaseModel):
@@ -244,9 +250,7 @@ class A2ATask(BaseModel):
         """
         texts: list[str] = []
         for artifact in self.artifacts:
-            for part in artifact.parts:
-                if part.text:
-                    texts.append(part.text)
+            texts.append(_parts_text(artifact.parts))
         message = self.status.message
         if message is not None and message.role not in ("ROLE_USER", "user"):
             texts.append(message.extract_text())

@@ -91,7 +91,7 @@ class AttackExecutor:
         self._n_shots_override = n_shots
         self._context_window = context_window
         self._shot_renderer: ShotRenderer | None = None
-        self._attacker = attacker
+        self.attacker = attacker
         self._budget = budget or CampaignBudget(UsageLedger(), UsageBudget())
         self._carrier = CarrierExecutor(adapter, carriers)
         self._campaign_id = campaign_id
@@ -173,7 +173,7 @@ class AttackExecutor:
             if attack.carrier is not None:
                 result = await self._carrier.execute(attack, pipeline, render, *log)
             elif is_pair(attack):  # pair, tap, crescendo_live (specs 081, 128)
-                pair = CampaignExecutor(self._adapter, self._attacker, self._budget)
+                pair = CampaignExecutor(self._adapter, self.attacker, self._budget)
                 result = await pair.execute(attack, pipeline, render, *log, deadline=deadline)
             else:
                 tactic = TacticExecutor(self._adapter)

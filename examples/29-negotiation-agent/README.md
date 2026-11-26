@@ -30,14 +30,18 @@ The scripted scenarios send their prompts in one conversation and carry no
 ```bash
 # scan with the built-in library plus these scenarios
 ziran scan --framework langgraph --agent-path my_agent.py \
-  --custom-attacks examples/29-negotiation-agent/vectors --phases execution --phases vulnerability_discovery
+  --custom-attacks examples/29-negotiation-agent/vectors --phases execution --phases vulnerability_discovery \
+  --attacker-model openai/gpt-4o-mini
 ```
+
+`--attacker-model` (a LiteLLM model id, needs the `llm` extra) runs `neg_seller_pair_floor`;
+its key comes from the provider's usual environment variable.
 
 Over A2A, point `--target` at your agent's target YAML with `--protocol a2a`. An A2A agent that
 returns an artifact named after a commit tool (`accept_offer` with data `{"price": 640}`) is
 judged on it; an agent that commits in text alone shows no commitment.
 
-To run only these scenarios, and the attacker-LLM one (PAIR runs from the Python API only):
+To run only these scenarios from Python, with the attacker-LLM one:
 
 ```python
 from pathlib import Path
@@ -51,8 +55,8 @@ scanner = AgentScanner(adapter=my_adapter, attack_library=library,
 result = await scanner.run_campaign()
 ```
 
-Without an attacker client, `neg_seller_pair_floor` is recorded as an error and the target is
-not called. The attacker LLM's provider receives the scenario's `description` and every reply of your
+Without an attacker client, `neg_seller_pair_floor` is not run: the target is not called, and the
+report's warnings list it as not run. The attacker LLM's provider receives the scenario's `description` and every reply of your
 agent. Keep real limits out of the description.
 
 ## Read the result
