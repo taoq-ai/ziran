@@ -41,6 +41,7 @@ These examples use ZIRAN's built-in scanner without calling any LLM.
 | 24 | [Claude Code Agent Audit](24-claude-code-agent-audit/) | `ziran audit` on a subagent whose `Read` + `WebFetch` tools form an exfiltration chain |
 | 25 | [Claude Code Plugin](25-claude-code-plugin/) | Safe vs. vulnerable plugin: `ziran audit`, allowlist baseline, hook traces and MCP registry import, offline |
 | 28 | [Langfuse Live Analysis](28-langfuse-live-analysis/) | `analyze-traces` pulls tool calls live from Langfuse (needs Langfuse API keys, no LLM) |
+| 29 | [Negotiation Agent](29-negotiation-agent/) | Counterpart scenarios that test whether a negotiating or procurement agent keeps its floor, approval threshold and secret |
 
 ## LLM scans (API key required)
 

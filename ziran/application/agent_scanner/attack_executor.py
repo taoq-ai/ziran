@@ -35,7 +35,7 @@ from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
     from ziran.application.detectors.pipeline import DetectorPipeline
-    from ziran.domain.entities.goal import Turns
+    from ziran.domain.entities.goal import Replies, Turns
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
     from ziran.infrastructure.llm.base import BaseLLMClient
 
@@ -112,9 +112,11 @@ class AttackExecutor:
         the probe markers its requests carried are recorded on it (spec 117). A repeat
         *trial* (spec 121) gets its own turns and probe trace."""
         turns: Turns = {}
+        replies: Replies = {}  # each reply's text, for a secret goal (spec 124)
         scope_id = f"{attack.id}/trial-{trial + 1}" if trial else attack.id
         with probe_scope(self._campaign_id, scope_id) as markers:
-            result = judge_goal(attack, await self._run(attack, deadline, turns), turns)
+            result = await self._run(attack, deadline, turns, replies)
+            result = judge_goal(attack, result, turns, replies)
         if markers:
             result.probe_markers = markers
         return result
@@ -124,7 +126,7 @@ class AttackExecutor:
         self._adapter.reset_state()
 
     async def _run(
-        self, attack: AttackVector, deadline: float | None, turns: Turns
+        self, attack: AttackVector, deadline: float | None, turns: Turns, replies: Replies
     ) -> AttackResult:
         bind_vector(attack.id)
         _attack_span = _tracer.start_span(
@@ -166,15 +168,15 @@ class AttackExecutor:
             from ziran.application.attacks.pair import PairExecutor
             from ziran.application.attacks.tactics import TacticExecutor
 
-            pipeline, render = self._detector_pipeline, self._render_prompt
+            pipeline, render, log = self._detector_pipeline, self._render_prompt, (turns, replies)
             if attack.carrier is not None:
-                result = await self._carrier.execute(attack, pipeline, render, turns)
+                result = await self._carrier.execute(attack, pipeline, render, *log)
             elif attack.tactic == "pair":
                 pair = PairExecutor(self._adapter, self._attacker, self._budget)
-                result = await pair.execute(attack, pipeline, render, turns, deadline=deadline)
+                result = await pair.execute(attack, pipeline, render, *log, deadline=deadline)
             else:
                 tactic = TacticExecutor(self._adapter)
-                result = await tactic.execute(attack, pipeline, render, turns)
+                result = await tactic.execute(attack, pipeline, render, *log)
             _attack_span.set_attribute("ziran.attack.successful", result.successful)
             _attack_span.end()
             return result
@@ -238,7 +240,7 @@ class AttackExecutor:
 
                 if _is_error_response(response.content):
                     continue
-                turns[turn] = response.tool_calls
+                turns[turn], replies[turn] = response.tool_calls, response.content
 
                 verdict = await self._detector_pipeline.evaluate(
                     rendered_prompt,

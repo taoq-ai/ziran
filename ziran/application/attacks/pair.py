@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from ziran.application.usage import CampaignBudget
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
     from ziran.domain.entities.detection import DetectionVerdict
-    from ziran.domain.entities.goal import Turns
+    from ziran.domain.entities.goal import Replies, Turns
     from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
     from ziran.infrastructure.llm.base import BaseLLMClient
 
@@ -131,12 +131,15 @@ class PairExecutor:
         pipeline: DetectorPipeline,
         render_fn: Callable[[AttackPrompt], str],
         turns: Turns | None = None,
+        replies: Replies | None = None,
         *,
         deadline: float | None = None,
     ) -> AttackResult:
         """Refine *attack*'s first prompt until success or a bound; return the best attempt.
-        *turns* gets each answered iteration's tool calls, for a side-effect goal."""
+        *turns* gets each answered iteration's tool calls, for a side-effect goal, and
+        *replies* its text, for a secret goal (spec 124)."""
         turns = {} if turns is None else turns
+        replies = {} if replies is None else replies
         if self._attacker is None:
             return self._result(attack, error="PAIR vector needs an attacker LLM client")
         model = self._attacker.config.model
@@ -201,7 +204,7 @@ class PairExecutor:
                     elif verdict.needs_review:
                         review = review_evidence(verdict)
                     if verdict is not None and response is not None:
-                        turns[i] = response.tool_calls
+                        turns[i], replies[i] = response.tool_calls, response.content
                     quality = verdict.quality_score if verdict is not None else None
                     score = (
                         1.0
