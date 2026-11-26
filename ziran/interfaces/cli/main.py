@@ -318,14 +318,15 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     default=None,
     help="Stop scheduling new attacks once the campaign has used this many tokens across all "
     "stages (judge, ensemble, prefilter, strategy, target). Cooperative: attacks already "
-    "running finish, so the total can overshoot by up to --concurrency attacks.",
+    "running finish, so the total can overshoot by up to --concurrency attack runs (one run with --trials above 1).",
 )
 @click.option(
     "--max-cost",
     type=click.FloatRange(min=0, min_open=True),
     default=None,
     help="Stop scheduling new attacks once the estimated LLM cost reaches this many USD. "
-    "Only models with a price (shipped table or .ziran/prices.yaml) count. Cooperative.",
+    "Only models with a price (shipped table or .ziran/prices.yaml) count. Cooperative: the "
+    "total can overshoot by up to --concurrency attack runs (one run with --trials above 1).",
 )
 @click.option(
     "--incremental",
@@ -373,6 +374,14 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "A vector whose folder is not named, or whose attachment the adapter cannot send, is "
     "skipped and reads unmeasured, so the scan reports INCOMPLETE.",
 )
+@click.option(
+    "--trials",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    help="Run each attack this many times, resetting the target between runs. A vector that "
+    "succeeds on some runs but not all reads flaky, with its success rate, in the reports.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -409,6 +418,7 @@ def scan(
     defence_profile: str | None,
     hybrid_route_share: float | None,
     carriers: str | None,
+    trials: int,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -608,6 +618,7 @@ def scan(
         "max_campaign_tokens": max_campaign_tokens,
         "max_cost": max_cost,
         "carriers": carrier_sites,
+        "trials": trials,
     }
 
     # Initialize LLM client if provider/model specified

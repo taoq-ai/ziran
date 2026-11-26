@@ -152,12 +152,11 @@ class AgentScanner:
                 - ``attacker_llm_client``: runs ``tactic: pair`` vectors (spec 081). Pass it
                   unwrapped: a ``track()`` wrapper counts its tokens twice.
                 - ``carriers`` (CarrierSites): folders carrier vectors plant files in (spec 112).
+                - ``trials`` (int, default 1): runs per vector, reset between (spec 121).
         """
         self.adapter = adapter
         self.config = config or {}
-        self._attack_timeout: float = float(
-            self.config.get("attack_timeout", self.DEFAULT_ATTACK_TIMEOUT)
-        )
+        self._attack_timeout = float(self.config.get("attack_timeout", self.DEFAULT_ATTACK_TIMEOUT))
         self._phase_timeout: float = float(
             self.config.get("phase_timeout", self.DEFAULT_PHASE_TIMEOUT)
         )
@@ -286,6 +285,7 @@ class AgentScanner:
             phase_timeout=self._phase_timeout,
             budget=self._budget,
             cache=self.config.get("scan_cache"),
+            trials=int(self.config.get("trials", 1)),
         )
 
         # Store settings for backward compat (some tests may poke at internals)
