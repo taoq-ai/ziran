@@ -11,6 +11,10 @@ on:
       - "examples/07-cicd-quality-gate/sample-campaign-result.json"
   workflow_dispatch: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

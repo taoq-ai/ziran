@@ -18,6 +18,10 @@ on:
       - "tests/fixtures/sample_campaign_result.json"
       - "examples/07-cicd-quality-gate/claude-code-plugin/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
   security-events: write  # required for SARIF upload

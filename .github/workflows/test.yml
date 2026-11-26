@@ -5,36 +5,74 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
+  # A docs-only PR skips the work but every required job still reports: a skipped
+  # job (or a skipped matrix) leaves its required check pending, so gate by step.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.f.outputs.code }}
+    steps:
+      - id: f
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          code=true
+          if [ "$EVENT" = pull_request ]; then
+            if gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' \
+              | grep -vE '^(docs/|specs/|\.specify/|\.claude/|mkdocs\.yml$|LICENSE)|\.md$' >/dev/null; then
+              code=true
+            else
+              code=false
+            fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   test:
+    needs: changes
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v7
+        if: needs.changes.outputs.code == 'true'
 
       - uses: astral-sh/setup-uv@v7
+        if: needs.changes.outputs.code == 'true'
         with:
           version: "latest"
 
       - name: Set up Python ${{ matrix.python-version }}
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
         run: uv sync --frozen --group test --extra all
 
       # the Rego export tests run opa check, parse and eval (spec 107)
       - uses: open-policy-agent/setup-opa@v2
+        if: needs.changes.outputs.code == 'true'
         with:
           version: 1.x
 
       - name: Fetch the base for the prompt immutability test (spec 064)
+        if: needs.changes.outputs.code == 'true'
         env:
           BASE_REF: ${{ github.base_ref }}
           BEFORE: ${{ github.event.before }}
@@ -51,6 +89,7 @@ jobs:
           fi
 
       - name: Run unit tests
+        if: needs.changes.outputs.code == 'true'
         run: >-
           uv run pytest -m "not integration"
           --cov=ziran
@@ -60,7 +99,7 @@ jobs:
           -v
 
       - name: Upload coverage
-        if: matrix.python-version == '3.12'
+        if: needs.changes.outputs.code == 'true' && matrix.python-version == '3.12'
         uses: codecov/codecov-action@v7
         with:
           file: ./coverage.xml
@@ -68,6 +107,8 @@ jobs:
 
   integration-test:
     # ubuntu-latest is ubuntu26.04, which Playwright does not support for chromium (2026-10-29)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

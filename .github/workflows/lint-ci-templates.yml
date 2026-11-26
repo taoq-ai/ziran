@@ -12,6 +12,10 @@ on:
       - "examples/07-cicd-quality-gate/**"
       - ".github/workflows/lint-ci-templates.yml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
