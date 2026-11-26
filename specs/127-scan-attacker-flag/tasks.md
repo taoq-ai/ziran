@@ -9,3 +9,6 @@
 - [x] T006 Move `tests/unit/test_negotiation_goals.py` to the not-run contract.
 - [x] T007 Update docs: attack vectors, CLI reference, runtime config, example 29.
 - [x] T008 Run the touched tests on 3.11, 3.12 and 3.13, ruff check, ruff format, mypy strict.
+- [x] T009 Fix round 1: assert the attacker ledger entry (1 call, 80 tokens), a small token cap
+      ending in `pair.stop == "budget"`, blank flag off, dry-run filter, readable build errors,
+      the not-run line dedupe (FR-006, FR-007).

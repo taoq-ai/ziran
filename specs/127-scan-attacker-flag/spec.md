@@ -41,9 +41,12 @@ run. It is never an unmeasured result, so it does not turn the scan INCOMPLETE.
 - **FR-005** `ziran scan` prints the result warnings on the console, so the not-run line is
   visible without opening the report.
 
+- **FR-006** A blank `--attacker-model` (an unset CI variable) is off. Any other failure to build
+  the attacker client exits 1 with the flag, the model and the error.
+- **FR-007** `--dry-run` counts PAIR vectors only when `--attacker-model` is set.
+
 ## Out of scope
 
-- The dry run (`--dry-run`) still counts PAIR vectors in its plan without an attacker.
 - No separate attacker provider or key flag: the attacker shares `--llm-provider` routing.
 
 ## Assumptions

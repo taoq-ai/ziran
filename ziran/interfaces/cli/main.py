@@ -21,6 +21,7 @@ from ziran import __version__
 from ziran.application.agent_scanner.checkpoint import DEFAULT_FLUSH_INTERVAL_SECONDS
 from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
+from ziran.application.attacks.pair import is_pair
 from ziran.application.detectors.pipeline import DetectorConfig
 from ziran.application.factories import build_strategy, load_agent_adapter, load_remote_adapter
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
@@ -446,6 +447,7 @@ def scan(
     """
     if hybrid_route_share:  # the flag wins over the config file, 0.0 included
         _no_hybrid_client()
+    attacker_model = (attacker_model or "").strip() or None  # blank (an unset CI var) is off
 
     # Enable OpenTelemetry if requested
     if otel:
@@ -595,6 +597,7 @@ def scan(
             has_remote=has_remote,
             target=target,
             protocol=protocol,
+            attacker=attacker_model is not None,
         )
         return
 
@@ -671,6 +674,8 @@ def scan(
             raise click.ClickException(
                 "--attacker-model needs the llm extra: pip install 'ziran[llm]'"
             ) from None
+        except Exception as exc:
+            raise click.ClickException(f"--attacker-model {attacker_model}: {exc}") from None
         scanner_config["attacker_llm_client"] = attacker_client
 
     if llm_client is not None:
@@ -2182,8 +2187,10 @@ def _dry_run_summary(
     has_remote: bool,
     target: str | None,
     protocol: str | None,
+    attacker: bool = False,
 ) -> None:
-    """Run capability discovery and show attack plan without executing."""
+    """Run capability discovery and show attack plan without executing. PAIR vectors count
+    only with an attacker (spec 127)."""
     # Discover capabilities
     capabilities = asyncio.run(adapter.discover_capabilities())
     dangerous_count = sum(1 for c in capabilities if c.dangerous) if capabilities else 0
@@ -2194,7 +2201,9 @@ def _dry_run_summary(
     vectors = [
         v
         for v in attack_library.vectors
-        if v.mcp_server_request is None and (attack_library.carriers or v.carrier is None)
+        if v.mcp_server_request is None
+        and (attack_library.carriers or v.carrier is None)
+        and (attacker or not is_pair(v))
     ]
     if coverage_level == CoverageLevel.ESSENTIAL:
         vectors = [v for v in vectors if v.severity in ("critical",)]

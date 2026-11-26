@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from tests.unit.test_pair_executor import SECRET, WIN, Attacker, ScriptedJudge, ToyGuardAgent
+from tests.unit.test_pair_executor import BASE, SECRET, WIN, Attacker, ScriptedJudge, ToyGuardAgent
 from tests.unit.test_pair_wiring import library
 from ziran.interfaces.cli.main import cli
 
@@ -82,12 +82,43 @@ def test_without_attacker_model_the_vector_is_not_run(env: dict[str, Any]) -> No
     assert "pair_wired" in result.output
 
 
-def test_attacker_tokens_count_towards_the_budget(env: dict[str, Any]) -> None:
+def _attacker_entry(report: dict[str, Any]) -> dict[str, Any]:
+    [entry] = [e for e in report["metadata"]["usage"]["entries"] if e["stage"] == "attacker"]
+    return entry
+
+
+def test_attacker_tokens_count_once_towards_the_budget(env: dict[str, Any]) -> None:
+    env["attacker"].tokens = 40  # 40 prompt + 40 completion per call
+    _, report = _scan("--attacker-model", "m-att", "--llm-model", "judge")
+    entry = _attacker_entry(report)
+    assert (entry["model"], entry["calls"], entry["total_tokens"]) == ("m-att", 1, 80)
+
+
+def test_small_token_cap_stops_the_pair_loop(env: dict[str, Any]) -> None:
     env["attacker"].tokens = 40
-    _, report = _scan("--attacker-model", "m-att", "--max-campaign-tokens", "1000")
-    usage = json.dumps(report["metadata"]["usage"])
-    assert "attacker" in usage
-    assert "m-att" in usage
+    env["attacker"].replies = [(BASE,)] * 5  # refused every time: the loop would go on
+    _, report = _scan("--attacker-model", "m-att", "--max-campaign-tokens", "50")
+    [row] = report["attack_results"]
+    assert row["evidence"]["pair"]["stop"] == "budget"
+    assert _attacker_entry(report)["calls"] == 1
+
+
+def test_blank_attacker_model_is_off(env: dict[str, Any]) -> None:
+    _, report = _scan("--attacker-model", " ")
+    assert report["attack_results"] == []
+    assert env["made"] == []
+    assert "pair_wired" in report["metadata"]["warnings"][0]
+
+
+@pytest.mark.parametrize(("flag", "count"), [((), "0"), (("--attacker-model", "m-att"), "1")])
+def test_dry_run_counts_pair_vectors_only_with_an_attacker(
+    env: dict[str, Any], flag: tuple[str, ...], count: str
+) -> None:
+    args = ["scan", "--framework", "langchain", "--agent-path", "agent.py", "--dry-run", *flag]
+    result = CliRunner().invoke(cli, args)
+    assert result.exit_code == 0, result.output
+    assert f"Attack Vectors {count} (" in " ".join(result.output.replace("│", " ").split())
+    assert env["target"].prompts == []
 
 
 def test_unpriced_attacker_model_warns_under_max_cost(env: dict[str, Any]) -> None:
@@ -109,3 +140,17 @@ def test_missing_llm_extra_is_a_clear_error(
     assert result.exit_code == 1
     assert "--attacker-model needs the llm extra" in " ".join(result.output.split())
     assert env["target"].prompts == []
+
+
+def test_other_attacker_build_errors_are_readable(
+    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def bad(**kw: Any) -> Attacker:
+        raise ValueError("Unsupported LLM provider: nope")
+
+    monkeypatch.setattr("ziran.infrastructure.llm.create_llm_client", bad)
+    args = ["scan", "--framework", "langchain", "--agent-path", "agent.py", "--output", "out"]
+    result = CliRunner().invoke(cli, [*args, "--attacker-model", "m-att"])
+    assert result.exit_code == 1
+    assert "--attacker-model m-att: Unsupported LLM provider: nope" in result.output
+    assert result.exception is None or isinstance(result.exception, SystemExit)

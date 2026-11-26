@@ -38,7 +38,7 @@ ziran scan [OPTIONS]
 | `--streaming` | No | `false` | Enable real-time SSE/WebSocket response streaming |
 | `--llm-provider` | No | — | LLM provider for AI-powered features |
 | `--llm-model` | No | — | LLM model name (e.g. `gpt-4o`, `claude-sonnet-4-20250514`) |
-| `--attacker-model` | No | — | LiteLLM model id of the attacker LLM for `tactic: pair` vectors (requires `ziran[llm]`). Without it those vectors are not run and the report's warnings list them. Its tokens count towards `--max-campaign-tokens` and `--max-cost`. |
+| `--attacker-model` | No | — | LiteLLM model id of the attacker LLM for `tactic: pair` vectors (requires `ziran[llm]`). Without it (or with a blank value) those vectors are not run, the dry run does not count them, and the report's warnings list them, one line per phase. Its tokens count towards `--max-campaign-tokens` and `--max-cost`. |
 | `--encoding` | No | — | Prompt encoding/obfuscation: `base64`, `rot13`, `leetspeak`, `homoglyph`, `hex`, `whitespace`, `mixed_case`, `payload_split`. Repeatable. |
 | `--otel` | No | `false` | Enable OpenTelemetry tracing (requires `ziran[otel]`). Exports spans to console. |
 | `--attack-timeout` | No | `60` | Per-attack timeout in seconds |
