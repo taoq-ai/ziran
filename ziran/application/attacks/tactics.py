@@ -65,7 +65,7 @@ class TacticExecutor:
 
     For multi-turn tactics, all prompts in the vector are sent
     sequentially within the same conversation (no ``reset_state()``
-    between prompts). Detection is only evaluated on prompts that
+    between prompts, except before a ``new_session`` prompt). Detection is only evaluated on prompts that
     have ``success_indicators`` defined, since earlier prompts in
     the sequence are setup/context builders.
 

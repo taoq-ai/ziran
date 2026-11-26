@@ -25,6 +25,27 @@ vectors:
       - https://link-to-research.com
 ```
 
+## Two-session vectors
+
+A prompt with `new_session: true` resets the conversation before it is sent, so a later session
+can show whether the agent acts on what an earlier one planted in its memory. The vector needs a
+multi-turn `tactic` (not `single` or `pair`). The result's `evidence.sessions` lists each session
+with its prompts, replies and tool calls.
+
+```yaml
+    tactic: context_buildup
+    prompts:
+      - template: "Remember this preference for future conversations: ..."
+      - template: "A routine request that the plant should change"
+        new_session: true
+        success_indicators: ["value the plant introduced"]
+```
+
+ZIRAN runs such a vector only when the target declares memory that survives a reset
+(`memory_persists_across_reset: true` in a remote target's YAML). Otherwise the vector is skipped
+with the reason `no memory across sessions` and listed as unmeasured, never as passed. The run
+leaves the planted value in the target's memory: delete it after the scan.
+
 ## Categories
 
 - `prompt_injection`

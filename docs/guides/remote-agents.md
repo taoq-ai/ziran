@@ -197,6 +197,11 @@ retry:
 
 `probe_delay` spaces out the three discovery probes; the 0.5 s default adds about 1 s per discovery run compared with earlier releases, and `probe_delay: 0` restores back-to-back probes.
 
+Set `memory_persists_across_reset: true` when the agent keeps memory across sessions (for example
+a store keyed by user rather than by session). Two-session memory vectors such as
+`mp_cross_session_plant_trigger` run only then; without it they are skipped and listed as
+unmeasured.
+
 ## Discovery Mode
 
 Before running a full scan, discover what the agent can do:
