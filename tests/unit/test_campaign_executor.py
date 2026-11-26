@@ -389,6 +389,19 @@ async def test_tap_keeps_the_best_scores() -> None:
     assert {n["parent"] for n in nodes.values() if n["depth"] == 2} == {"1"}
 
 
+async def test_tap_prunes_the_lower_scores_not_the_later_nodes() -> None:
+    result = await run(example(TAP, width=2, depth=3), attacker=FakeAttacker(canary=False))
+    level = {n["id"]: n for n in tree(result)["nodes"] if n["depth"] == 3}
+    # 1.1.2 and 1.2.1 repeat a cue (2 of 3); 1.1.1 and 1.2.2 hold all three
+    assert {i: n["score"] for i, n in level.items()} == {
+        "1.1.1": 1.0,
+        "1.1.2": pytest.approx(0.6667),
+        "1.2.1": pytest.approx(0.6667),
+        "1.2.2": 1.0,
+    }
+    assert [i for i, n in level.items() if n["pruned"] == "width"] == ["1.1.2", "1.2.1"]
+
+
 @pytest.mark.parametrize("vector_id", [TAP, LIVE])
 async def test_max_nodes_bounds_every_mode(vector_id: str) -> None:
     result = await run(example(vector_id, max_nodes=3), attacker=FakeAttacker(canary=False))
