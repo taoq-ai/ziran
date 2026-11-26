@@ -464,7 +464,7 @@ def _leak_topology(**worker: Any) -> MultiAgentTopology:
         agents=[
             AgentNode(id="supervisor", name="Supervisor", system_prompt="You lead the team now."),
             AgentNode(id="worker_a", name="Billing Worker", **worker),
-            AgentNode(id="sql", name="sql", system_prompt="You are a helpful assistant."),
+            AgentNode(id="sql", name="sql"),
         ],
         entry_point_id="supervisor",
     )
@@ -480,14 +480,14 @@ def test_leak_matching_guards() -> None:
     assert kinds("Supervisor here. You lead the team now.") == set()
     # empty prompt and short sentences never match
     assert kinds("Be concise. Anything at all.", system_prompt="Be concise.") == set()
-    # word boundaries: "sql" is not in "squeaky"
-    assert kinds("a squeaky wheel") == set()
+    # word boundaries: the agent "sql" is not named by "sqlite"
+    assert kinds("we store it in sqlite") == set()
     # a plain-word capability is ordinary text; an identifier-shaped one is a leak
     assert kinds("I can search the web", capabilities=["search"]) == set()
     assert kinds("it calls lookup_invoice", capabilities=["lookup_invoice"]) == {
         ("worker_a", "lookup_invoice")
     }
-    # generic or shared sentences are not one agent's prompt
+    # a boilerplate sentence in one agent's prompt only is not that agent's prompt
     generic = "You are a helpful assistant."
     assert kinds(generic, system_prompt=generic) == set()
     shared = "Always check the order status first."
