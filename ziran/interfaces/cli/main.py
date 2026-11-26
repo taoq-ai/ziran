@@ -1364,6 +1364,13 @@ def _display_policy_verdict(verdict: Any) -> None:
     default=False,
     help="Add typed chains (tool roles from names) to Claude Code findings. Off by default.",
 )
+@click.option(
+    "--aibom",
+    "aibom_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Also write a CycloneDX 1.6 AI-BOM of the Claude Code plugin (agents, models, MCP servers).",
+)
 def audit(
     path: str,
     severity: str | None,
@@ -1372,6 +1379,7 @@ def audit(
     write_baseline_path: str | None,
     sarif_path: str | None,
     typed_chains: bool,
+    aibom_path: str | None,
 ) -> None:
     """Static security analysis of agent source code.
 
@@ -1394,6 +1402,7 @@ def audit(
         ziran audit ./agents/ --write-baseline allowlist.json
         ziran audit ./agents/ --baseline allowlist.json
         ziran audit ./my-plugin/ --baseline ziran-baseline.json --sarif audit.sarif
+        ziran audit ./my-plugin/ --aibom aibom.json
     """
     from pydantic import ValidationError
 
@@ -1418,6 +1427,20 @@ def audit(
     target = Path(path)
     analyzer = StaticAnalyzer()
     scan = load_claude_code(target)
+    if aibom_path:
+        from ziran.application.aibom import build_aibom
+
+        if not scan.detected:
+            raise click.UsageError("--aibom: no Claude Code plugin or agent definitions under PATH")
+        try:
+            Path(aibom_path).write_text(
+                json.dumps(build_aibom(scan), indent=2) + "\n", encoding="utf-8"
+            )
+        except OSError as exc:
+            raise click.BadParameter(
+                f"cannot write file ({exc.strerror})", param_hint="--aibom"
+            ) from None
+        click.echo(f"AI-BOM written to {aibom_path}", err=True)
 
     if target.is_file() and scan.detected:
         report = AnalysisReport()

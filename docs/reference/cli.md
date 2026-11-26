@@ -295,6 +295,7 @@ ziran audit PATH [OPTIONS]
 | `--write-baseline FILE` | Record each Claude Code agent's tools and chains as the accepted baseline, then report as if `--baseline FILE` was given |
 | `--sarif FILE` | Also write the reported findings (after the baseline step and `--severity`) as SARIF v2.1.0 for GitHub code scanning; `json` stdout is unchanged, `SARIF written to FILE` goes to stderr. An unwritable `FILE` exits `2` |
 | `--typed-chains` | Also report typed chains: a tool whose name reads data, paired with a tool whose name sends, runs or changes something. A tool is typed by the first read or write verb of its own name (the part after `mcp__<server>__`); a name with no listed verb counts as one that acts. Off by default; not allowed with `--baseline` or `--write-baseline`, since a baseline holds no typed chains. Reads no config file |
+| `--aibom FILE` | Also write a CycloneDX 1.6 AI-BOM of the Claude Code plugin: agents, the models they name, MCP servers with command and version, and skill CVE matches (see [AI-BOM](../guides/aibom.md)). Exits `2` when PATH holds no Claude Code plugin or agent |
 
 **Examples:**
 
@@ -526,6 +527,7 @@ ziran watch-registry (--config FILE | --from-claude-config FILE) [OPTIONS]
 | `--out` | `./reports` | Report directory (`registry-watch-report.json` or `.md`) |
 | `--format` | `json` | `json` or `markdown` |
 | `--dry-run-alerts` | off | Preview alert payloads without contacting Slack/GitHub |
+| `--aibom FILE` | none | AI-BOM from `ziran audit --aibom`. MCP servers and agents the traces name but the BOM lacks are added as shadow; the result goes to `aibom.json` in `--out` |
 | `--verbose`, `-v` | off | Debug logging |
 
 Exactly one of `--config` / `--from-claude-config` is required.

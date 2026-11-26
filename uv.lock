@@ -5797,6 +5797,7 @@ streaming = [
 dev = [
     { name = "cedarpy" },
     { name = "fastapi" },
+    { name = "jsonschema" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -5814,6 +5815,7 @@ lint = [
 test = [
     { name = "cedarpy" },
     { name = "fastapi" },
+    { name = "jsonschema" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -5889,6 +5891,7 @@ provides-extras = ["a2a", "agentcore", "all", "anthropic", "autogen", "bedrock",
 dev = [
     { name = "cedarpy", specifier = ">=4.1,<5" },
     { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "jsonschema", specifier = ">=4.18,<5" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "pytest", specifier = ">=8.0,<10" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
@@ -5906,6 +5909,7 @@ lint = [
 test = [
     { name = "cedarpy", specifier = ">=4.1,<5" },
     { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "jsonschema", specifier = ">=4.18,<5" },
     { name = "pytest", specifier = ">=8.0,<10" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "pytest-cov", specifier = ">=5.0" },

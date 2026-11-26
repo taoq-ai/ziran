@@ -256,9 +256,13 @@ class _Scanner:
             return
         self.scan.files_analyzed += 1
         try:
-            self.scan.mcp_servers.extend(load_claude_mcp_config(file))
+            servers = load_claude_mcp_config(file)
         except (ClaudeConfigError, OSError) as exc:
             self.issue(file, str(exc))
+            return
+        self.scan.mcp_servers.extend(servers)
+        for server in servers:
+            self.scan.mcp_sources.setdefault(server.name, str(file))
 
 
 def _expand(source: Path) -> list[Path]:
