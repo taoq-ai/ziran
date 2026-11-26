@@ -1387,9 +1387,10 @@ def audit(
     hard-coded secrets, dangerous tool permissions, SQL injection risks,
     and PII exposure — all without executing the agent.
 
-    Also audits Claude Code plugins and subagents (a plugin root, a
-    .claude/agents/ or agents/ directory, or a single agent .md file):
-    declared tools, secrets in prompts and dangerous tool chains.
+    Also audits Claude Code plugins, subagents and Agent Skills (a plugin
+    root, a .claude/agents/ or agents/ directory, a skills/ folder, a skill
+    folder, or a single agent .md or SKILL.md file): declared tools,
+    secrets in prompts, dangerous tool chains and bundled scripts.
 
     PATH can be a single file or a directory (recursive scan).
 
@@ -1426,11 +1427,12 @@ def audit(
 
     target = Path(path)
     analyzer = StaticAnalyzer()
-    scan = load_claude_code(target)
+    scan = load_claude_code(target, analyzer.config.skip_directories)
+    # The AI-BOM and the baseline hold agents only; skills alone do not count (spec 125).
     if aibom_path:
         from ziran.application.aibom import build_aibom
 
-        if not scan.detected:
+        if not scan.agents_detected:
             raise click.UsageError("--aibom: no Claude Code plugin or agent definitions under PATH")
         try:
             Path(aibom_path).write_text(
@@ -1446,8 +1448,9 @@ def audit(
         report = AnalysisReport()
     elif target.is_file():
         report = AnalysisReport(files_analyzed=1, findings=analyzer.analyze_file(target))
-    else:
-        report = analyzer.analyze_directory(target)
+    else:  # a skill's bundled Python files are analysed once, by the skill audit
+        bundled = {Path(b.path) for s in scan.skills for b in s.bundled if b.kind == "python"}
+        report = analyzer.analyze_directory(target, bundled)
 
     trifecta_roles = _trifecta_roles() if scan.detected else {}
     if scan.detected:
@@ -1459,7 +1462,7 @@ def audit(
 
     narrowed: list[BaselineNarrowing] | None = None
     if baseline_path or write_baseline_path:
-        if not scan.detected:
+        if not scan.agents_detected:
             raise click.UsageError("no Claude Code agent definitions found under PATH")
         if write_baseline_path:
             baseline = build_baseline(scan, trifecta_roles)
@@ -1527,6 +1530,8 @@ def audit(
             }
             if scan.detected:
                 row |= {"agent": f.agent, "tools": list(f.tools)}
+            if f.atlas:
+                row["atlas"] = list(f.atlas)
             rows.append(row)
         doc: dict[str, Any] = {"files_analyzed": report.files_analyzed, "findings": rows}
         if narrowed is not None:

@@ -47,6 +47,7 @@ from ziran.application.static_analysis.config import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import Path
 
 
@@ -63,6 +64,7 @@ class StaticFinding:
     recommendation: str = ""
     agent: str | None = None  # Claude Code agent name; None for Python findings and CC000
     tools: tuple[str, ...] = ()  # verbatim Claude Code tool strings (chain order for CC001)
+    atlas: tuple[str, ...] = ()  # MITRE ATLAS technique ids (Agent Skills rows, spec 125)
 
 
 @dataclass
@@ -157,19 +159,21 @@ class StaticAnalyzer:
 
         return findings
 
-    def analyze_directory(self, directory: Path) -> AnalysisReport:
+    def analyze_directory(self, directory: Path, exclude: Iterable[Path] = ()) -> AnalysisReport:
         """Recursively analyse all Python files in *directory*.
 
         Args:
             directory: Root directory to scan.
+            exclude: Files another pass analyses (a skill's bundled Python files).
 
         Returns:
             An :class:`AnalysisReport` with aggregated findings.
         """
         report = AnalysisReport()
         skip = set(self.config.skip_directories)
+        excluded = set(exclude)
         for path in sorted(directory.rglob("*.py")):
-            if _should_skip(path, skip):
+            if _should_skip(path, skip) or path in excluded:
                 continue
             file_findings = self.analyze_file(path)
             report.findings.extend(file_findings)
