@@ -50,7 +50,8 @@ class CarrierSites(BaseModel):
     page_dir: Path | None = Field(default=None, description="A folder served at page_url")
     page_url: str | None = Field(
         default=None,
-        pattern=r"^https?://[^\s/?#]+\S*$",  # a host, no whitespace (Rust regex: linear)
+        # an ASCII host and optional port, no userinfo, then printable ASCII (Rust regex: linear)
+        pattern=r"^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?([/?#][!-~]*)?$",
         max_length=2000,
         description="The http(s) URL of page_dir",
     )
@@ -63,12 +64,13 @@ class CarrierSites(BaseModel):
 
 
 def _plant(path: Path, data: bytes) -> Path:
-    with path.open("xb") as f:  # exclusive: never overwrite a file of the target's
-        try:
+    f = path.open("xb")  # exclusive: never overwrite a file of the target's
+    try:
+        with f:  # a full disk fails at close: a carrier fits the write buffer
             f.write(data)
-        except BaseException:
-            path.unlink(missing_ok=True)
-            raise
+    except BaseException:
+        path.unlink(missing_ok=True)  # never leave a truncated carrier behind
+        raise
     return path
 
 

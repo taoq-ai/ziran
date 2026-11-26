@@ -7,7 +7,8 @@ import base64
 import contextlib
 import json
 import re
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -26,9 +27,6 @@ from ziran.domain.entities.target import TargetConfig
 from ziran.domain.interfaces.adapter import AgentResponse, Attachment
 from ziran.infrastructure.adapters.anthropic_adapter import AnthropicAdapter
 from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 CANARY = "ZX-CANARY-4417"
 ATTACKER = "audit@collector.example"
@@ -148,6 +146,42 @@ class TestPlantedPdf:
         assert result.evidence["skipped"] == "could not plant the file: FileExistsError"
         assert agent.invocations == [] and taken.is_symlink() == (kind == "symlink")
         assert taken.read_bytes() == victim.read_bytes() == b"operator data"
+
+    @pytest.mark.parametrize("fails_at", ["write", "close"])
+    async def test_a_failed_write_leaves_no_truncated_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fails_at: str
+    ) -> None:
+        """A full disk or a quota fails at write or, for a buffered small file, at close."""
+        real_open = Path.open
+
+        class Full:
+            def __init__(self, f: Any) -> None:
+                self.f = f
+
+            def write(self, data: bytes) -> int:
+                self.f.write(data[:10])  # a truncated carrier, injection text and all
+                self.f.flush()
+                if fails_at == "write":
+                    raise OSError(28, "No space left on device")
+                return len(data)
+
+            def __enter__(self) -> Full:
+                return self
+
+            def __exit__(self, *exc: object) -> None:
+                self.f.close()
+                if fails_at == "close":
+                    raise OSError(27, "File too large")
+
+        def full_open(self: Path, mode: str = "r", *args: Any, **kw: Any) -> Any:
+            f = real_open(self, mode, *args, **kw)
+            return Full(f) if mode == "xb" else f
+
+        monkeypatch.setattr(Path, "open", full_open)
+        agent = MockAgentAdapter()
+        result = await _run(agent, _vector(), CarrierSites(workspace_dir=tmp_path))
+        assert result.evidence["skipped"] == "could not plant the file: OSError"
+        assert agent.invocations == [] and list(tmp_path.iterdir()) == []
 
     async def test_a_cancel_never_leaves_the_file(self, tmp_path: Path) -> None:
         """A phase timeout or Ctrl-C cancels the vector at any await: the file still goes."""
@@ -317,7 +351,9 @@ class TestSitesAndLibrary:
     def test_page_dir_needs_http_url(self, tmp_path: Path) -> None:
         with pytest.raises(ValidationError):
             CarrierSites(page_dir=tmp_path)
-        for url in ["file:///etc", "http:", "http:///x", " http://h", "http://h /x", "//h"]:
+        bad = ["file:///etc", "http:", "http:///x", " http://h", "http://h /x", "//h"]
+        bad += ["http://h\x00", "http://h\u202e", "http://@", "http://:", "http://user:pw@h"]
+        for url in bad:
             with pytest.raises(ValidationError):
                 CarrierSites(page_dir=tmp_path, page_url=url)
         assert CarrierSites(page_dir=tmp_path, page_url="https://h.example:8443/p/").page_url

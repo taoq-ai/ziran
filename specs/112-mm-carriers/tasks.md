@@ -17,3 +17,6 @@
   cancel test ran red first); the `--carriers` folders in the cache key; the dc_* vectors in the
   AML.T0086 fitness set; tests for the REST guard (no request sent), the exclusive create, the
   PNG glyphs, an all-failed vector, a dry run, and the page URL host check.
+- [x] T010 Gate fixes, round 2: the plant cleanup also covers close (a full disk fails there for
+  a buffered small file); tests for a failing write and a failing close (the close test ran red
+  first); `page_url` needs an ASCII host with no userinfo.
