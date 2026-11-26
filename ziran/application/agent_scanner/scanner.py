@@ -150,6 +150,7 @@ class AgentScanner:
                 - ``scan_cache`` (ScanCache): opt-in per-vector result cache (spec 049).
                 - ``attacker_llm_client``: runs ``tactic: pair`` vectors (spec 081). Pass it
                   unwrapped: a ``track()`` wrapper counts its tokens twice.
+                - ``carriers`` (CarrierSites): folders carrier vectors plant files in (spec 112).
         """
         self.adapter = adapter
         self.config = config or {}
@@ -272,6 +273,7 @@ class AgentScanner:
             context_window=int(self.config.get("context_window", 200_000)),
             attacker=self.config.get("attacker_llm_client"),
             budget=self._budget,
+            carriers=self.config.get("carriers"),
         )
         phase_executor = PhaseExecutor(
             attack_executor,
@@ -671,10 +673,7 @@ class AgentScanner:
                     cap_id, vuln_id, EdgeType.ENABLES, {"phase": result.phase.value}
                 )
 
-    # ── Backward-compatible delegation methods ───────────────────────────
-    # These methods are kept so that any code that calls them on an
-    # AgentScanner instance still works.  They delegate to the extracted
-    # classes internally.
+    # ── Backward-compatible delegation methods, kept for existing callers ────────
 
     async def _execute_phase(
         self,

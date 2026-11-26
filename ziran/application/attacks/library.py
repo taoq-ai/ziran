@@ -100,13 +100,17 @@ class AttackLibrary:
         self,
         custom_dirs: list[Path] | None = None,
         load_builtin: bool = True,
+        carriers: bool = False,
     ) -> None:
         """Initialize the attack library.
 
         Args:
             custom_dirs: Additional directories to load YAML vectors from.
             load_builtin: Whether to load the built-in vector library.
+            carriers: Whether phases include carrier vectors (spec 112): they need the
+                scanner's ``carriers`` folders or an adapter that takes attachments.
         """
+        self.carriers = carriers  # read by the scan dry run
         self._vectors: dict[str, AttackVector] = {}
         self._load_errors: list[tuple[str, Exception]] = []
 
@@ -200,14 +204,17 @@ class AttackLibrary:
 
         Returns:
             List of vectors targeting this phase within the coverage tier, without the
-            server-surface vectors that only ``ziran mcp-hostile-server`` sends.
+            server-surface vectors that only ``ziran mcp-hostile-server`` sends, and without
+            carrier vectors unless the library was built with ``carriers=True``.
         """
         allowed = _COVERAGE_SEVERITIES[coverage]
         # Server-surface vectors (spec 071) are requests a hostile MCP server sends, not prompts.
         return [
             v
             for v in self._by_phase.get(phase, [])
-            if v.severity in allowed and v.mcp_server_request is None
+            if v.severity in allowed
+            and v.mcp_server_request is None
+            and (self.carriers or v.carrier is None)
         ]
 
     def get_attacks_by_category(self, category: AttackCategory) -> list[AttackVector]:
@@ -453,6 +460,7 @@ class AttackLibrary:
             mcp_server_request=McpServerRequest(**data["mcp_server_request"])
             if data.get("mcp_server_request")
             else None,
+            carrier=data.get("carrier"),
         )
 
 

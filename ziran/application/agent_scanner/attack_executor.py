@@ -13,6 +13,7 @@ from ziran.application.agent_scanner.progress import (
     ProgressEvent,
     ProgressEventType,
 )
+from ziran.application.attacks.carrier_executor import CarrierExecutor, CarrierSites
 from ziran.application.attacks.many_shot import ShotRenderer, clamp_shots, estimate_tokens
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
@@ -56,6 +57,7 @@ class AttackExecutor:
         emitter: Progress emitter for lifecycle events.
         encoding: Optional list of encoding types to apply.
         attacker / budget: PAIR attacker client and campaign budget (spec 081).
+        carriers: Folders where carrier vectors plant files (spec 112).
     """
 
     def __init__(
@@ -70,6 +72,7 @@ class AttackExecutor:
         context_window: int = 200_000,
         attacker: BaseLLMClient | None = None,
         budget: CampaignBudget | None = None,
+        carriers: CarrierSites | None = None,
     ) -> None:
         self._adapter = adapter
         # Bounded-cardinality provider label for metrics (e.g. "anthropic",
@@ -86,6 +89,7 @@ class AttackExecutor:
         self._shot_renderer: ShotRenderer | None = None
         self._attacker = attacker
         self._budget = budget or CampaignBudget(UsageLedger(), UsageBudget())
+        self._carrier = CarrierExecutor(adapter, carriers)
 
     # -- public API --------------------------------------------------------
 
@@ -122,13 +126,15 @@ class AttackExecutor:
                 harm_category=attack.harm_category,
             )
 
-        # Delegate to TacticExecutor for multi-turn tactics
-        if attack.tactic != "single":
+        # Delegate multi-turn tactics, and carrier files (spec 112)
+        if attack.tactic != "single" or attack.carrier is not None:
             from ziran.application.attacks.pair import PairExecutor
             from ziran.application.attacks.tactics import TacticExecutor
 
             pipeline, render = self._detector_pipeline, self._render_prompt
-            if attack.tactic == "pair":
+            if attack.carrier is not None:
+                result = await self._carrier.execute(attack, pipeline, render)
+            elif attack.tactic == "pair":
                 pair = PairExecutor(self._adapter, self._attacker, self._budget)
                 result = await pair.execute(attack, pipeline, render, deadline=deadline)
             else:
@@ -139,7 +145,6 @@ class AttackExecutor:
 
         attack_tokens = TokenUsage()
 
-        # Track last response/prompt for reporting even when all prompts fail
         last_response_content: str | None = None
         last_prompt_used: str | None = None
 
@@ -173,7 +178,6 @@ class AttackExecutor:
         review: dict[str, Any] = {}
         answered = 0  # prompts that reached the detectors; the rest failed (spec 049)
 
-        # Try each prompt variant
         for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
             try:
                 if self._streaming:
@@ -183,7 +187,6 @@ class AttackExecutor:
                 plain = rendered_cache[id(prompt_spec)]  # an encoded prompt's own values
                 response.metadata = scan_metadata(response.metadata, rendered_prompt, plain)
 
-                # Accumulate token usage
                 attack_tokens = attack_tokens + TokenUsage(
                     prompt_tokens=response.prompt_tokens,
                     completion_tokens=response.completion_tokens,
@@ -195,11 +198,9 @@ class AttackExecutor:
                     last_response_content = response.content
                     last_prompt_used = rendered_prompt
 
-                # Error sentinel check
                 if _is_error_response(response.content):
                     continue
 
-                # Detector pipeline
                 verdict = await self._detector_pipeline.evaluate(
                     rendered_prompt,
                     response,
@@ -257,7 +258,6 @@ class AttackExecutor:
             except Exception as e:
                 logger.warning("prompt_error", vector_id=attack.id, error=str(e))
 
-        # None of the prompts succeeded
         if answered < len(prompt_attempts):  # swallowed failures block caching
             review["prompt_errors"] = len(prompt_attempts) - answered
         if not answered:  # no reply measured this vector (spec 082)

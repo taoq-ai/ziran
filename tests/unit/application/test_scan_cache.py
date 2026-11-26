@@ -116,6 +116,7 @@ class TestKeys:
             ("quality_scoring", True),
             ("judge_model", "m"),
             ("detector", {"disabled": ["llm_judge"]}),
+            ("carriers", {"workspace_dir": "/srv/ws"}),
         ],
     )
     def test_every_context_field_changes_key(self, field: str, value: Any) -> None:
@@ -160,6 +161,25 @@ class TestKeys:
 
 
 class TestBuildContext:
+    def test_carrier_folders_change_the_key(self) -> None:
+        """spec 112: a miss measured with one folder never replays for another."""
+        from ziran.application.attacks.carrier_executor import CarrierSites
+
+        def key(sites: CarrierSites | None) -> str:
+            ctx = build_cache_context(
+                target_bytes=b"x",
+                protocol=None,
+                framework=None,
+                scanner_config={"carriers": sites},
+                encoding=None,
+                streaming=False,
+            )
+            return campaign_key(ctx, [])
+
+        wrong, right = CarrierSites(workspace_dir="/wrong"), CarrierSites(workspace_dir="/right")
+        assert len({key(None), key(wrong), key(right)}) == 3
+        assert key(right) == key(CarrierSites(workspace_dir="/right"))
+
     def test_defaults(self) -> None:
         ctx = build_cache_context(
             target_bytes=b"x",
