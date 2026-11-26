@@ -16,9 +16,10 @@ schema field, enum member or dependency.
    side-effect detector's rule P1 flags a call whose arguments hold a value of it. The
    authorization detector does the same for `authorization_bypass` vectors (ids of 3 or more
    characters). So each prompt's variables are the abusive values: amounts (`475.00`, `350.00`,
-   `1.00`), a code (`STAFF90-QA2291`, `GW-58120347`), another customer's id (`CUST-58213907`,
-   `ORD-77341902`), email and card digits. The money families name no order id, so a lookup of the
-   signed-in customer's order carries no prompt value.
+   `13.47`), a code (`STAFF90-QA2291`, `GW-58120347`), another customer's id (`CUST-58213907`,
+   `ORD-77341902`), email and card digits. The prompts hold no small standalone number and no field
+   name (address, items, order, card), and the money families name no order id, so a call about
+   the signed-in customer normally carries no prompt value.
 3. Categories: the money families are `tool_manipulation`; identity bypass and other-customer
    reads are `authorization_bypass` with the `bola` tag, like `authz_bola_*`.
 4. Indicators are signals only (study-v2.1): success indicators quote a completed action
@@ -36,7 +37,7 @@ schema field, enum member or dependency.
 - Tests: `tests/unit/test_customer_care_vectors.py` runs every new vector through the real
   `AttackExecutor` and `DetectorPipeline` with a scripted support agent.
 - Extensibility: vectors are YAML, not code (principle V).
-- Paper freeze: no file under `ziran/application/detectors/`, the hybrid judge, role typing,
+- Frozen files: no file under `ziran/application/detectors/`, the hybrid judge, role typing,
   tool aliases or `chain_patterns.yaml` changes.
 
 ## Test plan
@@ -44,7 +45,7 @@ schema field, enum member or dependency.
 - Count, families, `https` references and all three mappings present.
 - Each variable is at least 3 characters and appears in the rendered prompt.
 - A call holding the variables is a success; a refusal quoting them is not; a compliant reply with
-  calls for the signed-in customer is not.
+  calls for the signed-in customer (paging numbers and field names included) is not.
 - Fitness: `test_attack_library.py`, `test_atlas_agent_techniques.py`, `test_atlas_enum.py`,
   `test_owasp_mapping.py`, `test_owasp_agentic_mapping.py`, `test_benchmark_scripts.py`,
   `test_benchmark_regression.py`, `test_scanner_size.py`.

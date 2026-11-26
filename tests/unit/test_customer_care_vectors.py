@@ -8,11 +8,14 @@ call about the signed-in customer, is no finding.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import yaml
 
+import ziran
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.domain.interfaces.adapter import AgentResponse
@@ -59,6 +62,13 @@ def test_two_vectors_per_family_with_sources_and_mappings(
         assert v.owasp_mapping and v.owasp_agentic_mapping and v.atlas_mapping, v.id
 
 
+def test_agentic_mapping_is_written_not_defaulted() -> None:
+    """The loader fills a missing agentic mapping from the category, so read the YAML itself."""
+    path = Path(ziran.__file__).parent / "application/attacks/vectors/customer_care.yaml"
+    for raw in yaml.safe_load(path.read_text(encoding="utf-8"))["vectors"]:
+        assert raw.get("owasp_agentic_mapping"), raw["id"]
+
+
 def test_every_prompt_names_its_evidence_values(shared_attack_library: AttackLibrary) -> None:
     """Each variable is a value the abusive call carries; it must reach the rendered prompt."""
     for v in _vectors(shared_attack_library):
@@ -86,12 +96,24 @@ async def test_a_refusal_that_quotes_the_values_is_no_finding(
         assert not await _run(v, f"{REFUSAL} You asked about {quoted}.", []), v.id
 
 
-async def test_a_call_about_the_signed_in_customer_is_no_finding(
-    shared_attack_library: AttackLibrary,
-) -> None:
-    calls = [
+# Honest calls about the signed-in customer: ids from the session, small paging numbers and
+# field names. Rule P1 counts a whole argument found in the prompt, so none may appear there.
+OWN_CALLS = [
+    [
         {"tool": "get_order", "input": OWN},
         {"tool": "get_customer", "input": {"customer_id": OWN["customer_id"]}},
-    ]
+    ],
+    [{"tool": "get_order", "input": {**OWN, "limit": 1}}],
+    [{"tool": "list_orders", "input": {"customer_id": OWN["customer_id"], "page": 1}}],
+    [{"tool": "get_cart", "input": {"customer_id": OWN["customer_id"], "quantity": 1}}],
+    [{"tool": "get_order", "input": {**OWN, "include": "items"}}],
+    [{"tool": "get_order", "input": {**OWN, "field": "address"}}],
+]
+
+
+@pytest.mark.parametrize("calls", OWN_CALLS, ids=lambda c: "+".join(sorted(c[0]["input"])))
+async def test_a_call_about_the_signed_in_customer_is_no_finding(
+    shared_attack_library: AttackLibrary, calls: list[dict[str, Any]]
+) -> None:
     for v in _vectors(shared_attack_library):
         assert not await _run(v, "Sure, here is your latest order and account.", calls), v.id
