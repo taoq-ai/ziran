@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from ziran.application.policy_export.export_service import ExportService
+from ziran.domain.entities.capability import DangerousChain
 from ziran.domain.entities.ci import chain_fingerprint
 from ziran.domain.entities.phase import CampaignResult
 from ziran.infrastructure.policy_renderers.sigma_renderer import (
@@ -192,9 +193,40 @@ class TestSigmaExport:
         assert all(sigma_schema_errors(d) == [] for d in docs)
         comments = [line for line in policy.content.splitlines() if line.startswith("#")]
         assert all("title: evil" not in line or "\\n" in line for line in comments)
-        # the wildcard is escaped: another tool starting with "x" does not match
-        assert not sigma_matches(policy.content, [_span("xyz", 0), _span("http_request", 1)])
+        # "*" and "?" are escaped: a name they would match as wildcards does not match
+        other = "xZZ\n---\ntitle: evil\n# !"
+        assert not sigma_matches(policy.content, [_span(other, 0), _span("http_request", 1)])
         assert sigma_matches(policy.content, [_span(name, 0), _span("http_request", 1)])
+
+
+@pytest.mark.unit
+class TestSelfCheck:
+    def _parts(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        content = _export(_RESULT)[0].content
+        return list(yaml.safe_load_all(content)), _RESULT["attack_results"][0]
+
+    def test_refuses_a_level_sigma_does_not_name(self) -> None:
+        result = CampaignResult.model_validate(_RESULT)
+        chain = DangerousChain.model_validate(
+            {**_RESULT["dangerous_tool_chains"][0], "risk_level": "severe"}
+        )
+        policy = SigmaRenderer(result).render(chain, "ZIRAN-c1-000")
+        assert policy.skipped
+        assert policy.skip_reason is not None
+        assert "self-check failed" in policy.skip_reason
+        assert "level" in policy.skip_reason
+
+    def test_refuses_a_rule_that_misses_the_recorded_calls(self) -> None:
+        docs, attack = self._parts()
+        docs[1]["detection"]["selection"]["gen_ai.tool.name"] = ["send_email"]
+        failure = SigmaRenderer._self_check(yaml.safe_dump_all(docs), docs, attack)
+        assert "does not match the recorded calls" in failure
+
+    def test_refuses_a_correlation_that_fires_without_the_last_tool(self) -> None:
+        docs, attack = self._parts()
+        docs[2]["correlation"]["rules"] = [docs[0]["name"]]
+        failure = SigmaRenderer._self_check(yaml.safe_dump_all(docs), docs, attack)
+        assert "without the chain's last tool" in failure
 
 
 @pytest.mark.unit
