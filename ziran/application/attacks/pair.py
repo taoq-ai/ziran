@@ -71,6 +71,20 @@ def queue_pair_last(
     return rest + pair, phase_timeout + math.ceil(len(pair) / max_concurrent) * longest
 
 
+def runnable(
+    attacks: list[AttackVector], attacker: object, warnings: list[str]
+) -> list[AttackVector]:
+    """*attacks* without the PAIR vectors when there is no attacker client: they are not run,
+    and one line in *warnings* lists them (spec 127), so they never read unmeasured."""
+    if attacker is not None:
+        return attacks
+    dropped = [a.id for a in attacks if is_pair(a)]
+    warning = "PAIR vectors not run, no attacker (--attacker-model): " + ", ".join(dropped)
+    if dropped and warning not in warnings:
+        warnings.append(warning)
+    return [a for a in attacks if not is_pair(a)]
+
+
 async def run_in_phase(
     execute: Callable[..., Awaitable[AttackResult]], attack: AttackVector, phase_deadline: float
 ) -> AttackResult:

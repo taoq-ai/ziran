@@ -212,6 +212,14 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "Default: 3. Env: ZIRAN_LLM_MAX_RETRIES.",
 )
 @click.option(
+    "--attacker-model",
+    type=str,
+    default=None,
+    help="LiteLLM model id of the attacker LLM that runs tactic: pair vectors (e.g. "
+    "'openai/gpt-4o-mini'); its key is read from the provider's usual env var. Without it "
+    "those vectors are not run and the report lists them. Needs the llm extra.",
+)
+@click.option(
     "--attack-timeout",
     type=float,
     default=60.0,
@@ -398,6 +406,7 @@ def scan(
     llm_rpm: int | None,
     llm_tpm: int | None,
     llm_max_retries: int | None,
+    attacker_model: str | None,
     attack_timeout: float,
     phase_timeout: float,
     strategy: str,
@@ -524,6 +533,8 @@ def scan(
     if llm_provider or llm_model:
         config_table.add_row("LLM Provider", llm_provider or "litellm")
         config_table.add_row("LLM Model", llm_model or "gpt-4o")
+    if attacker_model:
+        config_table.add_row("Attacker Model", attacker_model)
     if quality_scoring:
         config_table.add_row("Quality Scoring", "enabled (StrongREJECT-style)")
     if dry_run:
@@ -644,6 +655,24 @@ def scan(
         except Exception as e:
             console.print(f"[yellow]Warning:[/yellow] Failed to initialize LLM client: {e}")
 
+    attacker_client = None
+    if attacker_model:  # unwrapped: PAIR records its tokens under "attacker" (spec 081)
+        from ziran.infrastructure.llm import create_llm_client
+
+        try:
+            attacker_client = create_llm_client(
+                provider=llm_provider or "litellm",
+                model=attacker_model,
+                rpm=llm_rpm,
+                tpm=llm_tpm,
+                max_retries=llm_max_retries,
+            )
+        except ImportError:
+            raise click.ClickException(
+                "--attacker-model needs the llm extra: pip install 'ziran[llm]'"
+            ) from None
+        scanner_config["attacker_llm_client"] = attacker_client
+
     if llm_client is not None:
         detector_config = _scan_detector_config(
             llm_provider=llm_provider or "litellm",
@@ -676,13 +705,13 @@ def scan(
         )
 
     if max_cost is not None:
-        if llm_client is None:
+        if llm_client is None and attacker_client is None:
             console.print(
                 "[yellow]Warning:[/yellow] --max-cost cannot trigger: no LLM client is "
                 "configured and the target stage is not priced"
             )
         detector_cfg = scanner_config.get("detector_config")
-        tracked = [llm_client] if llm_client is not None else []
+        tracked = [c for c in (llm_client, attacker_client) if c is not None]
         if detector_cfg is not None:
             tracked += [*detector_cfg.judge_clients.values(), detector_cfg.prefilter_client]
         for model in dict.fromkeys(c.config.model for c in tracked if c is not None):
@@ -2298,6 +2327,8 @@ def _display_results(result: CampaignResult) -> None:
         summary_table.add_row("Coverage Level", result.coverage_level)
 
     console.print(summary_table)
+    for warning in result.warnings:  # what the scan did not run or analyse (spec 086, 127)
+        console.print(f"Warning: {printable(warning)}", style="yellow", markup=False)
 
     # Phase details
     if result.phases_executed:

@@ -455,9 +455,10 @@ async def test_scan_reports_each_scenario_goal() -> None:
         "neg_seller_fake_competitor": True,
         "neg_seller_deceptive_commitment": True,
         "neg_seller_floor_probe": False,
-        "neg_seller_pair_floor": None,  # no attacker client: an error, the target is not called
         "neg_buyer_authority": False,
         "neg_buyer_split_order": False,
         "neg_buyer_coercion": False,
     }
+    # no attacker client: the PAIR scenario is not run and the warnings list it (spec 127)
+    assert any("not run" in w and "neg_seller_pair_floor" in w for w in result.warnings)
     assert rows["neg_seller_anchoring"]["goal_evidence"][0]["role"] == "commitment"
