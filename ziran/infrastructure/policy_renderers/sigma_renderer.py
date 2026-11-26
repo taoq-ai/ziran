@@ -106,7 +106,7 @@ class SigmaRenderer(PolicyRenderer):
     def _ran_all(attack: Mapping[str, Any], tools: Sequence[str]) -> bool:
         evidence = attack.get("evidence")
         calls = evidence.get("tool_calls") if isinstance(evidence, dict) else None
-        called = {_call_name(c) for c in calls} if isinstance(calls, list) else set()
+        called = ({_call_name(c) for c in calls} if isinstance(calls, list) else set()) - {""}
         return all(called & set(_names(t)) for t in tools)
 
     def _rules(

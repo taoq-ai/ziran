@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import yaml
 
+from tests.unit.application.test_blast_radius import CALLS, _attack, _build, _flat
 from ziran.application.policy_export.export_service import ExportService
 from ziran.domain.entities.capability import DangerousChain
 from ziran.domain.entities.ci import chain_fingerprint
@@ -132,6 +133,11 @@ class TestSigmaExport:
         raw["attack_results"][0]["evidence"] = "not a mapping"
         raw["attack_results"].append({"vector_id": "v2", "evidence": {"tool_calls": "x"}})
         assert all(p.skipped for p in _export(raw))
+        # a call with no name proves no tool, not even an unnamed one
+        raw = copy.deepcopy(_RESULT)
+        raw["attack_results"][0]["evidence"]["tool_calls"].append({"input": {}})
+        raw["dangerous_tool_chains"][0]["tools"] = ["", "http_request"]
+        assert _export(raw)[0].skipped
 
     def test_unproven_chain_is_skipped_with_reason(self) -> None:
         policy = _export(_RESULT)[1]
@@ -197,6 +203,20 @@ class TestSigmaExport:
         other = "xZZ\n---\ntitle: evil\n# !"
         assert not sigma_matches(policy.content, [_span(other, 0), _span("http_request", 1)])
         assert sigma_matches(policy.content, [_span(name, 0), _span("http_request", 1)])
+
+
+@pytest.mark.unit
+class TestFromAScan:
+    async def test_result_builder_output_exports_a_matching_rule(self) -> None:
+        """A real scan result (tool ids with ``tool_``, OpenAI-shaped calls) through the export."""
+        result, _ = _build(await _flat("read_file", "http_request"), [_attack(*CALLS)])
+        policies = ExportService(SigmaRenderer(result)).export(result, severity_floor="low")
+        exfil = [p for p in policies if p.tool_chain == ["tool_read_file", "tool_http_request"]]
+        assert exfil
+        assert not exfil[0].skipped, exfil[0].skip_reason
+        content = exfil[0].content
+        assert sigma_matches(content, [_span("read_file", 0), _span("http_request", 1)])
+        assert not sigma_matches(content, [_span("read_file", 0)])
 
 
 @pytest.mark.unit
