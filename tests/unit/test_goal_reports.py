@@ -182,10 +182,12 @@ class TestGate:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(main, "console", Console(width=80))  # a CI runner's non-tty width
-        key = "$." + "note " * 9 + "::error title=forged::ZIRAN gate passed"
-        forged = COMMIT.model_copy(update={"argument": key})
-        campaign = _campaign(_row("h", True, [forged]), _row("u", None, [forged]))
-        campaign.metadata["warnings"] = ["warn " * 15 + "::stop-commands::x"]
+        # one padding per row, so some wrap point lands right before the command
+        keys = ["$." + "a " * n + "::error title=forged::ZIRAN gate passed" for n in range(40)]
+        forged = [COMMIT.model_copy(update={"argument": k}) for k in keys]
+        rows = [_row(f"g{i}", i % 2 == 0 or None, [c]) for i, c in enumerate(forged)]
+        campaign = _campaign(*rows)
+        campaign.metadata["warnings"] = ["w " * n + "::stop-commands::x" for n in range(40)]
         result = tmp_path / "result.json"
         result.write_text(campaign.model_dump_json())
         gate = tmp_path / "gate.yaml"
