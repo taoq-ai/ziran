@@ -12,6 +12,7 @@ and attempt exploitation — all tracked via the knowledge graph.
 
 from __future__ import annotations
 
+import secrets
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -87,6 +88,11 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
+
+
+def new_campaign_id() -> str:
+    """``campaign_<unix seconds>_<8 hex>``; the suffix keeps same-second scans apart."""
+    return f"campaign_{int(datetime.now(tz=UTC).timestamp())}_{secrets.token_hex(4)}"
 
 
 class AgentScannerError(Exception):
@@ -228,7 +234,7 @@ class AgentScanner:
         if strategy is None:
             strategy = FixedStrategy(stop_on_critical=stop_on_critical)
 
-        campaign_id = f"campaign_{int(datetime.now(tz=UTC).timestamp())}"
+        campaign_id = new_campaign_id()
         campaign_start = datetime.now(tz=UTC)
 
         # Resume from checkpoint if available.

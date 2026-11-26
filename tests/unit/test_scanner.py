@@ -965,3 +965,48 @@ class TestBudgetCap:
 
         with pytest.raises(ValidationError):
             AgentScanner(mock_adapter, config={"max_campaign_tokens": 0})
+
+
+@pytest.mark.unit
+class TestCampaignIdUnique:
+    def test_ids_in_one_second_differ_and_keep_the_prefix(self) -> None:
+        import re
+
+        from ziran.application.agent_scanner.scanner import new_campaign_id
+
+        ids = {new_campaign_id() for _ in range(50)}
+        assert len(ids) == 50
+        assert all(re.fullmatch(r"campaign_\d+_[0-9a-f]{8}", i) for i in ids)
+
+    def test_probe_trace_ids_differ_across_scans_of_one_vector(self) -> None:
+        from ziran.application.agent_scanner.scanner import new_campaign_id
+        from ziran.domain.probe_markers import mark_probe, probe_scope
+
+        traces = []
+        for _ in range(2):
+            with probe_scope(new_campaign_id(), "vec") as markers:
+                mark_probe("traceparent")
+            traces.append(markers[0].trace_id)
+        assert traces[0] != traces[1]
+
+    async def test_resume_keeps_the_original_id(
+        self, shared_attack_library: AttackLibrary, tmp_path: Any
+    ) -> None:
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        first, _, _ = await TestBudgetCap()._run(
+            shared_attack_library, tmp_path, max_campaign_tokens=1
+        )
+        stored = CheckpointManager(tmp_path).load().campaign_id
+        assert stored == first.campaign_id
+        resumed, _, _ = await TestBudgetCap()._run(shared_attack_library, tmp_path, resume=True)
+        assert resumed.campaign_id == stored
+
+    def test_old_checkpoint_id_still_loads(self, tmp_path: Any) -> None:
+        import json
+
+        from ziran.application.agent_scanner.checkpoint import CheckpointManager
+
+        mgr = CheckpointManager(tmp_path)
+        mgr.path.write_text(json.dumps({"campaign_id": "campaign_1756462504"}), encoding="utf-8")
+        assert mgr.load().campaign_id == "campaign_1756462504"
