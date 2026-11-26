@@ -6,7 +6,7 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 | Metric | Value |
 |--------|-------|
-| Attack vectors | **677** |
+| Attack vectors | **694** |
 | Attack categories | **11** |
 | OWASP LLM Top 10 | **100.0%** (10/10) |
 | Multi-turn tactics | **10** |
@@ -19,14 +19,14 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 | Code | Category | Vectors | Status |
 |------|----------|---------|--------|
-| **LLM01** | Prompt Injection | 485 | :white_check_mark: Comprehensive |
-| **LLM02** | Insecure Output Handling | 202 | :white_check_mark: Comprehensive |
+| **LLM01** | Prompt Injection | 500 | :white_check_mark: Comprehensive |
+| **LLM02** | Insecure Output Handling | 211 | :white_check_mark: Comprehensive |
 | **LLM03** | Training Data Poisoning | 19 | :white_check_mark: Strong |
 | **LLM04** | Model Denial of Service | 14 | :white_check_mark: Strong |
 | **LLM05** | Supply Chain Vulnerabilities | 18 | :white_check_mark: Strong |
-| **LLM06** | Sensitive Information Disclosure | 116 | :white_check_mark: Comprehensive |
+| **LLM06** | Sensitive Information Disclosure | 119 | :white_check_mark: Comprehensive |
 | **LLM07** | Insecure Plugin Design | 164 | :white_check_mark: Comprehensive |
-| **LLM08** | Excessive Agency | 168 | :white_check_mark: Comprehensive |
+| **LLM08** | Excessive Agency | 176 | :white_check_mark: Comprehensive |
 | **LLM09** | Overreliance | 15 | :white_check_mark: Strong |
 | **LLM10** | Unbounded Consumption | 10 | :white_check_mark: Strong |
 
@@ -36,8 +36,8 @@ How ZIRAN's attack vector library compares against published AI agent security b
 |-----------|-------|-----------|-------:|------:|----------|--------|-----|
 | **AgentHarm** | ICLR 2025 | Harm categories | 11 | 11 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-06](https://github.com/taoq-ai/ziran/issues/37) |
 | **AgentHarm** | ICLR 2025 | Multi-step vectors | 440 | 173 | `██████░░░░░░░░░` 39.3% | :construction: open | [GAP-23](https://github.com/taoq-ai/ziran/issues/131) |
-| **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 65 | `█░░░░░░░░░░░░░░` 6.2% | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
-| **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 65 | `██░░░░░░░░░░░░░` 10.3% | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
+| **InjecAgent** | ACL 2024 | Indirect injection vectors | 1,054 | 74 | `█░░░░░░░░░░░░░░` 7.0% | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
+| **AgentDojo** | NeurIPS 2024 | Indirect injection vectors | 629 | 74 | `██░░░░░░░░░░░░░` 11.8% | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
 |  |  | Utility measurement (baseline + post-attack) | 1 | 1 | `███████████████` 100.0% |  |  |
 | **HarmBench** | ICML 2024 | Attack tactics | 18 | 10 | `████████░░░░░░░` 55.6% | :white_check_mark: closed | [GAP-08](https://github.com/taoq-ai/ziran/issues/39) |
 |  |  | Jailbreak vectors | 510 | 220 | `██████░░░░░░░░░` 43.1% |  |  |
@@ -47,7 +47,7 @@ How ZIRAN's attack vector library compares against published AI agent security b
 |  |  | Scoring dimensions (refusal, specificity, convincingness) | 3 | 3 | `███████████████` 100.0% |  |  |
 | **MCPTox** | 2025 | MCP vectors | 1,312 | 111 | `█░░░░░░░░░░░░░░` 8.5% | :construction: open | [GAP-03](https://github.com/taoq-ai/ziran/issues/34) |
 | **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 11 | `███████████████` 100% | :construction: open | [GAP-01](https://github.com/taoq-ai/ziran/issues/32) |
-|  |  | Total vectors | 400 | 677 | `███████████████` 100% |  |  |
+|  |  | Total vectors | 400 | 694 | `███████████████` 100% |  |  |
 |  |  | Utility-under-attack measurement | 1 | 1 | `███████████████` 100.0% |  |  |
 | **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 220 | `░░░░░░░░░░░░░░░` 0.2% | :construction: open | [GAP-16](https://github.com/taoq-ai/ziran/issues/55) |
 |  |  | Representative pattern families | — | 11 | _Distinct TensorTrust pattern families covered_ |  |  |
@@ -55,10 +55,10 @@ How ZIRAN's attack vector library compares against published AI agent security b
 |  |  | WildJailbreak-inspired multi-turn vectors | — | 10 | _Distinct tactic families from WildJailbreak_ |  |  |
 | **LLMail-Inject / RAG Poisoning** | 2024 | RAG retrieval-targeted vectors | — | 13 | _Retrieval-ranked payloads across multiple document framings_ | :construction: open | [GAP-13](https://github.com/taoq-ai/ziran/issues/44) |
 | **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :construction: open | [GAP-07](https://github.com/taoq-ai/ziran/issues/38) |
-| **BIPIA** | 2024 | Indirect injection vectors | — | 65 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
+| **BIPIA** | 2024 | Indirect injection vectors | — | 74 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](https://github.com/taoq-ai/ziran/issues/33) |
 | **CyberSecEval** | Meta, 2024 | Code-generation safety vectors | — | 10 | _Code-gen safety + cyber knowledge elicitation families_ | :construction: open | [GAP-18](https://github.com/taoq-ai/ziran/issues/57) |
-|  |  | Total library overlap | — | 677 | _Multi-category benchmark — partial overlap_ |  |  |
-| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 188 | `███████████████` 100% | :construction: open | [GAP-19](https://github.com/taoq-ai/ziran/issues/58) |
+|  |  | Total library overlap | — | 694 | _Multi-category benchmark — partial overlap_ |  |  |
+| **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 192 | `███████████████` 100% | :construction: open | [GAP-19](https://github.com/taoq-ai/ziran/issues/58) |
 |  |  | Dedicated sandbox-evasion vectors | — | 10 | _Sandbox-evasion vectors distinct from generic tool manipulation_ |  |  |
 | **R-Judge** | 2024 | R-Judge risk types (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-20](https://github.com/taoq-ai/ziran/issues/59) |
 |  |  | Risk scoring detectors | — | 5 | _5 detectors — different approach than interaction records_ |  |  |
@@ -106,13 +106,13 @@ How ZIRAN's attack vector library compares against published AI agent security b
 | Category | Vectors |
 |----------|---------|
 | prompt_injection | 220 |
-| tool_manipulation | 188 |
-| indirect_injection | 65 |
+| tool_manipulation | 192 |
+| indirect_injection | 74 |
 | data_exfiltration | 60 |
 | privilege_escalation | 41 |
 | system_prompt_extraction | 27 |
+| authorization_bypass | 21 |
 | memory_poisoning | 20 |
-| authorization_bypass | 17 |
 | chain_of_thought_manipulation | 15 |
 | model_dos | 13 |
 | multi_agent | 11 |
@@ -121,7 +121,7 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 | Tactic | Vectors |
 |--------|---------|
-| single | 448 |
+| single | 465 |
 | context_buildup | 63 |
 | crescendo | 38 |
 | persona_shift | 23 |
@@ -137,8 +137,8 @@ How ZIRAN's attack vector library compares against published AI agent security b
 
 | Severity | Vectors |
 |----------|---------|
-| critical | 383 |
-| high | 220 |
+| critical | 391 |
+| high | 229 |
 | low | 1 |
 | medium | 73 |
 

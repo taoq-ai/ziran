@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-11-26T08:45:41.806646+00:00",
-  "total_vectors": 677,
+  "timestamp": "2026-11-26T13:31:29.879235+00:00",
+  "total_vectors": 694,
   "categories": 11,
   "owasp_coverage_pct": 100.0,
   "owasp_covered": 10,
@@ -25,9 +25,9 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 65,
+          "implemented": 74,
           "target": 1054,
-          "pct": 6.2
+          "pct": 7.0
         }
       ]
     },
@@ -36,9 +36,9 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 65,
+          "implemented": 74,
           "target": 629,
-          "pct": 10.3
+          "pct": 11.8
         },
         {
           "dimension": "Utility measurement (baseline + post-attack)",
@@ -121,7 +121,7 @@
         },
         {
           "dimension": "Total vectors",
-          "implemented": 677,
+          "implemented": 694,
           "target": 400,
           "pct": 100
         },
@@ -194,7 +194,7 @@
       "metrics": [
         {
           "dimension": "Indirect injection vectors",
-          "implemented": 65,
+          "implemented": 74,
           "target": null,
           "pct": null
         }
@@ -211,7 +211,7 @@
         },
         {
           "dimension": "Total library overlap",
-          "implemented": 677,
+          "implemented": 694,
           "target": null,
           "pct": null
         }
@@ -222,7 +222,7 @@
       "metrics": [
         {
           "dimension": "Tool manipulation vectors",
-          "implemented": 188,
+          "implemented": 192,
           "target": 144,
           "pct": 100
         },
