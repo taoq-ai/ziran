@@ -1429,13 +1429,10 @@ def audit(
     analyzer = StaticAnalyzer()
     scan = load_claude_code(target, analyzer.config.skip_directories)
     # The AI-BOM and the baseline hold agents only; skills alone do not count (spec 125).
-    agents_found = (
-        scan.plugin is not None or bool(scan.agents) or bool(scan.issues and not scan.skills)
-    )
     if aibom_path:
         from ziran.application.aibom import build_aibom
 
-        if not agents_found:
+        if not scan.agents_detected:
             raise click.UsageError("--aibom: no Claude Code plugin or agent definitions under PATH")
         try:
             Path(aibom_path).write_text(
@@ -1465,7 +1462,7 @@ def audit(
 
     narrowed: list[BaselineNarrowing] | None = None
     if baseline_path or write_baseline_path:
-        if not agents_found:
+        if not scan.agents_detected:
             raise click.UsageError("no Claude Code agent definitions found under PATH")
         if write_baseline_path:
             baseline = build_baseline(scan, trifecta_roles)

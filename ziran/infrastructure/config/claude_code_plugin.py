@@ -450,6 +450,7 @@ def load_claude_code(path: Path, skip_dirs: Iterable[str] = ()) -> ClaudeCodeSca
             _Scanner(path.parent, scan, skip_dirs).skill_files([path])
         elif path.suffix == ".md":
             _Scanner(path.parent, scan).agent_files([path])
+            scan.agent_issues = len(scan.issues)
         return scan
     if not os.path.isdir(path):
         return scan
@@ -467,6 +468,7 @@ def load_claude_code(path: Path, skip_dirs: Iterable[str] = ()) -> ClaudeCodeSca
     if path.name == "agents":
         sources.append(path)
     found = scanner.agent_files([*sources, *component("agents")])
+    scan.agent_issues = len(scan.issues)  # manifest and agent files only: skills come next
     skill_sources = [path / "skills", path / ".claude" / "skills", *component("skills")]
     if path.name == "skills":
         skill_sources.append(path)

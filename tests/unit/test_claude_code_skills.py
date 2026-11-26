@@ -429,3 +429,39 @@ class TestFixRound1:
         scan = load_claude_code(tmp_path)
         assert [b.kind for b in scan.skills[0].bundled] == ["python"]
         assert any(f.file_path.endswith("RUN.PY") for f in audit_claude_code(scan).findings)
+
+
+_TREES = {
+    "valid_agent": {".claude/agents/rev.md": "---\nname: rev\ntools: Read\n---\n"},
+    "broken_agent": {".claude/agents/rev.md": "---\nname: [rev\n---\n"},
+    "broken_agent_valid_skill": {
+        ".claude/agents/rev.md": "---\nname: [rev\n---\n",
+        ".claude/skills/plain/SKILL.md": "---\nname: plain\n---\n",
+    },
+    "valid_skill": {".claude/skills/plain/SKILL.md": "---\nname: plain\n---\n"},
+    "broken_skill": {"skills/bad/SKILL.md": "---\nname: [bad\n---\n"},
+}
+_AGENTS = {"valid_agent", "broken_agent", "broken_agent_valid_skill"}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("tree", sorted(_TREES))
+@pytest.mark.parametrize("flag", ["plain", "--baseline", "--write-baseline", "--aibom"])
+def test_agent_gates_follow_what_the_loader_saw(tmp_path: Path, tree: str, flag: str) -> None:
+    """Fix round 2: --aibom and the baseline flags need a plugin or agent file, broken or not."""
+    root = tmp_path / "t"
+    for rel, text in _TREES[tree].items():
+        _write(root / rel, text)
+    out = tmp_path / "out.json"
+    args = ["audit", str(root)]
+    if flag == "--baseline":
+        out.write_text('{"version": 1, "agents": {}}')
+    if flag != "plain":
+        args += [flag, str(out)]
+    result = CliRunner().invoke(cli, args)
+    gated = flag != "plain" and tree not in _AGENTS
+    assert (result.exit_code == 2) is gated, result.output
+    if tree.startswith("broken") and not gated:
+        assert "CC000" in result.stdout
+    if flag in ("--aibom", "--write-baseline"):
+        assert out.exists() is not gated

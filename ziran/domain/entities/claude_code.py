@@ -149,8 +149,18 @@ class ClaudeCodeScan(BaseModel):
     #: server name -> the config file that first defined it (spec 123).
     mcp_sources: dict[str, str] = Field(default_factory=dict)
     issues: list[ClaudeCodeParseIssue] = Field(default_factory=list)
+    #: issues the loader raised on the manifest or agent files, before any skill was read.
+    agent_issues: int = 0
     files_analyzed: int = 0
 
     @property
     def detected(self) -> bool:
         return self.plugin is not None or bool(self.agents or self.skills or self.issues)
+
+    @property
+    def agents_detected(self) -> bool:
+        """A plugin or agent definitions were found, broken ones included; skills do not count.
+
+        What the AI-BOM and the baseline consume (spec 125).
+        """
+        return self.plugin is not None or bool(self.agents) or self.agent_issues > 0
