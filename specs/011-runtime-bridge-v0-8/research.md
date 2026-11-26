@@ -14,7 +14,7 @@
 - **Deny mechanism**: Populate a `deny` set; caller checks `count(deny) > 0`.
 - **Sequence detection**: Manual via array indexing (`input.trace[i].tool`, `input.trace[i+1].tool`).
 - **Comments**: `#` prefix.
-- **Structure**: `package ziran.guardrails` → `deny[msg] { ... }` rules.
+- **Structure**: `package ziran.guardrails`, `import rego.v1`, then `deny contains msg if { ... }` rules (OPA 1.0 syntax, spec 107; loads in OPA 0.x from 0.59).
 - **Fit**: Excellent — trace-level sequence rules map directly to array iteration.
 
 #### AWS Cedar

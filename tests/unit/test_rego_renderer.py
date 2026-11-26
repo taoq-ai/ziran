@@ -42,7 +42,8 @@ class TestRegoRenderer:
 
     def test_render_contains_deny_rule(self, renderer: RegoRenderer, chain: DangerousChain) -> None:
         policy = renderer.render(chain, finding_id="ZIR-0001")
-        assert "deny[msg]" in policy.content
+        assert "deny contains msg if {" in policy.content
+        assert "import rego.v1" in policy.content
 
     def test_render_contains_tool_names(
         self, renderer: RegoRenderer, chain: DangerousChain
