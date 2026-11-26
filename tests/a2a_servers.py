@@ -63,9 +63,9 @@ class A2AServer:
         revoked: set[str] | None = None,
         name: str = "Travel Agent",
         skills: list[dict[str, str]] | None = None,
-        fail: dict[str, int] | None = None,
+        fail: dict[str, int | bytes] | None = None,
         reply_message: bool = False,
-        revoked_state: str | None = None,
+        revoked_state: Any = None,
         jwks: dict[str, Any] | None = None,
         rpc_error: Any = None,
     ) -> None:
@@ -74,7 +74,7 @@ class A2AServer:
         self.tokens = tokens or {}  # bearer token -> client; empty means the server has no auth
         self.revoked = revoked or set()
         self.name, self.skills = name, SKILLS if skills is None else skills
-        self.fail = fail or {}  # bearer token -> HTTP status for every A2A call it makes
+        self.fail = fail or {}  # bearer token -> HTTP status (or raw 200 body) for its A2A calls
         self.reply_message = reply_message  # answer with a message, not a task
         self.revoked_state = revoked_state  # refuse a revoked token with HTTP 200 and this state
         self.jwks = jwks
@@ -170,8 +170,11 @@ class A2AServer:
 
             def _failed(self) -> bool:
                 token = (self.headers.get("Authorization") or "").removeprefix("Bearer ")
-                if token in server.fail:
-                    self._send(server.fail[token], {"error": "unavailable"})
+                answer = server.fail.get(token)
+                if isinstance(answer, bytes):  # this raw body, with HTTP 200
+                    self._send(200, answer)
+                elif answer is not None:
+                    self._send(answer, {"error": "unavailable"})
                 return token in server.fail
 
             def do_GET(self) -> None:

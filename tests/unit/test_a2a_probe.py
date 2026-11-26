@@ -255,17 +255,57 @@ async def test_a_signature_that_cannot_be_checked_is_unmeasured(
     assert result.evidence["signatures"][0]["result"].startswith("unverifiable")
 
 
+_DEEP = b'{"a":' * 20000 + b"1" + b"}" * 20000
+
+
+async def _bounded(vector_id: str, server: A2AServer, **config: Any) -> AttackResult:
+    """The probe, failing fast if a RecursionError escapes (pytest would render every frame)."""
+    escaped = False
+    try:
+        return await _probe(vector_id, server, **config)
+    except RecursionError:
+        escaped = True
+    assert not escaped, "RecursionError escaped the probe"
+    raise AssertionError  # unreachable
+
+
 async def test_a_card_nested_too_deep_is_unmeasured_not_dropped() -> None:
     # Python 3.12+ parses it and the canonical form recurses; 3.11 refuses it at parse
-    deep = b'{"a":' * 20000 + b"1" + b"}" * 20000
     header = b64url(json.dumps({"alg": "ES256", "kid": "k1"}).encode())
     signatures = json.dumps([{"protected": header, "signature": "AAAA"}]).encode()
-    raw = b'{"name":"Agent","deep":' + deep + b',"signatures":' + signatures + b"}"
+    raw = b'{"name":"Agent","deep":' + _DEEP + b',"signatures":' + signatures + b"}"
     with A2AServer(raw_card=raw) as server, A2AServer() as keys:
-        result = await _probe(
+        result = await _bounded(
             "a2a_card_signature_invalid", server, jwks_url=f"{keys.url}/jwks.json"
         )
     assert _unmeasured(result)
+
+
+async def test_a_reply_to_client_b_nested_too_deep_is_unmeasured() -> None:
+    with A2AServer(vulnerable=True, tokens=_TOKENS, fail={"tok-b": _DEEP}) as server:
+        result = await _bounded("a2a_cross_client_context", server, **_AB)
+    assert _unmeasured(result)
+
+
+def test_a_json_body_too_deep_to_parse_is_no_usable_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    from ziran.infrastructure.adapters.protocols.a2a_wire import _reply
+
+    def deep(self: httpx.Response, **kwargs: Any) -> Any:
+        raise RecursionError
+
+    monkeypatch.setattr(httpx.Response, "json", deep)
+    reply = _reply(httpx.Response(200, content=b"{}"))
+    assert not reply.accepted and reply.error == "reply nested too deep"
+
+
+@pytest.mark.parametrize("state", [{"x": 1}, ["TASK_STATE_REJECTED"], "Bearer tok-old"])
+async def test_a_replay_state_that_is_not_an_a2a_state_is_unmeasured(state: Any) -> None:
+    with A2AServer(tokens=_OLD, revoked={"tok-old"}, vulnerable=False, revoked_state=state) as s:
+        result = await _probe("a2a_delegated_token_replay", s, **_A, replay_auth=_bearer("tok-old"))
+    assert _unmeasured(result) and result.evidence["task_state"] is None
+    assert "tok-old" not in json.dumps(result.model_dump(mode="json"))
 
 
 async def test_a_card_over_one_mebibyte_is_unmeasured() -> None:

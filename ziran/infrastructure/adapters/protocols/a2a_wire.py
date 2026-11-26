@@ -108,7 +108,9 @@ def _reply(response: httpx.Response) -> A2AReply:
         return A2AReply(status=response.status_code, error=f"response over {_MAX_BYTES} bytes")
     try:
         data = response.json()
-    except (ValueError, RecursionError):
+    except RecursionError:  # nested too deep to read: no usable answer
+        return A2AReply(status=response.status_code, error="reply nested too deep")
+    except ValueError:
         data = None
     body = data if isinstance(data, dict) else {}
     return A2AReply(status=response.status_code, body=body, text=response.text)
