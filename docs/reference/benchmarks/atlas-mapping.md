@@ -3,7 +3,7 @@
 ZIRAN maps every attack vector in its library to one or more [MITRE ATLAS](https://atlas.mitre.org/) techniques. This page explains how the mapping works, where the data comes from, and how to read it in reports and dashboards.
 
 !!! info "Snapshot"
-    The ATLAS taxonomy embedded in ZIRAN is **pinned to the October 2025 ATLAS release** (16 tactics, 14 AI-agent-specific techniques). Later techniques a vector needs are added one at a time, with the ATLAS release that introduced them noted in the enum (for example `AML.T0105` from v5.4.0 and `AML.T0142` from v2026.10); the enum holds 88 techniques. Later ATLAS updates are adopted by later ZIRAN releases. This mirrors how OWASP LLM Top 10 is already embedded.
+    The ATLAS taxonomy embedded in ZIRAN is **pinned to the October 2025 ATLAS release** (16 tactics, 14 AI-agent-specific techniques). Later techniques a vector needs are added one at a time, with the ATLAS release that introduced them noted in the enum (for example `AML.T0105` from v5.4.0 and `AML.T0142` from v2026.10); the enum holds 100 techniques. The agent techniques of v2026.10 are listed under [Agent techniques](#agent-techniques-atlas-v202610). Later ATLAS updates are adopted by later ZIRAN releases. This mirrors how OWASP LLM Top 10 is already embedded.
 
 ## Why ATLAS
 
@@ -105,16 +105,37 @@ JSON output is deterministic (stable key + array ordering, no timestamps) so dow
 | | `AML.T0047` AI-Enabled Product or Service | 457 | Premise of every scan (see below) |
 | | `AML.T0044` Full AI Model Access | 2 | Model-theft vectors (`mt_systematic_extraction`, `mt_deterministic_weight_approximation`) |
 | | `AML.T0041` Physical Environment Access | 0 | Out of scope: ZIRAN tests software agents over their APIs and has no physical access to the deployment |
-| `AML.TA0001` AI Attack Staging (7/7) | `AML.T0042` Verify Attack | 384 | Prompt-injection, indirect-injection, tool-manipulation, MCP, A2A and harmful-task vectors that check whether the attack landed |
+| `AML.TA0001` AI Attack Staging (7/8) | `AML.T0042` Verify Attack | 384 | Prompt-injection, indirect-injection, tool-manipulation, MCP, A2A and harmful-task vectors that check whether the attack landed |
 | | `AML.T0043` Craft Adversarial Data | 175 | Prompt-injection, jailbreak, harmful-task, MCP and A2A vectors (the payload is the crafted adversarial data) |
 | | `AML.T0018` Manipulate AI Model (and `.000` / `.001` / `.002`) | 19 / 17 / 17 / 13 | Memory-poisoning, supply-chain, A2A and multi-turn vectors; shared with `AML.TA0006` Persistence |
 | | `AML.T0005` Create Proxy AI Model | 1 | Model extraction (`mt_systematic_extraction`) |
+| | `AML.T0118` Autonomous AI Agent Communication | 0 | Out of scope: describes the attacker's own agents coordinating, which a scan of the target cannot observe |
 
 `AML.T0040` and `AML.T0047` coverage comes from the premise that every ZIRAN scan reaches the target through its inference API, inside an AI-enabled product or service. It is not a separate model-access attack, so read these two counts as context, not as a distinct capability.
 
 The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 677-vector library); the table above therefore lists techniques.
 
 No dedicated staging or reconnaissance vectors are added for AI Attack Staging: adversary-side staging has no observable outcome on a target, and tagging vectors with it would only pad counts.
+
+## Agent techniques (ATLAS v2026.10)
+
+These ids come from ATLAS data release 2026.10 ([`dist/v6/ATLAS-2026.10.yaml`](https://github.com/mitre-atlas/atlas-data/blob/f56c1468731d6428e5bf875263b4643b46d67437/dist/v6/ATLAS-2026.10.yaml)). A vector carries one only when it tests that technique; [spec 109](https://github.com/taoq-ai/ziran/blob/main/specs/109-atlas-agent-mappings/spec.md) gives the reason for each mapping, and a unit test pins each technique to its vector set.
+
+| Technique | Vectors | What the vectors do |
+|---|---:|---|
+| `AML.T0080` AI Agent Context Poisoning | 13 | Parent of the two rows below |
+| `AML.T0080.000` Memory | 4 | Ask the agent to store a planted fact or rule in persistent or shared memory |
+| `AML.T0080.001` Thread | 9 | Plant an instruction or fake history that must govern the rest of the thread |
+| `AML.T0081` Modify AI Agent Configuration | 5 | Change the agent's settings or add an MCP server to its configuration |
+| `AML.T0084` Discover AI Agent Configuration | 7 | Read the agent card or ask for a dump of tools, prompt and settings |
+| `AML.T0133` Discover AI Agent Runtime Capabilities | 5 | Probe tools and permissions by asking what the agent can and cannot do |
+| `AML.T0086` Exfiltration via AI Agent Tool Invocation | 23 | Make the agent send data out through a tool call (email, HTTP, file, MCP arguments) |
+| `AML.T0110` AI Agent Tool Poisoning | 82 | Parent of the three rows below |
+| `AML.T0110.000` Definition and Instructions | 72 | The payload sits in a tool's name, description, parameter schema or manifest |
+| `AML.T0110.001` Implementation | 0 | Out of scope: the payload runs in the tool's code, which a prompt-driven scan neither plants nor observes |
+| `AML.T0110.002` Runtime Response | 11 | The payload arrives in a tool's response |
+
+These techniques are not added to `AGENT_SPECIFIC_TECHNIQUES`. That set stays at the 14 techniques of the October 2025 release, and the coverage gate requires all of them covered; `AML.T0110.001` and `AML.T0118` have no vector by design.
 
 ## Updating the snapshot
 

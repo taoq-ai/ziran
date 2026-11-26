@@ -65,7 +65,7 @@ Two OWASP lists address AI security. The LLM Top 10 targets model-level risks. T
 
 The Agentic ids are those of the OWASP Top 10 for Agentic Applications 2026, published by the OWASP GenAI Security Project on 2025-12-09 ([genai.owasp.org](https://genai.owasp.org/top-10-for-agentic-applications-2026/)).
 
-Every attack vector carries an `owasp_agentic_mapping` list beside its `owasp_mapping`, and every finding in the scan JSON copies it. The library sets one default per attack category; a vector's YAML sets `owasp_agentic_mapping` itself where the default is wrong, as the supply-chain (ASI04) and code-execution (ASI05) vectors do. The built-in vectors cover ASI01 to ASI07; no vector targets ASI08, ASI09 or ASI10 yet.
+Every attack vector carries an `owasp_agentic_mapping` list beside its `owasp_mapping`, and every finding in the scan JSON copies it. The library sets one default per attack category; a vector's YAML sets `owasp_agentic_mapping` itself where the default is wrong, as the supply-chain (ASI04) and code-execution (ASI05) vectors do. The multi-agent family defaults to ASI07 and ASI08 (a fault injected at one agent spreads to the agents it delegates to). The MCP elicitation vectors set ASI09, since a hostile server asks the human for credentials through the agent client, and the two agent impersonation vectors (`ma_trust_escalation`, `a2a_card_forgery_impersonation`) set ASI10.
 
 ---
 

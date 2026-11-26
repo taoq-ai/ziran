@@ -62,7 +62,7 @@ can tell it to send that file to a URL the attacker picks. A per-tool check pass
 - The lethal trifecta: private data, untrusted content and egress in one agent.
 - Side effects: a tool call fired while the reply says "I can't do that".
 - Trust between agents: peer messages accepted without validation in multi-agent systems.
-- Attack coverage: 677 vectors, 10/10 OWASP LLM Top 10 categories and 75/88 MITRE ATLAS
+- Attack coverage: 677 vectors, 10/10 OWASP LLM Top 10 categories and 85/100 MITRE ATLAS
   techniques.
 
 ## Documentation
