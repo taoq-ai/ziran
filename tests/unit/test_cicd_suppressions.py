@@ -642,7 +642,7 @@ class TestGitHubActionsSuppressions:
         r = _campaign(attacks=[_attack()])
         g = _eval(r, _entries_for(r, reason="a|b", expires=date(2026, 1, 1)))
         md = write_step_summary(g, r, summary_path=None)
-        assert "(reason: a\\|b)" in md
+        assert "\\(reason\\: a\\|b\\)" in md  # md_text escapes, the pipe is a cell escape
 
     def test_step_summary_no_file(self) -> None:
         r = _campaign(attacks=[_attack()])
