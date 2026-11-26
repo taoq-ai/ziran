@@ -82,7 +82,7 @@ langfuse = [
 promptfoo = []
 # Spec 071: the hostile MCP server (ziran mcp-hostile-server); same range as the override.
 mcp = [
-    "mcp>=1.30,<2",
+    "mcp>=1.30,<3",
 ]
 # WebSocket targets (ws_handler.py).
 streaming = [
