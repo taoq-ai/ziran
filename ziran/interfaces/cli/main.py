@@ -1836,7 +1836,7 @@ def ci(
         set_output,
         write_step_summary,
     )
-    from ziran.application.cicd.sarif import campaign_from_sarif, write_sarif
+    from ziran.application.cicd.sarif import GOALS_METADATA_KEY, campaign_from_sarif, write_sarif
 
     filepath = Path(result_file)
 
@@ -1873,11 +1873,12 @@ def ci(
         console.print(f"[bold red]Unexpected error loading gate config:[/bold red] {e}")
         sys.exit(1)
 
-    if from_sarif and gate.config.fail_on_goal_met:  # a SARIF carries no goal verdicts
-        console.print(
-            f"fail_on_goal_met needs the scan result JSON: {filepath} is a SARIF",
+    if from_sarif and gate.config.fail_on_goal_met and not result.metadata.get(GOALS_METADATA_KEY):
+        console.print(  # an older SARIF holds no goal state: never pass it silently
+            f"fail_on_goal_met needs the scan result JSON: {printable(str(filepath))} is a SARIF",
             style="bold red",
             markup=False,
+            soft_wrap=True,
         )
         sys.exit(1)
 

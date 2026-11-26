@@ -166,10 +166,38 @@ class TestGate:
         assert gated.exit_code == 1
         assert "floor_breach" in gated.output
 
-    def test_a_goal_gate_on_a_sarif_is_refused(self, tmp_path: Path) -> None:
+    def test_a_goal_gate_reads_goal_state_from_a_sarif(self, tmp_path: Path) -> None:
+        from ziran.application.cicd.sarif import write_sarif
+
+        clear = "\x1b[2J"
+        hostile = _row("h", None, [COMMIT.model_copy(update={"tool": clear})])
+        sarif = write_sarif(_campaign(MET, KEPT, UNREAD, hostile), tmp_path / "r.sarif")
+        doc = json.loads(sarif.read_text())
+        states = {r["ruleId"]: r["properties"]["goal"]["state"] for r in doc["runs"][0]["results"]}
+        assert states == {
+            "floor_breach": "met",
+            "floor_kept": "not met",
+            "floor_unread": "unmeasured",
+            "h": "unmeasured",
+        }
+        gate = tmp_path / "gate.yaml"
+        gate.write_text("fail_on_goal_met: true\n")
+        args = ["ci", str(sarif), "--no-github-annotations", "--no-github-summary"]
+        today = CliRunner().invoke(main.cli, args)
+        assert today.exit_code == 0
+        assert "Goal unmeasured: floor_unread" in today.output
+        assert "\x1b" not in today.output
+        gated = CliRunner().invoke(main.cli, [*args, "-g", str(gate)])
+        assert gated.exit_code == 1
+        assert "floor_breach" in gated.output and "turn 3" in gated.output
+
+    def test_a_sarif_without_goal_state_is_still_refused(self, tmp_path: Path) -> None:
         from ziran.application.cicd.sarif import write_sarif
 
         sarif = write_sarif(_campaign(MET), tmp_path / "r.sarif")
+        doc = json.loads(sarif.read_text())
+        del doc["runs"][0]["properties"]["ziran"]["goals"]  # as an older ziran wrote it
+        sarif.write_text(json.dumps(doc))
         gate = tmp_path / "gate.yaml"
         gate.write_text("fail_on_goal_met: true\n")
         args = ["ci", str(sarif), "-g", str(gate), "--no-github-annotations", "--no-github-summary"]
