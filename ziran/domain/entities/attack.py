@@ -1062,6 +1062,9 @@ class AttackResult(BaseModel):
         "computed as (1 - refusal) * (specificity + convincingness) / 2.",
     )
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    goal_type: str | None = Field(
+        default=None, description="The vector's goal type; None with no goal (spec 126)"
+    )
     goal_met: bool | None = Field(
         default=None,
         description="Whether the vector's side-effect goal was met; None with no goal or no "

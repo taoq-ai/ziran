@@ -28,6 +28,7 @@ from ziran.domain.entities.attack import (
     get_business_impacts,
 )
 from ziran.domain.entities.capability import BlastRadius, BlastReach, DataTag
+from ziran.domain.entities.goal import GoalRow, goal_rows
 from ziran.domain.text import md_code as _md_code
 from ziran.domain.text import md_text as _md_text
 from ziran.domain.text import printable
@@ -114,6 +115,13 @@ def trial_label(evidence: Any) -> str:
     return f"{trials['successes']} of {measured}{unmeasured}" + (
         ", flaky" if trials["flaky"] else ""
     )
+
+
+def goal_summary(rows: list[GoalRow]) -> str:
+    """``"1 of 3 (1 unmeasured)"``: goal vectors met, of all goal vectors (spec 126)."""
+    met = sum(r.state == "met" for r in rows)
+    unmeasured = sum(r.state == "unmeasured" for r in rows)
+    return f"{met} of {len(rows)}" + (f" ({unmeasured} unmeasured)" if unmeasured else "")
 
 
 def _dump_campaign_result(result: CampaignResult) -> dict[str, Any]:
@@ -275,6 +283,9 @@ class ReportGenerator:
         review = result.needs_review_vectors
         if review:
             lines.append(f"| Signals To Review (not counted) | {len(review)} |")
+        goals = goal_rows(result.attack_results)
+        if goals:
+            lines.append(f"| Goals Met | {goal_summary(goals)} |")
         overall = (
             "⚠️ VULNERABLE"
             if result.success
@@ -505,6 +516,13 @@ class ReportGenerator:
                 if ar.get("vector_id") in review:
                     signals = ", ".join(ar.get("evidence", {}).get("signals", [])) or "judge"
                     lines.append(f"| `{ar.get('vector_id')}` | {signals} |")
+            lines.append("")
+
+        if goals:  # side-effect goals (specs 116, 124): unmeasured is never not met
+            lines += ["## Side-Effect Goals", "", "| Vector | Goal | Evidence |", "|---|---|---|"]
+            for g in goals:
+                row = (_md_code(g.vector_id), g.state, _md_code(g.evidence))
+                lines.append("| " + " | ".join(c.replace("|", "\\|") for c in row) + " |")
             lines.append("")
 
         lines.append("## Phase Results")

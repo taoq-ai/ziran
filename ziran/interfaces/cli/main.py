@@ -26,12 +26,13 @@ from ziran.application.factories import build_strategy, load_agent_adapter, load
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.capability import BlastRadius, BlastRadiusConfig
 from ziran.domain.entities.defence import DefenceProfile
+from ziran.domain.entities.goal import goal_rows
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.domain.text import printable
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli._text import term
-from ziran.interfaces.cli.reports import ReportGenerator
+from ziran.interfaces.cli.reports import ReportGenerator, goal_summary
 
 if TYPE_CHECKING:
     from ziran.application.attacks.carrier_executor import CarrierSites
@@ -1823,6 +1824,14 @@ def ci(
         console.print(f"[bold red]Unexpected error loading gate config:[/bold red] {e}")
         sys.exit(1)
 
+    if from_sarif and gate.config.fail_on_goal_met:  # a SARIF carries no goal verdicts
+        console.print(
+            f"fail_on_goal_met needs the scan result JSON: {filepath} is a SARIF",
+            style="bold red",
+            markup=False,
+        )
+        sys.exit(1)
+
     # 2b. Load accepted findings (explicit flag, else the cwd default if present)
     sup_path = Path(suppressions_path or ".ziran/suppressions.yaml")
     suppressions = None
@@ -1840,6 +1849,13 @@ def ci(
     _display_gate_result(gate_result)
     if unmeasured_note := _unmeasured_note(result):
         console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
+    for g in goal_rows(result.attack_results):  # never silent: met and unmeasured goals
+        if g.state != "not met":
+            console.print(
+                f"Goal {g.state}: {printable(f'{g.vector_id} ({g.evidence})')}",
+                style="yellow",
+                markup=False,
+            )
     if note := review_note(result):  # signals, no evidence: shown, never a gate failure
         console.print(f"Note: {note}", style="yellow", markup=False)
     for warning in result.warnings:  # analysis the scan skipped (spec 086)
@@ -2250,6 +2266,9 @@ def _display_results(result: CampaignResult) -> None:
             "Signals To Review (not counted)",
             f"[yellow]{len(result.needs_review_vectors)}[/yellow]",
         )
+    goals = goal_rows(result.attack_results)
+    if goals:
+        summary_table.add_row("Goals Met", goal_summary(goals))
     summary_table.add_row(
         "Result",
         "[bold red]⚠️  VULNERABLE[/bold red]"
@@ -2326,6 +2345,18 @@ def _display_results(result: CampaignResult) -> None:
             )
 
         console.print(phase_table)
+
+    if goals:  # side-effect goals (specs 116, 124): unmeasured is never not met
+        console.print()
+        goal_table = Table(title="Side-Effect Goals")
+        goal_table.add_column("Vector", style="cyan")
+        goal_table.add_column("Goal")
+        goal_table.add_column("Evidence", style="dim")
+        style = {"met": "bold red", "not met": "green", "unmeasured": "yellow"}
+        for g in goals:
+            state = f"[{style[g.state]}]{g.state}[/{style[g.state]}]"
+            goal_table.add_row(term(g.vector_id), state, term(g.evidence))
+        console.print(goal_table)
 
     # Vulnerability details
     if result.total_vulnerabilities > 0:

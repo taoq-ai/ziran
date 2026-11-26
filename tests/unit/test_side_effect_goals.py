@@ -239,9 +239,8 @@ class TestExecutionPaths:
         goal = await AttackExecutor(Scripted(steps), DetectorPipeline()).execute(_vector(BYPASS))
         assert goal.goal_met is True
         assert plain.goal_met is None
-        assert goal.model_dump(exclude={"goal_met", "goal_evidence"}) == plain.model_dump(
-            exclude={"goal_met", "goal_evidence"}
-        )
+        judged = {"goal_type", "goal_met", "goal_evidence"}
+        assert goal.model_dump(exclude=judged) == plain.model_dump(exclude=judged)
 
     async def test_error_replies_leave_the_goal_unmeasured(self) -> None:
         adapter = Scripted(("Agent stopped due to iteration limit.", [REFUND]))

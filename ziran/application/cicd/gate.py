@@ -35,6 +35,7 @@ from ziran.domain.entities.ci import (
     chain_content_hash,
     chain_fingerprint,
 )
+from ziran.domain.entities.goal import goal_rows
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -195,6 +196,18 @@ class QualityGate:
                 violations.append(
                     GateViolation(rule="policy_violation", message=policy, severity="critical")
                 )
+
+        # 4b. Side-effect goals met (spec 126): opt-in, so a gate that passes today still does
+        if self.config.fail_on_goal_met:
+            violations.extend(
+                GateViolation(
+                    rule="goal_met",
+                    message=f"Goal met on {g.vector_id} ({g.evidence})",
+                    severity="critical",
+                )
+                for g in goal_rows(result.attack_results)
+                if g.state == "met"
+            )
 
         # 5. Regressed suppressions (finding order)
         violations.extend(

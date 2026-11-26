@@ -17,9 +17,15 @@ import json
 from typing import Any
 
 from ziran.domain.entities.alerting import SEVERITY_RANK
+from ziran.domain.entities.goal import goal_rows
 from ziran.domain.entities.phase import UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY
 from ziran.domain.text import printable, printable_lines
-from ziran.interfaces.cli.reports import BLAST_RADIUS_INTRO, blast_radius_blocks, trial_label
+from ziran.interfaces.cli.reports import (
+    BLAST_RADIUS_INTRO,
+    blast_radius_blocks,
+    goal_summary,
+    trial_label,
+)
 from ziran.interfaces.graph_style.spec import GraphStyleSpec, load_graph_style
 
 # vis-network CDN version used by the self-contained report.
@@ -289,6 +295,22 @@ def build_html_report(
         else ""
     )
 
+    goals = goal_rows(attack_results)
+    goals_html_section = (  # side-effect goals (specs 116, 124): unmeasured is never not met
+        '  <div class="section">\n'
+        f'    <div class="section-title">Side-effect goals: met {_esc(goal_summary(goals))}</div>\n'
+        '    <table class="owasp-table">\n'
+        "    <tr><th>Vector</th><th>Goal</th><th>Evidence</th></tr>\n"
+        + "".join(
+            f"    <tr><td><code>{_esc(g.vector_id)}</code></td><td>{_esc(g.state)}</td>"
+            f"<td><code>{_esc(g.evidence)}</code></td></tr>\n"
+            for g in goals
+        )
+        + "    </table>\n  </div>\n"
+        if goals
+        else ""
+    )
+
     return _HTML_TEMPLATE.format(
         vis_version=_VIS_NETWORK_VERSION,
         campaign_id=html.escape(campaign_id),
@@ -330,7 +352,7 @@ def build_html_report(
         owasp_html=owasp_html,
         atlas_html=atlas_html,
         defence_html_section=defence_html_section,
-        blast_html_section=blast_html_section + targets_html_section,
+        blast_html_section=blast_html_section + targets_html_section + goals_html_section,
         vis_nodes_json=_script_json(vis_data["nodes"]),
         vis_edges_json=_script_json(vis_data["edges"]),
         critical_paths_json=_script_json(shown_paths),
