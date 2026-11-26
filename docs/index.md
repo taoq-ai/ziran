@@ -43,24 +43,41 @@ ziran audit agents/
 cd ../.. && uv sync --extra langchain && uv run python examples/10-vulnerable-agent/main.py
 ```
 
+## How It Works
+
+![ZIRAN pipeline diagram: your agent connects through an adapter layer into the pipeline. DISCOVER probes capabilities, MAP builds a NetworkX MultiDiGraph, ANALYZE walks the graph for dangerous chains, ATTACK runs multi-phase exploits informed by the graph, and REPORT emits scored findings as HTML, Markdown and JSON.](assets/pipeline-light.svg)
+
+Five stages. **DISCOVER** probes tools, permissions and data access. **MAP** builds a NetworkX graph of capabilities. **ANALYZE** walks the graph against 30+ dangerous-chain patterns (`ziran audit` stops here). **ATTACK** runs an 8-phase campaign (reconnaissance, trust building, capability mapping, vulnerability discovery, exploitation setup, execution, persistence, exfiltration) where the live graph picks the next phase, so a critical chain found mid-campaign routes straight to exploitation and phases the graph shows to be pointless are skipped. **REPORT** emits scored findings with remediation guidance.
+
+Two more things ZIRAN checks that text-only scanners cannot:
+
+- **Side effects at the execution layer.** An agent can answer "I can't do that" and still fire `delete_user(id=42)` underneath. ZIRAN intercepts the tool call, not the chat reply.
+- **Trust between agents.** In supervisor, router and peer-to-peer systems, an agent that accepts peer messages without validation is a lateral movement path.
+
+Campaign strategies: `fixed` (sequential, reproducible for CI), `adaptive` (rule-based reordering) and `llm-adaptive` (an LLM reads the graph after each phase and plans the next). See [Adaptive Campaigns](concepts/adaptive-campaigns.md).
+
 ## How It Compares
 
-| Capability | ZIRAN | Promptfoo | Invariant (Snyk) | Garak | PyRIT | Inspect AI |
+| Capability | ZIRAN | [Promptfoo](https://github.com/promptfoo/promptfoo) | [Invariant](https://invariantlabs.ai/) (Snyk) | [Garak](https://github.com/NVIDIA/garak) | [PyRIT](https://github.com/Azure/PyRIT) | [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 | Tool chain discovery (graph-based) | Yes | -- | Policy-based | -- | -- | -- |
 | Side-effect detection (execution-level) | Yes | -- | Trace-based | -- | -- | Sandbox |
 | Multi-phase campaigns w/ graph feedback | Yes | Turn-level | Flow analysis | -- | Composable | Multi-turn |
 | Autonomous pentesting agent | Yes | -- | -- | -- | -- | -- |
 | Multi-agent coordination | Yes | -- | -- | -- | -- | -- |
+| Knowledge graph tracking | Yes | -- | Policy lang. | -- | -- | -- |
 | Agent-aware (tools + memory) | Yes | Partial | Yes | -- | -- | Partial |
-| A2A + MCP protocol support | Yes | MCP only | MCP only | -- | -- | -- |
-| Encoding/obfuscation attacks | -- | Yes (12+) | -- | -- | -- | -- |
+| A2A protocol support | Yes | -- | -- | -- | -- | -- |
+| MCP protocol support | Yes | Partial | Yes | -- | -- | -- |
+| Encoding/obfuscation attacks | Yes (8) | Yes (12+) | -- | -- | -- | -- |
 | Industry compliance plugins | -- | Yes (46) | -- | -- | -- | -- |
+| Streaming (SSE/WebSocket) | Yes | -- | -- | -- | -- | -- |
 | CI/CD quality gate | Yes | Yes | -- | -- | -- | -- |
+| License | FSL-1.1-ALv2 (source-available) | MIT | Partial | Apache-2.0 | MIT | MIT |
 
 !!! info "What ZIRAN Is Not"
 
-    ZIRAN focuses on agent-level security testing. For **LLM safety/alignment** (jailbreaks, compliance), use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak). For **runtime guardrails**, use [NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails) or [Lakera Guard](https://www.lakera.ai/). For **model evaluation**, use [Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai) or [Deepeval](https://github.com/confident-ai/deepeval). ZIRAN is complementary to all of these.
+    ZIRAN is not an LLM safety or alignment tool (use [Promptfoo](https://github.com/promptfoo/promptfoo) or [Garak](https://github.com/NVIDIA/garak) for jailbreak breadth and compliance), not a runtime guardrail ([NeMo Guardrails](https://github.com/NVIDIA/NeMo-Guardrails), [Lakera Guard](https://www.lakera.ai/), [LLM Guard](https://github.com/protectai/llm-guard)), and not a general eval framework ([Inspect AI](https://github.com/UKGovernmentBEIS/inspect_ai), [Deepeval](https://github.com/confident-ai/deepeval)). It sits next to them: Promptfoo or Garak for attack breadth, ZIRAN for agent depth; guardrails at runtime, ZIRAN before deploy; [Langfuse](https://langfuse.com/) or [LangSmith](https://smith.langchain.com/) for traces, ZIRAN `analyze-traces` to score them. Full mapping in the [Agent Security Landscape](concepts/agent-security-landscape.md).
 
 ## Next Steps
 
@@ -71,3 +88,15 @@ cd ../.. && uv sync --extra langchain && uv run python examples/10-vulnerable-ag
 - :dart: [Adaptive Campaigns](concepts/adaptive-campaigns.md) -- Intelligent attack strategies
 - :books: [Scanning Agents](guides/scanning-agents.md) -- Scan your own agents
 - :test_tube: [Examples](https://github.com/taoq-ai/ziran/tree/main/examples) -- 18 runnable examples from basic to advanced
+
+## Citation
+
+```bibtex
+@software{ziran2026,
+  title     = {ZIRAN: AI Agent Security Testing},
+  author    = {{TaoQ AI} and Lage Perdigao, Leone},
+  year      = {2026},
+  url       = {https://github.com/taoq-ai/ziran},
+  license   = {FSL-1.1-ALv2}
+}
+```

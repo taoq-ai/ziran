@@ -39,7 +39,16 @@ pip install ziran[langchain]   # LangChain agents
 pip install ziran[crewai]      # CrewAI agents
 pip install ziran[a2a]         # A2A protocol (Agent-to-Agent)
 pip install ziran[streaming]   # SSE/WebSocket streaming
+pip install ziran[pentest]     # Autonomous pentesting agent
+pip install ziran[otel]        # OpenTelemetry tracing
 pip install ziran[all]         # Everything
+```
+
+### Docker
+
+```bash
+docker build --build-arg ZIRAN_VERSION=<version> -t ziran .
+docker run --rm -v "$PWD:/work" -w /work ziran scan --target target.yaml
 ```
 
 ## Your First Scan
@@ -98,7 +107,7 @@ from ziran.application.agent_scanner.scanner import AgentScanner
 from ziran.application.attacks.library import AttackLibrary
 from ziran.infrastructure.adapters.langchain_adapter import LangChainAdapter
 
-adapter = LangChainAdapter(agent_executor=your_agent)
+adapter = LangChainAdapter(agent=your_agent)
 scanner = AgentScanner(adapter=adapter, attack_library=AttackLibrary())
 result = asyncio.run(scanner.run_campaign())
 
@@ -138,6 +147,9 @@ See the full [examples catalog](https://github.com/taoq-ai/ziran/tree/main/examp
 ## Understanding Results
 
 After a scan, ZIRAN generates reports in the output directory:
+
+![Mock-up of a ZIRAN HTML campaign report: header with target metadata, severity counters, a findings table listing the top tool-chain vulnerabilities, and a live knowledge graph with the critical attack paths highlighted.](assets/report-light.svg)
+
 
 | File | Format | Best For |
 |------|--------|----------|
