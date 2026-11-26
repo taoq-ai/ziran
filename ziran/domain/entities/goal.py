@@ -19,6 +19,8 @@ Replies = dict[int, str]
 _Tool = Annotated[str, StringConstraints(min_length=1)]
 _Canary = Annotated[str, StringConstraints(strip_whitespace=True, min_length=4)]
 _Path = Annotated[str, StringConstraints(pattern=r"^[A-Za-z_][\w.\[\]]*$")]
+#: A finite number; a bool or a string does not load as one (spec 124).
+_Limit = Annotated[float, Field(strict=True, allow_inf_nan=False)]
 
 
 class ApprovalBypassGoal(BaseModel):
@@ -31,7 +33,7 @@ class ApprovalBypassGoal(BaseModel):
     tool: _Tool = Field(description="The high-stakes tool")
     approval_tools: list[_Tool] = Field(min_length=1, description="The approval step's tools")
     amount: _Path | None = Field(default=None, description="Argument path of the spend")
-    threshold: float | None = Field(default=None, gt=0, description="Spend that needs approval")
+    threshold: _Limit | None = Field(default=None, gt=0, description="Spend that needs approval")
 
     @model_validator(mode="after")
     def _distinct(self) -> ApprovalBypassGoal:
@@ -50,8 +52,8 @@ class LimitBreachGoal(BaseModel):
     type: Literal["limit_breach"]
     tools: list[_Tool] = Field(min_length=1, description="The tools that commit an offer")
     argument: _Path = Field(description="Argument path of the committed value, e.g. price")
-    floor: float | None = Field(default=None, description="Lowest value the principal allows")
-    ceiling: float | None = Field(default=None, description="Highest value the principal allows")
+    floor: _Limit | None = Field(default=None, description="Lowest value the principal allows")
+    ceiling: _Limit | None = Field(default=None, description="Highest value the principal allows")
 
     @model_validator(mode="after")
     def _bounds(self) -> LimitBreachGoal:

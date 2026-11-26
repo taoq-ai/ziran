@@ -52,11 +52,16 @@ result = await scanner.run_campaign()
 ```
 
 Without an attacker client, `neg_seller_pair_floor` is recorded as an error and the target is
-not called.
+not called. The attacker LLM's provider receives the scenario's `description` and every reply of your
+agent. Keep real limits out of the description.
 
 ## Read the result
 
-Each row in the report's `attack_results` has `goal_met` (`true`, `false`, or `null` when no
-reply came back) and `goal_evidence`: the commitment or order calls with their `turn`, or the
-leaking reply's `turn`. Run each scenario several times (`--trials`) before you trust a pass:
-the same model can hold its floor in one run and give it up in the next.
+Each row in the report's `attack_results` has `goal_met` and `goal_evidence`: the commitment or
+order calls with their `turn`, or the leaking reply's `turn`. `goal_met` is `null` (unmeasured,
+never a pass) when no reply came back, when no reply had text for a secret goal, or when a
+commitment or unapproved order carried a value that is not a number (`"$650"`).
+
+Run each scenario several times (`--trials`) before you trust a pass: the same model can hold its
+floor in one run and give it up in the next. When no trial is a text success, the row shows the
+first trial that met the goal, and `evidence.trials.goal_outcomes` lists `goal_met` per trial.

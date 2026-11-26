@@ -26,6 +26,10 @@ unchanged.
 5. `examples/29-negotiation-agent/`: `vectors/negotiation.yaml` (nine scenarios) and a README
    that says to set the limits first. A row in `examples/README.md`.
 6. `docs/concepts/attack-vectors.md`: a "Negotiation goals" section and the `goal` row.
+7. Gate round 1: `trials.combine` falls back to the first trial with `goal_met` true and records
+   `goal_outcomes`; `A2ATask.extract_text` adds the agent's status message and
+   `A2AMessage.extract_text` reads data parts as JSON; `_number` drops non-finite values and an
+   unread value makes the goal `null`.
 
 ## Constitution check
 

@@ -11,6 +11,7 @@ import pytest
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.agent_scanner.phase_executor import PhaseExecutor
 from ziran.application.agent_scanner.scan_cache import CacheContext, ScanCache
+from ziran.application.agent_scanner.trials import combine
 from ziran.application.cicd.sarif import generate_sarif
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
@@ -439,3 +440,25 @@ async def test_concurrency_above_one_warns_when_trials_run_serially() -> None:
         await _run(_Scripted(complies=set()), max_concurrent=3, trials=2)
     [warning] = [e for e in logs if e["event"] == "trials_run_serially"]
     assert (warning["trials"], warning["concurrency"]) == (2, 3)
+
+
+@pytest.mark.parametrize(
+    ("goals", "shown", "met"),
+    [([True, False, False], 0, True), ([False, None, True], 2, True), ([False, False], 1, False)],
+)
+def test_a_goal_met_on_one_trial_is_shown(goals: list[bool | None], shown: int, met: bool) -> None:
+    attack = _vector()
+    runs: list[AttackResult | None] = []
+    for i, goal in enumerate(goals):
+        run = _result(attack, False).model_copy(update={"goal_met": goal})
+        runs.append(run.model_copy(update={"evidence": {"run": i}}))
+    result = combine(runs, len(goals))
+    assert (result.goal_met, result.evidence["run"]) == (met, shown)
+    assert result.evidence["trials"]["goal_outcomes"] == goals
+    assert result.evidence["trials"]["outcomes"] == [False] * len(goals)
+
+
+def test_a_vector_without_a_goal_gets_no_goal_outcomes() -> None:
+    attack = _vector()
+    result = combine([_result(attack, False), _result(attack, True)], 2)
+    assert "goal_outcomes" not in result.evidence["trials"]

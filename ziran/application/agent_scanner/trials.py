@@ -120,12 +120,14 @@ def _measured(result: AttackResult) -> bool:
 
 
 def combine(results: list[AttackResult | None], k: int) -> AttackResult:
-    """One result for the vector: the first successful trial (else the last measured one)
-    carries the evidence; tokens and probe markers add up over every trial that returned."""
+    """One result for the vector: the first successful trial (else the first whose goal was met,
+    else the last measured one) carries the evidence; tokens and probe markers add up over every
+    trial that returned. A goal vector's per-trial ``goal_met`` is ``goal_outcomes`` (spec 124)."""
     ran = [r for r in results if r is not None]
     measured = [r for r in ran if _measured(r)]
     successes = sum(r.successful for r in measured)
-    shown = next((r for r in ran if r.successful), measured[-1] if measured else ran[-1])
+    fallback = next((r for r in ran if r.goal_met), measured[-1] if measured else ran[-1])
+    shown = next((r for r in ran if r.successful), fallback)
     outcomes = [r.successful if r is not None and _measured(r) else None for r in results]
     summary: dict[str, Any] = {
         "k": k,
@@ -137,6 +139,9 @@ def combine(results: list[AttackResult | None], k: int) -> AttackResult:
         "flaky": 0 < successes < len(measured),
         "outcomes": outcomes + [None] * (k - len(results)),
     }
+    if any(r.goal_met is not None for r in ran):
+        goals = [r.goal_met if r is not None else None for r in results]
+        summary["goal_outcomes"] = goals + [None] * (k - len(results))
     return shown.model_copy(
         update={
             "token_usage": sum((r.token_usage for r in ran), TokenUsage()),

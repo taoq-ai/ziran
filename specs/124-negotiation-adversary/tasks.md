@@ -27,3 +27,12 @@
 
 - [x] T009 Document the goals (`docs/concepts/attack-vectors.md`) and the example README.
 - [x] T010 ruff check, ruff format, mypy strict, touched tests on Python 3.11, 3.12 and 3.13.
+
+## Phase 5: gate round 1
+
+- [x] T011 Show a goal met on any trial in the combined row; `goal_outcomes` per trial
+  (`ziran/application/agent_scanner/trials.py`).
+- [x] T012 Read an A2A status message and data parts as reply text (`ziran/domain/entities/a2a.py`);
+  a secret goal with no reply text is `null`.
+- [x] T013 An unread commitment or order value makes the goal `null`; finite, strict limits; a
+  test at the ceiling; no limit in the PAIR scenario's description.
