@@ -51,6 +51,7 @@ class EdgeType:
     DELEGATES_TO = "delegates_to"
     SHARES_CONTEXT = "shares_context"
     TRUST_BOUNDARY = "trust_boundary"
+    PROPAGATES_TO = "propagates_to"  # a planted canary went from one agent to the next (spec 122)
 
 
 # Edge types that attribute a node to the phase in which it was discovered.

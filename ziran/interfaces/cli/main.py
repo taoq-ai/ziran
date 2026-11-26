@@ -1364,6 +1364,13 @@ def _display_policy_verdict(verdict: Any) -> None:
     default=False,
     help="Add typed chains (tool roles from names) to Claude Code findings. Off by default.",
 )
+@click.option(
+    "--aibom",
+    "aibom_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Also write a CycloneDX 1.6 AI-BOM of the Claude Code plugin (agents, models, MCP servers).",
+)
 def audit(
     path: str,
     severity: str | None,
@@ -1372,6 +1379,7 @@ def audit(
     write_baseline_path: str | None,
     sarif_path: str | None,
     typed_chains: bool,
+    aibom_path: str | None,
 ) -> None:
     """Static security analysis of agent source code.
 
@@ -1394,6 +1402,7 @@ def audit(
         ziran audit ./agents/ --write-baseline allowlist.json
         ziran audit ./agents/ --baseline allowlist.json
         ziran audit ./my-plugin/ --baseline ziran-baseline.json --sarif audit.sarif
+        ziran audit ./my-plugin/ --aibom aibom.json
     """
     from pydantic import ValidationError
 
@@ -1418,6 +1427,20 @@ def audit(
     target = Path(path)
     analyzer = StaticAnalyzer()
     scan = load_claude_code(target)
+    if aibom_path:
+        from ziran.application.aibom import build_aibom
+
+        if not scan.detected:
+            raise click.UsageError("--aibom: no Claude Code plugin or agent definitions under PATH")
+        try:
+            Path(aibom_path).write_text(
+                json.dumps(build_aibom(scan), indent=2) + "\n", encoding="utf-8"
+            )
+        except OSError as exc:
+            raise click.BadParameter(
+                f"cannot write file ({exc.strerror})", param_hint="--aibom"
+            ) from None
+        click.echo(f"AI-BOM written to {aibom_path}", err=True)
 
     if target.is_file() and scan.detected:
         report = AnalysisReport()
@@ -2425,6 +2448,14 @@ def _save_results(
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _hop_line(propagation: dict[str, Any]) -> str:
+    """The furthest hop, flagged when no agent past the planted one could report (spec 122)."""
+    if not propagation["traces"]:
+        return "not traced"
+    hop = str(propagation["furthest_hop"])
+    return hop if propagation["beyond_hop_0"] == "measured" else f"{hop} (unmeasured beyond hop 0)"
+
+
 @cli.command("multi-agent-scan")
 @click.option(
     "--targets",
@@ -2464,6 +2495,12 @@ def _save_results(
     default=False,
     help="Skip individual agent scans (only run cross-agent tests).",
 )
+@click.option(
+    "--trace-hops / --no-trace-hops",
+    default=True,
+    help="Plant each multi-agent vector at every agent with a hop-tagged canary "
+    "(one request per vector per agent).",
+)
 def multi_agent_scan(
     targets: tuple[str, ...],
     entry_point: str | None,
@@ -2471,6 +2508,7 @@ def multi_agent_scan(
     coverage: str,
     concurrency: int,
     skip_individual: bool,
+    trace_hops: bool,
 ) -> None:
     """Run a multi-agent security scan campaign.
 
@@ -2537,6 +2575,7 @@ def multi_agent_scan(
                 max_concurrent_attacks=concurrency,
                 scan_individual=not skip_individual,
                 scan_cross_agent=True,
+                trace_hops=trace_hops,
             )
         )
 
@@ -2548,7 +2587,8 @@ def multi_agent_scan(
             f"[bold]Topology:[/bold] {summary['topology_type']}\n"
             f"[bold]Agents Scanned:[/bold] {summary['agents_scanned']}\n"
             f"[bold]Total Vulnerabilities:[/bold] {summary['total_vulnerabilities']}\n"
-            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}",
+            f"[bold]Cross-Agent Vulnerabilities:[/bold] {summary['cross_agent_vulnerabilities']}\n"
+            f"[bold]Furthest Canary Hop:[/bold] {_hop_line(summary['propagation'])}",
             title="Multi-Agent Campaign Results",
             style="bold green" if summary["total_vulnerabilities"] == 0 else "bold red",
         )
@@ -2568,6 +2608,12 @@ def multi_agent_scan(
     summary_path = output_dir / "multi_agent_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
     console.print(f"[dim]Summary saved to {summary_path}[/dim]")
+
+    propagation_path = output_dir / "propagation.json"
+    propagation_path.write_text(
+        json.dumps([t.model_dump(mode="json") for t in result.propagation], indent=2)
+    )
+    console.print(f"[dim]Hop traces saved to {propagation_path}[/dim]")
 
 
 # ──────────────────────────────────────────────────────────────────────

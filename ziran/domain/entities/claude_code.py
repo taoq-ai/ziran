@@ -118,7 +118,10 @@ class ClaudeCodeScan(BaseModel):
     plugin: ClaudeCodePlugin | None = None
     agents: list[ClaudeCodeAgent] = Field(default_factory=list)
     hooks: list[ClaudeCodeHook] = Field(default_factory=list)
+    #: as written: ``${VAR}`` is not expanded (a static read).
     mcp_servers: list[ServerEntry] = Field(default_factory=list)
+    #: server name -> the config file that first defined it (spec 123).
+    mcp_sources: dict[str, str] = Field(default_factory=dict)
     issues: list[ClaudeCodeParseIssue] = Field(default_factory=list)
     files_analyzed: int = 0
 

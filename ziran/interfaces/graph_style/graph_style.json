@@ -20,7 +20,8 @@
     "leads_to": { "color": "#ec4899", "dashes": false, "width": 2.0, "arrow": true },
     "delegates_to": { "color": "#06b6d4", "dashes": false, "width": 2.0, "arrow": true },
     "shares_context": { "color": "#a78bfa", "dashes": [2, 4], "width": 1.5, "arrow": true },
-    "trust_boundary": { "color": "#f43f5e", "dashes": [8, 4], "width": 2.0, "arrow": false }
+    "trust_boundary": { "color": "#f43f5e", "dashes": [8, 4], "width": 2.0, "arrow": false },
+    "propagates_to": { "color": "#f97316", "dashes": [4, 2], "width": 2.5, "arrow": true }
   },
   "severity_ramp": {
     "critical": "#dc2626",

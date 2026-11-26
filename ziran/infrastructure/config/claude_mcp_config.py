@@ -56,8 +56,11 @@ def _transport(entry: dict[str, Any]) -> str | None:
     return None
 
 
-def load_claude_mcp_config(path: Path) -> list[ServerEntry]:
+def load_claude_mcp_config(path: Path, *, expand_env: bool = True) -> list[ServerEntry]:
     """Parse a Claude Code MCP config into :class:`ServerEntry` objects.
+
+    With ``expand_env=False`` every ``${VAR}`` stays as written: a static read of an untrusted
+    config must not pull the auditor's environment into its output.
 
     Raises:
         ClaudeConfigError: invalid JSON, no servers, or an unusable server entry.
@@ -81,7 +84,7 @@ def load_claude_mcp_config(path: Path) -> list[ServerEntry]:
     env_map = {"CLAUDE_PLUGIN_ROOT": str(path.parent.resolve()), **os.environ}
     entries: list[ServerEntry] = []
     for name, raw in servers.items():
-        entry = _expand(raw, env_map)
+        entry = _expand(raw, env_map) if expand_env else raw
         transport = _transport(entry)
         if transport is None:
             raise ClaudeConfigError(

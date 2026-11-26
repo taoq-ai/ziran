@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem@2025.7.1", "/srv/docs"]
+    },
+    "notes": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server.py", "--token", "hunter2-fixture"],
+      "env": {"NOTES_KEY": "env-fixture-value"}
+    },
+    "search": {
+      "type": "http",
+      "url": "https://user:pw-fixture@mcp.example.com/mcp?key=query-fixture"
+    }
+  }
+}

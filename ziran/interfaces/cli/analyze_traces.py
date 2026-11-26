@@ -100,6 +100,14 @@ console = Console()
     is_flag=True,
     help="Preview alert payloads without contacting Slack/GitHub.",
 )
+@click.option(
+    "--aibom",
+    "aibom_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="AI-BOM from 'ziran audit --aibom'. MCP servers and agents in the traces that it "
+    "lacks are added as shadow; the result is written to aibom.json in --out.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output.")
 def analyze_traces(
     source: str,
@@ -115,6 +123,7 @@ def analyze_traces(
     config_path: Path | None,
     predeploy_path: Path | None,
     dry_run_alerts: bool,
+    aibom_path: Path | None,
     verbose: bool,
 ) -> None:
     """Analyze production traces for dangerous tool chains.
@@ -130,6 +139,15 @@ def analyze_traces(
         from ziran.infrastructure.logging.logger import setup_logging
 
         setup_logging(level="DEBUG")
+
+    bom: dict[str, Any] | None = None
+    if aibom_path is not None:  # refuse a bad BOM before any report or alert
+        from ziran.application.aibom import load_bom
+
+        try:
+            bom = load_bom(aibom_path)
+        except ValueError as exc:
+            raise click.BadParameter(str(exc), param_hint="--aibom") from None
 
     try:
         # Build ingestor
@@ -184,6 +202,14 @@ def analyze_traces(
             report_path.write_text(json.dumps(result.model_dump(mode="json"), indent=2))
 
         console.print(f"\n[dim]Report saved to {report_path}[/dim]")
+
+        if bom is not None:
+            from ziran.application.aibom import add_shadow
+
+            shadow = add_shadow(bom, sessions)
+            bom_out = output_dir / "aibom.json"
+            bom_out.write_text(json.dumps(bom, indent=2) + "\n", encoding="utf-8")
+            console.print(f"[dim]AI-BOM saved to {bom_out} ({len(shadow)} shadow)[/dim]")
 
         # Deliver dangerous-chain matches to configured alert sinks
         if alert:
