@@ -181,7 +181,10 @@ class TestInputRequired:
         assert calls[1]["params"]["inputResponses"] == {"signin": {"action": "decline"}}
         assert calls[1]["params"]["requestState"] == "s1"
         assert calls[1]["params"]["_meta"][_META] == MODERN
-        assert any("evil.example.net" in r.getMessage() for r in caplog.records)
+        hosts = [
+            r.args[1] for r in caplog.records if isinstance(r.args, tuple) and len(r.args) == 2
+        ]
+        assert hosts == ["evil.example.net"]  # the logged host, compared whole
 
     async def test_a_same_host_url_is_recorded_unflagged(self) -> None:
         server = ModernServer(elicit_url="https://MCP.example.com/auth")
