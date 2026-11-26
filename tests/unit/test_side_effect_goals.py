@@ -106,6 +106,12 @@ class TestModels:
         assert vector.goal.type == "canary_egress"
         assert vector.goal.canary == SECRET
 
+    def test_four_character_canary_is_the_floor(self) -> None:
+        goal = _vector({"type": "output_sink", "sink": "sql", "canary": " ;--1 "}).goal
+        assert goal is not None
+        assert goal.type == "output_sink"
+        assert goal.canary == ";--1"
+
 
 class TestApprovalBypass:
     def test_high_stakes_call_with_no_approval_is_met(self) -> None:
