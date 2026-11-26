@@ -261,10 +261,12 @@ _DEEP = b'{"a":' * 20000 + b"1" + b"}" * 20000
 async def _bounded(vector_id: str, server: A2AServer, **config: Any) -> AttackResult:
     """The probe, failing fast if a RecursionError escapes (pytest would render every frame)."""
     try:
-        return await _probe(vector_id, server, **config)
+        result: AttackResult | None = await _probe(vector_id, server, **config)
     except RecursionError:
-        pass  # fail outside the handler, so no frame of the recursion is rendered
-    pytest.fail("RecursionError escaped the probe", pytrace=False)
+        result = None  # fail outside the handler, so no frame of the recursion is rendered
+    if result is None:
+        pytest.fail("RecursionError escaped the probe", pytrace=False)
+    return result
 
 
 async def test_a_card_nested_too_deep_is_unmeasured_not_dropped() -> None:
@@ -279,10 +281,48 @@ async def test_a_card_nested_too_deep_is_unmeasured_not_dropped() -> None:
     assert _unmeasured(result)
 
 
+async def test_a_parsed_card_too_deep_to_canonicalize_is_unverifiable() -> None:
+    # every Python: the card is built without recursion, past json's parse limit on 3.11-3.13
+    from ziran.application.a2a_probe.probes import _check
+    from ziran.domain.entities.a2a import A2AAgentCardSignature
+
+    deep: dict[str, Any] = {"a": 1}
+    for _ in range(sys.getrecursionlimit() + 100):
+        deep = {"a": deep}
+    header = b64url(json.dumps({"alg": "ES256", "kid": "k1"}).encode())
+    signature = A2AAgentCardSignature(protected=header, signature="AAAA")
+    with A2AServer() as keys:
+        target = TargetConfig(
+            url=keys.url, protocol=ProtocolType.A2A, a2a=A2AConfig(jwks_url=f"{keys.url}/jwks.json")
+        )
+        wire = HttpAgentAdapter(target).a2a_wire
+        assert wire is not None
+        try:
+            check = await _check(wire, {"name": "Agent", "deep": deep}, signature, {})
+        except RecursionError:
+            check = {"result": "RecursionError escaped"}  # fail outside the handler
+    assert check["result"] == "unverifiable: card nested too deep"
+
+
 async def test_a_reply_to_client_b_nested_too_deep_is_unmeasured() -> None:
+    # Python 3.11-3.13 refuse the body at parse (_reply); 3.14 parses it and the search recurses
     with A2AServer(vulnerable=True, tokens=_TOKENS, fail={"tok-b": _DEEP}) as server:
         result = await _bounded("a2a_cross_client_context", server, **_AB)
     assert _unmeasured(result)
+
+
+def test_a_parsed_reply_too_deep_to_search_is_unmeasured() -> None:
+    from ziran.application.a2a_probe.probes import _leak
+    from ziran.domain.interfaces.a2a_wire import A2AReply
+
+    body: dict[str, Any] = {"text": "ZIRAN-A2A-X"}
+    for _ in range(sys.getrecursionlimit() + 100):  # built without recursion
+        body = {"a": body}
+    try:
+        successful, evidence = _leak(A2AReply(status=200, body=body), "ZIRAN-A2A-X", {})
+    except RecursionError:
+        successful, evidence = True, {}  # fail outside the handler
+    assert not successful and evidence.get("outcome") == "unmeasured"
 
 
 def test_a_json_body_too_deep_to_parse_is_no_usable_answer(monkeypatch: pytest.MonkeyPatch) -> None:
