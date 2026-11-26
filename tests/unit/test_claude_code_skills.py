@@ -347,21 +347,31 @@ class TestFixRound1:
     """Gate findings on f50f788 (spec 125, fix round 1)."""
 
     def test_root_skill_keeps_python_findings(self, tmp_path: Path) -> None:
+        deep = "/".join("d" * 10)  # past the walk's depth bound: the Python pass reads it
         plain = tmp_path / "plain"
         _write(plain / "src" / "tool.py", TOOL_PY)
+        _write(plain / deep / "deep.py", TOOL_PY)
         _, base = _audit_json(str(plain))
         root = tmp_path / "repo"
         _write(root / "SKILL.md", "---\nname: repo\n---\n")
         _write(root / "src" / "tool.py", TOOL_PY)
+        _write(root / deep / "deep.py", TOOL_PY)
         for i in range(1001):
             _write(root / "node_modules" / "m" / f"f{i}.js", "x\n")
         _write(root / ".git" / "hooks" / "pre-commit.sample", "#!/bin/sh\n").chmod(0o755)
         _, head = _audit_json(str(root))
-        assert base["findings"]
-        assert [(r["rule"], r["line"]) for r in head["findings"]] == [
-            (r["rule"], r["line"]) for r in base["findings"]
+
+        def rows(doc: dict[str, Any], top: Path) -> list[tuple[str, str, int]]:
+            keep = [r for r in doc["findings"] if r["rule"] != "CC000"]
+            return sorted(
+                (r["rule"], str(Path(r["file"]).relative_to(top)), r["line"]) for r in keep
+            )
+
+        assert {Path(r["file"]).name for r in base["findings"]} == {"tool.py", "deep.py"}
+        assert rows(head, root) == rows(base, plain)
+        assert [r["message"] for r in _rows(head, rule="CC000")] == [
+            "folders nested deeper than 8 levels are not read"
         ]
-        assert all(r["file"].endswith("tool.py") for r in head["findings"])
 
     def test_git_hooks_give_no_cc002(self, tmp_path: Path) -> None:
         _skill(tmp_path, "s", "name: s\n")
