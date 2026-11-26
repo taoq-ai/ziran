@@ -972,14 +972,14 @@ class TestCampaignIdUnique:
     def test_ids_in_one_second_differ_and_keep_the_prefix(self) -> None:
         import re
 
-        from ziran.application.agent_scanner.scanner import new_campaign_id
+        from ziran.application.agent_scanner.campaign_id import new_campaign_id
 
         ids = {new_campaign_id() for _ in range(50)}
         assert len(ids) == 50
         assert all(re.fullmatch(r"campaign_\d+_[0-9a-f]{8}", i) for i in ids)
 
     def test_probe_trace_ids_differ_across_scans_of_one_vector(self) -> None:
-        from ziran.application.agent_scanner.scanner import new_campaign_id
+        from ziran.application.agent_scanner.campaign_id import new_campaign_id
         from ziran.domain.probe_markers import mark_probe, probe_scope
 
         traces = []

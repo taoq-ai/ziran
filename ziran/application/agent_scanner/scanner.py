@@ -12,7 +12,6 @@ and attempt exploitation — all tracked via the knowledge graph.
 
 from __future__ import annotations
 
-import secrets
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -26,6 +25,7 @@ from ziran.application.agent_scanner.attack_executor import (
 from ziran.application.agent_scanner.attack_executor import (
     _is_error_response as _is_error_response,
 )
+from ziran.application.agent_scanner.campaign_id import new_campaign_id
 from ziran.application.agent_scanner.chain_targeting import campaign_context, plan_steering
 from ziran.application.agent_scanner.checkpoint import (
     DEFAULT_FLUSH_INTERVAL_SECONDS,
@@ -88,11 +88,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 _tracer = get_tracer(__name__)
-
-
-def new_campaign_id() -> str:
-    """``campaign_<unix seconds>_<8 hex>``; the suffix keeps same-second scans apart."""
-    return f"campaign_{int(datetime.now(tz=UTC).timestamp())}_{secrets.token_hex(4)}"
 
 
 class AgentScannerError(Exception):
