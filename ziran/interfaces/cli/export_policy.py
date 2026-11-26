@@ -98,6 +98,8 @@ def export_policy(
         if fmt == "sigma"
         else _FORMAT_TO_RENDERER[fmt]()
     )
+    if exclude_probes and not any(ar.get("probe_markers") for ar in campaign.attack_results):
+        console.print("[yellow]The result holds no probe markers: no probe filter added.[/yellow]")
     policies = ExportService(renderer).export(campaign, severity_floor)
 
     if not policies:

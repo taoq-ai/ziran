@@ -58,6 +58,9 @@ In my words, as tests on the real `ExportService`, `SigmaRenderer` and CLI:
   blast radius does; Sigma wildcards (`*`, `?`) and backslashes in a tool name are escaped.
 - **FR-005**: Target-supplied text (tool names, descriptions) reaches the file only through the
   YAML emitter or `printable`, so it cannot add a key, a document or a comment line.
+- **FR-005a**: With `--exclude-probes`, every probe trace id must be 32 lowercase hex digits
+  (spec 117); any other value skips every chain with the reason. The ids are escaped anyway, and
+  the matcher runs in O(pattern x value), so a hostile pattern cannot stall the self-check.
 - **FR-006**: No new runtime dependency. Schema validation is structural, from the Sigma
   specification's JSON schemas; no pySigma (it pulls native `google-re2` and `jq`).
 - **FR-007**: No change to detectors, the hybrid judge, role typing, tool aliases, chain

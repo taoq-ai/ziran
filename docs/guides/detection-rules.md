@@ -42,6 +42,9 @@ Every rule carries:
 | `falsepositives` | The benign use the rule can also match |
 | `status` | `experimental` |
 
+`atlas` and `owasp` are not tag namespaces the Sigma specification registers, so `sigma check`
+warns about them; the tags still convert, and a backend ignores what it does not use.
+
 The fingerprint is the one `ziran ci` suppressions use, so an alert, a suppression entry and
 the scan finding all join on one value.
 
@@ -78,8 +81,11 @@ detection:
 
 The trace ids come from the scan's probe markers, so the target needs `probe_markers:
 traceparent` or `both` (see [Remote Agents](remote-agents.md)); `header` alone sends no trace
-id. A caller controls the `traceparent` header, so anyone who knows a scan's trace id can send
-it to slip past the filter. Use the filtered rules during the test window only.
+id. A caller controls the `traceparent` header, and the trace ids sit in the rule's own filter,
+so anyone who holds the rules can send one of them and slip past the filter. Use the filtered
+rules during the test window only. A trace id that is not 32 hex digits (a tampered result) stops
+the export: each chain is skipped with the reason. With no probe markers in the result, the
+command says so and adds no filter.
 
 ## Self-check
 

@@ -11,3 +11,4 @@
 - [x] T007 Validate example output against the Sigma specification's JSON schemas and pySigma in a scratch environment (not a dependency)
 - [x] T008 Document in `docs/guides/detection-rules.md` and the mkdocs nav
 - [x] T009 Run ruff check, ruff format --check and mypy strict
+- [x] T010 Gate round 1: probe trace ids checked as 32 hex digits and escaped, a linear wildcard matcher, surrogate-safe rule ids, tag `fullmatch`, the no-markers warning, `sigma_schema_errors` and `sigma_matches` moved to `ziran/domain/sigma.py`; tests run red first (7 failed, the hex and timing cases hang on the old matcher), then green

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 import yaml
@@ -17,6 +16,7 @@ import yaml
 from ziran.domain.entities.ci import chain_fingerprint
 from ziran.domain.entities.policy import GuardrailPolicy, GuardrailPolicyFormat
 from ziran.domain.ports.policy_renderer import PolicyRenderer
+from ziran.domain.sigma import TAG, event_matches, sigma_matches, sigma_schema_errors
 from ziran.domain.text import printable
 
 if TYPE_CHECKING:
@@ -28,9 +28,7 @@ if TYPE_CHECKING:
 _NAMESPACE = uuid.UUID("0f6f2f0e-5c1e-4f4b-9a39-6c2a8e0b7d11")  # fixed: rule ids stay stable
 _TIMESPAN = "1h"
 _SESSION = "gen_ai.conversation.id"
-_LEVELS = ("informational", "low", "medium", "high", "critical")
-_STATUSES = ("stable", "test", "experimental", "deprecated", "unsupported")
-_TAG = re.compile(r"^[a-z0-9_-]+\.[a-z0-9._-]+$")
+_TRACE_ID = re.compile(r"[0-9a-f]{32}")  # W3C trace id, as spec 117 writes it
 _UNORDERED = (
     " The correlation is unordered: Sigma temporal_ordered runs only on SQLite backends, so an"
     " ordered match needs a native query (Splunk SPL, Elastic ES|QL or EQL)."
@@ -62,12 +60,12 @@ class SigmaRenderer(PolicyRenderer):
     def __init__(self, result: CampaignResult, *, exclude_probes: bool = False) -> None:
         self._result = result
         traces = {
-            str(m.get("trace_id"))
+            m.get("trace_id") if isinstance(m, dict) else m
             for ar in result.attack_results
             for m in ar.get("probe_markers") or []
-            if isinstance(m, dict) and m.get("trace_id")
         }
-        self._probe_traces = sorted(traces) if exclude_probes else []
+        self._probe_traces = sorted(map(str, traces)) if exclude_probes else []
+        self._bad_trace = any(not _TRACE_ID.fullmatch(t) for t in self._probe_traces)
 
     @property
     def format(self) -> GuardrailPolicyFormat:
@@ -82,6 +80,10 @@ class SigmaRenderer(PolicyRenderer):
             tool_chain=list(finding.tools),
             severity=finding.risk_level,
         )
+        if self._bad_trace:  # a tampered result: a wildcard here would hide real alerts
+            return policy.model_copy(
+                update={"skipped": True, "skip_reason": "a probe trace id is not 32 hex digits"}
+            )
         proving = [ar for ar in self._result.attack_results if self._ran_all(ar, tools)]
         if not proving:
             return policy.model_copy(
@@ -131,10 +133,11 @@ class SigmaRenderer(PolicyRenderer):
                 for t in a.get(key) or []
             }
         )
-        tags = [t for t in tags if _TAG.match(t)]
+        tags = [t for t in tags if TAG.fullmatch(t)]
         level = finding.risk_level  # the self-check refuses a level Sigma has no name for
         slug = re.sub(r"[^a-z0-9]+", "_", finding_id.lower()).strip("_")
-        seed = f"{fingerprint}/{'/'.join(tools)}"
+        # hex: uuid5 encodes a str as strict UTF-8, which a lone surrogate in a tool name breaks
+        seed = f"{fingerprint}/{'/'.join(tools)}".encode("utf-8", "surrogatepass").hex()
         common = {"status": "experimental", "references": references}
 
         docs: list[dict[str, Any]] = []
@@ -146,7 +149,9 @@ class SigmaRenderer(PolicyRenderer):
                 }
             }
             if self._probe_traces:
-                detection["filter_ziran_probe"] = {"trace_id": self._probe_traces}
+                detection["filter_ziran_probe"] = {
+                    "trace_id": list(map(_escape, self._probe_traces))
+                }
                 detection["condition"] = "selection and not filter_ziran_probe"
             else:
                 detection["condition"] = "selection"
@@ -209,98 +214,7 @@ class SigmaRenderer(PolicyRenderer):
         if not sigma_matches(content, spans):
             return "the rule does not match the recorded calls"
         last = docs[-2] if len(docs) > 1 else docs[0]  # the chain's last tool rule
-        benign = [s for s in spans if not _event_matches(last, s)]
+        benign = [s for s in spans if not event_matches(last, s)]
         if sigma_matches(content, benign):
             return "the rule matches the session without the chain's last tool"
         return ""
-
-
-def sigma_schema_errors(doc: Mapping[str, Any]) -> list[str]:
-    """Breaks of the Sigma v2 detection or correlation JSON schema's rules, for one rule."""
-    errors: list[str] = []
-    title = doc.get("title")
-    if not isinstance(title, str) or not title or len(title) > 256:
-        errors.append("title must be a string of 1 to 256 characters")
-    if "id" in doc:
-        try:
-            uuid.UUID(str(doc["id"]))
-        except ValueError:
-            errors.append("id must be a UUID")
-    if "status" in doc and doc["status"] not in _STATUSES:
-        errors.append(f"status must be one of {_STATUSES}")
-    if "level" in doc and doc["level"] not in _LEVELS:
-        errors.append(f"level must be one of {_LEVELS}")
-    tags = doc.get("tags", [])
-    if not isinstance(tags, list) or len(set(tags)) != len(tags):
-        errors.append("tags must be a list of unique values")
-    elif any(not isinstance(t, str) or not _TAG.match(t) for t in tags):
-        errors.append("tags must match namespace.value in lower case")
-    for key in ("references", "falsepositives"):
-        values = doc.get(key, [])
-        if not isinstance(values, list) or len(set(map(str, values))) != len(values):
-            errors.append(f"{key} must be a list of unique values")
-    if "correlation" in doc:
-        corr = doc["correlation"]
-        for key in ("type", "rules", "timespan", "group-by"):
-            if key not in corr:
-                errors.append(f"correlation needs {key}")
-        if not re.fullmatch(r"\d+[smhdwMy]", str(corr.get("timespan", ""))):
-            errors.append("correlation timespan must be a number and a unit")
-        return errors
-    source = doc.get("logsource")
-    if not isinstance(source, dict) or not {"category", "product", "service"} & set(source):
-        errors.append("logsource needs a category, product or service")
-    detection = doc.get("detection")
-    if not isinstance(detection, dict) or not isinstance(detection.get("condition"), str):
-        errors.append("detection needs a condition")
-    return errors
-
-
-def _value_matches(expected: Any, actual: Any) -> bool:
-    """Sigma string match: case-insensitive, ``*`` and ``?`` wildcards, ``\\`` escapes."""
-    if actual is None:
-        return False
-    parts = re.findall(r"\\[*?\\]|.", str(expected), re.DOTALL)
-    pattern = "".join(".*" if p == "*" else "." if p == "?" else re.escape(p[-1]) for p in parts)
-    return re.fullmatch(pattern, str(actual), re.IGNORECASE | re.DOTALL) is not None
-
-
-def _event_matches(rule: Mapping[str, Any], span: Mapping[str, Any]) -> bool:
-    # ponytail: only the "a and not b" conditions and plain field maps this renderer writes
-    detection = rule["detection"]
-    for term in str(detection["condition"]).split(" and "):
-        negate = term.startswith("not ")
-        selection = detection[term.removeprefix("not ")]
-        hit = all(
-            any(_value_matches(v, span.get(field)) for v in (vs if isinstance(vs, list) else [vs]))
-            for field, vs in selection.items()
-        )
-        if hit == negate:
-            return False
-    return True
-
-
-def sigma_matches(content: str, spans: Sequence[Mapping[str, Any]]) -> bool:
-    """Whether the file's top rule fires on *spans* (attribute maps, ``time`` in seconds).
-
-    The top rule is the correlation, or the single rule of a one-tool chain.
-    """
-    docs = [d for d in yaml.safe_load_all(content) if d]
-    corr = next((d for d in docs if "correlation" in d), None)
-    if corr is None:
-        return any(_event_matches(docs[0], s) for s in spans)
-    spec = corr["correlation"]
-    rules = [next(d for d in docs if d.get("name") == n) for n in spec["rules"]]
-    unit = {"s": 1, "m": 60, "h": 3600, "d": 86400}[spec["timespan"][-1]]
-    window = int(spec["timespan"][:-1]) * unit
-    groups: dict[tuple[Any, ...], list[Mapping[str, Any]]] = defaultdict(list)
-    for span in spans:
-        groups[tuple(span.get(f) for f in spec["group-by"])].append(span)
-    return any(
-        all(
-            any(_event_matches(r, s) for s in group if 0 <= s["time"] - start["time"] <= window)
-            for r in rules
-        )
-        for group in groups.values()
-        for start in group
-    )

@@ -18,7 +18,8 @@ Python 3.11+ (CI matrix 3.11, 3.12, 3.13). PyYAML (`safe_dump_all`, `safe_load_a
    - `render(chain, finding_id)` finds the attacks whose `evidence.tool_calls` name every tool,
      builds the tool rules and the correlation, dumps them with `yaml.safe_dump_all`, and runs
      the self-check.
-   - `sigma_schema_errors(doc)`: the required fields and value rules of the Sigma
+   - `ziran/domain/sigma.py` (plain data, reusable by a later detection check):
+     `sigma_schema_errors(doc)`: the required fields and value rules of the Sigma
      specification's detection and correlation JSON schemas.
    - `sigma_matches(content, spans)`: a small matcher for the subset the renderer writes
      (field maps, value lists, wildcards, `and` / `not` conditions, `temporal` correlation with

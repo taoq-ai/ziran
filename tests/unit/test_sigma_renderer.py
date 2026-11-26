@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import time
 from typing import Any
 
 import pytest
@@ -13,11 +14,8 @@ from ziran.application.policy_export.export_service import ExportService
 from ziran.domain.entities.capability import DangerousChain
 from ziran.domain.entities.ci import chain_fingerprint
 from ziran.domain.entities.phase import CampaignResult
-from ziran.infrastructure.policy_renderers.sigma_renderer import (
-    SigmaRenderer,
-    sigma_matches,
-    sigma_schema_errors,
-)
+from ziran.domain.sigma import sigma_matches, sigma_schema_errors
+from ziran.infrastructure.policy_renderers.sigma_renderer import SigmaRenderer
 
 _TRACE = "ab" * 16
 
@@ -203,6 +201,63 @@ class TestSigmaExport:
         other = "xZZ\n---\ntitle: evil\n# !"
         assert not sigma_matches(policy.content, [_span(other, 0), _span("http_request", 1)])
         assert sigma_matches(policy.content, [_span(name, 0), _span("http_request", 1)])
+
+
+@pytest.mark.unit
+class TestHostileInput:
+    @pytest.mark.parametrize("trace", ["a*", "*" * 25 + "a", "AB" * 16, "ab" * 15, ""])
+    def test_probe_trace_id_not_32_hex_skips_with_reason(self, trace: str) -> None:
+        raw = copy.deepcopy(_RESULT)
+        raw["attack_results"][0]["probe_markers"][0]["trace_id"] = trace
+        policies = _export(raw, exclude_probes=True)
+        assert all(p.skipped for p in policies)
+        assert all("trace id" in str(p.skip_reason) for p in policies)
+        assert not _export(raw)[0].skipped  # no filter asked, no trace id read
+
+    def test_wildcard_value_matching_is_linear(self) -> None:
+        rule = {"detection": {"selection": {"f": "*" * 25 + "a"}, "condition": "selection"}}
+        start = time.perf_counter()
+        assert not sigma_matches(yaml.safe_dump(rule), [{"f": "b" * 2000}])
+        assert sigma_matches(yaml.safe_dump(rule), [{"f": "b" * 2000 + "A"}])
+        assert time.perf_counter() - start < 1.0
+
+    def test_lone_surrogate_tool_name_exports(self) -> None:
+        name = "read\ud800file"
+        raw = copy.deepcopy(_RESULT)
+        raw["attack_results"][0]["evidence"]["tool_calls"][0]["tool"] = name
+        raw["dangerous_tool_chains"][0]["tools"] = [name, "http_request"]
+        policy = _export(raw)[0]
+        assert not policy.skipped, policy.skip_reason
+        policy.content.encode("utf-8")  # writable as the CLI writes it
+
+    def test_long_backslash_tool_name_is_one_literal(self) -> None:
+        name = "a\\b" * 100  # 300 characters, a backslash in each step
+        raw = copy.deepcopy(_RESULT)
+        raw["attack_results"][0]["evidence"]["tool_calls"][0]["tool"] = name
+        raw["dangerous_tool_chains"][0]["tools"] = [name, "http_request"]
+        policy = _export(raw)[0]
+        assert not policy.skipped, policy.skip_reason
+        assert sigma_matches(policy.content, [_span(name, 0), _span("http_request", 1)])
+        assert not sigma_matches(policy.content, [_span("ab" * 100, 0), _span("http_request", 1)])
+
+    def test_same_type_chains_get_distinct_ids(self) -> None:
+        raw = copy.deepcopy(_RESULT)
+        raw["attack_results"][0]["evidence"]["tool_calls"].append({"tool": "read_db"})
+        raw["dangerous_tool_chains"][1] = {
+            **raw["dangerous_tool_chains"][0],
+            "tools": ["read_db", "http_request"],
+        }
+        policies = _export(raw)
+        assert not any(p.skipped for p in policies)
+        ids = [d["id"] for p in policies for d in yaml.safe_load_all(p.content)]
+        assert len(ids) == 6
+        assert len(set(ids)) == 6
+
+    def test_tag_with_trailing_newline_is_dropped(self) -> None:
+        raw = copy.deepcopy(_RESULT)
+        raw["attack_results"][0]["atlas_mapping"] = ["AML.T0086\n"]
+        docs = list(yaml.safe_load_all(_export(raw)[0].content))
+        assert all(not t.startswith("atlas.") for d in docs for t in d["tags"])
 
 
 @pytest.mark.unit
