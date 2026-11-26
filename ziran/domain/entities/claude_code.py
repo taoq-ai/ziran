@@ -10,7 +10,7 @@ secrets. Emit explicit fields only.
 from __future__ import annotations
 
 import re
-from typing import Final
+from typing import Final, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -98,6 +98,31 @@ class ClaudeCodeAgent(BaseModel):
         return self.key_lines.get(key, 1)
 
 
+class ClaudeCodeSkillFile(BaseModel):
+    """A file a skill folder bundles: ``python`` is analysed, ``script`` is not."""
+
+    path: str
+    kind: Literal["python", "script", "other"]
+
+
+class ClaudeCodeSkill(ClaudeCodeAgent):
+    """One Agent Skill (``<folder>/SKILL.md``, spec 125).
+
+    ``tools`` holds the ``allowed-tools`` pre-approvals. A skill grants nothing else, so no
+    key means no tool, never an inherited set.
+    """
+
+    bundled: list[ClaudeCodeSkillFile] = Field(default_factory=list)
+
+    @property
+    def unrestricted(self) -> bool:
+        return False
+
+    @property
+    def effective_tools(self) -> list[str]:
+        return list(self.tools or [])
+
+
 class ClaudeCodeHook(BaseModel):
     event: str
     matcher: str | None = None
@@ -117,14 +142,25 @@ class ClaudeCodeScan(BaseModel):
     root: str
     plugin: ClaudeCodePlugin | None = None
     agents: list[ClaudeCodeAgent] = Field(default_factory=list)
+    skills: list[ClaudeCodeSkill] = Field(default_factory=list)
     hooks: list[ClaudeCodeHook] = Field(default_factory=list)
     #: as written: ``${VAR}`` is not expanded (a static read).
     mcp_servers: list[ServerEntry] = Field(default_factory=list)
     #: server name -> the config file that first defined it (spec 123).
     mcp_sources: dict[str, str] = Field(default_factory=dict)
     issues: list[ClaudeCodeParseIssue] = Field(default_factory=list)
+    #: issues the loader raised on the manifest or agent files, before any skill was read.
+    agent_issues: int = 0
     files_analyzed: int = 0
 
     @property
     def detected(self) -> bool:
-        return self.plugin is not None or bool(self.agents) or bool(self.issues)
+        return self.plugin is not None or bool(self.agents or self.skills or self.issues)
+
+    @property
+    def agents_detected(self) -> bool:
+        """A plugin or agent definitions were found, broken ones included; skills do not count.
+
+        What the AI-BOM and the baseline consume (spec 125).
+        """
+        return self.plugin is not None or bool(self.agents) or self.agent_issues > 0

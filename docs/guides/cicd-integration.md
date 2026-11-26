@@ -48,6 +48,7 @@ ziran ci results.json --gate-config gate.yaml
 min_trust_score: 0.7              # Minimum trust score (0.0-1.0)
 max_critical_findings: 0          # Zero tolerance for critical
 fail_on_policy_violation: true    # Fail if policy rules violated
+fail_on_goal_met: false           # Fail if a vector's side-effect goal was met
 
 severity_thresholds:
   critical: 0     # Max allowed critical findings
@@ -66,8 +67,8 @@ require_owasp_coverage:           # Required OWASP categories
 | Code | Meaning |
 |------|---------|
 | 0 | Gate passed — safe to deploy |
-| 1 | Gate failed — vulnerabilities exceed thresholds |
-| 2 | Configuration error |
+| 1 | Gate failed: findings exceed a threshold, or a goal was met under `fail_on_goal_met: true`. Also an input `ziran ci` refused: an unreadable result or gate config, or a SARIF with `fail_on_goal_met: true` |
+| 2 | Usage error: an unknown option or a missing file (Click) |
 
 ## Suppressing Accepted Findings
 
@@ -296,7 +297,8 @@ in `properties.severity` (level `error` is both critical and high), and the run 
 score and the other gate inputs in `runs[0].properties.ziran`. A SARIF from another tool, or from
 `ziran audit`, has no such properties: `ziran ci` exits 1 and names the missing ones
 (`target_agent`, `final_trust_score`, `success`, `attack_count`). A SARIF with more than one run
-is refused. With a SARIF input, `--sarif` is skipped with a notice, since the input already is
+is refused, and so is a gate config with `fail_on_goal_met: true`: a SARIF holds no goal
+verdicts. With a SARIF input, `--sarif` is skipped with a notice, since the input already is
 the SARIF. `--policy` is skipped too, with a notice: the SARIF lists only successful attacks,
 so policy rules on tested categories or success rates need the scan result JSON. A SARIF written
 by a ziran release older than the SARIF gate has no `runs[0].properties.ziran`; write it again

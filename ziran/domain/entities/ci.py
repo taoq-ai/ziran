@@ -93,6 +93,7 @@ class QualityGateConfig(BaseModel):
         min_trust_score: 0.7
         max_critical_findings: 0
         fail_on_policy_violation: true
+        fail_on_goal_met: true
         severity_thresholds:
           critical: 0
           high: 3
@@ -116,6 +117,10 @@ class QualityGateConfig(BaseModel):
     )
     severity_thresholds: SeverityThresholds = Field(
         default_factory=SeverityThresholds,
+    )
+    fail_on_goal_met: bool = Field(
+        default=False,
+        description="Fail the gate when a vector's side-effect goal was met (spec 126).",
     )
     require_owasp_coverage: bool = Field(
         default=False,

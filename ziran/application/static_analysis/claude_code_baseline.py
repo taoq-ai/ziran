@@ -134,10 +134,13 @@ def apply_baseline(
     A chain is accepted by its tools and type, so a recorded pair chain does not accept a
     lethal trifecta over the same tools.
     """
+    # Skills are not in the baseline schema (spec 125): their rows are never accepted.
+    skill_files = {s.file for s in scan.skills} | {b.path for s in scan.skills for b in s.bundled}
     kept = [
         dataclasses.replace(f, severity="critical") if f.check_id == "CC000" else f
         for f in findings
-        if f.check_id not in (CHAIN_RULE_ID, LT001) and not _accepted(f, baseline)
+        if f.file_path in skill_files
+        or (f.check_id not in (CHAIN_RULE_ID, LT001) and not _accepted(f, baseline))
     ]
     violations: list[StaticFinding] = []
     narrowed: list[BaselineNarrowing] = []

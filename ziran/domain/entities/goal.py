@@ -120,3 +120,40 @@ class GoalCall(BaseModel):
     argument: str | None = Field(
         default=None, description="Path of the argument with the canary or committed value"
     )
+
+
+class GoalRow(BaseModel):
+    """One goal vector's state for a report (spec 126). Evidence is raw target text: each
+    renderer escapes it."""
+
+    model_config = ConfigDict(frozen=True)
+    vector_id: str
+    state: Literal["met", "not met", "unmeasured"]
+    evidence: str
+
+
+def _call_text(call: dict[str, Any]) -> str:
+    text = f"turn {call.get('turn')}: " + " ".join(
+        str(part) for part in (call.get("tool"), call.get("role")) if part
+    )
+    return text + (f" at {call['argument']}" if call.get("argument") else "")
+
+
+def goal_rows(attack_results: list[dict[str, Any]]) -> list[GoalRow]:
+    """Each goal vector of serialised results: a ``goal_type``, or a verdict from a file older
+    than it. ``goal_met: null`` is unmeasured, never not met."""
+    rows = []
+    for r in attack_results:
+        met = r.get("goal_met")
+        if not r.get("goal_type") and met is None:
+            continue
+        evidence = [c for c in r.get("goal_evidence") or [] if isinstance(c, dict)]
+        calls = "; ".join(_call_text(c) for c in evidence)
+        rows.append(
+            GoalRow(
+                vector_id=str(r.get("vector_id", "")),
+                state="unmeasured" if met is None else "met" if met else "not met",
+                evidence=calls or ("no reply recorded" if met is None else "no matching call"),
+            )
+        )
+    return rows

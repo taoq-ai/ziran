@@ -22,6 +22,8 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any
 
+from ziran.domain.text import md_text
+
 if TYPE_CHECKING:
     from ziran.domain.entities.ci import GateResult
 
@@ -145,7 +147,8 @@ def write_step_summary(
         lines.append("| Rule | Message | Severity |")
         lines.append("|------|---------|----------|")
         for v in gate.violations:
-            lines.append(f"| {v.rule} | {v.message.replace('|', chr(92) + '|')} | {v.severity} |")
+            message = md_text(v.message).replace("|", chr(92) + "|")  # target text: inert
+            lines.append(f"| {v.rule} | {message} | {v.severity} |")
         lines.append("")
 
     # Successful, unsuppressed attacks detail table

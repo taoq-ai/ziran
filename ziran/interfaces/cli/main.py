@@ -27,12 +27,13 @@ from ziran.application.factories import build_strategy, load_agent_adapter, load
 from ziran.domain.entities.attack import AtlasTechnique, OwaspLlmCategory
 from ziran.domain.entities.capability import BlastRadius, BlastRadiusConfig
 from ziran.domain.entities.defence import DefenceProfile
+from ziran.domain.entities.goal import goal_rows
 from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
 from ziran.domain.text import printable
 from ziran.infrastructure.logging.logger import LogFormat, setup_logging
 from ziran.infrastructure.storage.graph_storage import GraphStorage
 from ziran.interfaces.cli._text import term
-from ziran.interfaces.cli.reports import ReportGenerator
+from ziran.interfaces.cli.reports import ReportGenerator, goal_summary
 
 if TYPE_CHECKING:
     from ziran.application.attacks.carrier_executor import CarrierSites
@@ -1421,9 +1422,10 @@ def audit(
     hard-coded secrets, dangerous tool permissions, SQL injection risks,
     and PII exposure — all without executing the agent.
 
-    Also audits Claude Code plugins and subagents (a plugin root, a
-    .claude/agents/ or agents/ directory, or a single agent .md file):
-    declared tools, secrets in prompts and dangerous tool chains.
+    Also audits Claude Code plugins, subagents and Agent Skills (a plugin
+    root, a .claude/agents/ or agents/ directory, a skills/ folder, a skill
+    folder, or a single agent .md or SKILL.md file): declared tools,
+    secrets in prompts, dangerous tool chains and bundled scripts.
 
     PATH can be a single file or a directory (recursive scan).
 
@@ -1460,11 +1462,12 @@ def audit(
 
     target = Path(path)
     analyzer = StaticAnalyzer()
-    scan = load_claude_code(target)
+    scan = load_claude_code(target, analyzer.config.skip_directories)
+    # The AI-BOM and the baseline hold agents only; skills alone do not count (spec 125).
     if aibom_path:
         from ziran.application.aibom import build_aibom
 
-        if not scan.detected:
+        if not scan.agents_detected:
             raise click.UsageError("--aibom: no Claude Code plugin or agent definitions under PATH")
         try:
             Path(aibom_path).write_text(
@@ -1480,8 +1483,9 @@ def audit(
         report = AnalysisReport()
     elif target.is_file():
         report = AnalysisReport(files_analyzed=1, findings=analyzer.analyze_file(target))
-    else:
-        report = analyzer.analyze_directory(target)
+    else:  # a skill's bundled Python files are analysed once, by the skill audit
+        bundled = {Path(b.path) for s in scan.skills for b in s.bundled if b.kind == "python"}
+        report = analyzer.analyze_directory(target, bundled)
 
     trifecta_roles = _trifecta_roles() if scan.detected else {}
     if scan.detected:
@@ -1493,7 +1497,7 @@ def audit(
 
     narrowed: list[BaselineNarrowing] | None = None
     if baseline_path or write_baseline_path:
-        if not scan.detected:
+        if not scan.agents_detected:
             raise click.UsageError("no Claude Code agent definitions found under PATH")
         if write_baseline_path:
             baseline = build_baseline(scan, trifecta_roles)
@@ -1561,6 +1565,8 @@ def audit(
             }
             if scan.detected:
                 row |= {"agent": f.agent, "tools": list(f.tools)}
+            if f.atlas:
+                row["atlas"] = list(f.atlas)
             rows.append(row)
         doc: dict[str, Any] = {"files_analyzed": report.files_analyzed, "findings": rows}
         if narrowed is not None:
@@ -1841,10 +1847,20 @@ def ci(
         from_sarif = isinstance(data, dict) and "runs" in data
         result = campaign_from_sarif(data) if from_sarif else CampaignResult.model_validate(data)
     except (OSError, ValueError) as e:
-        console.print(f"[bold red]Error loading result:[/bold red] {e}")
+        console.print(
+            f"Error loading result: {printable(str(e))}",
+            style="bold red",
+            markup=False,
+            soft_wrap=True,
+        )
         sys.exit(1)
     except Exception as e:
-        console.print(f"[bold red]Unexpected error loading result:[/bold red] {e}")
+        console.print(
+            f"Unexpected error loading result: {printable(str(e))}",
+            style="bold red",
+            markup=False,
+            soft_wrap=True,
+        )
         sys.exit(1)
 
     # 2. Build quality gate
@@ -1855,6 +1871,14 @@ def ci(
         sys.exit(1)
     except Exception as e:
         console.print(f"[bold red]Unexpected error loading gate config:[/bold red] {e}")
+        sys.exit(1)
+
+    if from_sarif and gate.config.fail_on_goal_met:  # a SARIF carries no goal verdicts
+        console.print(
+            f"fail_on_goal_met needs the scan result JSON: {filepath} is a SARIF",
+            style="bold red",
+            markup=False,
+        )
         sys.exit(1)
 
     # 2b. Load accepted findings (explicit flag, else the cwd default if present)
@@ -1874,10 +1898,20 @@ def ci(
     _display_gate_result(gate_result)
     if unmeasured_note := _unmeasured_note(result):
         console.print(f"[yellow]Warning: {unmeasured_note}[/yellow]")
+    for g in goal_rows(result.attack_results):  # never silent: met and unmeasured goals
+        if g.state != "not met":
+            console.print(
+                f"Goal {g.state}: {printable(f'{g.vector_id} ({g.evidence})')}",
+                style="yellow",
+                markup=False,
+                soft_wrap=True,  # a wrapped line could start with a workflow command
+            )
     if note := review_note(result):  # signals, no evidence: shown, never a gate failure
         console.print(f"Note: {note}", style="yellow", markup=False)
     for warning in result.warnings:  # analysis the scan skipped (spec 086)
-        console.print(f"Warning: {printable(warning)}", style="yellow", markup=False)
+        console.print(
+            f"Warning: {printable(warning)}", style="yellow", markup=False, soft_wrap=True
+        )
 
     # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
     if sarif_path and from_sarif:
@@ -2288,6 +2322,9 @@ def _display_results(result: CampaignResult) -> None:
             "Signals To Review (not counted)",
             f"[yellow]{len(result.needs_review_vectors)}[/yellow]",
         )
+    goals = goal_rows(result.attack_results)
+    if goals:
+        summary_table.add_row("Goals Met", goal_summary(goals))
     summary_table.add_row(
         "Result",
         "[bold red]⚠️  VULNERABLE[/bold red]"
@@ -2366,6 +2403,18 @@ def _display_results(result: CampaignResult) -> None:
             )
 
         console.print(phase_table)
+
+    if goals:  # side-effect goals (specs 116, 124): unmeasured is never not met
+        console.print()
+        goal_table = Table(title="Side-Effect Goals")
+        goal_table.add_column("Vector", style="cyan")
+        goal_table.add_column("Goal")
+        goal_table.add_column("Evidence", style="dim")
+        style = {"met": "bold red", "not met": "green", "unmeasured": "yellow"}
+        for g in goals:
+            state = f"[{style[g.state]}]{g.state}[/{style[g.state]}]"
+            goal_table.add_row(term(g.vector_id), state, term(g.evidence))
+        console.print(goal_table)
 
     # Vulnerability details
     if result.total_vulnerabilities > 0:
