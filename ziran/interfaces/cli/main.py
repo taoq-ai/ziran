@@ -1387,9 +1387,10 @@ def audit(
     hard-coded secrets, dangerous tool permissions, SQL injection risks,
     and PII exposure — all without executing the agent.
 
-    Also audits Claude Code plugins and subagents (a plugin root, a
-    .claude/agents/ or agents/ directory, or a single agent .md file):
-    declared tools, secrets in prompts and dangerous tool chains.
+    Also audits Claude Code plugins, subagents and Agent Skills (a plugin
+    root, a .claude/agents/ or agents/ directory, a skills/ folder, a skill
+    folder, or a single agent .md or SKILL.md file): declared tools,
+    secrets in prompts, dangerous tool chains and bundled scripts.
 
     PATH can be a single file or a directory (recursive scan).
 
@@ -1446,8 +1447,8 @@ def audit(
         report = AnalysisReport()
     elif target.is_file():
         report = AnalysisReport(files_analyzed=1, findings=analyzer.analyze_file(target))
-    else:
-        report = analyzer.analyze_directory(target)
+    else:  # a skill folder's Python files are analysed once, by the skill audit
+        report = analyzer.analyze_directory(target, [Path(s.file).parent for s in scan.skills])
 
     trifecta_roles = _trifecta_roles() if scan.detected else {}
     if scan.detected:
@@ -1527,6 +1528,8 @@ def audit(
             }
             if scan.detected:
                 row |= {"agent": f.agent, "tools": list(f.tools)}
+            if f.atlas:
+                row["atlas"] = list(f.atlas)
             rows.append(row)
         doc: dict[str, Any] = {"files_analyzed": report.files_analyzed, "findings": rows}
         if narrowed is not None:

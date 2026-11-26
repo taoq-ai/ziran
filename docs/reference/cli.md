@@ -350,6 +350,7 @@ In a directory, Python files are still analysed as before and the Claude Code fi
 | Rule | Severity | Finding | Line |
 |------|----------|---------|------|
 | `CC000` | high | The agent/plugin file could not be parsed | the problem line (or none) |
+| `CC002` | low | A skill bundles a script in a language ZIRAN does not analyse ([Agent Skills](#agent-skills)) | none |
 | `SA001` | critical | Secret pattern in the system prompt, `description` or `tools` | the matching line |
 | `SA003` | high | A declared tool is dangerous (e.g. `Bash`, `WebFetch`, `Write`) | `tools:` line |
 | `SA004` | medium | A declared tool is a wildcard (`Bash(*)`, `mcp__server`, `mcp__server__*`) | `tools:` line |
@@ -378,6 +379,31 @@ and an agent has at most one `LT001` row.
 ```
 
 Exit codes are unchanged and apply to the merged report.
+
+##### Agent Skills
+
+`ziran audit` also reads Agent Skills: a folder with a `SKILL.md` whose first line is `---`. It
+finds them under `skills/` and `.claude/skills/` of `PATH`, in the manifest's `skills` paths, in
+`PATH` itself when it is a skill folder or a folder named `skills`, and in a `SKILL.md` given as
+`PATH`. A skill is audited as a skill, not as a subagent:
+
+- Its tools are its `allowed-tools` pre-approvals. A skill without the key grants nothing, so it
+  gets no `SA007`, `CC001` or `LT001` row. `allowed-tools: "*"` alone keeps `SA007`. Granted
+  tools go through `SA003`, `SA004`, `CC001` and `LT001` as for an agent; messages start with
+  `Skill '<name>'` (the `name` key, or the folder name).
+- Every bundled file is listed. A `.py` file runs through the Python checks (once: a directory
+  audit skips it in its own Python pass). A script in another language (by suffix, the
+  executable bit or a `#!` first line) gets a `CC002` (low) row: it is bundled and not analysed,
+  so the report never reads clean. Other files (notes, templates) give no row.
+- Each skill row, bundled-file rows included, has the skill name in `agent` and
+  `"atlas": ["AML.T0110"]` (MITRE ATLAS AI Agent Tool Poisoning), in JSON and in SARIF result
+  properties. Rows outside skills keep their keys.
+- `CC000` covers what cannot be read safely, and the audit goes on: invalid or too deeply nested
+  frontmatter (the message starts with `skill '<folder>':`), a file or symlinked folder that
+  resolves outside `PATH`, a symlinked folder inside it (not followed), a `.py` file over 1 MiB,
+  more than 1000 bundled files, folders nested more than 8 levels, or a file that is not a
+  regular file.
+- `--baseline` does not cover skills: skill rows are always reported in full.
 
 ##### Lethal trifecta (`LT001`)
 

@@ -8,6 +8,7 @@ Turns a :class:`~ziran.domain.entities.claude_code.ClaudeCodeScan` into the same
 Rule   Severity  When                                                       Line
 =====  ========  =========================================================  ======
 CC000  high      the file could not be parsed (one per scan issue)          issue
+CC002  low       a skill bundles a script ZIRAN does not analyse (125)      none
 SA001  critical  a secret pattern matches the prompt, description or tools  match
 SA003  high      a declared tool is dangerous                               T
 SA004  medium    a declared tool is a wildcard grant                        T
@@ -16,6 +17,10 @@ CC001  chain     a dangerous tool chain over the agent's declared tools     T
 LT001  critical  the agent's tools cover the lethal trifecta (spec 088)     T
 =====  ========  =========================================================  ======
 
+An Agent Skill (spec 125) runs the same rules over its ``allowed-tools`` pre-approvals: no key
+grants nothing, so it gets no SA007 and no chain. Its bundled Python files run through the
+:class:`StaticAnalyzer`; every skill row carries ATLAS AML.T0110 in ``atlas``.
+
 Never serialise a scan or agent wholesale (``model_dump``): the system prompt and
 MCP config may hold secrets. Findings carry only explicit fields.
 """
@@ -23,17 +28,25 @@ MCP config may hold secrets. Findings carry only explicit fields.
 from __future__ import annotations
 
 import dataclasses
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ziran.application.knowledge_graph.chain_analyzer import CHAIN_RULE_ID, ToolChainAnalyzer
 from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
 from ziran.application.knowledge_graph.trifecta import RULE_ID as LT001
 from ziran.application.knowledge_graph.trifecta import VULNERABILITY_TYPE as TRIFECTA
-from ziran.application.static_analysis.analyzer import AnalysisReport, StaticFinding, _run_check
+from ziran.application.static_analysis.analyzer import (
+    AnalysisReport,
+    StaticAnalyzer,
+    StaticFinding,
+    _run_check,
+)
 from ziran.application.static_analysis.config import StaticAnalysisConfig
+from ziran.domain.entities.attack import AtlasTechnique
 from ziran.domain.entities.claude_code import (
     ClaudeCodeAgent,
     ClaudeCodeScan,
+    ClaudeCodeSkill,
     claude_code_tool_capability,
 )
 
@@ -47,6 +60,8 @@ _REC_SA003 = "Remove the tool or scope it with a permission rule, e.g. Bash(npm 
 _REC_SA004 = "Replace the wildcard with the specific tools the agent needs."
 _REC_SA007 = "Add a 'tools' list with only the tools the agent needs."
 _REC_CC001 = "Remove one tool of the chain from the agent's 'tools' list, or split the agent."
+_REC_CC002 = "Review the script by hand: ZIRAN analyses only Python files."
+_SKILL_ATLAS = (AtlasTechnique.AI_AGENT_TOOL_POISONING.value,)
 _REC_LT001 = (
     "Remove or restrict one leg: drop the egress tool, scope the private data tool, "
     "or keep untrusted content out of this agent."
@@ -58,10 +73,12 @@ def declared_tools(agent: ClaudeCodeAgent) -> list[str] | None:
 
     The file has no ``tools`` key, or the key holds ``*`` alone: inherited. The key is there
     with no tool (``tools:``, ``tools: []``): an empty declared set, which the entity reads
-    as None, so the key's line in ``key_lines`` tells the two apart.
+    as None, so the key's line in ``key_lines`` tells the two apart. A skill without
+    ``allowed-tools`` pre-approves nothing: an empty set (spec 125).
     """
     if agent.tools is None:
-        return [] if "tools" in agent.key_lines else None
+        known = "tools" in agent.key_lines or isinstance(agent, ClaudeCodeSkill)
+        return [] if known else None
     return None if agent.tools == ["*"] else agent.tools
 
 
@@ -107,6 +124,7 @@ def _audit_agent(
     trifecta_roles: Mapping[str, Iterable[str]] | None = None,
 ) -> list[StaticFinding]:
     t_line = agent.line_of("tools")
+    label = "Skill" if isinstance(agent, ClaudeCodeSkill) else "Agent"
 
     def finding(
         rule: str, severity: str, message: str, rec: str, tools: tuple[str, ...] = ()
@@ -140,7 +158,7 @@ def _audit_agent(
         finding(
             "SA003",
             "high",
-            f"Agent '{agent.name}' is granted dangerous tool '{t}'",
+            f"{label} '{agent.name}' is granted dangerous tool '{t}'",
             _REC_SA003,
             (t,),
         )
@@ -151,7 +169,7 @@ def _audit_agent(
         finding(
             "SA004",
             "medium",
-            f"Agent '{agent.name}' is granted wildcard tool '{t}'",
+            f"{label} '{agent.name}' is granted wildcard tool '{t}'",
             _REC_SA004,
             (t,),
         )
@@ -160,11 +178,12 @@ def _audit_agent(
     ]
     if declared_tools(agent) is None:
         how = "has no 'tools' key" if agent.tools is None else "declares tools '*'"
+        what = "pre-approves" if isinstance(agent, ClaudeCodeSkill) else "inherits"
         findings.append(
             finding(
                 "SA007",
                 "high",
-                f"Agent '{agent.name}' {how} and inherits every tool",
+                f"{label} '{agent.name}' {how} and {what} every tool",
                 _REC_SA007,
             )
         )
@@ -173,7 +192,7 @@ def _audit_agent(
         finding(
             CHAIN_RULE_ID,
             c.risk_level,
-            f"Agent '{agent.name}': {c.vulnerability_type} via {' -> '.join(c.tools)}",
+            f"{label} '{agent.name}': {c.vulnerability_type} via {' -> '.join(c.tools)}",
             _REC_CC001,
             tuple(c.tools),
         )
@@ -184,7 +203,7 @@ def _audit_agent(
         finding(
             LT001,
             c.risk_level,
-            f"Agent '{agent.name}': lethal_trifecta: private data from "
+            f"{label} '{agent.name}': lethal_trifecta: private data from "
             f"{', '.join(c.evidence['private_data'])}; untrusted content from "
             f"{', '.join(c.evidence['untrusted_content'])}; egress via "
             f"{', '.join(c.evidence['egress'])}",
@@ -223,4 +242,22 @@ def audit_claude_code(
     ]
     for agent in scan.agents:
         findings += _audit_agent(agent, config, typed, trifecta_roles)
-    return AnalysisReport(files_analyzed=scan.files_analyzed, findings=findings)
+    analyzed, python = 0, StaticAnalyzer(config)
+    for skill in scan.skills:
+        rows = _audit_agent(skill, config, typed, trifecta_roles)
+        for file in skill.bundled:
+            if file.kind == "python":
+                rows += python.analyze_file(Path(file.path))
+                analyzed += 1
+            elif file.kind == "script":
+                rows.append(
+                    StaticFinding(
+                        check_id="CC002",
+                        message=f"Skill '{skill.name}' bundles a script that is not analysed",
+                        severity="low",
+                        file_path=file.path,
+                        recommendation=_REC_CC002,
+                    )
+                )
+        findings += [dataclasses.replace(f, agent=skill.name, atlas=_SKILL_ATLAS) for f in rows]
+    return AnalysisReport(files_analyzed=scan.files_analyzed + analyzed, findings=findings)

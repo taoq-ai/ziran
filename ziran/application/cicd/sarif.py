@@ -298,6 +298,8 @@ def generate_audit_sarif(findings: Sequence[StaticFinding]) -> dict[str, Any]:
         }
         if f.agent is not None:
             result["properties"] = {"agent": f.agent, "tools": list(f.tools)}
+        if f.atlas:
+            result.setdefault("properties", {})["atlas"] = list(f.atlas)
         results.append(result)
 
     for check_id, rule in rules.items():
