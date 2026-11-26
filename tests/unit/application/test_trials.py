@@ -1,0 +1,212 @@
+"""Repeat trials per vector (spec 121)."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+import pytest
+
+from ziran.application.agent_scanner.attack_executor import AttackExecutor
+from ziran.application.agent_scanner.phase_executor import PhaseExecutor
+from ziran.application.agent_scanner.scan_cache import CacheContext, ScanCache
+from ziran.application.cicd.sarif import generate_sarif
+from ziran.application.detectors.pipeline import DetectorPipeline
+from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+from ziran.domain.entities.attack import AttackPrompt, AttackResult, AttackVector, TokenUsage
+from ziran.domain.entities.phase import CampaignResult, CoverageLevel, ScanPhase
+from ziran.domain.probe_markers import mark_probe
+from ziran.interfaces.cli.html_report import _build_vulns_html
+from ziran.interfaces.cli.reports import ReportGenerator
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+pytestmark = pytest.mark.unit
+
+
+def _vector(id: str = "vec") -> AttackVector:
+    return AttackVector(
+        id=id,
+        name=f"Vector {id}",
+        category="prompt_injection",
+        target_phase=ScanPhase.RECONNAISSANCE,
+        description="test vector",
+        severity="high",
+        prompts=[AttackPrompt(template=f"hello {id}")],
+    )
+
+
+def _result(attack: AttackVector, successful: bool) -> AttackResult:
+    return AttackResult(
+        vector_id=attack.id,
+        vector_name=attack.name,
+        category="prompt_injection",
+        severity="high",
+        successful=successful,
+        evidence={"run": "yes" if successful else "no"},
+        agent_response="ok" if successful else "no",
+        token_usage=TokenUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+    )
+
+
+class _Scripted:
+    """Complies on the listed runs (1-based); records calls and resets."""
+
+    def __init__(self, complies: set[int]) -> None:
+        self.complies = complies
+        self.calls: list[dict[str, Any]] = []
+        self.returned: list[AttackResult] = []
+        self.resets = 0
+        self.provider = "scripted"
+
+    async def execute(self, attack: AttackVector, **kwargs: Any) -> AttackResult:
+        self.calls.append(kwargs)
+        result = _result(attack, len(self.calls) in self.complies)
+        self.returned.append(result)
+        return result
+
+    def reset_state(self) -> None:
+        self.resets += 1
+
+
+class _Library:
+    def __init__(self, vectors: list[AttackVector]) -> None:
+        self._vectors = vectors
+
+    def get_attacks_for_phase(self, phase: Any, *, coverage: Any) -> list[AttackVector]:
+        return list(self._vectors)
+
+
+async def _run(executor: _Scripted, **kwargs: Any) -> tuple[Any, list[AttackResult]]:
+    results: list[AttackResult] = []
+    pe = PhaseExecutor(
+        executor,  # type: ignore[arg-type]
+        _Library([_vector()]),  # type: ignore[arg-type]
+        AttackKnowledgeGraph(),
+        **kwargs,
+    )
+    phase = await pe.execute(
+        ScanPhase.RECONNAISSANCE,
+        0,
+        1,
+        coverage=CoverageLevel.STANDARD,
+        max_concurrent=1,
+        tested_vector_ids=set(),
+        attack_results=results,
+    )
+    return phase, results
+
+
+def _campaign(phase: Any, results: list[AttackResult]) -> CampaignResult:
+    return CampaignResult(
+        campaign_id="c",
+        target_agent="t",
+        phases_executed=[phase],
+        total_vulnerabilities=len(phase.vulnerabilities_found),
+        final_trust_score=0.5,
+        success=True,
+        attack_results=[r.model_dump(mode="json") for r in results],
+    )
+
+
+async def test_two_of_three_is_flaky_in_result_sarif_and_reports() -> None:
+    executor = _Scripted(complies={1, 3})
+    phase, [result] = await _run(executor, trials=3)
+
+    assert executor.calls == [{}, {"trial": 1}, {"trial": 2}]
+    assert executor.resets == 2  # before trials 2 and 3, never before the first
+    assert result.successful
+    assert result.evidence["run"] == "yes"  # the first successful trial's evidence
+    assert result.evidence["trials"] == {
+        "k": 3,
+        "successes": 2,
+        "success_rate": 0.67,
+        "pass_at_k": True,
+        "pass_hat_k": False,
+        "flaky": True,
+        "outcomes": [True, False, True],
+    }
+    assert result.token_usage.total_tokens == 6
+    assert phase.token_usage["total_tokens"] == 6
+
+    campaign = _campaign(phase, [result])
+    [sarif_result] = generate_sarif(campaign)["runs"][0]["results"]
+    props = sarif_result["properties"]
+    assert props["success_rate"] == 0.67
+    assert props["flaky"] is True
+    assert (props["successes"], props["trials"]) == (2, 3)
+
+    markdown = ReportGenerator._format_markdown(ReportGenerator.__new__(ReportGenerator), campaign)
+    assert "Reproduced: 2 of 3, flaky" in markdown
+    html = _build_vulns_html([phase.model_dump(mode="json")])
+    assert "2 of 3, flaky" in html
+
+
+async def test_every_trial_fails_reads_not_successful() -> None:
+    phase, [result] = await _run(_Scripted(complies=set()), trials=2)
+    assert not result.successful
+    assert result.evidence["trials"]["successes"] == 0
+    assert result.evidence["trials"]["flaky"] is False
+    assert phase.vulnerabilities_found == []
+
+
+async def test_every_trial_succeeds_is_not_flaky() -> None:
+    _, [result] = await _run(_Scripted(complies={1, 2}), trials=2)
+    assert result.evidence["trials"]["pass_hat_k"] is True
+    assert result.evidence["trials"]["flaky"] is False
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"trials": 1}])
+async def test_one_trial_is_todays_output(kwargs: dict[str, Any]) -> None:
+    """k = 1 pin: the executor's own result object is stored, untouched."""
+    executor = _Scripted(complies={1})
+    phase, [result] = await _run(executor, **kwargs)
+    assert executor.calls == [{}]
+    assert executor.resets == 0
+    assert result is executor.returned[0]
+    assert "trials" not in result.evidence
+    campaign = _campaign(phase, [result])
+    [sarif_result] = generate_sarif(campaign)["runs"][0]["results"]
+    assert set(sarif_result["properties"]) == {"severity", "evidence"}
+    markdown = ReportGenerator._format_markdown(ReportGenerator.__new__(ReportGenerator), campaign)
+    assert "Reproduced" not in markdown
+
+
+@pytest.mark.parametrize("trials", [0, -1])
+def test_trials_below_one_is_refused(trials: int) -> None:
+    with pytest.raises(ValueError, match="trials"):
+        PhaseExecutor(
+            _Scripted(set()),  # type: ignore[arg-type]
+            _Library([]),  # type: ignore[arg-type]
+            AttackKnowledgeGraph(),
+            trials=trials,
+        )
+
+
+async def test_cache_keys_on_trial_index(tmp_path: Path) -> None:
+    cache = ScanCache(CacheContext(ziran_version="0", target_sha256="0" * 64), root=tmp_path)
+    attack = _vector()
+    await cache.record(attack, [], _result(attack, True))
+    assert await cache.lookup(attack, [], trial=1) is None
+    await cache.record(attack, [], _result(attack, False), trial=1)
+    first = await cache.lookup(attack, [])
+    second = await cache.lookup(attack, [], trial=1)
+    assert first is not None and first.successful
+    assert second is not None and not second.successful
+    names = sorted(p.name for p in tmp_path.rglob("*.json"))
+    assert names == ["vec.json", "vec~trial1.json"]  # trial 0 keeps today's file
+
+
+async def test_each_trial_carries_its_own_probe_markers(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def run(self: Any, attack: AttackVector, deadline: Any, turns: Any) -> AttackResult:
+        mark_probe("traceparent")
+        return _result(attack, False)
+
+    monkeypatch.setattr(AttackExecutor, "_run", run)
+    executor = AttackExecutor(object(), DetectorPipeline(), campaign_id="c1")  # type: ignore[arg-type]
+    attack = _vector()
+    first = await executor.execute(attack)
+    second = await executor.execute(attack, trial=1)
+    assert first.probe_markers[0].probe_id == "c1/vec/1"  # trial 0 is unchanged
+    assert second.probe_markers[0].probe_id == "c1/vec/trial-2/1"
+    assert first.probe_markers[0].trace_id != second.probe_markers[0].trace_id

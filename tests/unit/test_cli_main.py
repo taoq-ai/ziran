@@ -1444,6 +1444,14 @@ class TestScanBudgetWiring:
     ) -> None:
         assert self._scan(runner, *flag).exit_code == 2
 
+    def test_trials_flag(self, runner: CliRunner, env: dict[str, Any]) -> None:
+        result = self._scan(runner, "--trials", "3")
+        assert result.exit_code == 0, result.output
+        assert env["scanner"].call_args.kwargs["config"]["trials"] == 3
+        assert self._scan(runner).exit_code == 0
+        assert env["scanner"].call_args.kwargs["config"]["trials"] == 1
+        assert self._scan(runner, "--trials", "0").exit_code == 2
+
     def test_cost_cap_without_llm_warns(self, runner: CliRunner, env: dict[str, Any]) -> None:
         result = self._scan(runner, "--max-cost", "1")
         assert result.exit_code == 0, result.output

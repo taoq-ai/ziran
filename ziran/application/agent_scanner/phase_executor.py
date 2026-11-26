@@ -7,6 +7,7 @@ execution within a single campaign phase.
 from __future__ import annotations
 
 import asyncio
+import functools
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
@@ -17,6 +18,7 @@ from ziran.application.agent_scanner.progress import (
     ProgressEvent,
     ProgressEventType,
 )
+from ziran.application.agent_scanner.trials import run_trials
 from ziran.application.attacks.pair import is_pair, queue_pair_last, run_in_phase
 from ziran.application.usage import TARGET_MODEL
 from ziran.domain.entities.attack import AttackResult, TokenUsage
@@ -27,7 +29,7 @@ from ziran.infrastructure.telemetry import metrics
 from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Awaitable, Callable, Sequence
 
     from ziran.application.agent_scanner.attack_executor import AttackExecutor
     from ziran.application.agent_scanner.chain_targeting import ChainSteering
@@ -61,6 +63,7 @@ class PhaseExecutor:
         phase_timeout: Per-phase timeout in seconds.
         budget: Optional campaign budget checked before each vector (spec 047).
         cache: Optional per-vector result cache for incremental scans (spec 049).
+        trials: Runs per vector, the target reset between them (spec 121).
     """
 
     def __init__(
@@ -74,7 +77,10 @@ class PhaseExecutor:
         phase_timeout: float = 300.0,
         budget: CampaignBudget | None = None,
         cache: ScanCache | None = None,
+        trials: int = 1,
     ) -> None:
+        if trials < 1:
+            raise ValueError(f"trials must be at least 1, got {trials}")
         self._attack_executor = attack_executor
         self._attack_library = attack_library
         self._graph = graph
@@ -83,6 +89,7 @@ class PhaseExecutor:
         self._phase_timeout = phase_timeout
         self._budget = budget
         self._cache = cache
+        self._trials = trials
 
     # -- public API --------------------------------------------------------
 
@@ -216,6 +223,38 @@ class PhaseExecutor:
         lock = asyncio.Lock()
         semaphore = asyncio.Semaphore(max_concurrent)
 
+        async def _once(attack: AttackVector, trial: int) -> AttackResult:
+            kw: dict[str, Any] = {"trial": trial} if trial else {}  # trial 0: as before
+            cache = self._cache  # incremental cache (spec 049): a hit replaces execution only
+            result = await cache.lookup(attack, capabilities, **kw) if cache is not None else None
+            if result is not None:
+                return result
+            metrics.attack_started(phase.value)
+            started = perf_counter()
+            executor: Callable[..., Awaitable[AttackResult]] = self._attack_executor.execute
+            execute = functools.partial(executor, **kw)
+            try:
+                if is_pair(attack):  # deadline taken here, after the acquire
+                    result = await run_in_phase(execute, attack, phase_deadline)
+                else:
+                    async with asyncio.timeout(self._attack_timeout):
+                        result = await execute(attack)
+            finally:
+                metrics.attack_finished(phase.value)
+            # Refused = a reply came back but the attack did not succeed (not an error/timeout).
+            metrics.record_attack(
+                phase=phase.value,
+                vector_id=result.vector_id,
+                provider=getattr(self._attack_executor, "provider", "unknown"),
+                coverage_level=coverage.value,
+                successful=result.successful,
+                refused=not result.successful and result.agent_response is not None,
+                duration_seconds=perf_counter() - started,
+            )
+            if cache is not None:
+                await cache.record(attack, capabilities, result, **kw)
+            return result
+
         async def _run_attack(attack_idx: int, attack: AttackVector) -> None:
             nonlocal completed_count, phase_tokens
 
@@ -237,38 +276,11 @@ class PhaseExecutor:
                             message=f"Running: {attack.name}",
                         )
                     )
-                    # Incremental cache (spec 049): a hit replaces execution only.
-                    result = (
-                        await self._cache.lookup(attack, capabilities)
-                        if self._cache is not None
-                        else None
+                    result = await run_trials(
+                        self._trials,
+                        functools.partial(_once, attack),
+                        lambda: self._attack_executor.reset_state(),  # only from trial 2
                     )
-                    if result is None:
-                        metrics.attack_started(phase.value)
-                        started = perf_counter()
-                        try:
-                            if is_pair(attack):  # deadline taken here, after the acquire
-                                executor = self._attack_executor.execute
-                                result = await run_in_phase(executor, attack, phase_deadline)
-                            else:
-                                async with asyncio.timeout(self._attack_timeout):
-                                    result = await self._attack_executor.execute(attack)
-                        finally:
-                            metrics.attack_finished(phase.value)
-                        # Refused = agent responded but the attack did not succeed
-                        # (distinct from an error/timeout where no response came back).
-                        metrics.record_attack(
-                            phase=phase.value,
-                            vector_id=result.vector_id,
-                            provider=getattr(self._attack_executor, "provider", "unknown"),
-                            coverage_level=coverage.value,
-                            successful=result.successful,
-                            refused=not result.successful and result.agent_response is not None,
-                            duration_seconds=perf_counter() - started,
-                        )
-                        if self._cache is not None:
-                            await self._cache.record(attack, capabilities, result)
-
                 # Tag result with the phase for reporting
                 result.evidence.setdefault("phase", phase.value)
 
