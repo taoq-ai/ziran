@@ -246,6 +246,8 @@ class TestMCPHandler:
         async def _handler(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
             method = body.get("method", "")
+            if "id" not in body:  # notifications/initialized (spec 109)
+                return httpx.Response(202)
 
             if method == "completion/complete":
                 return httpx.Response(

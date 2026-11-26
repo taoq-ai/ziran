@@ -461,25 +461,15 @@ class HttpAgentAdapter(BaseAgentAdapter):
             return None
 
         async def _probe_mcp() -> ProtocolType | None:
+            from ziran.infrastructure.adapters.protocols.mcp_handler import (
+                MCPProtocolHandler,
+            )
+
             try:
-                resp = await client.post(
-                    self._config.normalized_url,
-                    json={
-                        "jsonrpc": "2.0",
-                        "id": 1,
-                        "method": "initialize",
-                        "params": {
-                            "protocolVersion": "2024-11-05",
-                            "capabilities": {},
-                            "clientInfo": {"name": "ziran-scanner", "version": "0.1.0"},
-                        },
-                    },
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if "result" in data:
-                        logger.info("Detected MCP protocol")
-                        return ProtocolType.MCP
+                # the handler's own era probe: server/discover, then initialize (spec 109)
+                if await MCPProtocolHandler(client, self._config).health_check():
+                    logger.info("Detected MCP protocol")
+                    return ProtocolType.MCP
             except Exception:
                 logger.debug(
                     "mcp_detection_failed",
