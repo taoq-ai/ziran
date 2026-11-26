@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ziran.domain.entities.mcp_server_surface import McpServerRequest
 from ziran.domain.entities.phase import ScanPhase
@@ -825,6 +825,33 @@ class PairConfig(BaseModel):
     timeout_seconds: float = Field(default=240.0, gt=0)
 
 
+class Carrier(BaseModel):
+    """A file that carries a vector's injection (spec 112): built, then planted or attached.
+
+    The executor replaces ``{carrier}`` in each prompt with the file's path, URL or name.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    format: Literal["pdf", "docx", "html", "png"]
+    placement: Literal["body", "metadata"] = Field(
+        default="body",
+        description="body: hidden in the content (white 1pt text in PDF and DOCX, an "
+        "off-screen HTML block, faint PNG pixels); metadata: PDF Info, DOCX core properties, "
+        "an HTML description meta tag, a PNG tEXt chunk",
+    )
+    delivery: Literal["workspace", "knowledge_base", "page", "attachment"]
+    name: str = Field(default="document", pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+    cover: str = Field(min_length=1, max_length=2000, description="The visible, benign text")
+    text: str = Field(min_length=1, max_length=2000, description="The injection: the canary")
+
+    @field_validator("cover", "text")
+    @classmethod
+    def _printable_ascii(cls, value: str) -> str:
+        if not all(c == "\n" or " " <= c <= "~" for c in value):
+            raise ValueError("carrier text must be printable ASCII")
+        return value
+
+
 class AttackVector(BaseModel):
     """A specific attack technique to test against an agent.
 
@@ -885,6 +912,20 @@ class AttackVector(BaseModel):
         description="Server-surface config (spec 071); present → only the hostile MCP server "
         "sends this vector, never a scan.",
     )
+    carrier: Carrier | None = Field(
+        default=None,
+        description="A document or image that carries the injection (spec 112); opt-in.",
+    )
+
+    @model_validator(mode="after")
+    def _check_carrier(self) -> AttackVector:
+        if self.carrier is None:
+            return self
+        if self.tactic != "single":
+            raise ValueError(f"carrier vector {self.id} must use tactic single")
+        if not self.prompts or any("{carrier}" not in p.template for p in self.prompts):
+            raise ValueError(f"carrier vector {self.id}: every prompt must name {{carrier}}")
+        return self
 
     @model_validator(mode="after")
     def _check_new_session(self) -> AttackVector:

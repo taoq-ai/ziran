@@ -25,6 +25,7 @@ from ziran.domain.interfaces.adapter import (
     AgentResponse,
     AgentState,
     BaseAgentAdapter,
+    check_attachments,
     drop_reserved,
 )
 from ziran.domain.tool_classifier import is_dangerous as _is_dangerous_tool
@@ -146,7 +147,6 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     def __init__(self, config: TargetConfig) -> None:
         self._config = config
-        self.memory_persists_across_reset = config.memory_persists_across_reset
         self.protocol: ProtocolType = config.protocol
         """The protocol in use: the configured one, or the detected one once ``auto`` resolves."""
         self._conversation: list[dict[str, str]] = []
@@ -178,12 +178,26 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     # ── BaseAgentAdapter Implementation ──────────────────────────
 
+    @property
+    def attachment_types(self) -> frozenset[str]:
+        """PNG as an ``image_url`` part on the OpenAI protocol; none on the others (spec 112).
+
+        With ``protocol: auto`` this is empty until detection has run (a scan's discovery
+        runs it first), so a vector run before then is skipped, never sent text-only.
+        """
+        return frozenset({"image/png"}) if self.protocol == ProtocolType.OPENAI else frozenset()
+
+    @property
+    def memory_persists_across_reset(self) -> bool:
+        """As the target YAML declares it (spec 113)."""
+        return self._config.memory_persists_across_reset
+
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         """Send a message to the remote agent.
 
         Args:
             message: The prompt text.
-            **kwargs: Protocol-specific options.
+            **kwargs: Protocol-specific options; ``attachments`` as ``attachment_types`` lists.
 
         Returns:
             Standardized response.
@@ -191,6 +205,7 @@ class HttpAgentAdapter(BaseAgentAdapter):
         await self._ensure_initialized()
         if self._handler is None:
             raise RuntimeError("Handler not initialized — call initialize() first")
+        check_attachments(self, kwargs.get("attachments") or [])
 
         self._conversation.append({"role": "user", "content": message})
 

@@ -546,7 +546,8 @@ class TestSessionGate:
         await _settle()
         assert log == ["E in"]
         release.set()
-        await asyncio.gather(*tasks)
+        async with asyncio.timeout(1):  # a lost wake-up fails, never hangs
+            await asyncio.gather(*tasks)
         assert log == ["E in", "E out", "S in"]
 
     async def test_waiting_two_session_run_blocks_new_shared_holders(self) -> None:
@@ -570,7 +571,8 @@ class TestSessionGate:
         await _settle()
         assert log == ["S1", "E"]
         exclusive_done.set()
-        await asyncio.gather(*tasks)
+        async with asyncio.timeout(1):
+            await asyncio.gather(*tasks)
         assert log == ["S1", "E", "S2"]
 
     async def test_release_survives_a_double_cancel_while_the_lock_is_busy(self) -> None:
@@ -581,13 +583,21 @@ class TestSessionGate:
                 inside.set()
                 await asyncio.Event().wait()
 
+        async def queued() -> None:
+            async with gate.hold(False):
+                pass
+
         task = asyncio.create_task(holder())
         await inside.wait()
+        waiter = asyncio.create_task(queued())  # asleep until the release wakes it
+        await _settle()
         await gate._cond.acquire()  # busy when the holder releases
         task.cancel()
         await _settle()
-        task.cancel()
+        task.cancel()  # would cancel an unshielded wake-up
         await asyncio.gather(task, return_exceptions=True)
         gate._cond.release()
+        async with asyncio.timeout(1):
+            await waiter
         async with asyncio.timeout(1), gate.hold(True):
             pass

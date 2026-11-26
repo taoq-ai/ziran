@@ -209,10 +209,11 @@ target that keys its conversation on either keeps the session, and session 2 is 
 
 While the flag is set, a two-session vector never runs beside another multi-turn vector. A
 single-prompt vector can still run beside it. After each session-2 turn ziran checks the
-history it keeps for the target: if it holds any message the session did not send or receive
-(another vector's turn or reply, even one with the same text), the result is unmeasured with
-the reason `session 2 shared`. The check sees only that history, not state the target keeps on
-its side. `--concurrency 1` avoids sharing. Vectors queued behind a two-session run wait for it,
+conversation history the adapter keeps: if that history holds a user or assistant message
+beyond the session's own turns (another vector's turn or reply, even one with the same text),
+the result is unmeasured with the reason `session 2 shared`. The check reads only that history.
+It does not see a protocol handler's own copy of the conversation, for example one resent on a
+retry, or context the target keeps on its side. `--concurrency 1` avoids sharing. Vectors queued behind a two-session run wait for it,
 and the wait counts toward the per-attack timeout.
 
 ## Discovery Mode

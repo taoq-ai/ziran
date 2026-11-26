@@ -44,6 +44,7 @@ ziran scan [OPTIONS]
 | `--phase-timeout` | No | `300` | Per-phase timeout in seconds |
 | `--incremental` | No | `false` | Reuse cached results for vectors whose inputs are unchanged (`.ziran/scan_cache/`). Opt-in; not for release gates. See [Incremental Scanning](../guides/incremental-scanning.md). |
 | `--no-cache` | No | `false` | Bypass the incremental cache: neither read nor write it (overrides `--incremental`) |
+| `--carriers` | No | - | YAML file of folders the target's tools read (`workspace_dir`, `knowledge_base_dir`, `page_dir` with `page_url`). Turns on the document and image carrier vectors. A vector whose folder is not named, or whose attachment the adapter cannot send, reads unmeasured, so the scan reports INCOMPLETE. See [Attack Library](attack-library.md#document-and-image-carriers). |
 | `--hybrid-route-share` | No | `0.0` | Share of uncertain traces the hybrid sends to its model judge, `0.0` to `1.0`. `0.0` is deterministic mode, no model call. ziran sends no hybrid call in this release, so a share above `0.0` exits `2`. The flag overrides `hybrid_route_share` in `.ziran/detectors.yaml`; with no LLM backbone the file value is ignored with a warning. |
 
 \* Either `--framework` + `--agent-path` (local) or `--target` (remote) is required.

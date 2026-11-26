@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -24,6 +24,21 @@ if TYPE_CHECKING:
 PROVENANCE_METADATA_KEYS = ("trusted_task", "tool_results", "payload")
 #: Keys only the hybrid's trace judge reads, to render a trace as the spike did (spec 067).
 JUDGE_METADATA_KEYS = ("user_messages", "final_answer")
+
+
+class Attachment(BaseModel):
+    """A file sent with a message: ``invoke(message, attachments=[...])`` (spec 112)."""
+
+    model_config = ConfigDict(frozen=True)
+    filename: str
+    media_type: str
+    data: bytes
+
+
+def check_attachments(adapter: BaseAgentAdapter, attachments: list[Attachment]) -> None:
+    """Raise when an attachment's media type is not in ``adapter.attachment_types``."""
+    if bad := sorted({a.media_type for a in attachments} - adapter.attachment_types):
+        raise ValueError(f"{type(adapter).__name__} cannot send {', '.join(bad)}")
 
 
 class AgentResponse(BaseModel):
@@ -92,9 +107,22 @@ class BaseAgentAdapter(ABC):
         ```
     """
 
-    #: The target keeps its own memory across :meth:`reset_state` (spec 113). False unless the
-    #: operator declares it: two-session vectors skip a target without it.
-    memory_persists_across_reset: bool = False
+    @property
+    def attachment_types(self) -> frozenset[str]:
+        """Media types ``invoke`` sends from its ``attachments`` keyword (spec 112).
+
+        Empty by default: the adapter sends text only, and a scan skips an attachment vector
+        as unmeasured.
+        """
+        return frozenset()
+
+    @property
+    def memory_persists_across_reset(self) -> bool:
+        """The target keeps its own memory across :meth:`reset_state` (spec 113).
+
+        False unless the operator declares it: two-session vectors skip a target without it.
+        """
+        return False
 
     @abstractmethod
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
@@ -102,7 +130,8 @@ class BaseAgentAdapter(ABC):
 
         Args:
             message: The message/prompt to send to the agent.
-            **kwargs: Additional framework-specific parameters.
+            **kwargs: Additional framework-specific parameters. ``attachments``
+                (``list[Attachment]``) is read by adapters listing ``attachment_types``.
 
         Returns:
             Standardized agent response with content and tool calls.
