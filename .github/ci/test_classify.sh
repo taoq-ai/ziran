@@ -52,5 +52,12 @@ check "python in .claude" true ok 1 '[{"filename":".claude/hooks/h.py"}]'
 check "python in docs" true ok 1 '[{"filename":"docs/hooks.py"}]'
 check "root SECURITY.md" true ok 1 '[{"filename":"SECURITY.md"}]'
 
+check "ruff config in specs" true ok 1 '[{"filename":"specs/ruff.toml"}]'
+check "dot ruff config in docs" true ok 1 '[{"filename":"docs/.ruff.toml"}]'
+check "pyproject in specs" true ok 1 '[{"filename":"specs/x/pyproject.toml"}]'
+check "settings in .claude" true ok 1 '[{"filename":".claude/settings.json"}]'
+check "script in .specify" true ok 1 '[{"filename":".specify/scripts/x.sh"}]'
+check "image in docs" false ok 1 '[{"filename":"docs/img/a.png"}]'
+check "spec md" false ok 1 '[{"filename":"specs/001-x/spec.md"}]'
 [ "$fail" = 0 ] && echo "classify: all cases pass"
 exit "$fail"

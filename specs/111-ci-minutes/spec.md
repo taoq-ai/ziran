@@ -12,11 +12,14 @@ same pull request does not stop the older run, so superseded runs bill to the en
 
 After this change:
 
-1. A pull request that touches only docs (`docs/` except `docs/guides/`, `specs/`, `.specify/`,
-   `.claude/`, root-level `*.md`, `mkdocs.yml`, `LICENSE`) does no install and no test work, and
-   the docs build runs on it. Shipped Markdown (prompts, plugin skills, test fixtures) and
-   `docs/guides/` pages that tests execute count as code, as do root `SECURITY.md` (a test reads it)
-   and any `.py`, `.pyi` or `.ipynb` file under a docs folder (lint runs over the whole tree). Lint, typecheck and the three test jobs
+1. A pull request that touches only docs does no install and no test work, and the docs build
+   runs on it. The docs set is an allowlist: root-level `*.md` other than `SECURITY.md` (a test
+   reads it), `mkdocs.yml`, `LICENSE`, and files under `docs/` (except `docs/guides/`, whose pages
+   tests execute), `specs/`, `.specify/` or `.claude/` with the extension `md`, `png`, `svg`,
+   `jpg`, `jpeg` or `gif`. Every other path is code, including any `.toml`, `.yml`, `.json`, `.py`,
+   `.sh`, extensionless or unknown file in a docs folder (ruff reads nested config files and lints
+   the whole tree). Shipped Markdown (prompts, plugin skills, test fixtures) is outside those
+   folders and counts as code. Lint, typecheck and the three test jobs
    still start and report success, because the `main-protection` ruleset (refs/heads/main) requires
    `lint`, `typecheck`, `test (3.11)`, `test (3.12)` and `test (3.13)`. `on.paths` is not used for
    them, and no job-level `if` guards a required matrix job: a skipped matrix job leaves its
@@ -45,6 +48,8 @@ GitHub-hosted runners, keyed on `uv.lock`. No change.
   is docs. Any error means code. It always exits 0, because a failed `changes` job would skip the
   required jobs and a skipped check passes. `.github/ci/test_classify.sh` runs in the job against
   a stub client.
+- Gating is step-level, not job-level, for the required jobs: the ruleset on `main` needs each
+  check name to report, and a skipped matrix job reports none. Overturn if the ruleset drops them.
 - The docs build on a PR is a `build` job in `docs.yml` (`mkdocs build`, no deploy). Overturn by
   deleting that job.
 - Push events always count as code. A docs-only push to `develop` is rare and the run is cheap to

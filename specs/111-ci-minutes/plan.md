@@ -10,7 +10,7 @@
 - Non-required jobs (`dependency-audit`, `integration-test`) get the same condition at job level.
 - `docs.yml` gains a `build` job on pull_request (docs paths); `deploy` stays on push to main.
 - Every workflow that runs on `pull_request` (`ci`, `test`, `detection-accuracy`, `pentest-eval`,
-  `benchmark`, `action-test`, `lint-ci-templates`, `policy-refresh-selftest`) gets
+  `benchmark`, `action-test`, `lint-ci-templates`, `policy-refresh-selftest`, `docs`) gets
   `concurrency: group: workflow plus PR number (or run id), cancel-in-progress: true`.
 - No new third-party action. The uv cache is already on by default in `setup-uv@v7`.
 

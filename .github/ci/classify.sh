@@ -7,12 +7,13 @@
 code=true
 if [ "$EVENT" = pull_request ]; then
   # one JSON array per file, so a newline in a name cannot split one path in two
+  # an allowlist: any other file (config, script, unknown type) is code
   # docs/guides stays code: tests run the examples in those pages
   if names=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | [.filename, (.previous_filename // empty)] | @json') \
     && total=$(gh api "repos/$REPO/pulls/$PR" --jq .changed_files) \
     && [ "$total" -gt 0 ] && [ "$total" -lt 3000 ] \
     && [ "$(printf '%s\n' "$names" | grep -c .)" -eq "$total" ] \
-    && printf '%s\n' "$names" | jq -e -s 'all(.[][]; test("^(?!.*\\.(py|pyi|ipynb)\\z)((docs/(?!guides/)|specs/|\\.specify/|\\.claude/).*|(?!SECURITY\\.md)[^/]+\\.md|mkdocs\\.yml|LICENSE)\\z"; "s"))' >/dev/null; then
+    && printf '%s\n' "$names" | jq -e -s 'all(.[][]; test("^((docs/(?!guides/)|specs/|\\.specify/|\\.claude/).*\\.(md|png|svg|jpg|jpeg|gif)|(?!SECURITY\\.md)[^/]+\\.md|mkdocs\\.yml|LICENSE)\\z"; "s"))' >/dev/null; then
     code=false
   fi
 fi
