@@ -242,3 +242,154 @@ def test_duplicate_server_and_inherited_model(tmp_path: Path) -> None:
     assert _props(agent, "ziran:model") == ["unknown"]
     assert _props(agent, "ziran:tools") == []  # an empty declared set is known, not inherited
     assert "version" not in bom["metadata"]["component"]
+
+
+def _plugin(root: Path, servers: dict[str, Any], tools: str = "Read") -> dict[str, Any]:
+    """BOM of a plugin `p` with *servers* in `.mcp.json` and one agent `a` declaring *tools*."""
+    (root / ".claude-plugin").mkdir(exist_ok=True)
+    (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": "p"}))
+    (root / "agents").mkdir(exist_ok=True)
+    (root / "agents" / "a.md").write_text(f"---\nname: a\ntools: {tools}\n---\nx\n")
+    (root / ".mcp.json").write_text(json.dumps({"mcpServers": servers}))
+    bom = build_aibom(load_claude_code(root))
+    _assert_valid(bom)
+    return bom
+
+
+class TestNoLeak:
+    def test_env_placeholder_is_not_expanded(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ZIRAN_T_LEAK", "ENVSECRET_12345")
+        bom = _plugin(
+            tmp_path,
+            {
+                "cmd": {"command": "${ZIRAN_T_LEAK}/srv", "args": ["${ZIRAN_T_LEAK}"]},
+                "web": {"type": "sse", "url": "https://h.example/${ZIRAN_T_LEAK}/sse"},
+            },
+        )
+        assert "ENVSECRET_12345" not in json.dumps(bom)
+        refs = _by_ref(bom)
+        assert _props(refs["mcp:cmd"], "ziran:command") == ["${ZIRAN_T_LEAK}/srv"]
+        assert refs["mcp:web"]["endpoints"] == ["https://h.example/${ZIRAN_T_LEAK}/sse"]
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["--password", "pass@123", "pkg"],
+            ["--api-key", "SECRET@1.2.3"],
+            ["-y", "--token", "tok==9", "pkg@1.0.0"],
+        ],
+    )
+    def test_option_value_is_not_a_package(self, tmp_path: Path, args: list[str]) -> None:
+        bom = _plugin(tmp_path, {"s": {"command": "npx", "args": args}})
+        server = _by_ref(bom)["mcp:s"]
+        assert "version" not in server
+        assert _props(server, "ziran:package") == []
+        assert _props(server, "ziran:version") == ["unknown"]
+        for secret in ("pass", "123", "SECRET", "tok"):
+            assert secret not in json.dumps(server)
+
+    @pytest.mark.parametrize(
+        ("command", "args", "package", "version"),
+        [
+            ("npx", ["-y", "@scope/srv@1.2.3", "--port", "1"], "@scope/srv", "1.2.3"),
+            ("/usr/local/bin/npx", ["srv@2.0.0"], "srv", "2.0.0"),
+            ("bunx", ["srv@1.0.0"], "srv", "1.0.0"),
+            ("uvx", ["--quiet", "mcp-srv==0.4.1"], "mcp-srv", "0.4.1"),
+            ("pipx", ["run", "mcp-srv==0.4.1"], "mcp-srv", "0.4.1"),
+            ("pnpm", ["dlx", "srv@3.1.0"], "srv", "3.1.0"),
+        ],
+    )
+    def test_runner_package_is_read(
+        self, tmp_path: Path, command: str, args: list[str], package: str, version: str
+    ) -> None:
+        server = _by_ref(_plugin(tmp_path, {"s": {"command": command, "args": args}}))["mcp:s"]
+        assert (server.get("version"), _props(server, "ziran:package")) == (version, [package])
+
+    @pytest.mark.parametrize(
+        ("command", "args"),
+        [
+            ("node", ["srv@1.0.0"]),  # not a runner
+            ("pipx", ["install", "srv==1.0.0"]),  # not `pipx run`
+            ("npx", ["--registry", "r@1.0", "srv@1.0.0"]),  # an unknown runner flag
+        ],
+    )
+    def test_no_package_outside_a_runner_shape(
+        self, tmp_path: Path, command: str, args: list[str]
+    ) -> None:
+        server = _by_ref(_plugin(tmp_path, {"s": {"command": command, "args": args}}))["mcp:s"]
+        assert "version" not in server
+        assert _props(server, "ziran:package") == []
+
+    def test_url_fragment_never_reaches_the_bom(self, tmp_path: Path) -> None:
+        bom = _plugin(tmp_path, {"s": {"type": "http", "url": "https://h.example/mcp#token=FRAG"}})
+        assert "FRAG" not in json.dumps(bom)
+        assert _by_ref(bom)["mcp:s"]["endpoints"] == ["https://h.example/mcp"]
+
+    def test_plugin_folder_in_a_command_reads_root(self, tmp_path: Path) -> None:
+        command = f"{tmp_path.resolve()}/bin/srv"
+        bom = _plugin(tmp_path, {"s": {"command": command}})
+        assert _props(_by_ref(bom)["mcp:s"], "ziran:command") == ["${CLAUDE_PLUGIN_ROOT}/bin/srv"]
+
+
+class TestGuards:
+    def test_two_tools_on_one_cve_affect_the_agent_once(self, tmp_path: Path) -> None:
+        tools = "mcp__filesystem__read_file, mcp__filesystem__write_file"
+        bom = _plugin(tmp_path, {"filesystem": {"command": "srv"}}, tools)  # validated in _plugin
+        vulns = {v["id"]: v for v in bom["vulnerabilities"]}
+        assert vulns["CVE-2025-53109"]["affects"] == [{"ref": "agent:a"}]
+
+    def test_tool_of_an_unconfigured_server_is_no_dependency(self, tmp_path: Path) -> None:
+        bom = _plugin(tmp_path, {"s": {"command": "srv"}}, "mcp__slack__post, mcp__s__x")
+        deps = {d["ref"]: d["dependsOn"] for d in bom["dependencies"]}
+        assert deps["agent:a"] == ["mcp:s"]
+
+    def test_two_traces_of_one_agent_add_it_once(self, bom: dict[str, Any]) -> None:
+        added = add_shadow(bom, [_session(agent="billing"), _session(agent="billing")])
+        assert added == ["shadow-agent:billing"]
+        assert [c["bom-ref"] for c in bom["components"]].count("shadow-agent:billing") == 1
+        _assert_valid(bom)
+
+    def test_plain_tool_with_underscores_is_not_a_server(self, bom: dict[str, Any]) -> None:
+        assert add_shadow(bom, [_session("lookup__customer", "lookup__customer__get")]) == []
+        assert bom["version"] == 1
+
+
+class TestLoadBom:
+    @pytest.mark.parametrize(
+        ("change", "message"),
+        [
+            ({"services": "x"}, "'services' must be a list of objects"),
+            ({"components": [1]}, "'components' must be a list of objects"),
+            ({"metadata": None}, "'metadata' must be an object"),
+            ({"version": "abc"}, "'version' must be a positive integer"),
+        ],
+    )
+    def test_malformed_bom_is_refused(
+        self, tmp_path: Path, change: dict[str, Any], message: str
+    ) -> None:
+        path = tmp_path / "in.json"
+        doc = {"bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1} | change
+        path.write_text(json.dumps(doc), encoding="utf-8")
+        with pytest.raises(ValueError, match=message):
+            load_bom(path)
+
+    def test_not_utf8_is_refused(self, tmp_path: Path) -> None:
+        path = tmp_path / "in.json"
+        path.write_bytes(b"\xff\xfe{")
+        with pytest.raises(ValueError, match="not readable"):
+            load_bom(path)
+
+    def test_analyze_traces_refuses_a_bad_bom_before_the_report(self, tmp_path: Path) -> None:
+        bom_path = tmp_path / "in.json"
+        bom_path.write_text('{"bomFormat": "CycloneDX", "specVersion": "1.6", "services": "x"}')
+        traces = tmp_path / "t.jsonl"
+        traces.write_text("")
+        out = tmp_path / "out"
+        args = ["analyze-traces", "--source", "otel", "--input", str(traces), "--out", str(out)]
+        args += ["--aibom", str(bom_path), "--alert", "--dry-run-alerts"]
+        result = CliRunner().invoke(cli, args)
+        assert result.exit_code == 2, result.output
+        assert "'services' must be a list of objects" in result.output
+        assert not out.exists()  # no report, no alert

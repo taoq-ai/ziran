@@ -256,7 +256,7 @@ class _Scanner:
             return
         self.scan.files_analyzed += 1
         try:
-            servers = load_claude_mcp_config(file)
+            servers = load_claude_mcp_config(file, expand_env=False)
         except (ClaudeConfigError, OSError) as exc:
             self.issue(file, str(exc))
             return

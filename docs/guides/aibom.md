@@ -30,8 +30,9 @@ path, with the line where the parser keeps one.
 
 ZIRAN does not guess. What it cannot read from the files is marked `unknown`:
 
-- `ziran:version: unknown` on a plugin with no `version`, or on an MCP server whose arguments do not
-  pin a package (`pkg@1.2.3` or `pkg==1.2.3`).
+- `ziran:version: unknown` on a plugin with no `version`, or on an MCP server that a known runner
+  (`npx`, `bunx`, `uvx`, `pipx run`, `pnpm dlx`, `yarn dlx`) does not start with a pinned package
+  (`pkg@1.2.3` or `pkg==1.2.3`).
 - `ziran:model: unknown` on an agent with no `model` key or `model: inherit`: it runs on the
   session's model.
 - `ziran:tools: unknown` on an agent with no `tools` key: it inherits every tool of the session.
@@ -42,8 +43,14 @@ Datasets and model weights are out of scope.
 ## What never reaches the BOM
 
 MCP `args`, `env` and `headers`, and a URL's user, password, query and fragment, can hold secrets,
-so the BOM leaves them out. The only argument read is a pinned package, for its name and version.
-The plugin's own folder in a command reads `${CLAUDE_PLUGIN_ROOT}`.
+so the BOM leaves them out. The only argument read is the package a known runner starts, for its
+name and version; ZIRAN stops at the first runner flag it does not know, since that flag may take a
+value such as a password. `${VAR}` placeholders are written as they are, never expanded from your
+environment. The plugin's own folder in a command reads `${CLAUDE_PLUGIN_ROOT}`.
+
+Two things are kept as the config writes them: the `command` (the whole string, so a command line
+with a token in it shows that token) and the URL path (so a key in the path, as in
+`https://host/mcp/<key>`, shows too). Put secrets in `env`, `headers` or a placeholder instead.
 
 ## Shadow servers and agents
 

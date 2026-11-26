@@ -7,8 +7,9 @@ model a subagent names (``machine-learning-model``). Services: each MCP server. 
 skill CVE database matches on an agent's declared tools, in triage (a name match, not a proof).
 
 MCP ``args``, ``env``, ``headers`` and a URL's credentials, query and fragment never reach the BOM:
-they may hold secrets. A server's version is read only from a pinned package argument
-(``pkg@1.2.3`` or ``pkg==1.2.3``).
+they may hold secrets. ``${VAR}`` is never expanded. A server's version is read only from the
+package a known runner starts (``npx -y pkg@1.2.3``, ``uvx pkg==1.2.3``): any other argument may be
+an option's value.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ import os
 import re
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -35,6 +36,15 @@ if TYPE_CHECKING:
 SPEC_VERSION = "1.6"
 UNKNOWN = "unknown"
 _PINNED = re.compile(r"(?P<pkg>@?[^@=\s]+)(?:@|==)(?P<ver>\d[\w.+-]*)")
+# runner -> (its subcommand before the package, its flags that take no value)
+_RUNNERS: dict[str, tuple[tuple[str, ...], frozenset[str]]] = {
+    "npx": ((), frozenset({"-y", "--yes", "-q", "--quiet"})),
+    "bunx": ((), frozenset({"--bun", "--silent", "--verbose"})),
+    "uvx": ((), frozenset({"-q", "--quiet", "--offline", "--isolated", "--refresh"})),
+    "pipx": (("run",), frozenset({"-q", "--quiet", "-v", "--verbose", "--no-cache"})),
+    "pnpm": (("dlx",), frozenset({"-s", "--silent"})),
+    "yarn": (("dlx",), frozenset({"-q", "--quiet"})),
+}
 
 
 def _prop(name: str, value: str) -> dict[str, str]:
@@ -47,14 +57,28 @@ def _endpoint(url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc.rpartition("@")[2], parts.path, "", ""))
 
 
+def _pinned(command: str, args: list[str]) -> re.Match[str] | None:
+    """The pinned package a known runner starts: its first argument after the runner's own flags.
+
+    An unknown flag may take a value (``--token pass@123``), so it ends the search.
+    """
+    runner = _RUNNERS.get(PurePath(command).name)
+    if runner is None:
+        return None
+    sub, flags = runner
+    if tuple(args[: len(sub)]) != sub:
+        return None
+    arg = next((a for a in args[len(sub) :] if a not in flags), "-")
+    return None if arg.startswith("-") else _PINNED.fullmatch(arg)
+
+
 def _service(server: ServerEntry, source: str, config_file: str) -> dict[str, Any]:
     props = [_prop("source", source), _prop("transport", server.transport)]
     entry: dict[str, Any] = {"bom-ref": f"mcp:{server.name}", "name": server.name}
     if server.command is not None:
         root = str(Path(config_file).parent.resolve())
         props.append(_prop("command", server.command.replace(root, "${CLAUDE_PLUGIN_ROOT}")))
-    arg = next((a for a in server.args if not a.startswith("-")), None)
-    pinned = _PINNED.fullmatch(arg) if server.command is not None and arg else None
+    pinned = _pinned(server.command, server.args) if server.command is not None else None
     if pinned:
         entry["version"] = pinned["ver"]
         props.append(_prop("package", pinned["pkg"]))
@@ -164,13 +188,31 @@ def load_bom(path: Path) -> dict[str, Any]:
         bom = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"{path}: invalid JSON at line {exc.lineno}") from None
+    except (UnicodeDecodeError, RecursionError):
+        raise ValueError(f"{path}: not readable JSON (UTF-8, nested too deep?)") from None
     if (
         not isinstance(bom, dict)
         or bom.get("bomFormat") != "CycloneDX"
         or bom.get("specVersion") != SPEC_VERSION
     ):
         raise ValueError(f"{path}: not a CycloneDX {SPEC_VERSION} JSON BOM")
+    # Only the shape add_shadow reads; the full schema is the producer's concern.
+    metadata = bom.get("metadata", {})
+    if not isinstance(metadata, dict) or not _named(metadata.get("component", {})):
+        raise ValueError(f"{path}: 'metadata' must be an object")
+    for key in ("components", "services"):
+        items = bom.get(key, [])
+        if not isinstance(items, list) or not all(_named(item) for item in items):
+            raise ValueError(f"{path}: '{key}' must be a list of objects")
+    version = bom.get("version", 1)
+    if type(version) is not int or version < 1:
+        raise ValueError(f"{path}: 'version' must be a positive integer")
     return bom
+
+
+def _named(item: object) -> bool:
+    """An object whose ``name``, when present, is a string."""
+    return isinstance(item, dict) and isinstance(item.get("name", ""), str)
 
 
 def add_shadow(bom: dict[str, Any], sessions: list[TraceSession]) -> list[str]:
@@ -206,5 +248,5 @@ def add_shadow(bom: dict[str, Any], sessions: list[TraceSession]) -> list[str]:
                 bom["services"].append({"bom-ref": ref, "name": parts[1], "properties": shadow})
                 added.append(ref)
     if added:
-        bom["version"] = int(bom.get("version", 1)) + 1
+        bom["version"] = bom.get("version", 1) + 1
     return added

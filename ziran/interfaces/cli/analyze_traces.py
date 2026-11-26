@@ -140,6 +140,15 @@ def analyze_traces(
 
         setup_logging(level="DEBUG")
 
+    bom: dict[str, Any] | None = None
+    if aibom_path is not None:  # refuse a bad BOM before any report or alert
+        from ziran.application.aibom import load_bom
+
+        try:
+            bom = load_bom(aibom_path)
+        except ValueError as exc:
+            raise click.BadParameter(str(exc), param_hint="--aibom") from None
+
     try:
         # Build ingestor
         ingestor = _build_ingestor(source)
@@ -194,10 +203,9 @@ def analyze_traces(
 
         console.print(f"\n[dim]Report saved to {report_path}[/dim]")
 
-        if aibom_path is not None:
-            from ziran.application.aibom import add_shadow, load_bom
+        if bom is not None:
+            from ziran.application.aibom import add_shadow
 
-            bom = load_bom(aibom_path)
             shadow = add_shadow(bom, sessions)
             bom_out = output_dir / "aibom.json"
             bom_out.write_text(json.dumps(bom, indent=2) + "\n", encoding="utf-8")

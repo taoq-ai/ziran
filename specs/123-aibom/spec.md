@@ -14,12 +14,12 @@
 ## Behaviour
 
 - Components: subagents (`application`), named models (`machine-learning-model`, deduplicated by name, one `ziran:source` per agent that names it). The plugin is `metadata.component`. MCP servers are `services` (`bom-ref` `mcp:<name>`; a later duplicate name is skipped). `dependencies` link an agent to its model and to the servers of its `mcp__<server>__*` tools.
-- Version of an MCP server: only from its first non-flag argument when it is `pkg@<digit>...` or `pkg==<digit>...`; else `ziran:version: unknown`.
-- Never in the BOM: MCP `args` (except a pinned package name), `env`, `headers`, URL user, password, query and fragment. The config file's folder in a command reads `${CLAUDE_PLUGIN_ROOT}`.
+- Version of an MCP server: only when a known runner (`npx`, `bunx`, `uvx`, `pipx run`, `pnpm dlx`, `yarn dlx`) starts it and the first argument after the runner's own no-value flags is `pkg@<digit>...` or `pkg==<digit>...`. Any other flag ends the search (it may take a value such as a password); else `ziran:version: unknown`.
+- Never in the BOM: MCP `args` (except a pinned package name), `env`, `headers`, URL user, password, query and fragment. The config file's folder in a command reads `${CLAUDE_PLUGIN_ROOT}`. `${VAR}` is never expanded from the auditor's environment (the static loader reads the config as written). Kept as written: the `command` string and the URL path.
 - `model` absent, empty or `inherit`: `ziran:model: unknown`. No `tools` key (or `*`): `ziran:tools: unknown`; an empty declared list is known and lists no tool.
 - CVE matches: `SkillCVEDatabase.check_agent` per declared tool; one vulnerability per CVE id with every affected agent; `analysis.state: in_triage`.
 - Shadow: a trace tool id `mcp__<server>__<tool>` whose server is neither a BOM service name nor `plugin_<plugin>_<name>`; a session `agent_name` other than `unknown` that is not a BOM component or the plugin. Each is added once with the first session as source; the BOM `version` goes up by one when anything is added.
-- `--aibom` on a PATH with no Claude Code plugin or agent exits 2. A file that is not a CycloneDX 1.6 JSON BOM makes `analyze-traces` exit 2 with a value-free message.
+- `--aibom` on a PATH with no Claude Code plugin or agent exits 2. A file that is not a CycloneDX 1.6 JSON BOM, or whose `metadata`, `components`, `services` or `version` has the wrong shape, makes `analyze-traces` exit 2 with a value-free message before any trace is read, report written or alert sent.
 
 ## Out of scope
 

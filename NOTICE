@@ -41,3 +41,15 @@ This project includes code adapted from:
 
 A copy of garak's license is available at:
   https://github.com/NVIDIA/garak/blob/main/LICENSE
+
+This project includes, as test fixtures only, the CycloneDX 1.6 JSON schema
+and the SPDX and JSF schemas it references:
+
+  CycloneDX specification
+  https://github.com/CycloneDX/specification
+  Licensed under the Apache License, Version 2.0
+
+  Files: tests/fixtures/cyclonedx/*.schema.json (renamed, with the two $ref values
+  that name them; see tests/fixtures/cyclonedx/README.md). A copy of the license
+  is available at:
+  https://github.com/CycloneDX/specification/blob/master/LICENSE
