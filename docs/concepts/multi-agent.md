@@ -128,13 +128,14 @@ print(f"Cross-agent vulnerabilities: {result.cross_agent_vulnerabilities}")
 
 ## Attack Vectors
 
-ZIRAN ships with 11 multi-agent attack vectors (category `multi_agent`, most in `ziran/application/attacks/vectors/multi_agent.yaml`), covering:
+ZIRAN ships with 14 multi-agent attack vectors (category `multi_agent`, most in `ziran/application/attacks/vectors/multi_agent.yaml`), covering:
 
 - **Cross-agent prompt injection** — Injected content that propagates through delegation
 - **Delegation chain manipulation** — Exploiting trust between supervisor and worker agents
 - **Shared memory poisoning** — Corrupting shared state between agents
 - **Agent impersonation** — Impersonating other agents in the system
 - **Routing bypass** — Redirecting requests to unintended agents
+- **A2A Agent Card trust** — Unsigned, unverifiable or look-alike Agent Cards (see [A2A Protocol](a2a-protocol.md))
 
 ## Knowledge Graph
 
