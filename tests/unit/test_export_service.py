@@ -54,6 +54,16 @@ class TestExportService:
         severities = {p.severity for p in policies}
         assert severities == {"critical", "high"}
 
+    def test_chain_without_tools_is_skipped(self) -> None:
+        """A chain with no tools would render a rule that denies every request."""
+        empty = {**_chain_dict(), "tools": []}
+        result = _make_result([empty, _chain_dict()])
+
+        policies = ExportService(RegoRenderer()).export(result)
+
+        assert [p.tool_chain for p in policies] == [["read_file", "http_request"]]
+        assert policies[0].finding_id == "ZIRAN-test-campaign-001"
+
     def test_empty_chains_returns_empty(self) -> None:
         result = _make_result(chains=[])
         service = ExportService(RegoRenderer())

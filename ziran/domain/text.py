@@ -20,6 +20,15 @@ def printable(value: str) -> str:
     )
 
 
+def quoted(value: str) -> str:
+    """*value* as one double-quoted Python string literal on one line.
+
+    Printable characters stay raw (an astral one too, so no surrogate pair), the quote and
+    backslash take a backslash, and every other character is escaped as :func:`printable` does.
+    """
+    return '"' + printable(value.replace("\\", "\\\\").replace('"', '\\"')) + '"'
+
+
 def printable_lines(value: str) -> str:
     """``value`` as :func:`printable` escapes it, keeping each ``\\n`` as a line break."""
     return "\n".join(map(printable, value.split("\n")))

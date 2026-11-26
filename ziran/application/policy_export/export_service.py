@@ -41,6 +41,8 @@ class ExportService:
         policies: list[GuardrailPolicy] = []
         for i, chain_dict in enumerate(result.dangerous_tool_chains):
             chain = DangerousChain.model_validate(chain_dict)
+            if not chain.tools:  # a rule with no tool clause would deny every request
+                continue
             chain_severity = SEVERITY_ORDER.get(chain.risk_level, 0)
             if chain_severity >= floor_value:
                 finding_id = f"ZIRAN-{result.campaign_id}-{i:03d}"

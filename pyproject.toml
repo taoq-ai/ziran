@@ -136,6 +136,7 @@ test = [
     # The promptfoo live-server integration test serves examples/15 (spec 083: no ui extra now).
     "fastapi>=0.115,<1",
     "uvicorn>=0.27,<1",
+    "cedarpy>=4.1,<5",
 ]
 
 [tool.uv]

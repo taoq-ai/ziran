@@ -29,6 +29,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --group test --extra all
 
+      # the Rego export tests run opa check, parse and eval (spec 107)
+      - uses: open-policy-agent/setup-opa@v2
+        with:
+          version: 1.x
+
       - name: Fetch the base for the prompt immutability test (spec 064)
         env:
           BASE_REF: ${{ github.base_ref }}
