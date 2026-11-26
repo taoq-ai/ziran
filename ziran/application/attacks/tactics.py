@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.interfaces.adapter import scan_metadata
-from ziran.domain.replies import is_no_chat_reply
+from ziran.domain.replies import is_error_response, is_no_chat_reply
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
+    from ziran.domain.entities.goal import Turns
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
 
 logger = get_logger(__name__)
@@ -144,6 +145,7 @@ class TacticExecutor:
         attack: AttackVector,
         detector_pipeline: DetectorPipeline,
         render_fn: Callable[[AttackPrompt], str],
+        turns: Turns | None = None,
     ) -> AttackResult:
         """Execute a multi-turn attack sequence.
 
@@ -155,6 +157,7 @@ class TacticExecutor:
             attack: The attack vector with tactic and prompts.
             detector_pipeline: Pipeline for evaluating responses.
             render_fn: Function to render prompt templates.
+            turns: Filled with each reply's tool calls by turn, for a side-effect goal.
 
         Returns:
             Attack result from the multi-turn sequence.
@@ -190,11 +193,12 @@ class TacticExecutor:
                 atlas_mapping=attack.atlas_mapping,
                 harm_category=attack.harm_category,
             )
+        turns = {} if turns is None else turns
         if not self._adapter.memory_persists_across_reset:
-            return await self._run(attack, detector_pipeline, render_fn, two_session=False)
+            return await self._run(attack, detector_pipeline, render_fn, False, turns)
         gate = _GATES.setdefault(self._adapter, _SessionGate())
         async with gate.hold(exclusive=two_session):
-            return await self._run(attack, detector_pipeline, render_fn, two_session=two_session)
+            return await self._run(attack, detector_pipeline, render_fn, two_session, turns)
 
     def _shared(self, session: dict[str, Any]) -> bool:
         """True when the adapter's history holds a user or assistant message this session did
@@ -214,6 +218,7 @@ class TacticExecutor:
         detector_pipeline: DetectorPipeline,
         render_fn: Callable[[AttackPrompt], str],
         two_session: bool,
+        turns: Turns,
     ) -> AttackResult:
         sessions: list[dict[str, Any]] = []  # one record per session, two-session vectors only
         unmeasured_reason: str | None = None
@@ -262,6 +267,8 @@ class TacticExecutor:
                 if is_no_chat_reply(response.content):  # no prompt reached the target (spec 082)
                     prompt_errors += 1
                     continue
+                if not is_error_response(response.content):
+                    turns[i + 1] = response.tool_calls
 
                 if response.content:
                     last_response_content = response.content

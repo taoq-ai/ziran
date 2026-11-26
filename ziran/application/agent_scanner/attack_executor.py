@@ -8,15 +8,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ziran.application.agent_scanner.progress import (
-    ProgressEmitter,
-    ProgressEvent,
-    ProgressEventType,
-)
+from ziran.application.agent_scanner.progress import ProgressEmitter
+from ziran.application.agent_scanner.streaming import invoke_streaming
 from ziran.application.attacks.carrier_executor import CarrierExecutor, CarrierSites
 from ziran.application.attacks.many_shot import ShotRenderer, clamp_shots, estimate_tokens
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
+from ziran.application.goals import judge_goal
 from ziran.application.usage import CampaignBudget, UsageBudget, UsageLedger
 from ziran.domain.entities.attack import (
     AttackPrompt,
@@ -25,7 +23,7 @@ from ziran.domain.entities.attack import (
     TokenUsage,
     get_business_impacts,
 )
-from ziran.domain.interfaces.adapter import AgentResponse, scan_metadata
+from ziran.domain.interfaces.adapter import scan_metadata
 from ziran.domain.replies import ERROR_SENTINELS as _ERROR_SENTINELS
 from ziran.domain.replies import is_error_response as _is_error_response
 from ziran.infrastructure.logging.context import bind_vector
@@ -34,6 +32,7 @@ from ziran.infrastructure.telemetry.tracing import get_tracer
 
 if TYPE_CHECKING:
     from ziran.application.detectors.pipeline import DetectorPipeline
+    from ziran.domain.entities.goal import Turns
     from ziran.domain.interfaces.adapter import BaseAgentAdapter
     from ziran.infrastructure.llm.base import BaseLLMClient
 
@@ -94,7 +93,14 @@ class AttackExecutor:
     # -- public API --------------------------------------------------------
 
     async def execute(self, attack: AttackVector, *, deadline: float | None = None) -> AttackResult:
-        """Execute *attack*; *deadline* is a PAIR vector's event-loop stop time (spec 081)."""
+        """Execute *attack*; *deadline* is a PAIR vector's event-loop stop time (spec 081).
+        Its side-effect goal is judged on each reply's recorded tool calls (spec 116)."""
+        turns: Turns = {}
+        return judge_goal(attack, await self._run(attack, deadline, turns), turns)
+
+    async def _run(
+        self, attack: AttackVector, deadline: float | None, turns: Turns
+    ) -> AttackResult:
         bind_vector(attack.id)
         _attack_span = _tracer.start_span(
             "ziran.attack",
@@ -133,12 +139,13 @@ class AttackExecutor:
 
             pipeline, render = self._detector_pipeline, self._render_prompt
             if attack.carrier is not None:
-                result = await self._carrier.execute(attack, pipeline, render)
+                result = await self._carrier.execute(attack, pipeline, render, turns)
             elif attack.tactic == "pair":
                 pair = PairExecutor(self._adapter, self._attacker, self._budget)
-                result = await pair.execute(attack, pipeline, render, deadline=deadline)
+                result = await pair.execute(attack, pipeline, render, turns, deadline=deadline)
             else:
-                result = await TacticExecutor(self._adapter).execute(attack, pipeline, render)
+                tactic = TacticExecutor(self._adapter)
+                result = await tactic.execute(attack, pipeline, render, turns)
             _attack_span.set_attribute("ziran.attack.successful", result.successful)
             _attack_span.end()
             return result
@@ -178,10 +185,12 @@ class AttackExecutor:
         review: dict[str, Any] = {}
         answered = 0  # prompts that reached the detectors; the rest failed (spec 049)
 
-        for rendered_prompt, enc_label, prompt_spec in prompt_attempts:
+        for turn, (rendered_prompt, enc_label, prompt_spec) in enumerate(prompt_attempts, 1):
             try:
                 if self._streaming:
-                    response = await self._invoke_streaming(rendered_prompt, attack.name)
+                    response = await invoke_streaming(
+                        self._adapter, self._emitter, rendered_prompt, attack.name
+                    )
                 else:
                     response = await self._adapter.invoke(rendered_prompt)
                 plain = rendered_cache[id(prompt_spec)]  # an encoded prompt's own values
@@ -200,6 +209,7 @@ class AttackExecutor:
 
                 if _is_error_response(response.content):
                     continue
+                turns[turn] = response.tool_calls
 
                 verdict = await self._detector_pipeline.evaluate(
                     rendered_prompt,
@@ -340,53 +350,6 @@ class AttackExecutor:
 
         prompt_attempts[:] = expanded
         return None
-
-    # -- streaming ---------------------------------------------------------
-
-    async def _invoke_streaming(
-        self,
-        prompt: str,
-        attack_name: str,
-    ) -> AgentResponse:
-        """Invoke the agent with streaming and accumulate into AgentResponse."""
-        content_parts: list[str] = []
-        tool_calls: list[dict[str, Any]] = []
-        metadata: dict[str, Any] = {}
-
-        async for chunk in self._adapter.stream(prompt):
-            if chunk.content_delta:
-                content_parts.append(chunk.content_delta)
-
-            if chunk.tool_call_delta:
-                tool_calls.append(chunk.tool_call_delta)
-
-            # Emit streaming progress event
-            self._emitter.emit(
-                ProgressEvent(
-                    event=ProgressEventType.ATTACK_STREAMING,
-                    attack_name=attack_name,
-                    message=chunk.content_delta,
-                    extra={
-                        "is_final": chunk.is_final,
-                        "chunk_metadata": chunk.metadata,
-                    },
-                )
-            )
-
-            if chunk.is_final:
-                metadata = chunk.metadata
-
-        content = "".join(content_parts)
-        final_tool_calls = metadata.get("tool_calls", tool_calls)
-
-        return AgentResponse(
-            content=content,
-            tool_calls=final_tool_calls,
-            metadata=metadata,
-            prompt_tokens=metadata.get("prompt_tokens", 0),
-            completion_tokens=metadata.get("completion_tokens", 0),
-            total_tokens=metadata.get("total_tokens", 0),
-        )
 
     # -- prompt rendering --------------------------------------------------
 

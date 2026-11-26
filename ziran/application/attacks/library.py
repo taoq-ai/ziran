@@ -462,6 +462,8 @@ class AttackLibrary:
             if data.get("mcp_server_request")
             else None,
             carrier=data.get("carrier"),
+            pair=data.get("pair"),
+            goal=data.get("goal"),
         )
 
 

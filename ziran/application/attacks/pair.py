@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from ziran.application.usage import CampaignBudget
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
     from ziran.domain.entities.detection import DetectionVerdict
+    from ziran.domain.entities.goal import Turns
     from ziran.domain.interfaces.adapter import AgentResponse, BaseAgentAdapter
     from ziran.infrastructure.llm.base import BaseLLMClient
 
@@ -129,10 +130,13 @@ class PairExecutor:
         attack: AttackVector,
         pipeline: DetectorPipeline,
         render_fn: Callable[[AttackPrompt], str],
+        turns: Turns | None = None,
         *,
         deadline: float | None = None,
     ) -> AttackResult:
-        """Refine *attack*'s first prompt until success or a bound; return the best attempt."""
+        """Refine *attack*'s first prompt until success or a bound; return the best attempt.
+        *turns* gets each answered iteration's tool calls, for a side-effect goal."""
+        turns = {} if turns is None else turns
         if self._attacker is None:
             return self._result(attack, error="PAIR vector needs an attacker LLM client")
         model = self._attacker.config.model
@@ -196,6 +200,8 @@ class PairExecutor:
                         prompt_errors += 1
                     elif verdict.needs_review:
                         review = review_evidence(verdict)
+                    if verdict is not None and response is not None:
+                        turns[i] = response.tool_calls
                     quality = verdict.quality_score if verdict is not None else None
                     score = (
                         1.0
