@@ -28,7 +28,8 @@ Two things happen on every call:
 | `--llm-tpm` | `ZIRAN_LLM_TPM` | `0` (disabled) | Tokens per minute. `0` disables token pacing. |
 | `--llm-max-retries` | `ZIRAN_LLM_MAX_RETRIES` | `3` | Retries for throttled/transient errors. `0` disables retry. |
 
-These flags are available on both `ziran scan` and `ziran pentest`.
+These flags are available on both `ziran scan` and `ziran pentest`. On `ziran scan` they also
+apply to the attacker client that `--attacker-model` builds for `tactic: pair` vectors.
 
 Token-per-minute accounting uses a character-based estimate (`chars / 4`) for
 the prompt; it paces the bucket but is not billed exactly.

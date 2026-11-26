@@ -19,6 +19,7 @@ from ziran.application.agent_scanner.progress import (
 )
 from ziran.application.agent_scanner.trials import TrialRunner
 from ziran.application.attacks.pair import is_pair, queue_pair_last
+from ziran.application.attacks.pair import runnable as pair_runnable
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
 from ziran.domain.interfaces.a2a_wire import A2AWire
@@ -151,7 +152,10 @@ class PhaseExecutor:
         attacks = self._attack_library.get_attacks_for_phase(phase, coverage=coverage)
         wire = getattr(self._attack_executor, "a2a_wire", None)  # A2A probes (spec 118)
         wire = wire if isinstance(wire, A2AWire) else None
-        attacks = runnable(attacks, wire, getattr(self._graph, "warnings", []))
+        warnings = getattr(self._graph, "warnings", [])
+        attacks = runnable(attacks, wire, warnings)
+        attacker = getattr(self._attack_executor, "attacker", True)  # a test stub has its own
+        attacks = pair_runnable(attacks, attacker, warnings)
 
         # Exclude already-tested vectors to avoid redundant work
         exclude: set[str] = (exclude_vectors or set()) | tested_vector_ids

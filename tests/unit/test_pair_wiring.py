@@ -145,3 +145,18 @@ async def test_scan_cache_writes_no_entry_for_a_failed_pair_vector(tmp_path: Pat
     assert result.agent_response is not None  # cacheable but for the PAIR rule
     assert cache.stats.executed == 1
     assert list(cache_root.rglob("*.json")) == []
+
+
+def test_not_run_line_once_per_vector_set() -> None:
+    from ziran.application.attacks.pair import runnable
+
+    warnings: list[str] = []
+    static = pair_vector().model_copy(update={"id": "static", "tactic": "single"})
+    assert runnable([static, pair_vector()], None, warnings) == [static]
+    runnable([pair_vector()], None, warnings)  # the same phase again (a resume): no new line
+    other = pair_vector().model_copy(update={"id": "pair_other"})
+    runnable([other], None, warnings)  # another phase: its own line
+    assert len(warnings) == 2
+    assert "pair_wired" in warnings[0] and "pair_other" in warnings[1]
+    assert runnable([pair_vector()], object(), warnings) == [pair_vector()]
+    assert len(warnings) == 2

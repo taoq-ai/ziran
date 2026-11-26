@@ -201,10 +201,13 @@ iteration makes one attacker call, one target call and one detector verdict. The
 success, at `max_iterations`, at the campaign budget or at the timeout, and keeps the
 best-scoring attempt. The trajectory lands in the result's `pair` evidence.
 
-PAIR runs from the Python API only: pass an attacker client as `attacker_llm_client` in the
-`AgentScanner` config, unwrapped (a `track()` wrapper counts its tokens twice). Without one, a
-`tactic: pair` vector is recorded as an error and the target is not called. Attacker tokens are
-recorded under the `attacker` usage stage.
+From the CLI, `ziran scan --attacker-model <litellm id>` builds the attacker client (it needs the
+`llm` extra and reads the key from the provider's usual environment variable, as `--llm-model`
+does). From Python, pass an attacker client as `attacker_llm_client` in the `AgentScanner` config,
+unwrapped (a `track()` wrapper counts its tokens twice). Without one, `tactic: pair` vectors are
+not run: the target is not called, and one line per phase in the report's warnings lists them,
+so they never read unmeasured. Attacker tokens are recorded under the `attacker` usage stage and
+count towards `--max-campaign-tokens` and `--max-cost`.
 
 **Scheduling.** PAIR vectors run after every other vector in their phase, so they never delay a
 static vector. The phase timer (`--phase-timeout`) is extended by the longest PAIR timeout for
