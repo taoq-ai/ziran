@@ -14,7 +14,7 @@ dependencies. The `llm` extra stays optional.
   sees a `BaseLLMClient` or `None`. Pass.
 - Type safety: mypy strict on `ziran/`. Pass.
 - Size: `scanner.py` stays at 750 lines (no change there); `phase_executor.py` 380 and `pair.py`
-  336, both under 400.
+  337, both under 400.
 - Paper freeze: detectors, hybrid judge, role typing, tool aliases and chain patterns untouched.
 
 ## Design
