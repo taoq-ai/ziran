@@ -113,7 +113,7 @@ JSON output is deterministic (stable key + array ordering, no timestamps) so dow
 
 `AML.T0040` and `AML.T0047` coverage comes from the premise that every ZIRAN scan reaches the target through its inference API, inside an AI-enabled product or service. It is not a separate model-access attack, so read these two counts as context, not as a distinct capability.
 
-The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 694-vector library); the table above therefore lists techniques.
+The per-tactic vector totals printed by the script add up per-technique counts, so a vector tagged with several techniques counts once per technique (`AML.TA0000` shows 927 for a 695-vector library); the table above therefore lists techniques.
 
 No dedicated staging or reconnaissance vectors are added for AI Attack Staging: adversary-side staging has no observable outcome on a target, and tagging vectors with it would only pad counts.
 
@@ -123,13 +123,13 @@ These ids come from ATLAS data release 2026.10 ([`dist/v6/ATLAS-2026.10.yaml`](h
 
 | Technique | Vectors | What the vectors do |
 |---|---:|---|
-| `AML.T0080` AI Agent Context Poisoning | 13 | Parent of the two rows below |
-| `AML.T0080.000` Memory | 4 | Ask the agent to store a planted fact or rule in persistent or shared memory |
+| `AML.T0080` AI Agent Context Poisoning | 14 | Parent of the two rows below |
+| `AML.T0080.000` Memory | 5 | Ask the agent to store a planted fact or rule in persistent or shared memory, or plant one and trigger it from a new session |
 | `AML.T0080.001` Thread | 9 | Plant an instruction or fake history that must govern the rest of the thread |
 | `AML.T0081` Modify AI Agent Configuration | 5 | Change the agent's settings or add an MCP server to its configuration |
 | `AML.T0084` Discover AI Agent Configuration | 7 | Read the agent card or ask for a dump of tools, prompt and settings |
 | `AML.T0133` Discover AI Agent Runtime Capabilities | 5 | Probe tools and permissions by asking what the agent can and cannot do |
-| `AML.T0086` Exfiltration via AI Agent Tool Invocation | 23 | Make the agent send data out through a tool call (email, HTTP, file, MCP arguments) |
+| `AML.T0086` Exfiltration via AI Agent Tool Invocation | 32 | Make the agent send data out through a tool call (email, HTTP, file, MCP arguments), including from instructions hidden in a document carrier |
 | `AML.T0110` AI Agent Tool Poisoning | 82 | Parent of the three rows below |
 | `AML.T0110.000` Definition and Instructions | 72 | The payload sits in a tool's name, description, parameter schema or manifest |
 | `AML.T0110.001` Implementation | 0 | Out of scope: the payload runs in the tool's code, which a prompt-driven scan neither plants nor observes |

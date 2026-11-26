@@ -197,6 +197,25 @@ retry:
 
 `probe_delay` spaces out the three discovery probes; the 0.5 s default adds about 1 s per discovery run compared with earlier releases, and `probe_delay: 0` restores back-to-back probes.
 
+Set `memory_persists_across_reset: true` when the agent keeps memory across sessions (for example
+a store keyed by user rather than by session). Two-session memory vectors such as
+`mp_cross_session_plant_trigger` run only then; without it they are skipped and listed as
+unmeasured.
+
+Declare it only for a target whose session ends when ziran resets. ziran clears its own
+conversation history and, for A2A, starts a new context id that a late reply cannot restore. It
+does not clear the HTTP cookie jar or a fixed session field in `rest.extra_body`, so a REST
+target that keys its conversation on either keeps the session, and session 2 is not new.
+
+While the flag is set, a two-session vector never runs beside another multi-turn vector. A
+single-prompt vector can still run beside it. After each session-2 turn ziran checks the
+conversation history the adapter keeps: if that history holds a user or assistant message
+beyond the session's own turns (another vector's turn or reply, even one with the same text),
+the result is unmeasured with the reason `session 2 shared`. The check reads only that history.
+It does not see a protocol handler's own copy of the conversation, for example one resent on a
+retry, or context the target keeps on its side. `--concurrency 1` avoids sharing. Vectors queued behind a two-session run wait for it,
+and the wait counts toward the per-attack timeout.
+
 ## Discovery Mode
 
 Before running a full scan, discover what the agent can do:

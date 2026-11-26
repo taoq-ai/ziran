@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-11-26T13:31:29.879235+00:00",
-  "total_vectors": 694,
+  "timestamp": "2026-11-26T13:53:21.034836+00:00",
+  "total_vectors": 695,
   "categories": 11,
   "owasp_coverage_pct": 100.0,
   "owasp_covered": 10,
-  "multi_turn_vectors": 229,
+  "multi_turn_vectors": 230,
   "harm_category_count": 11,
   "tactics_count": 11,
   "benchmark_count": 20,
@@ -121,7 +121,7 @@
         },
         {
           "dimension": "Total vectors",
-          "implemented": 694,
+          "implemented": 695,
           "target": 400,
           "pct": 100
         },
@@ -211,7 +211,7 @@
         },
         {
           "dimension": "Total library overlap",
-          "implemented": 694,
+          "implemented": 695,
           "target": null,
           "pct": null
         }

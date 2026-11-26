@@ -116,6 +116,14 @@ class BaseAgentAdapter(ABC):
         """
         return frozenset()
 
+    @property
+    def memory_persists_across_reset(self) -> bool:
+        """The target keeps its own memory across :meth:`reset_state` (spec 113).
+
+        False unless the operator declares it: two-session vectors skip a target without it.
+        """
+        return False
+
     @abstractmethod
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         """Send a message to the agent and get a response.
@@ -162,7 +170,9 @@ class BaseAgentAdapter(ABC):
         """Reset the agent to its initial state.
 
         Clears conversation history, memory, and any accumulated
-        context. Used between phases or campaigns.
+        context ziran holds. Used between phases or campaigns. Memory the
+        target keeps on its side survives when
+        :attr:`memory_persists_across_reset` is true.
         """
 
     async def stream(self, message: str, **kwargs: Any) -> AsyncIterator[AgentResponseChunk]:

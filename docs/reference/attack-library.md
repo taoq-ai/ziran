@@ -1,8 +1,10 @@
 # Attack Library Reference
 
-ZIRAN ships with **137 attack vectors** across **9 YAML files** and **8 categories**, with OWASP LLM Top 10 mapping.
+ZIRAN ships with **695 attack vectors** across **37 YAML files** and **11 categories**, with OWASP LLM Top 10, OWASP Agentic Top 10 and MITRE ATLAS mappings.
 
 ## Vector Files
+
+The table lists the core files; every file is under `ziran/application/attacks/vectors/`.
 
 | File | Vectors | Description |
 |------|---------|-------------|
@@ -12,7 +14,7 @@ ZIRAN ships with **137 attack vectors** across **9 YAML files** and **8 categori
 | `tool_manipulation.yaml` | 16 | Tool misuse, malicious parameters, chaining |
 | `chain_of_thought_manipulation.yaml` | 15 | Reasoning hijack, decision manipulation |
 | `indirect_injection.yaml` | 15 | Injection via documents, search results, RAG |
-| `memory_poisoning.yaml` | 15 | Persistent instruction planting |
+| `memory_poisoning.yaml` | 16 | Persistent instruction planting |
 | `privilege_escalation.yaml` | 15 | Admin impersonation, scope widening |
 | `a2a_attacks.yaml` | 11 | A2A protocol-specific attacks |
 | `document_carriers.yaml` | 9 | PDF, DOCX, HTML and PNG files with hidden injections (opt-in, `--carriers`) |

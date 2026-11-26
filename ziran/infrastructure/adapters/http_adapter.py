@@ -187,6 +187,11 @@ class HttpAgentAdapter(BaseAgentAdapter):
         """
         return frozenset({"image/png"}) if self.protocol == ProtocolType.OPENAI else frozenset()
 
+    @property
+    def memory_persists_across_reset(self) -> bool:
+        """As the target YAML declares it (spec 113)."""
+        return self._config.memory_persists_across_reset
+
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         """Send a message to the remote agent.
 

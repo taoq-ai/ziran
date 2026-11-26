@@ -70,6 +70,7 @@ retry:
 # Timeout in seconds
 timeout: 30
 probe_delay: 0.5    # Seconds between discovery probes (0 disables)
+memory_persists_across_reset: false  # true: the agent keeps memory across sessions
 
 # Custom headers (optional)
 headers:
