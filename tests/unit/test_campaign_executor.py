@@ -603,6 +603,7 @@ async def test_the_budget_counts_the_vectors_own_target_tokens(tactic: str) -> N
     assert len(target.prompts) == 10  # 10 x 5,000 reaches the cap; no eleventh call
     assert result.token_usage.prompt_tokens + result.token_usage.completion_tokens == 50_000
     assert {e.stage for e in ledger.entries()} == {"attacker"}  # target booked by the phase
+    assert result.evidence["outcome"] == "unmeasured"  # cut short by the cap, no success
 
 
 async def test_a_scan_books_campaign_target_tokens_once() -> None:
