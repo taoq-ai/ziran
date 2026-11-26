@@ -76,6 +76,18 @@ class TestLoader:
         ]
         assert scan.detected
 
+    def test_script_by_shebang_or_exec_bit(self, tmp_path: Path) -> None:
+        _skill(tmp_path, "s", "name: s\n")
+        _write(tmp_path / "skills" / "s" / "a", "#!/bin/sh\necho\n")
+        _write(tmp_path / "skills" / "s" / "b", "echo\n").chmod(0o755)
+        _write(tmp_path / "skills" / "s" / "c", "plain\n")
+        bundled = load_claude_code(tmp_path).skills[0].bundled
+        assert [(Path(b.path).name, b.kind) for b in bundled] == [
+            ("a", "script"),
+            ("b", "script"),
+            ("c", "other"),
+        ]
+
     def test_name_defaults_to_folder(self, tmp_path: Path) -> None:
         _skill(tmp_path, "my-skill", "description: x\n")
         [skill] = load_claude_code(tmp_path).skills

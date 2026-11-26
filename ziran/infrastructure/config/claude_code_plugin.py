@@ -298,8 +298,7 @@ class _Scanner:
             here = Path(dirpath)
             for name in sorted(dirnames):
                 sub = here / name
-                if os.path.islink(sub):
-                    dirnames.remove(name)
+                if os.path.islink(sub):  # os.walk does not descend into it
                     inside = _real(sub).is_relative_to(self.base)
                     self.issue(sub, "symlinked directory is not followed" if inside else _OUTSIDE)
             dirnames.sort()
