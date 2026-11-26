@@ -179,7 +179,7 @@ A red-team or threat-intel reader filters findings by ATLAS agent techniques.
 - `AGENT_SPECIFIC_TECHNIQUES` stays at the 14 techniques of the October 2025 release. Adding the
   new ids would make the coverage gate fail on `AML.T0110.001` and `AML.T0118`, which no vector
   can honestly test. Overturned if the owner wants the set to follow ATLAS's "Agentic AI"
-  platform tag; then those two need an exemption in the gate.
+  `platforms` value; then those two need an exemption in the gate.
 - `AML.T0110.001` and `AML.T0118` are in the enum with zero vectors, so the coverage reference
   shows them as gaps instead of hiding them. Overturned if the enum should hold only mapped ids.
 - Only `AML.T0084` is added, not its sub-techniques (`.000` to `.003`); the scope names the
