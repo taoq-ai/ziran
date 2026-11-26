@@ -12,5 +12,10 @@ Spec, plan and tasks read against each other and against the plan item F-ATTACKE
 | A06 | LOW | tasks T008 | The first mutant run left the rank order alive: every tie held equal scores. A test with unequal scores at depth 3 now kills both the reversed and the missing sort. | Closed |
 | A07 | LOW | plan step 5 | `attack_executor.py` dispatch shares a line with F-SCAN-ATTACKER-FLAG (`self._attacker` renamed `attacker`). Whichever merges second keeps both changes. | Recorded in the PR |
 | A08 | LOW | coverage | Every FR has a task and a test; FR-010 is held by `test_scanner_size.py` and the diff stat. | Closed |
+| A09 | HIGH | goal gate round 1, `campaign.py` budget check | The check before each node read the ledger only, and the phase books target tokens when the vector ends, so TAP ran 1,000,000 target tokens on a 50,000 cap. PAIR had the same gap. | Closed: FR-005, T010, tested for TAP, crescendo_live, PAIR and a scan |
+| A10 | HIGH | security gate round 1, `pair.py` `_parse_prompt` | A reply with a 4,300-digit integer or about 1,000 nested brackets (3.11) raised past the loop, so the vector was dropped with its tree, an earlier success and its tokens. | Closed: FR-006, T011, tested on 3.11, 3.12, 3.13 |
+| A11 | MEDIUM | security gate round 1, `campaign.py` result | A run cut short by the attacker provider or the budget read as resisted. | Closed: FR-005, T012 |
+| A12 | LOW | security gate round 1, `attack.py` | `timeout_seconds` took inf and 1e308, so the phase timer could be infinite. | Closed: FR-002, T012 |
+| A13 | LOW | arch gate round 1, docs | The node count said 24 with the defaults; the most is 18. | Closed: T012 |
 
 No CRITICAL or HIGH row is open.

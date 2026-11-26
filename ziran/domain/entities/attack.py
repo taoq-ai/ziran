@@ -824,7 +824,7 @@ class PairConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # a stray `seed:` is an error, not a no-op
     max_iterations: int = Field(default=20, ge=1, le=100)
-    timeout_seconds: float = Field(default=240.0, gt=0)
+    timeout_seconds: float = Field(default=240.0, gt=0, le=3600, allow_inf_nan=False)
 
 
 #: Tactics an attacker LLM drives: they need an attacker client (specs 081, 128).
@@ -840,7 +840,7 @@ class CampaignConfig(BaseModel):
     depth: int = Field(default=4, ge=1, le=10, description="tap: levels of the tree")
     turns: int = Field(default=8, ge=1, le=30, description="crescendo_live: turns sent")
     max_nodes: int = Field(default=40, ge=1, le=200, description="Target calls, either mode")
-    timeout_seconds: float = Field(default=600.0, gt=0)
+    timeout_seconds: float = Field(default=600.0, gt=0, le=3600, allow_inf_nan=False)
 
 
 class Carrier(BaseModel):

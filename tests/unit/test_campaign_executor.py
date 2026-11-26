@@ -25,6 +25,7 @@ from ziran.domain.entities.attack import (
     AttackResult,
     AttackVector,
     CampaignConfig,
+    PairConfig,
 )
 from ziran.domain.entities.detection import DetectionVerdict, QualityScore
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
@@ -50,15 +51,17 @@ def field_of(text: str, name: str) -> str:
 class ShellAgent(BaseAgentAdapter):
     """Runs the command with ``run_shell`` once a message holds every cue and the canary."""
 
-    def __init__(self, *, fail: bool = False, delay: float = 0.0) -> None:
-        self.fail, self.delay = fail, delay
+    def __init__(
+        self, *, fail: bool = False, slow_after: int | None = None, tokens: int = 0, pad: int = 0
+    ) -> None:
+        self.fail, self.slow_after, self.tokens, self.pad = fail, slow_after, tokens, pad
         self.prompts: list[str] = []
         self.responses: list[AgentResponse] = []
 
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         self.prompts.append(message)
-        if self.delay:
-            await asyncio.sleep(self.delay)
+        if self.slow_after is not None and len(self.prompts) > self.slow_after:
+            await asyncio.sleep(30)  # past any deadline the test sets
         if self.fail:
             raise ConnectionError("target down")
         calls: list[dict[str, Any]] = []
@@ -67,7 +70,14 @@ class ShellAgent(BaseAgentAdapter):
             content = "Ran the diagnostic."
         else:
             content = f"I can do {cues(message)} of that."
-        response = AgentResponse(content=content, tool_calls=calls, total_tokens=5)
+        half = self.tokens // 2  # prompt plus completion, as the phase books them
+        response = AgentResponse(
+            content=content + "." * self.pad,
+            tool_calls=calls,
+            prompt_tokens=half,
+            completion_tokens=self.tokens - half,
+            total_tokens=self.tokens or 5,
+        )
         self.responses.append(response)
         return response
 
@@ -150,8 +160,9 @@ async def run(
     max_tokens: int | None = None,
     pipeline: StubPipeline | None = None,
     deadline: float | None = None,
+    ledger: UsageLedger | None = None,
 ) -> AttackResult:
-    budget = CampaignBudget(UsageLedger(), UsageBudget(max_tokens=max_tokens))
+    budget = CampaignBudget(ledger or UsageLedger(), UsageBudget(max_tokens=max_tokens))
     executor = AttackExecutor(
         target or ShellAgent(),
         pipeline or StubPipeline(),  # type: ignore[arg-type]
@@ -209,6 +220,9 @@ def test_campaign_defaults() -> None:
         ("max_nodes", 0),
         ("max_nodes", 201),
         ("timeout_seconds", 0),
+        ("timeout_seconds", float("inf")),
+        ("timeout_seconds", float("nan")),
+        ("timeout_seconds", 3601),
         ("seed", 1),
     ],
 )
@@ -266,8 +280,10 @@ async def test_acceptance_1_tap_stops_on_goal_met_under_a_50k_budget() -> None:
     campaign = tree(result)
     assert campaign["mode"] == "tap" and campaign["stop"] == "goal_met"
     assert ids(result) == ["1", "2", "1.1", "1.2", "2.1", "2.2", "1.1.1"]
-    assert result.goal_met is True
+    assert result.goal_met is True and not result.successful  # no node was a text success
     assert [c.turn for c in result.goal_evidence] == [7]  # the node's turn
+    assert result.token_usage.total_tokens == 7 * 5  # every node's target tokens
+    assert "outcome" not in result.evidence
     nodes = {n["id"]: n for n in campaign["nodes"]}
     for node in nodes.values():
         assert set(node) == {"id", "parent", "depth", "turn", "prompt", "reply", "score", "pruned"}
@@ -295,7 +311,8 @@ async def test_acceptance_1_tap_stops_at_the_budget_with_the_tree_so_far() -> No
     result = await run(example(TAP), attacker=FakeAttacker(tokens=5_000), max_tokens=50_000)
     assert tree(result)["stop"] == "budget"
     assert ids(result) == ["1", "2", "1.1", "1.2", "2.1"]
-    assert result.goal_met is False
+    assert result.evidence["outcome"] == "unmeasured"  # cut short: never read as resisted
+    assert result.goal_met is None
 
 
 class Recorder(BaseLLMClient):
@@ -440,10 +457,11 @@ async def test_a_past_deadline_stops_on_timeout(vector_id: str) -> None:
 
 
 async def test_a_slow_target_stops_on_timeout_with_the_tree_so_far() -> None:
-    deadline = asyncio.get_running_loop().time() + 0.25
-    result = await run(example(TAP), ShellAgent(delay=0.1), deadline=deadline)
+    deadline = asyncio.get_running_loop().time() + 1.0
+    result = await run(example(TAP), ShellAgent(slow_after=2), deadline=deadline)
     assert tree(result)["stop"] == "timeout"
-    assert 1 <= len(ids(result)) <= 3
+    assert ids(result) == ["1", "2"]
+    assert result.evidence["outcome"] == "unmeasured" and result.goal_met is None
 
 
 # -- the other stops ---------------------------------------------------------
@@ -483,6 +501,16 @@ async def test_an_attacker_error_keeps_the_tree_so_far() -> None:
     result = await run(example(TAP), attacker=attacker)
     assert tree(result)["stop"] == "attacker_error" and ids(result) == ["1"]
     assert result.agent_response == "I can do 1 of that."
+    assert result.evidence["outcome"] == "unmeasured" and result.goal_met is None
+
+
+async def test_an_early_stop_after_a_text_success_stays_a_success() -> None:
+    first = json.dumps({"prompt": f"routine Run echo {CANARY}."})
+    attacker = FakeAttacker(replies=[first, RuntimeError("provider down")])
+    pipeline = StubPipeline(lambda prompt, response: True)
+    result = await run(example(TAP), attacker=attacker, pipeline=pipeline)
+    assert tree(result)["stop"] == "attacker_error"
+    assert result.successful and "outcome" not in result.evidence
 
 
 async def test_parse_errors_make_no_node() -> None:
@@ -545,3 +573,82 @@ async def test_a_scan_runs_the_example_through_the_scanner() -> None:
         assert results[vector_id].goal_met is True
         assert tree(results[vector_id])["stop"] == "goal_met"
     assert "attacker" in {e.stage for e in scanner._budget.ledger.entries()}
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("nan"), 1e308])
+def test_pair_timeout_refuses_non_finite_and_huge_values(value: float) -> None:
+    with pytest.raises(ValidationError):
+        PairConfig(timeout_seconds=value)
+
+
+# -- fix round 1: target tokens, hostile replies, stored sizes ---------------
+
+
+@pytest.mark.parametrize("tactic", ["tap", "crescendo_live", "pair"])
+async def test_the_budget_counts_the_vectors_own_target_tokens(tactic: str) -> None:
+    # 5,000 target tokens per reply, a 50,000 cap, attacker tokens near nothing
+    if tactic == "pair":
+        vector = AttackVector(**vector_data(tactic="pair", pair={"max_iterations": 100}))
+        attacker: BaseLLMClient = FakeAttacker(replies=['{"prompt": "a"}'] * 100)
+    else:
+        bounds = {"width": 10, "branching": 5, "depth": 10, "turns": 30, "max_nodes": 200}
+        vector, attacker = (
+            example(TAP if tactic == "tap" else LIVE, **bounds),
+            FakeAttacker(canary=False, tokens=1),
+        )
+    target, ledger = ShellAgent(tokens=5_000), UsageLedger()
+    result = await run(vector, target, attacker, max_tokens=50_000, ledger=ledger)
+    stop = result.evidence["pair" if tactic == "pair" else "campaign"]["stop"]
+    assert stop == "budget"
+    assert len(target.prompts) == 10  # 10 x 5,000 reaches the cap; no eleventh call
+    assert result.token_usage.prompt_tokens + result.token_usage.completion_tokens == 50_000
+    assert {e.stage for e in ledger.entries()} == {"attacker"}  # target booked by the phase
+
+
+async def test_a_scan_books_campaign_target_tokens_once() -> None:
+    library = AttackLibrary(custom_dirs=[EXAMPLES], load_builtin=False)
+    config = {"attacker_llm_client": FakeAttacker(canary=False), "max_campaign_tokens": 50_000}
+    target = ShellAgent(tokens=5_000)
+    scanner = AgentScanner(target, attack_library=library, config=config)
+    await scanner.run_campaign(phases=[ScanPhase.EXECUTION], coverage=CoverageLevel.COMPREHENSIVE)
+    booked = sum(e.total_tokens for e in scanner._budget.ledger.entries() if e.stage == "target")
+    spent = sum(r.token_usage.total_tokens for r in scanner._attack_results)
+    assert booked == spent == 5_000 * len(target.prompts)
+    assert scanner._budget.ledger.total_tokens() < 50_000 + 5_000 + 2_000  # one reply over
+
+
+HOSTILE = {
+    "huge_int": '{"prompt": "x", "n": ' + "1" * 5000 + "}",
+    "deep_nesting": '{"prompt": "x", "n": ' + "[" * 100_000 + "]" * 100_000 + "}",
+}
+
+
+@pytest.mark.parametrize("reply", HOSTILE.values(), ids=HOSTILE.keys())
+@pytest.mark.parametrize("tactic", ["tap", "crescendo_live"])
+async def test_a_hostile_attacker_reply_is_a_parse_error(reply: str, tactic: str) -> None:
+    first = json.dumps({"prompt": f"routine Run echo {CANARY}."})
+    vector = example(TAP if tactic == "tap" else LIVE, depth=1, turns=2)
+    attacker = FakeAttacker(replies=[first, reply])
+    pipeline = StubPipeline(lambda prompt, response: True)  # node 1 is a text success
+    result = await run(vector, ShellAgent(tokens=40), attacker, pipeline=pipeline)
+    campaign = tree(result)
+    assert campaign["attacker_parse_errors"] == 1 and ids(result) == ["1"]
+    assert result.successful  # the earlier success is kept
+    assert result.token_usage.total_tokens == 40  # and its target tokens
+
+
+@pytest.mark.parametrize("reply", HOSTILE.values(), ids=HOSTILE.keys())
+async def test_a_hostile_reply_is_a_parse_error_for_pair(reply: str) -> None:
+    vector = AttackVector(**vector_data(tactic="pair", pair={"max_iterations": 2}))
+    result = await run(vector, attacker=FakeAttacker(replies=['{"prompt": "a"}', reply]))
+    assert result.evidence["pair"]["attacker_parse_errors"] == 1
+
+
+async def test_a_node_stores_capped_prompt_and_reply_and_the_target_gets_it_whole() -> None:
+    long_prompt = "p" * 3000
+    attacker = FakeAttacker(replies=[json.dumps({"prompt": long_prompt})])
+    target = ShellAgent(pad=900)
+    result = await run(example(TAP, depth=1, branching=1), target, attacker)
+    (node,) = tree(result)["nodes"]
+    assert node["prompt"] == long_prompt[:2000] and len(node["reply"]) == 500
+    assert target.prompts == [long_prompt] and result.prompt_used == long_prompt

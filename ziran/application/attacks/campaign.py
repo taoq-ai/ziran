@@ -5,8 +5,9 @@ Each node is one attacker call, one target call and one detector verdict. A node
 path in the tree (``2.1`` is the first child of ``2``) and every attacker request names its
 node, so the same attacker replies and the same target give the same tree. Every loop is
 bounded: ``CampaignConfig`` (width, branching, depth, turns, max_nodes), the campaign budget
-checked before each attacker call, and the deadline. Cost: a TAP vector makes up to
-``branching * (1 + (depth - 1) * width)`` nodes, each about one PAIR iteration.
+checked before each attacker call (with the vector's own target tokens so far), and the
+deadline. Cost: TAP makes ``branching`` nodes at depth 1 and at most ``width * branching`` at
+each later depth (18 with the defaults), each about one PAIR iteration.
 """
 
 from __future__ import annotations
@@ -15,7 +16,13 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from ziran.application.attacks.pair import _NO_REPLY, PairExecutor, _parse_prompt
+from ziran.application.attacks.pair import (
+    _NO_REPLY,
+    EARLY_STOPS,
+    PairExecutor,
+    _booked,
+    _parse_prompt,
+)
 from ziran.application.attacks.tactics import _GATES, _SessionGate
 from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
@@ -48,6 +55,7 @@ CRESCENDO_SYSTEM_PROMPT = (
     "turn, building on what the target already said. " + _JSON
 )
 _REPLY_CHARS = 500  # a node keeps this much of the reply, and the attacker sees the same
+_PROMPT_CHARS = 2000  # and this much of the prompt; the target gets it whole
 
 
 class _StopError(Exception):
@@ -75,6 +83,7 @@ class _Tree:
     prompt_errors: int = 0
     tokens: TokenUsage = field(default_factory=TokenUsage)
     review: dict[str, Any] = field(default_factory=dict)
+    sent: dict[str, str] = field(default_factory=dict)  # each node's whole prompt
 
 
 def _request(tree: _Tree, node: str, path: list[dict[str, Any]]) -> str:
@@ -190,7 +199,7 @@ class CampaignExecutor(PairExecutor):
         attack = tree.attack
         if len(tree.nodes) >= tree.config.max_nodes:
             raise _StopError("max_nodes")
-        if self._budget.exceeded():
+        if self._budget.exceeded(_booked(tree.tokens)):  # the phase books these at the end
             raise _StopError("budget")
         if asyncio.get_running_loop().time() >= deadline:  # a stream that never yields stops
             raise _StopError("timeout")
@@ -207,7 +216,9 @@ class CampaignExecutor(PairExecutor):
             tree.parse_errors += 1
             return None
         # In a conversation every earlier turn is attack text too.
-        sent = tuple(n["prompt"] for n in path) if attack.tactic == "crescendo_live" else ()
+        live = attack.tactic == "crescendo_live"
+        sent = tuple(tree.sent[n["id"]] for n in path) if live else ()
+        tree.sent[node_id] = prompt
         response, verdict = await self._attempt(prompt, attack.prompts[0], attack, pipeline, sent)
         if response is not None:
             tree.tokens = tree.tokens + TokenUsage(
@@ -239,7 +250,7 @@ class CampaignExecutor(PairExecutor):
             "parent": parent,
             "depth": depth,
             "turn": turn,
-            "prompt": prompt,
+            "prompt": prompt[:_PROMPT_CHARS],
             "reply": response.content[:_REPLY_CHARS] if turn and response else None,
             "score": score,
             "pruned": None if turn else "no_reply",
@@ -255,12 +266,14 @@ class CampaignExecutor(PairExecutor):
         attack = tree.attack
         score = {n["id"]: n["score"] for n in tree.nodes}
         hits = [i for i, (_, verdict) in tree.answered.items() if verdict.successful]
+        partial = tree.stop in EARLY_STOPS and not hits
         best = max(tree.answered, key=score.__getitem__, default=None)  # the first on ties
         pick = tree.decider or (hits[0] if hits else best)
         evidence: dict[str, Any] = {
             **tree.review,
             **({"prompt_errors": tree.prompt_errors} if tree.prompt_errors else {}),
-            **({} if tree.answered else {"outcome": "unmeasured"}),
+            # Cut short with no success: unmeasured, never read as resisted.
+            **({} if tree.answered and not partial else {"outcome": "unmeasured"}),
             "campaign": {
                 "mode": attack.tactic,
                 "stop": tree.stop,
@@ -291,7 +304,7 @@ class CampaignExecutor(PairExecutor):
                 **evidence,
             },
             agent_response=response.content,
-            prompt_used=next(n["prompt"] for n in tree.nodes if n["id"] == pick),
+            prompt_used=tree.sent[pick],
             quality_score=quality.composite_score if quality is not None else None,
             token_usage=tree.tokens,
         )

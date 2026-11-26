@@ -117,6 +117,8 @@ class AttackExecutor:
         with probe_scope(self._campaign_id, scope_id) as markers:
             result = await self._run(attack, deadline, turns, replies)
             result = judge_goal(attack, result, turns, replies)
+        if result.goal_met is False and result.evidence.get("outcome") == "unmeasured":
+            result.goal_met = None  # a run cut short never reads as the goal resisted
         if markers:
             result.probe_markers = markers
         return result

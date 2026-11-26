@@ -62,7 +62,7 @@ by `is_pair`, which covers the new tactics.
 - **FR-002** A `campaign` block (`CampaignConfig`, extra keys rejected) bounds the run: `width`
   (1 to 10, default 3), `branching` (1 to 5, default 2), `depth` (1 to 10, default 4), `turns`
   (1 to 30, default 8), `max_nodes` (1 to 200, default 40) and `timeout_seconds` (above 0,
-  default 600). It loads from YAML through `AttackLibrary`. A `campaign` block on any other
+  at most 3600, finite, default 600; `PairConfig.timeout_seconds` gets the same cap). It loads from YAML through `AttackLibrary`. A `campaign` block on any other
   tactic is rejected at load.
 - **FR-003** TAP: at depth 1 the attacker writes `branching` children of the seed; at each later
   depth it writes `branching` children of each kept node. Each child is one target call and one
@@ -75,16 +75,20 @@ by `is_pair`, which covers the new tactics.
   holds the shared session gate, so a two-session vector's reset never lands inside it. It stops
   after `turns` (`stop: turns`).
 - **FR-005** Every mode stops before an attacker call when the campaign budget is exceeded
-  (`budget`), when `max_nodes` nodes exist (`max_nodes`), or at the deadline (`timeout`); and
+  (`budget`), counting the target tokens this vector used so far, which the phase books once
+  when the vector ends (PAIR too), when `max_nodes` nodes exist (`max_nodes`), or at the deadline (`timeout`); and
   after a node when the vector's goal is met (`goal_met`), or, for a vector with no goal, on a
   text success (`success`). An attacker error stops with `attacker_error`, a pending reply
-  (spec 064) with `pending`, each keeping the tree so far.
+  (spec 064) with `pending`, each keeping the tree so far. A run that stops on `budget`,
+  `timeout`, `attacker_error` or `pending` with no text success is `outcome: unmeasured`, and
+  its `goal_met` is `null` (PAIR too): it never reads as resisted.
 - **FR-006** A score is 1 for a text success or a met goal, else the quality judge's composite
   (rounded to 4 places), else 0. The tree lands in `evidence.campaign`: `mode`, `stop`,
   `attacker_model`, `attacker_parse_errors`, `nodes` (each with `id`, `parent`, `depth`, `turn`,
-  `prompt`, `reply` up to 500 characters, `score`, `pruned`) and `edges` (`from`, `to`). An
-  attacker reply that is not a JSON object with a `prompt` makes no node and counts as a parse
-  error.
+  `prompt` up to 2,000 characters, `reply` up to 500, `score`, `pruned`) and `edges` (`from`,
+  `to`); the target gets the whole prompt. An attacker reply that is not a JSON object with a
+  `prompt`, including one too large or too deeply nested to parse, makes no node and counts as a
+  parse error (PAIR too).
 - **FR-007** Each answered node's tool calls and text are recorded under its `turn` (its order
   of creation, from 1), so `judge_goal` and `goal_evidence` name the node. The result is
   successful when any node was a text success; it shows the deciding node, else the first text

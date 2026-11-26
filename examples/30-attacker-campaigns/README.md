@@ -45,4 +45,5 @@ of your agent.
 Each row has `goal_met` and `goal_evidence`; the evidence's `turn` is a node's `turn`. The tree
 is in `evidence.campaign`: `stop` says why the run ended (`goal_met`, `budget`, `depth`,
 `turns`, `max_nodes`, `timeout` and others), and each node has its `prompt`, `reply`, `score`
-and `pruned` reason.
+and `pruned` reason. A run cut short by the budget, the timeout or the attacker provider, with
+no text success, is `outcome: unmeasured` with `goal_met: null`, never a pass.

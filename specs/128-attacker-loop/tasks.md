@@ -28,3 +28,14 @@
 - [x] T007 Docs section in `docs/concepts/attack-vectors.md`.
 - [x] T008 ruff check, ruff format, mypy strict, touched tests on Python 3.11, 3.12 and 3.13;
   size test; mutants on the bounds.
+
+## Phase 5: gate round 1
+
+- [x] T009 Merge `origin/develop` (#601); keep the campaign dispatch with `self.attacker`.
+- [x] T010 Budget check counts the running vector's target tokens (campaign and PAIR), tested
+  with a target that reports 5,000 tokens per reply on a 50,000 cap, and through a scan.
+- [x] T011 `_parse_prompt` treats a huge integer or deep nesting as a parse error; tested on
+  3.11 for TAP, crescendo_live and PAIR with an earlier success and its tokens kept.
+- [x] T012 Early stops without a success are unmeasured with `goal_met: null`; finite, capped
+  timeouts; stored prompts capped at 2,000 characters; node count in the docs; attacker-vector
+  wording in the not-run warning, `--attacker-model` help and the skip errors.
