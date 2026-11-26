@@ -35,7 +35,11 @@ the spec's Streamable HTTP binding says (basic/versioning, "Backward Compatibili
    `Mcp-Session-Id` the server handed out and, from 2025-06-18 on, the `MCP-Protocol-Version`
    header. If `initialize` fails, ziran still sends today's bare requests, so a minimal JSON-RPC
    server scans as before.
-5. A HeaderMismatch (-32020) or MissingRequiredClientCapability (-32021) answer to the probe is a
+5. A busy answer to the probe (an HTTP status in `retry.retry_on`, 429 and 5xx by default)
+   leaves the era open and waits as the adapter's retries do (`Retry-After`, then exponential
+   backoff), up to `retry.max_retries` times. A transport failure, a timeout or exhausted
+   retries count as no answer: step 4, with one warning.
+6. A HeaderMismatch (-32020) or MissingRequiredClientCapability (-32021) answer to the probe is a
    modern server rejecting ziran's request: every call fails with that code.
 
 A result with `resultType: "input_required"` (MRTR, SEP-2322) is followed once: ziran records each

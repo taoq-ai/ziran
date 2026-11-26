@@ -11,3 +11,6 @@
 - [x] T006 Update the old-contract fake in `tests/unit/test_protocol_handlers.py` (answer the
   `notifications/initialized` notification) and the remote-agent docs.
 - [x] T007 Run the touched tests green, `ruff check`, `ruff format --check`, `mypy ziran/`.
+- [x] T008 Review fixes: retry a busy probe with the adapter's backoff and Retry-After, treat
+  no answer as legacy, split SSE on newlines only, and pin the version allow-list, the session
+  id guard and the HTTP status guard with tests.

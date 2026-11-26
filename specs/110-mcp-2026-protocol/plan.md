@@ -24,7 +24,7 @@ it is not used.
 
 - `_negotiate()`: under an `asyncio.Lock`, once per handler. Sends `server/discover` with the
   modern `_meta` and headers, then decides modern, legacy with a version from the server's list,
-  or legacy by fallback (spec steps 1 to 5). Legacy runs `initialize` and
+  or legacy by fallback (spec steps 1 to 6). Legacy runs `initialize` and
   `notifications/initialized`. Sets `_era`, `_version` (header value or `None`), `_reachable`.
 - `_exchange(method, params, version)`: one HTTP POST. Adds `Accept`, `Mcp-Method`,
   `Mcp-Name` (Base64 sentinel when not plain ASCII), `MCP-Protocol-Version` and

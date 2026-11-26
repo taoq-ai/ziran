@@ -229,12 +229,47 @@ class MCPProtocolHandler(BaseProtocolHandler):
         """Decide the server's era once, from a ``server/discover`` probe (spec 110)."""
         async with self._lock:
             if self._era is None:
-                await self._probe()
+                await self._probe_with_retry()
+                logger.debug(
+                    "MCP server %s: era %s, version %s, session %s",
+                    _host(self._config.normalized_url),
+                    self._era,
+                    self._version,
+                    self._session_id is not None,
+                )
         if self._failure is not None:
             raise ProtocolError(self._failure, status_code=400)
 
+    async def _probe_with_retry(self) -> None:
+        """Probe; a busy answer waits as the adapter's retries do, and no answer means legacy."""
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        retry = self._config.retry
+        for attempt in range(retry.max_retries + 1):
+            try:
+                await self._probe()
+                return
+            except ProtocolError as exc:
+                if exc.status_code is None or attempt == retry.max_retries:
+                    break  # a transport failure, a timeout or retries exhausted
+                wait = HttpAgentAdapter._compute_retry_wait(exc, retry.backoff_factor, attempt)
+                await asyncio.sleep(wait)
+        logger.warning(
+            "MCP server %s gave no answer to server/discover; trying the legacy handshake",
+            _host(self._config.normalized_url),
+        )
+        self._era = "legacy"
+        await self._initialize(LEGACY_VERSIONS[0])
+
     async def _probe(self) -> None:
-        _, message = await self._exchange("server/discover", self._modern({}), MODERN_VERSION)
+        response, message = await self._exchange(
+            "server/discover", self._modern({}), MODERN_VERSION
+        )
+        if response.status_code in self._config.retry.retry_on:  # busy: leave the era open
+            msg = f"MCP server/discover failed with HTTP {response.status_code}"
+            raise ProtocolError(
+                msg, status_code=response.status_code, headers=dict(response.headers)
+            )
         result = message.get("result") if message else None
         error = message.get("error") if message else None
         offered: list[str] | None = None
@@ -263,7 +298,10 @@ class MCPProtocolHandler(BaseProtocolHandler):
 
     async def _initialize(self, requested: str) -> None:
         params = {"protocolVersion": requested, "capabilities": {}, "clientInfo": _CLIENT_INFO}
-        response, message = await self._exchange("initialize", params, None)
+        try:
+            response, message = await self._exchange("initialize", params, None)
+        except ProtocolError:
+            return  # no handshake: today's bare requests still go out
         result = message.get("result") if message and response.status_code < 400 else None
         if not isinstance(result, dict):
             return  # no handshake: today's bare requests still reach a minimal server
@@ -328,7 +366,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
         if "text/event-stream" not in str(response.headers.get("content-type", "")):
             return response, _json_object(response.json)
         # shortcut: one-line data fields only; multi-line SSE data is not joined
-        for line in response.text.splitlines():
+        for line in response.text.split("\n"):  # not splitlines: U+2028 is text in JSON
             data = line[5:] if line.startswith("data:") else ""
             event = _json_object(partial(json.loads, data)) if data else None
             if event is not None and event.get("id") == rid:

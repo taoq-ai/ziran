@@ -343,8 +343,11 @@ class TestMCPHandler:
         async def _err(request: httpx.Request) -> httpx.Response:
             return httpx.Response(500)
 
-        client = _mock_client(_err)
-        h = MCPProtocolHandler(client, _target_config())
+        from ziran.domain.entities.target import TargetConfig
+
+        # a 500 on server/discover is retried with backoff (spec 110); no retries here
+        config = TargetConfig(url="https://agent.example.com", retry={"max_retries": 0})
+        h = MCPProtocolHandler(_mock_client(_err), config)
         assert await h.health_check() is False
 
     async def test_send_fallback_no_completion(self, caplog: pytest.LogCaptureFixture) -> None:

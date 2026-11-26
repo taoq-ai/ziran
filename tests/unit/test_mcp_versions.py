@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from typing import Any
@@ -151,10 +152,17 @@ class TestLegacyServers:
         assert await handler.health_check() is False
 
     async def test_an_unknown_legacy_version_gets_no_version_header(self) -> None:
-        server = LegacyServer("1999-01-01\r\nX-Injected: 1")
+        server = LegacyServer("2099-01-01\r\nX-Injected: 1")  # sorts above 2025-06-18
         handler = _handler(server)
-        await handler.discover()
+        assert [c["name"] for c in await handler.discover()] == ["search", "login"]
         assert all("mcp-protocol-version" not in r.headers for r in server.requests[2:])
+
+    @pytest.mark.parametrize("session", ["sess-\x7f", "sess-\u00e9"])
+    async def test_a_session_id_outside_printable_ascii_is_not_sent(self, session: str) -> None:
+        server = LegacyServer("2025-11-25", sessions=True, session_id=session)
+        await _handler(server).discover()
+        assert server.bodies[1]["method"] == "initialize"
+        assert all("mcp-session-id" not in r.headers for r in server.requests)
 
 
 class TestInputRequired:
@@ -265,6 +273,106 @@ class TestBodies:
         client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
         handler = MCPProtocolHandler(client, TargetConfig(url=URL))
         assert await handler._jsonrpc_call("tools/list", {}) == {"tools": [{"name": "s"}]}
+
+    async def test_an_sse_answer_with_u2028_in_a_string_is_read(self) -> None:
+        async def handle(request: httpx.Request) -> httpx.Response:
+            rid = json.loads(request.content).get("id")
+            result = {"tools": [{"name": "a\u2028b"}]}
+            answer = json.dumps({"jsonrpc": "2.0", "id": rid, "result": result}, ensure_ascii=False)
+            stream = f"event: message\r\ndata: {answer}\r\n\r\n"
+            return httpx.Response(200, text=stream, headers={"content-type": "text/event-stream"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+        handler = MCPProtocolHandler(client, TargetConfig(url=URL))
+        assert await handler._jsonrpc_call("tools/list", {}) == {"tools": [{"name": "a\u2028b"}]}
+
+
+class TestBusyOrSilentProbe:
+    @staticmethod
+    def _flaky(server: ModernServer | LegacyServer, first: httpx.Response | Exception) -> Any:
+        """``server``, except that its first server/discover gets ``first``."""
+        state = {"failed": False}
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            discover = json.loads(request.content)["method"] == "server/discover"
+            if discover and not state["failed"]:
+                state["failed"] = True
+                if isinstance(first, Exception):
+                    raise first
+                return first
+            return server.handle(request)
+
+        return httpx.AsyncClient(transport=httpx.MockTransport(handle))
+
+    @staticmethod
+    def _sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+        waits: list[float] = []
+
+        async def sleep(seconds: float) -> None:
+            waits.append(seconds)
+
+        monkeypatch.setattr(asyncio, "sleep", sleep)
+        return waits
+
+    async def test_a_503_then_success_stays_modern(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        waits = self._sleeps(monkeypatch)
+        server = ModernServer()
+        client = self._flaky(server, httpx.Response(503, text="busy"))
+        handler = MCPProtocolHandler(client, TargetConfig(url=URL))
+        assert [c["name"] for c in await handler.discover()] == ["search", "login"]
+        assert handler._era == "modern" and waits == [0.5]  # the adapter's backoff
+        assert "initialize" not in [b["method"] for b in server.bodies]
+
+    async def test_a_429_retry_after_is_honoured(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        waits = self._sleeps(monkeypatch)
+        busy = httpx.Response(429, text="slow down", headers={"Retry-After": "7"})
+        handler = MCPProtocolHandler(self._flaky(ModernServer(), busy), TargetConfig(url=URL))
+        assert await handler.health_check() is True
+        assert handler._era == "modern" and waits == [7.0]
+
+    async def test_retries_exhausted_falls_back_to_legacy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        waits = self._sleeps(monkeypatch)
+        legacy = LegacyServer()
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            if json.loads(request.content)["method"] == "server/discover":
+                return httpx.Response(503)
+            return legacy.handle(request)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+        handler = MCPProtocolHandler(client, TargetConfig(url=URL))
+        assert [c["name"] for c in await handler.discover()] == ["search", "login"]
+        assert handler._era == "legacy" and len(waits) == 3
+
+    @pytest.mark.parametrize(
+        "failure", [httpx.ConnectError("dropped"), httpx.ReadTimeout("timed out")]
+    )
+    async def test_no_answer_falls_back_to_initialize(
+        self, failure: Exception, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        server = LegacyServer()
+        handler = MCPProtocolHandler(self._flaky(server, failure), TargetConfig(url=URL))
+        with caplog.at_level("WARNING"):
+            assert [c["name"] for c in await handler.discover()] == ["search", "login"]
+        assert [b["method"] for b in server.bodies][:1] == ["initialize"]
+        assert len([r for r in caplog.records if "no answer" in r.getMessage()]) == 1
+
+    async def test_a_429_on_a_call_keeps_status_and_headers(self) -> None:
+        legacy = LegacyServer()
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            if json.loads(request.content)["method"] == "tools/list":
+                return httpx.Response(429, text="<html>busy</html>", headers={"Retry-After": "3"})
+            return legacy.handle(request)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+        handler = MCPProtocolHandler(client, TargetConfig(url=URL))
+        with pytest.raises(ProtocolError) as raised:
+            await handler._jsonrpc_call("tools/list", {})
+        assert raised.value.status_code == 429
+        assert raised.value.headers is not None and raised.value.headers["retry-after"] == "3"
 
 
 class TestAutoDetection:

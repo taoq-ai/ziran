@@ -123,9 +123,12 @@ class LegacyServer:
     sessions it is a minimal 2024-11-05 JSON-RPC server that takes any request.
     """
 
-    def __init__(self, version: str = "2024-11-05", *, sessions: bool = False) -> None:
+    def __init__(
+        self, version: str = "2024-11-05", *, sessions: bool = False, session_id: str = "sess-1"
+    ) -> None:
         self.version = version
         self.sessions = sessions
+        self.session_id = session_id
         self.requests: list[httpx.Request] = []
 
     @property
@@ -140,7 +143,7 @@ class LegacyServer:
         body = json.loads(request.content)
         rid, method, params = body.get("id"), body["method"], body.get("params", {})
         if method == "initialize":
-            headers = {"mcp-session-id": "sess-1"} if self.sessions else {}
+            headers = {"mcp-session-id": self.session_id.encode()} if self.sessions else {}
             result = {
                 "protocolVersion": self.version,
                 "capabilities": {"tools": {}},
@@ -150,7 +153,7 @@ class LegacyServer:
         if method == "notifications/initialized":
             return httpx.Response(202)
         if self.sessions and (
-            request.headers.get("mcp-session-id") != "sess-1"
+            request.headers.get("mcp-session-id") != self.session_id
             or request.headers.get("mcp-protocol-version") != self.version
         ):
             return _err(400, rid, -32000, "Bad Request: No valid session ID provided")
