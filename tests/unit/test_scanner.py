@@ -363,7 +363,7 @@ class TestConcurrentAttackExecution:
         attacks = scanner.attack_library.get_attacks_for_phase(
             ScanPhase.VULNERABILITY_DISCOVERY, coverage=CoverageLevel.COMPREHENSIVE
         )
-        expected_count = len(attacks)
+        expected_count = len([a for a in attacks if a.a2a_probe is None])  # A2A only (spec 118)
 
         await scanner.run_campaign(
             phases=[ScanPhase.VULNERABILITY_DISCOVERY],
@@ -799,7 +799,8 @@ class TestUsageAccounting:
 class TestBudgetCap:
     @staticmethod
     def _vector_count(lib: AttackLibrary, phase: ScanPhase) -> int:
-        return len(lib.get_attacks_for_phase(phase, coverage=CoverageLevel.STANDARD))
+        attacks = lib.get_attacks_for_phase(phase, coverage=CoverageLevel.STANDARD)
+        return len([a for a in attacks if a.a2a_probe is None])  # A2A targets only (spec 118)
 
     async def _run(
         self,

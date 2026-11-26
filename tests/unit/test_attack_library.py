@@ -91,7 +91,8 @@ class TestAttackLibrary:
 
     def test_all_vectors_have_prompts(self, library: AttackLibrary) -> None:
         for vector in library.vectors:
-            assert vector.prompt_count > 0, f"Vector {vector.id} has no prompts"
+            if vector.a2a_probe is None:  # an A2A probe sends its own requests (spec 118)
+                assert vector.prompt_count > 0, f"Vector {vector.id} has no prompts"
 
     def test_no_builtin_loading(self) -> None:
         lib = AttackLibrary(load_builtin=False)

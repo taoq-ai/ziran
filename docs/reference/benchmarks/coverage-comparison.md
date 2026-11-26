@@ -6,7 +6,7 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 
 ## Executive Summary
 
-- **695** attack vectors across **11** attack categories
+- **701** attack vectors across **11** attack categories
 - **100.0%** OWASP LLM Top 10 coverage (10/10 categories)
 - **10** multi-turn jailbreak tactics, **12** encoding types
 - **230** multi-turn vectors
@@ -20,8 +20,8 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 | Code | Category | Vectors | Status |
 |------|----------|---------|--------|
 | **LLM01** | Prompt Injection | 501 | :white_check_mark: Comprehensive |
-| **LLM02** | Insecure Output Handling | 211 | :white_check_mark: Comprehensive |
-| **LLM03** | Training Data Poisoning | 19 | :white_check_mark: Strong |
+| **LLM02** | Insecure Output Handling | 214 | :white_check_mark: Comprehensive |
+| **LLM03** | Training Data Poisoning | 22 | :white_check_mark: Strong |
 | **LLM04** | Model Denial of Service | 14 | :white_check_mark: Strong |
 | **LLM05** | Supply Chain Vulnerabilities | 18 | :white_check_mark: Strong |
 | **LLM06** | Sensitive Information Disclosure | 120 | :white_check_mark: Comprehensive |
@@ -34,9 +34,9 @@ Auto-generated comparison of ZIRAN's attack vector library against published AI 
 
 Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-mapping.md) for methodology).
 
-- **85/100** ATLAS techniques represented in the library
+- **86/100** ATLAS techniques represented in the library
 - **14/14** agent-specific techniques covered (from the October 2025 ATLAS release)
-- **695/695** vectors carry an ATLAS mapping
+- **701/701** vectors carry an ATLAS mapping
 
 ### Coverage by Tactic
 
@@ -46,18 +46,18 @@ Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-ma
 | **AML.TA0001** | AI Attack Staging | 7/8 | 626 |
 | **AML.TA0002** | Reconnaissance | 4/6 | 25 |
 | **AML.TA0003** | Resource Development | 6/12 | 433 |
-| **AML.TA0004** | Initial Access | 9/11 | 192 |
+| **AML.TA0004** | Initial Access | 10/11 | 199 |
 | **AML.TA0005** | Execution | 5/6 | 831 |
 | **AML.TA0006** | Persistence | 15/16 | 470 |
 | **AML.TA0007** | Defense Evasion | 7/7 | 391 |
 | **AML.TA0008** | Discovery | 9/9 | 185 |
-| **AML.TA0009** | Collection | 3/4 | 78 |
+| **AML.TA0009** | Collection | 3/4 | 80 |
 | **AML.TA0010** | Exfiltration | 8/8 | 392 |
 | **AML.TA0011** | Impact | 14/14 | 671 |
-| **AML.TA0012** | Privilege Escalation | 4/4 | 605 |
-| **AML.TA0013** | Credential Access | 1/1 | 28 |
+| **AML.TA0012** | Privilege Escalation | 4/4 | 606 |
+| **AML.TA0013** | Credential Access | 1/1 | 29 |
 | **AML.TA0014** | Command and Control | 1/1 | 163 |
-| **AML.TA0015** | Lateral Movement | 2/2 | 40 |
+| **AML.TA0015** | Lateral Movement | 2/2 | 41 |
 
 ## Benchmark Comparison
 
@@ -76,7 +76,7 @@ Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-ma
 |  |  | Scoring dimensions (refusal, specificity, convincingness) | 3 | 3 | `███████████████` 100.0% |  |  |
 | **MCPTox** | 2025 | MCP vectors | 1,312 | 111 | `█░░░░░░░░░░░░░░` 8.5% | :construction: open | [GAP-03](#34) |
 | **Agent Security Bench (ASB)** | 2024 | Attack categories | 10 | 11 | `███████████████` 100% | :construction: open | [GAP-01](#32) |
-|  |  | Total vectors | 400 | 695 | `███████████████` 100% |  |  |
+|  |  | Total vectors | 400 | 701 | `███████████████` 100% |  |  |
 |  |  | Utility-under-attack measurement | 1 | 1 | `███████████████` 100.0% |  |  |
 | **TensorTrust** | 2024 | Prompt injection vectors | 126,000 | 220 | `░░░░░░░░░░░░░░░` 0.2% | :construction: open | [GAP-16](#55) |
 |  |  | Representative pattern families | — | 11 | _Distinct TensorTrust pattern families covered_ |  |  |
@@ -86,7 +86,7 @@ Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-ma
 | **Agent-SafetyBench** | 2024 | Business impact types | 8 | 7 | `█████████████░░` 87.5% | :construction: open | [GAP-07](#38) |
 | **BIPIA** | 2024 | Indirect injection vectors | — | 74 | _Multi-domain benchmark — no fixed target count_ | :construction: open | [GAP-02](#33) |
 | **CyberSecEval** | Meta, 2024 | Code-generation safety vectors | — | 10 | _Code-gen safety + cyber knowledge elicitation families_ | :construction: open | [GAP-18](#57) |
-|  |  | Total library overlap | — | 695 | _Multi-category benchmark — partial overlap_ |  |  |
+|  |  | Total library overlap | — | 701 | _Multi-category benchmark — partial overlap_ |  |  |
 | **ToolEmu** | 2024 | Tool manipulation vectors | 144 | 192 | `███████████████` 100% | :construction: open | [GAP-19](#58) |
 |  |  | Dedicated sandbox-evasion vectors | — | 10 | _Sandbox-evasion vectors distinct from generic tool manipulation_ |  |  |
 | **R-Judge** | 2024 | R-Judge risk types (10) | 10 | 10 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-20](#59) |
@@ -97,7 +97,7 @@ Technique mapping snapshot date: **2025-10-01** (see [atlas-mapping.md](atlas-ma
 | **ALERT** | 2024 | ALERT micro categories (32) | 32 | 32 | `███████████████` 100.0% | :white_check_mark: closed | [GAP-21](#60) |
 |  |  | Harm categories | — | 11 | _N/A_ |  |  |
 | **MITRE ATLAS** | MITRE, 2025 | ATLAS tactics covered | 16 | 16 | `███████████████` 100.0% | :construction: open | [GAP-22](#61) |
-|  |  | ATLAS techniques mapped | 100 | 85 | `█████████████░░` 85.0% |  |  |
+|  |  | ATLAS techniques mapped | 100 | 86 | `█████████████░░` 86.0% |  |  |
 |  |  | Agent-specific techniques covered | 14 | 14 | `███████████████` 100.0% |  |  |
 
 ## Gap Status Dashboard
@@ -142,17 +142,17 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | data_exfiltration | 60 |
 | privilege_escalation | 41 |
 | system_prompt_extraction | 27 |
-| authorization_bypass | 21 |
+| authorization_bypass | 24 |
 | memory_poisoning | 21 |
 | chain_of_thought_manipulation | 15 |
+| multi_agent | 14 |
 | model_dos | 13 |
-| multi_agent | 11 |
 
 ### By Tactic
 
 | Tactic | Vectors |
 |--------|---------|
-| single | 465 |
+| single | 471 |
 | context_buildup | 64 |
 | crescendo | 38 |
 | persona_shift | 23 |
@@ -169,7 +169,7 @@ See [Gap Analysis](gap-analysis.md) for full details.
 | Severity | Vectors |
 |----------|---------|
 | critical | 392 |
-| high | 229 |
+| high | 235 |
 | low | 1 |
 | medium | 73 |
 

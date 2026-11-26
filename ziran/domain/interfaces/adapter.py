@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from ziran.domain.entities.capability import AgentCapability
     from ziran.domain.entities.multi_agent import MultiAgentTopology
     from ziran.domain.entities.streaming import AgentResponseChunk
+    from ziran.domain.interfaces.a2a_wire import A2AWire
 
 #: ``AgentResponse.metadata`` keys reserved for the side-effect detector's provenance rules
 #: (spec 063). The caller sets them; an adapter never forwards a target's copy (spec 065).
@@ -133,6 +134,12 @@ class BaseAgentAdapter(ABC):
         unmeasured beyond the agent it planted at.
         """
         return False
+
+    @property
+    def a2a_wire(self) -> A2AWire | None:
+        """Raw A2A requests for the identity probes (spec 118); None unless the target speaks
+        A2A, and the scan then skips every ``a2a_probe`` vector."""
+        return None
 
     @abstractmethod
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:

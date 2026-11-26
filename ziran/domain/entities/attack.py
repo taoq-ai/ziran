@@ -854,6 +854,17 @@ class Carrier(BaseModel):
         return value
 
 
+A2AProbe = Literal[
+    "card_unsigned",
+    "card_signature",
+    "cross_client_context",
+    "cross_client_task",
+    "delegated_token_replay",
+    "lookalike_card",
+]
+"""The A2A identity probes (spec 118): ziran sends its own A2A requests, no prompt."""
+
+
 class AttackVector(BaseModel):
     """A specific attack technique to test against an agent.
 
@@ -923,6 +934,10 @@ class AttackVector(BaseModel):
         description="A goal met by the target's tool calls, judged beside the text verdict "
         "(spec 116).",
     )
+    a2a_probe: A2AProbe | None = Field(
+        default=None,
+        description="An A2A identity probe (spec 118); runs only on an A2A target, with no prompt.",
+    )
 
     @model_validator(mode="after")
     def _check_carrier(self) -> AttackVector:
@@ -932,6 +947,12 @@ class AttackVector(BaseModel):
             raise ValueError(f"carrier vector {self.id} must use tactic single")
         if not self.prompts or any("{carrier}" not in p.template for p in self.prompts):
             raise ValueError(f"carrier vector {self.id}: every prompt must name {{carrier}}")
+        return self
+
+    @model_validator(mode="after")
+    def _check_a2a_probe(self) -> AttackVector:
+        if self.a2a_probe is not None and self.prompts:
+            raise ValueError(f"A2A probe vector {self.id} sends its own requests: no prompts")
         return self
 
     @model_validator(mode="after")

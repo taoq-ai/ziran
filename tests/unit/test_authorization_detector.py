@@ -196,7 +196,8 @@ class TestAuthorizationVectorsYAML:
         library = shared_attack_library
         authz_vectors = library.get_attacks_by_category(AttackCategory.AUTHORIZATION_BYPASS)
         for v in authz_vectors:
-            assert len(v.prompts) >= 1, f"Vector {v.id} has no prompts"
+            if v.a2a_probe is None:  # an A2A probe sends its own requests (spec 118)
+                assert len(v.prompts) >= 1, f"Vector {v.id} has no prompts"
 
     def test_multi_turn_vectors_have_tactic(self, shared_attack_library: AttackLibrary) -> None:
         library = shared_attack_library

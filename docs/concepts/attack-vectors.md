@@ -110,6 +110,7 @@ vectors:
 | `prompts[].failure_indicators` | No | Strings indicating the agent resisted |
 | `prompts[].new_session` | No | Reset the conversation before this prompt; runs only on a target with memory across sessions ([two-session vectors](../guides/custom-attacks.md#two-session-vectors)) |
 | `goal` | No | A goal met by the target's tool calls, judged beside the text verdict ([side-effect goals](#side-effect-goals)) |
+| `a2a_probe` | No | An A2A protocol probe that sends its own requests, with no prompt; runs only on an A2A target ([A2A identity probes](a2a-protocol.md#identity-probes)) |
 | `tags` | No | Searchable tags |
 | `references` | No | Links to research/CVEs |
 
