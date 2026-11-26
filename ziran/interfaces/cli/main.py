@@ -369,8 +369,9 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     type=click.Path(exists=True, dir_okay=False),
     default=None,
     help="YAML file of folders the target's tools read (workspace_dir, knowledge_base_dir, "
-    "page_dir with page_url). Turns on the document and image carrier vectors (spec 112); "
-    "an empty file runs only the attachment vectors.",
+    "page_dir with page_url). Turns on the document and image carrier vectors (spec 112). "
+    "A vector whose folder is not named, or whose attachment the adapter cannot send, is "
+    "skipped and reads unmeasured, so the scan reports INCOMPLETE.",
 )
 def scan(
     framework: str | None,
@@ -2127,7 +2128,11 @@ def _dry_run_summary(
 
     # Count vectors by coverage
     coverage_level = CoverageLevel(coverage.lower())
-    vectors = [v for v in attack_library.vectors if v.mcp_server_request is None]
+    vectors = [
+        v
+        for v in attack_library.vectors
+        if v.mcp_server_request is None and (attack_library.carriers or v.carrier is None)
+    ]
     if coverage_level == CoverageLevel.ESSENTIAL:
         vectors = [v for v in vectors if v.severity in ("critical",)]
     elif coverage_level == CoverageLevel.STANDARD:

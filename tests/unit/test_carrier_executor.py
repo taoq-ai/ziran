@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import contextlib
 import json
+import re
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -13,6 +16,7 @@ from pydantic import ValidationError
 
 from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
+from ziran.application.agent_scanner.scan_cache import is_cacheable
 from ziran.application.attacks.carrier_executor import CarrierSites
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorPipeline
@@ -127,6 +131,69 @@ class TestPlantedPdf:
         await _run(MockAgentAdapter(), _vector(), CarrierSites(workspace_dir=tmp_path))
         assert list(tmp_path.iterdir()) == [keep] and keep.read_bytes() == b"user data"
 
+    @pytest.mark.parametrize("kind", ["file", "symlink"])
+    async def test_a_name_collision_never_overwrites(self, tmp_path: Path, kind: str) -> None:
+        victim = tmp_path / "victim.txt"
+        victim.write_bytes(b"operator data")
+        taken = tmp_path / "ws" / "q3-report-00000000.pdf"
+        taken.parent.mkdir()
+        if kind == "file":
+            taken.write_bytes(b"operator data")
+        else:
+            taken.symlink_to(victim)
+        agent = MockAgentAdapter()
+        with patch("ziran.application.attacks.carrier_executor.secrets.token_hex") as token:
+            token.return_value = "00000000"
+            result = await _run(agent, _vector(), CarrierSites(workspace_dir=taken.parent))
+        assert result.evidence["skipped"] == "could not plant the file: FileExistsError"
+        assert agent.invocations == [] and taken.is_symlink() == (kind == "symlink")
+        assert taken.read_bytes() == victim.read_bytes() == b"operator data"
+
+    async def test_a_cancel_never_leaves_the_file(self, tmp_path: Path) -> None:
+        """A phase timeout or Ctrl-C cancels the vector at any await: the file still goes."""
+
+        class SlowAgent(MockAgentAdapter):
+            async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+                for _ in range(3):
+                    await asyncio.sleep(0)
+                return await super().invoke(message, **kwargs)
+
+        sites = CarrierSites(workspace_dir=tmp_path)
+        for step in range(200):
+            task = asyncio.ensure_future(_run(SlowAgent(), _vector(), sites))
+            for _ in range(step % 7):
+                await asyncio.sleep(0)
+            task.cancel()
+            if step % 2:
+                task.cancel()  # a second cancel while the first unwinds
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            assert list(tmp_path.iterdir()) == [], f"leaked after {step % 7} steps"
+
+    async def test_every_prompt_failing_reads_unmeasured(self, tmp_path: Path) -> None:
+        class DownAgent(MockAgentAdapter):
+            async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+                raise TimeoutError
+
+        result = await _run(DownAgent(), _vector(), CarrierSites(workspace_dir=tmp_path))
+        assert not result.successful and result.evidence["outcome"] == "unmeasured"
+        assert result.evidence["prompt_errors"] == 1
+        assert list(tmp_path.iterdir()) == []
+
+    async def test_one_failed_prompt_keeps_the_miss_out_of_the_cache(self, tmp_path: Path) -> None:
+        class FlakyAgent(MockAgentAdapter):
+            async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+                if not self.invocations:
+                    self.invocations.append(message)
+                    raise TimeoutError
+                return await super().invoke(message, **kwargs)
+
+        vector = _vector()
+        two = vector.model_copy(update={"prompts": [*vector.prompts, *vector.prompts]})
+        result = await _run(FlakyAgent(), two, CarrierSites(workspace_dir=tmp_path))
+        assert "outcome" not in result.evidence and result.evidence["prompt_errors"] == 1
+        assert not is_cacheable(result)
+
 
 def _anthropic() -> tuple[AnthropicAdapter, MagicMock]:
     block = MagicMock(type="text", text="A bar chart.")
@@ -200,10 +267,30 @@ class TestSkips:
         assert result.evidence["carrier"]["format"] == "png"
         assert result.agent_response is None  # never cached (spec 049)
 
-    async def test_rest_protocol_skips_attachment(self) -> None:
+    async def test_rest_protocol_skips_attachment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        requests: list[httpx.Request] = []
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"response": "A chart."})
+
         adapter = HttpAgentAdapter(TargetConfig(url="https://agent.example", protocol="rest"))
+        client = httpx.AsyncClient(transport=httpx.MockTransport(reply))
+        monkeypatch.setattr(adapter, "_build_client", lambda: client)
         result = await _run(adapter, _vector("png", "attachment"))
+        assert requests == []  # the guard skipped it: no text-only request went out
         assert result.evidence["outcome"] == "unmeasured"
+        assert result.evidence["skipped"] == ("HttpAgentAdapter cannot send a image/png attachment")
+        await client.aclose()
+
+    async def test_http_adapter_refuses_unlisted_media_types(self) -> None:
+        adapter = HttpAgentAdapter(TargetConfig(url="https://agent.example", protocol="openai"))
+        pdf = Attachment(filename="a.pdf", media_type="application/pdf", data=b"%PDF")
+        adapter._ensure_initialized = AsyncMock()  # type: ignore[method-assign]
+        adapter._handler = MagicMock()
+        with pytest.raises(ValueError, match="application/pdf"):
+            await adapter.invoke("hi", attachments=[pdf])
+        adapter._handler.send.assert_not_called()
 
     async def test_docx_attachment_skips_even_on_anthropic(self) -> None:
         adapter, client = _anthropic()
@@ -230,8 +317,37 @@ class TestSitesAndLibrary:
     def test_page_dir_needs_http_url(self, tmp_path: Path) -> None:
         with pytest.raises(ValidationError):
             CarrierSites(page_dir=tmp_path)
-        with pytest.raises(ValidationError):
-            CarrierSites(page_dir=tmp_path, page_url="file:///etc")
+        for url in ["file:///etc", "http:", "http:///x", " http://h", "http://h /x", "//h"]:
+            with pytest.raises(ValidationError):
+                CarrierSites(page_dir=tmp_path, page_url=url)
+        assert CarrierSites(page_dir=tmp_path, page_url="https://h.example:8443/p/").page_url
+
+    def test_dry_run_counts_carrier_vectors_only_when_on(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import io
+
+        from rich.console import Console
+
+        from ziran.interfaces.cli import main
+
+        def count(library: AttackLibrary) -> int:
+            out = io.StringIO()
+            monkeypatch.setattr(main, "console", Console(file=out, width=200))
+            main._dry_run_summary(
+                adapter=MockAgentAdapter(),
+                attack_library=library,
+                coverage="comprehensive",
+                phases=(),
+                has_remote=False,
+                target=None,
+                protocol=None,
+            )
+            found = re.search(r"Attack Vectors\D+(\d+)", out.getvalue())
+            assert found is not None
+            return int(found.group(1))
+
+        assert count(AttackLibrary(carriers=True)) - count(AttackLibrary()) == 9
 
     def test_carrier_vectors_are_opt_in(self) -> None:
         def ids(lib: AttackLibrary) -> set[str]:

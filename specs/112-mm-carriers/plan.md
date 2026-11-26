@@ -17,7 +17,9 @@ Python 3.11+ (CI matrix 3.11, 3.12, 3.13), Pydantic v2, stdlib `zipfile`, `zlib`
   redundant comments; `scanner.py` (749/750) passes one config key and loses a two-line comment.
   New logic goes in new modules outside `agent_scanner/`.
 - Vectors are YAML (`vectors/document_carriers.yaml`), each with a source reference.
-- Async: planting and cleanup run in `asyncio.to_thread`.
+- Async: planting and cleanup are synchronous on purpose (a file is at most about 160 KB). No
+  await sits between the write and the `try`/`finally` that removes it, so a cancel (a phase
+  timeout, Ctrl-C) cannot leave the file behind; a `to_thread` write could (gate finding).
 
 ## Design
 

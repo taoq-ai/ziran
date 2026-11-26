@@ -180,7 +180,11 @@ class HttpAgentAdapter(BaseAgentAdapter):
 
     @property
     def attachment_types(self) -> frozenset[str]:
-        """PNG as an ``image_url`` part on the OpenAI protocol; none on the others (spec 112)."""
+        """PNG as an ``image_url`` part on the OpenAI protocol; none on the others (spec 112).
+
+        With ``protocol: auto`` this is empty until detection has run (a scan's discovery
+        runs it first), so a vector run before then is skipped, never sent text-only.
+        """
         return frozenset({"image/png"}) if self.protocol == ProtocolType.OPENAI else frozenset()
 
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:

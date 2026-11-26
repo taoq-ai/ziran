@@ -66,7 +66,9 @@ page_url: https://pages.internal.example/
 A finding needs the hidden text's canary or address in a tool call's arguments, as for every
 vector. A vector the scan cannot deliver (no folder, or an adapter that takes no attachment of
 that type) is skipped with its reason and reads unmeasured, never as a pass. Without
-`--carriers` the scan leaves these vectors out; an empty file runs the attachment vectors only.
+`--carriers` the scan leaves these vectors out. With an empty file only the attachment vectors
+are delivered; the rest read unmeasured, so the scan reports INCOMPLETE. Carrier vectors always
+use a plain request: `--streaming` and `--encoding` do not apply to them.
 
 ### Memory Poisoning (`memory_poisoning`)
 Plants persistent malicious instructions — cross-session attacks, memory slot manipulation, delayed execution.

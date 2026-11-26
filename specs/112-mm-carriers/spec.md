@@ -81,3 +81,11 @@ so a default scan does not turn INCOMPLETE.
 - The PNG font is a built-in 5x7 bitmap (upper case, digits, common punctuation). Overturned if
   vision models misread it in practice; then an optional Pillow extra renders real fonts.
 - Only the turn that carries the attachment sends it; later turns of the conversation keep text.
+- The folders come from a `--carriers` file, not the target YAML: in-process targets
+  (`--framework`) have no target YAML, and one file works for both. The cost is two Python API
+  switches that must agree (`AttackLibrary(carriers=True)` and the scanner's `carriers`
+  config). The folders are part of the incremental cache key. Overturned if the owner wants
+  them beside the target.
+- Carrier vectors always use `invoke`: `--streaming` and `--encoding` do not apply to them.
+- `HttpAgentAdapter` with `protocol: auto` lists no attachment type until detection has run (a
+  scan's discovery runs it first); before that an attachment vector is skipped, never sent.

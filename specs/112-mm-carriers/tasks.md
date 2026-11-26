@@ -13,3 +13,7 @@
 - [x] T007 Vectors in `vectors/document_carriers.yaml`, each with a reference; docs.
 - [x] T008 Run the touched tests and `test_scanner_size.py` green, `ruff check`,
   `ruff format --check`, `mypy ziran/`.
+- [x] T009 Gate fixes, round 1: plant and unlink synchronously inside the `try`/`finally` (a
+  cancel test ran red first); the `--carriers` folders in the cache key; the dc_* vectors in the
+  AML.T0086 fitness set; tests for the REST guard (no request sent), the exclusive create, the
+  PNG glyphs, an all-failed vector, a dry run, and the page URL host check.

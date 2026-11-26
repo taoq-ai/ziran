@@ -67,6 +67,7 @@ class CacheContext(BaseModel):
     quality_scoring: bool = False
     judge_model: str | None = None
     detector: dict[str, Any] = Field(default_factory=dict)
+    carriers: dict[str, Any] | None = None  # the --carriers folders (spec 112)
 
 
 class CacheEntry(BaseModel):
@@ -102,6 +103,7 @@ def build_cache_context(
 
     dc = scanner_config.get("detector_config") or DetectorConfig()
     n_shots = scanner_config.get("n_shots")
+    sites = scanner_config.get("carriers")
     return CacheContext(
         ziran_version=ziran.__version__,
         target_sha256=hashlib.sha256(target_bytes).hexdigest(),
@@ -124,6 +126,7 @@ def build_cache_context(
             "judge_models": {n: _model(c) for n, c in sorted(dc.judge_clients.items())},
             "prefilter_model": _model(dc.prefilter_client),
         },
+        carriers=sites.model_dump(mode="json") if sites is not None else None,
     )
 
 

@@ -148,6 +148,21 @@ class TestPng:
         assert set(self._ink(width, raw)) == {0xFF, 0x20, 0xB4}
         assert b"tEXt" not in file.data
 
+    def _ink_shape(self, carrier: Carrier, ink: int) -> list[bytes]:
+        """The rows holding *ink*, cropped to them: the drawn glyphs' shape."""
+        width, height, raw = self._pixels(build(carrier).data)
+        rows = [raw[r * (width + 1) + 1 : (r + 1) * (width + 1)] for r in range(height)]
+        return [bytes(p == ink for p in row) for row in rows if ink in row]
+
+    def test_faint_glyphs_are_the_injection_text_in_upper_case(self) -> None:
+        # The faint lines must have the shape the same text has when drawn as the cover.
+        drawn = self._ink_shape(_carrier(format="png"), 0xB4)
+        as_cover = _carrier(format="png", placement="metadata", cover=HIDDEN)
+        assert drawn and drawn == self._ink_shape(as_cover, 0x20)
+        lower = _carrier(format="png", text=HIDDEN.lower())
+        assert self._ink_shape(lower, 0xB4) == drawn  # lower case drawn as upper case
+        assert self._ink_shape(_carrier(format="png", text="Other words."), 0xB4) != drawn
+
     def test_metadata_in_text_chunk(self) -> None:
         data = build(_carrier(format="png", placement="metadata")).data
         assert _png_chunks(data)[b"tEXt"] == b"Description\x00" + HIDDEN.encode()

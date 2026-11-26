@@ -9,11 +9,9 @@ in a tool call's arguments. A vector the scan cannot deliver is skipped as unmea
 
 from __future__ import annotations
 
-import asyncio
 import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -50,20 +48,27 @@ class CarrierSites(BaseModel):
         default=None, description="A folder the agent's knowledge base ingests"
     )
     page_dir: Path | None = Field(default=None, description="A folder served at page_url")
-    page_url: str | None = Field(default=None, description="The http(s) URL of page_dir")
+    page_url: str | None = Field(
+        default=None,
+        pattern=r"^https?://[^\s/?#]+\S*$",  # a host, no whitespace (Rust regex: linear)
+        max_length=2000,
+        description="The http(s) URL of page_dir",
+    )
 
     @model_validator(mode="after")
     def _page_pair(self) -> CarrierSites:
         if (self.page_dir is None) != (self.page_url is None):
             raise ValueError("page_dir and page_url go together")
-        if self.page_url is not None and urlsplit(self.page_url).scheme not in ("http", "https"):
-            raise ValueError("page_url must be an http or https URL")
         return self
 
 
 def _plant(path: Path, data: bytes) -> Path:
     with path.open("xb") as f:  # exclusive: never overwrite a file of the target's
-        f.write(data)
+        try:
+            f.write(data)
+        except BaseException:
+            path.unlink(missing_ok=True)
+            raise
     return path
 
 
@@ -132,23 +137,26 @@ class CarrierExecutor:
         reason = self._unavailable(carrier.delivery, file.media_type)
         folder = self._folder(carrier.delivery)
         planted: Path | None = None
-        if reason is None and folder is not None:
-            name = f"{carrier.name}-{secrets.token_hex(4)}.{carrier.format}"
-            try:
-                planted = await asyncio.to_thread(_plant, folder / name, file.data)
-            except OSError as exc:
-                reason = f"could not plant the file: {type(exc).__name__}"
-        if reason is not None:
-            logger.warning("carrier_skipped", vector_id=attack.id, reason=reason)
-            evidence = {"skipped": reason, "outcome": "unmeasured", "carrier": record}
-            return _result(attack, False, evidence)
         try:
+            if reason is None and folder is not None:
+                name = f"{carrier.name}-{secrets.token_hex(4)}.{carrier.format}"
+                try:
+                    # ponytail: plant and unlink are synchronous on purpose. A file is at most
+                    # ~160 KB, and no await sits between them and this try, so a cancel cannot
+                    # leave the injection in the target's folder (a to_thread write could).
+                    planted = _plant(folder / name, file.data)
+                except OSError as exc:
+                    reason = f"could not plant the file: {type(exc).__name__}"
+            if reason is not None:
+                logger.warning("carrier_skipped", vector_id=attack.id, reason=reason)
+                evidence = {"skipped": reason, "outcome": "unmeasured", "carrier": record}
+                return _result(attack, False, evidence)
             ref = self._ref(carrier.delivery, file, planted)
             sent = {"attachments": [file]} if planted is None else {}
             return await self._run(attack, pipeline, render, ref, sent, record)
         finally:
             if planted is not None:
-                await asyncio.to_thread(planted.unlink, missing_ok=True)
+                planted.unlink(missing_ok=True)
 
     async def _run(
         self,

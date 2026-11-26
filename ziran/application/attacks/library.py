@@ -110,7 +110,7 @@ class AttackLibrary:
             carriers: Whether phases include carrier vectors (spec 112): they need the
                 scanner's ``carriers`` folders or an adapter that takes attachments.
         """
-        self._carriers = carriers
+        self.carriers = carriers  # read by the scan dry run
         self._vectors: dict[str, AttackVector] = {}
         self._load_errors: list[tuple[str, Exception]] = []
 
@@ -214,7 +214,7 @@ class AttackLibrary:
             for v in self._by_phase.get(phase, [])
             if v.severity in allowed
             and v.mcp_server_request is None
-            and (self._carriers or v.carrier is None)
+            and (self.carriers or v.carrier is None)
         ]
 
     def get_attacks_by_category(self, category: AttackCategory) -> list[AttackVector]:
