@@ -62,7 +62,7 @@ Priorities shift as the landscape changes. This page tracks **themes** we're act
 - :white_check_mark: Expanded tool chain patterns — grew from 32 to 102 dangerous patterns across 15 categories (cloud services, MCP, A2A, CI/CD, browser, crypto, and more)
 - :white_check_mark: Encoding / obfuscation engine — 12 encoding types (Base64, ROT13, leetspeak, homoglyph, hex, whitespace, mixed case, payload split, pig latin, reverse, word shuffle, token boundary)
 - :white_check_mark: Multi-turn jailbreak tactics — crescendo, context buildup, persona shift, distraction tactics for progressive escalation
-- :white_check_mark: BOLA / BFLA authorization testing — Attack vectors for Broken Object / Function Level Authorization
+- :white_check_mark: BOLA / BFLA authorization testing — attack vectors for Broken Object / Function Level Authorization
 - :white_check_mark: Promptfoo provider bridge — use ZIRAN as a custom Python provider in Promptfoo YAML test cases
 - :white_check_mark: OpenTelemetry tracing — opt-in distributed tracing for campaigns, phases, attacks, and detection
 
