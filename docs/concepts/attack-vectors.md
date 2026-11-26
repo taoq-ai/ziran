@@ -224,13 +224,20 @@ vectors.
 
 A vector can name a `goal` that is met by what the agent did, not by what it wrote. The scan
 records the tool calls of every reply in the attack, in order, and judges the goal on them
-alone. The result gains two fields beside the text verdict, which does not change:
+alone. The result gains three fields beside the text verdict, which does not change:
 
+- `goal_type`: the goal's `type`, or `null` when the vector has no goal.
 - `goal_met`: `true` or `false`, or `null` when the vector has no goal or no reply came back
   (unmeasured, never a pass).
 - `goal_evidence`: each call the verdict rests on, with its `turn` (the prompt, tactic turn,
   PAIR iteration or carrier prompt, from 1), its `call` position in that reply, its `tool`, its
   `role` and, for a canary, the `argument` path that holds it.
+
+The Markdown, HTML and console reports list each goal vector as `met`, `not met` or
+`unmeasured`, with the turn and call of its evidence, and count the goals met in the summary.
+An unmeasured goal is never shown as not met. With `--trials`, a goal met on any trial is met
+on the vector's row. `ziran ci` prints every met or unmeasured goal, and fails on a met goal
+when the gate config sets `fail_on_goal_met: true` ([CI/CD integration](../guides/cicd-integration.md)).
 
 ```yaml
 # A high-stakes tool ran with no approval call before it

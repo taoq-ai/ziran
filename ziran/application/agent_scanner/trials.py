@@ -122,12 +122,13 @@ def _measured(result: AttackResult) -> bool:
 def combine(results: list[AttackResult | None], k: int) -> AttackResult:
     """One result for the vector: the first successful trial (else the first whose goal was met,
     else the last measured one) carries the evidence; tokens and probe markers add up over every
-    trial that returned. A goal vector's per-trial ``goal_met`` is ``goal_outcomes`` (spec 124)."""
+    trial that returned. A goal vector's per-trial ``goal_met`` is ``goal_outcomes`` (spec 124);
+    a goal met on any trial is the row's, with that trial's goal evidence (spec 126)."""
     ran = [r for r in results if r is not None]
     measured = [r for r in ran if _measured(r)]
     successes = sum(r.successful for r in measured)
-    fallback = next((r for r in ran if r.goal_met), measured[-1] if measured else ran[-1])
-    shown = next((r for r in ran if r.successful), fallback)
+    met = next((r for r in ran if r.goal_met), None)
+    shown = next((r for r in ran if r.successful), met or (measured or ran)[-1])
     outcomes = [r.successful if r is not None and _measured(r) else None for r in results]
     summary: dict[str, Any] = {
         "k": k,
@@ -147,5 +148,6 @@ def combine(results: list[AttackResult | None], k: int) -> AttackResult:
             "token_usage": sum((r.token_usage for r in ran), TokenUsage()),
             "probe_markers": [m for r in ran for m in r.probe_markers],
             "evidence": {**shown.evidence, "trials": summary},
+            **({"goal_met": True, "goal_evidence": met.goal_evidence} if met else {}),
         }
     )

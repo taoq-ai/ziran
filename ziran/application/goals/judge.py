@@ -124,8 +124,9 @@ def goal_status(
 def judge_goal(
     attack: AttackVector, result: AttackResult, turns: Turns, replies: Replies | None = None
 ) -> AttackResult:
-    """Set ``goal_met`` and ``goal_evidence`` on *result* when *attack* names a goal. The text
+    """Set ``goal_type``, ``goal_met`` and ``goal_evidence`` on *result* when *attack* names a goal. The text
     verdict is not read or changed."""
     if attack.goal is not None:
+        result.goal_type = attack.goal.type
         result.goal_met, result.goal_evidence = goal_status(attack.goal, turns, replies)
     return result
