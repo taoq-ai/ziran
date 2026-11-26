@@ -1,6 +1,6 @@
 # Attack Library Reference
 
-ZIRAN ships with **695 attack vectors** across **37 YAML files** and **11 categories**, with OWASP LLM Top 10, OWASP Agentic Top 10 and MITRE ATLAS mappings.
+ZIRAN ships with **701 attack vectors** across **38 YAML files** and **11 categories**, with OWASP LLM Top 10, OWASP Agentic Top 10 and MITRE ATLAS mappings.
 
 ## Vector Files
 
@@ -17,6 +17,7 @@ The table lists the core files; every file is under `ziran/application/attacks/v
 | `memory_poisoning.yaml` | 16 | Persistent instruction planting |
 | `privilege_escalation.yaml` | 15 | Admin impersonation, scope widening |
 | `a2a_attacks.yaml` | 11 | A2A protocol-specific attacks |
+| `a2a_identity.yaml` | 6 | A2A protocol probes with no prompt: unsigned or invalid card signature, another client's context or task, a replayed delegated token, a look-alike card (A2A targets only) |
 | `document_carriers.yaml` | 9 | PDF, DOCX, HTML and PNG files with hidden injections (opt-in, `--carriers`) |
 | `customer_care.yaml` | 8 | Refund, credit, discount and price abuse; identity-verification bypass; another customer's order or account |
 

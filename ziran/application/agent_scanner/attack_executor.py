@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ziran.application.a2a_probe import run_a2a_probe
 from ziran.application.agent_scanner.progress import ProgressEmitter
 from ziran.application.agent_scanner.streaming import invoke_streaming
 from ziran.application.attacks.carrier_executor import CarrierExecutor, CarrierSites
@@ -23,6 +24,7 @@ from ziran.domain.entities.attack import (
     TokenUsage,
     get_business_impacts,
 )
+from ziran.domain.interfaces.a2a_wire import A2AWire
 from ziran.domain.interfaces.adapter import scan_metadata
 from ziran.domain.probe_markers import probe_scope
 from ziran.domain.replies import ERROR_SENTINELS as _ERROR_SENTINELS
@@ -96,6 +98,12 @@ class AttackExecutor:
 
     # -- public API --------------------------------------------------------
 
+    @property
+    def a2a_wire(self) -> A2AWire | None:
+        """The target's A2A probe wire (spec 118), or None when it does not speak A2A."""
+        wire = getattr(self._adapter, "a2a_wire", None)
+        return wire if isinstance(wire, A2AWire) else None
+
     async def execute(self, attack: AttackVector, *, deadline: float | None = None) -> AttackResult:
         """Execute *attack*; *deadline* is a PAIR vector's event-loop stop time (spec 081).
         Its side-effect goal is judged on each reply's recorded tool calls (spec 116), and
@@ -123,6 +131,10 @@ class AttackExecutor:
                 "ziran.attack.tactic": attack.tactic,
             },
         )
+
+        if attack.a2a_probe is not None:  # protocol probe, no prompt (spec 118)
+            _attack_span.end()
+            return await run_a2a_probe(attack, self.a2a_wire)
 
         if not attack.prompts:
             _attack_span.set_attribute("ziran.attack.error", "no_prompts")

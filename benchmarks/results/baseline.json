@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-11-26T13:53:21.034836+00:00",
-  "total_vectors": 695,
+  "timestamp": "2026-11-26T20:00:16.240451+00:00",
+  "total_vectors": 701,
   "categories": 11,
   "owasp_coverage_pct": 100.0,
   "owasp_covered": 10,
@@ -121,7 +121,7 @@
         },
         {
           "dimension": "Total vectors",
-          "implemented": 695,
+          "implemented": 701,
           "target": 400,
           "pct": 100
         },
@@ -211,7 +211,7 @@
         },
         {
           "dimension": "Total library overlap",
-          "implemented": 695,
+          "implemented": 701,
           "target": null,
           "pct": null
         }
@@ -302,9 +302,9 @@
         },
         {
           "dimension": "ATLAS techniques mapped",
-          "implemented": 85,
+          "implemented": 86,
           "target": 100,
-          "pct": 85.0
+          "pct": 86.0
         },
         {
           "dimension": "Agent-specific techniques covered",

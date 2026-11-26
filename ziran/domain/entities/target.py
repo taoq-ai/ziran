@@ -211,6 +211,25 @@ class A2AConfig(BaseModel):
         default=False,
         description="Use streaming (SSE) for message exchange",
     )
+    # Identity probes (spec 118)
+    jwks_url: str | None = Field(
+        default=None,
+        description="JWKS that the Agent Card signature must verify against; unset uses the "
+        "signature's jku when it has the target's origin",
+    )
+    peer_auth: AuthConfig | None = Field(
+        default=None,
+        description="A second client's credential for the cross-client context and task probes",
+    )
+    replay_auth: AuthConfig | None = Field(
+        default=None,
+        description="A delegated token recorded from an earlier session that should no longer "
+        "work (expired, or scoped to another task)",
+    )
+    lookalike_cards: list[str] = Field(
+        default_factory=list,
+        description="Agent Card URLs from a registry to check for look-alikes of the target",
+    )
 
 
 class BrowserConfig(BaseModel):

@@ -21,6 +21,7 @@ from ziran.application.attacks.pair import is_pair, queue_pair_last, run_in_phas
 from ziran.application.usage import TARGET_MODEL
 from ziran.domain.entities.attack import AttackResult, TokenUsage
 from ziran.domain.entities.phase import CoverageLevel, PhaseResult, ScanPhase
+from ziran.domain.interfaces.a2a_wire import A2AWire
 from ziran.infrastructure.logging.context import bind_phase
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry import metrics
@@ -143,6 +144,8 @@ class PhaseExecutor:
 
         # Get phase-specific attacks filtered by coverage level
         attacks = self._attack_library.get_attacks_for_phase(phase, coverage=coverage)
+        if not isinstance(getattr(self._attack_executor, "a2a_wire", None), A2AWire):
+            attacks = [a for a in attacks if getattr(a, "a2a_probe", None) is None]  # spec 118
 
         # Exclude already-tested vectors to avoid redundant work
         exclude: set[str] = (exclude_vectors or set()) | tested_vector_ids

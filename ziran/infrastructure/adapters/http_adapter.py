@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from ziran.domain.entities.streaming import AgentResponseChunk
+    from ziran.domain.interfaces.a2a_wire import A2AWire
 
 logger = get_logger(__name__)
 
@@ -202,6 +203,15 @@ class HttpAgentAdapter(BaseAgentAdapter):
     def memory_persists_across_reset(self) -> bool:
         """As the target YAML declares it (spec 113)."""
         return self._config.memory_persists_across_reset
+
+    @property
+    def a2a_wire(self) -> A2AWire | None:
+        """The identity probes' wire on the A2A protocol (spec 118), else None."""
+        if self.protocol != ProtocolType.A2A:
+            return None
+        from ziran.infrastructure.adapters.protocols.a2a_wire import HttpA2AWire
+
+        return HttpA2AWire(self._config, lambda config: HttpAgentAdapter(config)._build_client())
 
     async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
         """Send a message to the remote agent.
