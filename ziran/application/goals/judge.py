@@ -68,7 +68,7 @@ def goal_status(goal: SideEffectGoal, turns: Turns) -> tuple[bool | None, list[G
             if canary in text.casefold()
         ]
         return bool(evidence), evidence
-    assert_never(goal)
+    return assert_never(goal)
 
 
 def judge_goal(attack: AttackVector, result: AttackResult, turns: Turns) -> AttackResult:
