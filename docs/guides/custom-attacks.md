@@ -30,7 +30,8 @@ vectors:
 A prompt with `new_session: true` resets the conversation before it is sent, so a later session
 can show whether the agent acts on what an earlier one planted in its memory. The vector needs a
 multi-turn `tactic` (not `single` or `pair`). The result's `evidence.sessions` lists each session
-with its prompts, replies and tool calls.
+with its turns: the turn index, prompt, reply (`null` when the turn failed) and tool calls. When
+session 1 got no reply, session 2 is not sent and the result is unmeasured.
 
 ```yaml
     tactic: context_buildup

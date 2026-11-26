@@ -21,6 +21,9 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
+import weakref
+from contextlib import asynccontextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
@@ -31,7 +34,7 @@ from ziran.domain.replies import is_no_chat_reply
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator, Callable
 
     from ziran.application.detectors.pipeline import DetectorPipeline
     from ziran.domain.entities.attack import AttackPrompt, AttackVector
@@ -41,6 +44,49 @@ logger = get_logger(__name__)
 
 #: Why a two-session vector did not run against a target without memory across resets.
 NO_MEMORY_REASON = "no memory across sessions"
+#: Why a two-session result is unmeasured: the adapter's history holds turns it did not send.
+SHARED_SESSION_REASON = "session 2 shared"
+#: Why a two-session result is unmeasured: the plant (session 1) got no reply.
+NO_PLANT_REASON = "session 1 got no reply"
+
+
+class _SessionGate:
+    """Per-adapter gate (spec 113): multi-turn runs share it, a two-session run holds it alone,
+    so its reset never lands inside another run's conversation. A waiting two-session run blocks
+    new shared holders, so it is not starved."""
+
+    def __init__(self) -> None:
+        self._cond = asyncio.Condition()
+        self._shared = 0
+        self._exclusive = False
+        self._waiting = 0
+
+    @asynccontextmanager
+    async def hold(self, exclusive: bool) -> AsyncIterator[None]:
+        async with self._cond:
+            if exclusive:
+                self._waiting += 1
+                try:
+                    await self._cond.wait_for(lambda: not self._exclusive and not self._shared)
+                finally:
+                    self._waiting -= 1
+                    self._cond.notify_all()
+                self._exclusive = True
+            else:
+                await self._cond.wait_for(lambda: not self._exclusive and not self._waiting)
+                self._shared += 1
+        try:
+            yield
+        finally:
+            async with self._cond:
+                if exclusive:
+                    self._exclusive = False
+                else:
+                    self._shared -= 1
+                self._cond.notify_all()
+
+
+_GATES: weakref.WeakKeyDictionary[BaseAgentAdapter, _SessionGate] = weakref.WeakKeyDictionary()
 
 
 class TacticType(StrEnum):
@@ -65,9 +111,10 @@ class TacticExecutor:
 
     For multi-turn tactics, all prompts in the vector are sent
     sequentially within the same conversation (no ``reset_state()``
-    between prompts, except before a ``new_session`` prompt). Detection is only evaluated on prompts that
-    have ``success_indicators`` defined, since earlier prompts in
-    the sequence are setup/context builders.
+    between prompts, except before a ``new_session`` prompt).
+    Detection is only evaluated on prompts that have
+    ``success_indicators`` defined, since earlier prompts in the
+    sequence are setup/context builders.
 
     Example::
 
@@ -133,7 +180,33 @@ class TacticExecutor:
                 atlas_mapping=attack.atlas_mapping,
                 harm_category=attack.harm_category,
             )
-        sessions: list[dict[str, Any]] = []
+        if not self._adapter.memory_persists_across_reset:
+            return await self._run(attack, detector_pipeline, render_fn, two_session=False)
+        gate = _GATES.setdefault(self._adapter, _SessionGate())
+        async with gate.hold(exclusive=two_session):
+            return await self._run(attack, detector_pipeline, render_fn, two_session=two_session)
+
+    def _shared(self, session: dict[str, Any]) -> bool:
+        """True when the adapter's history holds a user or assistant message this session did
+        not send or receive: another run's turn landed in it (spec 113)."""
+        own = {("user", t["prompt"]) for t in session["turns"]}
+        own |= {("assistant", t["reply"]) for t in session["turns"]}
+        history = self._adapter.get_state().conversation_history
+        return any(
+            (m.get("role"), m.get("content")) not in own
+            for m in history
+            if m.get("role") in ("user", "assistant")
+        )
+
+    async def _run(
+        self,
+        attack: AttackVector,
+        detector_pipeline: DetectorPipeline,
+        render_fn: Callable[[AttackPrompt], str],
+        two_session: bool,
+    ) -> AttackResult:
+        sessions: list[dict[str, Any]] = []  # one record per session, two-session vectors only
+        unmeasured_reason: str | None = None
 
         total_tokens = TokenUsage()
         last_response_content: str | None = None
@@ -146,24 +219,27 @@ class TacticExecutor:
         for i, prompt_spec in enumerate(attack.prompts):
             rendered_prompt = render_fn(prompt_spec)
             if two_session:
+                planted = (
+                    any(t["reply"] is not None for t in sessions[-1]["turns"]) if sessions else True
+                )
+                if prompt_spec.new_session and not planted:
+                    unmeasured_reason = NO_PLANT_REASON  # nothing planted: nothing to test
+                    break
                 if prompt_spec.new_session:
                     self._adapter.reset_state()
                 if prompt_spec.new_session or not sessions:
-                    sessions.append(
-                        {
-                            "session": len(sessions) + 1,
-                            "prompts": [],
-                            "replies": [],
-                            "tool_calls": [],
-                        }
-                    )
-                sessions[-1]["prompts"].append(rendered_prompt)
+                    sessions.append({"session": len(sessions) + 1, "turns": []})
+                turn: dict[str, Any] = {"turn": i + 1, "prompt": rendered_prompt, "reply": None}
+                sessions[-1]["turns"].append(turn)
 
             try:
                 response = await self._adapter.invoke(rendered_prompt)
                 if two_session:
-                    sessions[-1]["replies"].append(response.content)
-                    sessions[-1]["tool_calls"].extend(response.tool_calls)
+                    turn.update(reply=response.content, tool_calls=response.tool_calls)
+                    if len(sessions) > 1 and self._shared(sessions[-1]):
+                        unmeasured_reason = SHARED_SESSION_REASON
+                        logger.warning("new_session_shared", vector_id=attack.id, turn=i + 1)
+                        break
                 sent.append(rendered_prompt)
                 response.metadata = scan_metadata(response.metadata, *sent)
 
@@ -266,6 +342,11 @@ class TacticExecutor:
                 **review,
                 **({"prompt_errors": prompt_errors} if prompt_errors else {}),
                 **({"outcome": "unmeasured"} if prompt_errors and not evaluated else {}),
+                **(
+                    {"outcome": "unmeasured", "unmeasured_reason": unmeasured_reason}
+                    if unmeasured_reason
+                    else {}
+                ),
                 **({"sessions": sessions} if two_session else {}),
             },
             agent_response=last_response_content,

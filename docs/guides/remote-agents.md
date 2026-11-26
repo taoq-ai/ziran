@@ -202,6 +202,14 @@ a store keyed by user rather than by session). Two-session memory vectors such a
 `mp_cross_session_plant_trigger` run only then; without it they are skipped and listed as
 unmeasured.
 
+Declare it only for a target whose session ends when ziran resets: ziran clears its own
+conversation history and, for A2A, the context id. It does not clear the HTTP cookie jar or a
+fixed session field in `rest.extra_body`, so a REST target that keys its conversation on either
+keeps the session, and session 2 is not new. While the flag is set, a two-session vector never
+runs beside another multi-turn vector. When another vector's turn still lands in session 2 (a
+single-prompt vector sent at the same time), the result is unmeasured with the reason
+`session 2 shared`; `--concurrency 1` avoids that.
+
 ## Discovery Mode
 
 Before running a full scan, discover what the agent can do:

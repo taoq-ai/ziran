@@ -57,6 +57,16 @@ change.
   `evidence.sessions` on both the success and the failure result of such a vector; vectors without
   the flag keep their evidence unchanged.
 - **FR-005** Skip with reason as in scenario 2.
+- **FR-007** While the adapter declares memory across reset, every `TacticExecutor` run on it
+  holds a per-adapter gate: multi-turn runs share it, a two-session run holds it alone (review
+  round 1: a reset beside another multi-turn run gave a false finding and wiped that run's
+  build-up).
+- **FR-008** After each session-2 turn the adapter's history must hold only that session's own
+  prompts and replies; otherwise the result is unmeasured with `unmeasured_reason`
+  "session 2 shared". A plant with no reply stops the run before session 2, unmeasured with
+  "session 1 got no reply".
+- **FR-009** Each session record lists its turns (`turn`, `prompt`, `reply`, `tool_calls`), so a
+  failed turn cannot misalign prompts and replies.
 - **FR-006** The new vector, mapped as above; the ATLAS agent-technique fitness test lists it.
 
 ## Edge cases
@@ -74,5 +84,12 @@ change.
   the owner wants a separate skipped count in the result metadata.
 - Persistence is declared, not probed: ziran cannot see a target's memory, and a probe would
   itself plant a value. Overturned by a target that exposes its memory for inspection.
+- The gate is shared/exclusive rather than one mutex for every multi-turn run: a mutex would
+  serialise all multi-turn vectors on a declared target and push queued ones past the 60 s
+  per-attack timeout. Overturned if serialising all of them is preferred.
+- Single-prompt vectors do not take the gate (their path is `attack_executor.py`, which has no
+  room); the history check catches their turns landing in session 2.
+- `compute_resilience` still counts the skip as resisted, as it does every spec 082 unmeasured
+  outcome; left for a follow-up that drops unmeasured rows from its total.
 - The vector uses the `context_buildup` tactic rather than a new tactic name, so the tactics
   histogram and every tactic consumer stay as they are.

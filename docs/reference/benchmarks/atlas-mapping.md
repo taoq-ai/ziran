@@ -123,8 +123,8 @@ These ids come from ATLAS data release 2026.10 ([`dist/v6/ATLAS-2026.10.yaml`](h
 
 | Technique | Vectors | What the vectors do |
 |---|---:|---|
-| `AML.T0080` AI Agent Context Poisoning | 13 | Parent of the two rows below |
-| `AML.T0080.000` Memory | 4 | Ask the agent to store a planted fact or rule in persistent or shared memory |
+| `AML.T0080` AI Agent Context Poisoning | 14 | Parent of the two rows below |
+| `AML.T0080.000` Memory | 5 | Ask the agent to store a planted fact or rule in persistent or shared memory, or plant one and trigger it from a new session |
 | `AML.T0080.001` Thread | 9 | Plant an instruction or fake history that must govern the rest of the thread |
 | `AML.T0081` Modify AI Agent Configuration | 5 | Change the agent's settings or add an MCP server to its configuration |
 | `AML.T0084` Discover AI Agent Configuration | 7 | Read the agent card or ask for a dump of tools, prompt and settings |

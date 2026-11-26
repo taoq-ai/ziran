@@ -15,3 +15,7 @@
 - [x] T007 Docs and regenerated benchmark coverage numbers for the new vector.
 - [x] T008 Touched tests, `test_scanner_size.py`, the vector fitness tests, `ruff check`,
   `ruff format --check`, `mypy ziran/`.
+- [x] T009 Review round 1: per-adapter session gate, shared-history check, failed-plant stop,
+  per-turn session records, a race regression test beside a multi-turn vector with a 429 retry
+  (red on the old head: a false finding), and the ATLAS table, field table, target key and
+  REST session docs.
