@@ -1,7 +1,8 @@
 # AI-BOM
 
 `ziran audit --aibom FILE` writes a CycloneDX 1.6 bill of materials of a Claude Code plugin: what
-the plugin is made of, read from its files without running anything. `ziran analyze-traces --aibom
+the plugin is made of, read from its files without running anything. `ziran scan --aibom FILE`
+writes the same shape for a scanned target (see [Scan targets](#scan-targets)). `ziran analyze-traces --aibom
 FILE` then compares production traces with that BOM and adds every MCP server or agent the traces
 name but the BOM lacks, flagged as shadow.
 
@@ -20,10 +21,16 @@ goes to stderr. A PATH with no Claude Code plugin or agent exits `2`.
 |-------|-----------|------|
 | The plugin | `metadata.component`, type `application` | `.claude-plugin/plugin.json` |
 | Each subagent | `components`, type `application`, one `ziran:tool` property per declared tool | `agents/*.md` |
+| Each skill | `components`, type `application`, `ziran:kind: skill`, one `ziran:allowed-tool` property per pre-approved tool | `skills/*/SKILL.md` |
 | Each model a subagent names | `components`, type `machine-learning-model` | the agent's `model` key |
 | Each MCP server | `services`, with `ziran:command`, `ziran:transport`, `version` and `endpoints` | `.mcp.json` and the manifest's `mcpServers` |
 | Skill CVE matches on a declared tool | `vulnerabilities`, `analysis.state: in_triage` | ZIRAN's skill CVE database |
-| Agent to model and agent to MCP server | `dependencies` | the agent's `model` and its `mcp__<server>__*` tools |
+| Agent to model, agent or skill to MCP server | `dependencies` | the agent's `model` and its `mcp__<server>__*` tools |
+
+Refs name the plugin when its manifest does: `agent:<plugin>/<name>`, `skill:<plugin>/<name>` and
+`mcp:<plugin>/<name>`, so two plugins with an agent of one name never share a ref. Without a
+manifest the refs are `agent:<name>` and so on. `model:<name>`, `plugin:<name>` and `vuln:<id>`
+carry no prefix.
 
 Every entry carries a `ziran:source` property: the file it was read from, relative to the audited
 path, with the line where the parser keeps one.
@@ -52,12 +59,38 @@ Two things are kept as the config writes them: the `command` (the whole string, 
 with a token in it shows that token) and the URL path (so a key in the path, as in
 `https://host/mcp/<key>`, shows too). Put secrets in `env`, `headers` or a placeholder instead.
 
+## Scan targets
+
+`ziran scan --aibom FILE` writes the BOM after the scan's results are saved; `--dry-run` writes
+none. A `FILE` whose folder is missing or not writable exits `2` before the scan starts.
+
+| Entry | CycloneDX | From |
+|-------|-----------|------|
+| The target | `metadata.component`, type `application`, `agent:<name>`, with `ziran:protocol`, one `ziran:tool` per discovered tool and one `ziran:skill` per discovered skill | the agent card's name, else the URL's host, else the agent file's name |
+| The model | `components`, type `machine-learning-model` | `openai.model` in the target config; else `ziran:model: unknown` |
+| The MCP server | `services`, `mcp:<name>`, with its endpoint and `ziran:version: unknown` | a target on the `mcp` protocol |
+| The A2A peer | `services`, `a2a:<name>`, with its version, endpoints and one `ziran:skill` per card skill | the target's agent card |
+| Skill CVE matches on a discovered tool | `vulnerabilities`, `analysis.state: in_triage` | ZIRAN's skill CVE database |
+
+Auth schemes are not listed, nor are tools that probe discovery guessed from the target's replies
+(ids starting `probe_`). The BOM never holds the target's headers, auth or environment values,
+and its endpoints drop the user, password, query and fragment, as for MCP servers.
+
+A scan BOM names the target, and its MCP server, by the agent card's name or the URL's host. Traces
+name a server by the client's own config key (`mcp__<key>__<tool>`) and an agent by its service
+name, so `analyze-traces --aibom` against a scan BOM can list the scanned target itself as a shadow
+server or agent. Target configs carry no stable name yet; until they do, read shadow entries
+against a scan BOM with that in mind.
+
 ## Shadow servers and agents
 
 A trace names an MCP server in a tool id, `mcp__<server>__<tool>`. Claude Code names a plugin's
 server `plugin_<plugin>_<server>`, and that form matches the BOM's server too. An agent is the
 session's agent name (OTel `service.name`, Langfuse `metadata.agent`); `unknown` is skipped.
 
+Matching reads names, never refs, so a BOM written before refs named the plugin still matches.
+An agent is known when an `application` component other than a skill bears its name: a trace
+agent named like a skill or a model is still shadow.
 Each one the BOM lacks is added once, with `ziran:shadow: true` and a `ziran:source` naming the
 first session that used it. The BOM's `version` goes up by one when anything is added.
 
@@ -94,7 +127,7 @@ mcp__filesystem__read_file`. Part of the BOM (`serialNumber`, `metadata` and the
     },
     {
       "type": "application",
-      "bom-ref": "agent:researcher",
+      "bom-ref": "agent:aibom-plugin/researcher",
       "name": "researcher",
       "properties": [
         {"name": "ziran:source", "value": "agents/researcher.md:2"},
@@ -106,7 +139,7 @@ mcp__filesystem__read_file`. Part of the BOM (`serialNumber`, `metadata` and the
   ],
   "services": [
     {
-      "bom-ref": "mcp:filesystem",
+      "bom-ref": "mcp:aibom-plugin/filesystem",
       "name": "filesystem",
       "version": "2025.7.1",
       "properties": [
@@ -117,7 +150,7 @@ mcp__filesystem__read_file`. Part of the BOM (`serialNumber`, `metadata` and the
       ]
     },
     {
-      "bom-ref": "mcp:search",
+      "bom-ref": "mcp:aibom-plugin/search",
       "name": "search",
       "endpoints": ["https://mcp.example.com/mcp"],
       "properties": [
@@ -128,7 +161,7 @@ mcp__filesystem__read_file`. Part of the BOM (`serialNumber`, `metadata` and the
     }
   ],
   "dependencies": [
-    {"ref": "agent:researcher", "dependsOn": ["model:sonnet", "mcp:filesystem"]}
+    {"ref": "agent:aibom-plugin/researcher", "dependsOn": ["model:sonnet", "mcp:aibom-plugin/filesystem"]}
   ],
   "vulnerabilities": [
     {
@@ -140,7 +173,7 @@ mcp__filesystem__read_file`. Part of the BOM (`serialNumber`, `metadata` and the
         "state": "in_triage",
         "detail": "Tool name matches the database entry; not confirmed."
       },
-      "affects": [{"ref": "agent:researcher"}]
+      "affects": [{"ref": "agent:aibom-plugin/researcher"}]
     }
   ]
 }

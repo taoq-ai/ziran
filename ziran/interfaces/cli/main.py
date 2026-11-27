@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -37,6 +38,8 @@ from ziran.interfaces.cli.reports import ReportGenerator, goal_summary
 
 if TYPE_CHECKING:
     from ziran.application.attacks.carrier_executor import CarrierSites
+    from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+    from ziran.domain.entities.a2a import A2AAgentCard
     from ziran.domain.entities.target import TargetConfig
 
 console = Console()
@@ -401,6 +404,14 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     help="Run each attack this many times, resetting the target between runs. A vector that "
     "succeeds on some runs but not all reads flaky, with its success rate, in the reports.",
 )
+@click.option(
+    "--aibom",
+    "aibom_path",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Also write a CycloneDX 1.6 AI-BOM of the target: its model, discovered tools, MCP "
+    "server, A2A peer and skill CVE matches (see the AI-BOM guide). Not written with --dry-run.",
+)
 def scan(
     framework: str | None,
     agent_path: str | None,
@@ -440,6 +451,7 @@ def scan(
     hybrid_route_share: float | None,
     carriers: str | None,
     trials: int,
+    aibom_path: str | None,
 ) -> None:
     """Run a security scan campaign against an AI agent.
 
@@ -456,6 +468,10 @@ def scan(
         ziran scan --target ./target.yaml --protocol a2a
         ziran scan --target ./target.yaml --phases reconnaissance --phases trust_building
     """
+    if aibom_path:  # refuse a folder the BOM cannot be written to before any scan runs
+        folder = Path(aibom_path).resolve().parent
+        if not folder.is_dir() or not os.access(folder, os.W_OK):
+            raise click.BadParameter(f"no writable folder {folder}", param_hint="--aibom")
     if hybrid_route_share:  # the flag wins over the config file, 0.0 included
         _no_hybrid_client()
     attacker_model = (attacker_model or "").strip() or None  # blank (an unset CI var) is off
@@ -850,6 +866,43 @@ def scan(
     _save_results(result, scanner.graph, output_dir, target=poc_target)
 
     console.print(f"\n[dim]Results saved to {output_dir}/[/dim]")
+    if aibom_path:
+        _write_scan_aibom(
+            Path(aibom_path),
+            scanner.graph,
+            source=str(target or agent_path),
+            target=poc_target,
+            protocol=poc_target.protocol.value if poc_target is not None else str(framework),
+            card=getattr(adapter, "agent_card", None) if has_remote else None,
+        )
+
+
+def _write_scan_aibom(
+    path: Path,
+    graph: AttackKnowledgeGraph,
+    *,
+    source: str,
+    target: TargetConfig | None,
+    protocol: str,
+    card: A2AAgentCard | None,
+) -> None:
+    """Write the scan's AI-BOM (spec 135) from the capabilities discovery put in *graph*."""
+    from ziran.application.aibom import build_scan_aibom
+    from ziran.application.knowledge_graph.graph import NodeType
+    from ziran.domain.entities.capability import AgentCapability
+
+    capabilities = [
+        AgentCapability.model_validate(data["data"])
+        for _, data in graph.get_nodes_by_type(NodeType.CAPABILITY)
+    ]
+    bom = build_scan_aibom(capabilities, source=source, target=target, protocol=protocol, card=card)
+    try:
+        path.write_text(json.dumps(bom, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        raise click.BadParameter(
+            f"cannot write file ({exc.strerror})", param_hint="--aibom"
+        ) from None
+    console.print(f"[dim]AI-BOM written to {path}[/dim]")
 
 
 @cli.group(name="cache")
