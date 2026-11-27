@@ -39,6 +39,7 @@ ziran scan [OPTIONS]
 | `--llm-provider` | No | — | LLM provider for AI-powered features |
 | `--llm-model` | No | — | LLM model name (e.g. `gpt-4o`, `claude-sonnet-4-20250514`) |
 | `--attacker-model` | No | — | LiteLLM model id of the attacker LLM for `tactic: pair` vectors (requires `ziran[llm]`). Without it (or with a blank value) those vectors are not run, the dry run does not count them, and the report's warnings list them, one line per phase. Its tokens count towards `--max-campaign-tokens` and `--max-cost`. |
+| `--attacker-cassette` | No | — | File of the attacker's replies as spec 064 outcome rows. With `--attacker-model` it records them (written atomically; a symlink path is refused); without it, an existing file is replayed with no key, so a campaign tree repeats offline. A request with no stored reply stops its vector as pending (unmeasured). |
 | `--encoding` | No | — | Prompt encoding/obfuscation: `base64`, `rot13`, `leetspeak`, `homoglyph`, `hex`, `whitespace`, `mixed_case`, `payload_split`. Repeatable. |
 | `--otel` | No | `false` | Enable OpenTelemetry tracing (requires `ziran[otel]`). Exports spans to console. |
 | `--attack-timeout` | No | `60` | Per-attack timeout in seconds |

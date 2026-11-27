@@ -31,8 +31,8 @@ from ziran.domain.entities.attack import (
 from ziran.domain.entities.detection import DetectionVerdict, QualityScore
 from ziran.domain.entities.phase import CoverageLevel, ScanPhase
 from ziran.domain.interfaces.adapter import AgentResponse, AgentState, BaseAgentAdapter
+from ziran.infrastructure.llm.attacker_cassette import Cassette, Recorder
 from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse
-from ziran.infrastructure.llm.replay_client import RecordReplayClient, request_key
 
 pytestmark = pytest.mark.unit
 
@@ -314,42 +314,6 @@ async def test_acceptance_1_tap_stops_at_the_budget_with_the_tree_so_far() -> No
     assert ids(result) == ["1", "2", "1.1", "1.2", "2.1"]
     assert result.evidence["outcome"] == "unmeasured"  # cut short: never read as resisted
     assert result.goal_met is None
-
-
-class Recorder(BaseLLMClient):
-    """Passes calls to *inner* and writes each reply as a spec 064 outcome row."""
-
-    def __init__(self, inner: BaseLLMClient, outcomes: Path) -> None:
-        super().__init__(inner.config)
-        self.inner, self.outcomes = inner, outcomes
-
-    async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
-        reply = await self.inner.complete(messages)
-        system, user = (m["content"] for m in messages)
-        key = request_key(system, self.config.model, "v1", user)
-        row = {"key": key, "unit": "campaign", "job": "campaign", "outcome": "reply"}
-        with self.outcomes.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(row | {"fields": json.loads(reply.content)}) + "\n")
-        return reply
-
-    async def health_check(self) -> bool:
-        return True
-
-
-class Cassette(BaseLLMClient):
-    """The attacker request as the spec 064 client takes it: the system text keys the reply."""
-
-    def __init__(self, outcomes: Path) -> None:
-        self.inner = RecordReplayClient("fake-attacker", "v1", replies=outcomes)
-        super().__init__(self.inner.config)
-
-    async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
-        system, user = messages
-        job = {"job": "campaign", "unit": "campaign", "prompt": system["content"]}
-        return await self.inner.complete([user], **job)
-
-    async def health_check(self) -> bool:
-        return True
 
 
 @pytest.mark.parametrize("vector_id", [TAP, LIVE])

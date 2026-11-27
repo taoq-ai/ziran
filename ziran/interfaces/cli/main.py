@@ -223,6 +223,14 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "those vectors are not run and the report lists them. Needs the llm extra.",
 )
 @click.option(
+    "--attacker-cassette",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Attacker replies as spec 064 outcome rows. With --attacker-model it records them; "
+    "without it, it replays an existing file with no key, so a campaign tree repeats offline "
+    "(a request with no stored reply stops its vector as pending).",
+)
+@click.option(
     "--attack-timeout",
     type=float,
     default=60.0,
@@ -410,6 +418,7 @@ def scan(
     llm_tpm: int | None,
     llm_max_retries: int | None,
     attacker_model: str | None,
+    attacker_cassette: Path | None,
     attack_timeout: float,
     phase_timeout: float,
     strategy: str,
@@ -539,6 +548,8 @@ def scan(
         config_table.add_row("LLM Model", llm_model or "gpt-4o")
     if attacker_model:
         config_table.add_row("Attacker Model", attacker_model)
+    if attacker_cassette:
+        config_table.add_row("Attacker Cassette", str(attacker_cassette))
     if quality_scoring:
         config_table.add_row("Quality Scoring", "enabled (StrongREJECT-style)")
     if dry_run:
@@ -599,7 +610,7 @@ def scan(
             has_remote=has_remote,
             target=target,
             protocol=protocol,
-            attacker=attacker_model is not None,
+            attacker=attacker_model is not None or attacker_cassette is not None,
         )
         return
 
@@ -678,6 +689,23 @@ def scan(
             ) from None
         except Exception as exc:
             raise click.ClickException(f"--attacker-model {attacker_model}: {exc}") from None
+    if attacker_cassette is not None:
+        from ziran.infrastructure.llm.attacker_cassette import Cassette, Recorder
+
+        if attacker_client is None and not attacker_cassette.is_file():
+            raise click.ClickException(
+                f"--attacker-cassette {attacker_cassette}: no such file "
+                "(give --attacker-model to record one)"
+            )
+        try:
+            attacker_client = (
+                Cassette(attacker_cassette)
+                if attacker_client is None
+                else Recorder(attacker_client, attacker_cassette)
+            )
+        except (ValueError, OSError) as exc:  # a bad file, a link, a size or depth refusal
+            raise click.ClickException(f"--attacker-cassette {attacker_cassette}: {exc}") from None
+    if attacker_client is not None:
         scanner_config["attacker_llm_client"] = attacker_client
 
     if llm_client is not None:
