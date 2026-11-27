@@ -1917,7 +1917,10 @@ def ci(
     # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
     if sarif_path and from_sarif:
         console.print(
-            f"--sarif skipped: {filepath} is already a SARIF", style="yellow", markup=False
+            f"--sarif skipped: {printable(str(filepath))} is already a SARIF",
+            style="yellow",
+            markup=False,
+            soft_wrap=True,
         )
     elif sarif_path:
         try:
@@ -1949,9 +1952,10 @@ def ci(
     # 9. Policy evaluation (optional overlay); a SARIF lists successful attacks only
     if policy_path and from_sarif:
         console.print(
-            f"--policy skipped: {filepath} is a SARIF; run it on the scan result JSON",
+            f"--policy skipped: {printable(str(filepath))} is a SARIF; run it on the scan result JSON",
             style="yellow",
             markup=False,
+            soft_wrap=True,
         )
     elif policy_path:
         try:
