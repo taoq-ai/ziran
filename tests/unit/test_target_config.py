@@ -414,3 +414,35 @@ class TestProbeDelayConfig:
         path.write_text("url: https://x.com\nprobe_delay: -1\n")
         with pytest.raises(TargetConfigError):
             load_target_config(path)
+
+
+class TestTargetName:
+    """A target may carry a stable name (spec 137)."""
+
+    def test_default_is_none_and_a_safe_name_is_kept(self) -> None:
+        assert TargetConfig(url="https://x.com").name is None
+        assert TargetConfig(url="https://x.com", name="search-1.prod_a").name == "search-1.prod_a"
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "",
+            " ",
+            "a b",
+            "-lead",
+            "a" * 65,
+            "user:pw@host",
+            "https://x.com/k?key=1",
+            "a\nb",
+            "naïve",
+        ],
+    )
+    def test_unsafe_names_are_rejected(self, name: str) -> None:
+        with pytest.raises(ValidationError):
+            TargetConfig(url="https://x.com", name=name)
+
+    def test_yaml_error_names_the_field(self, tmp_path: Path) -> None:
+        path = tmp_path / "target.yaml"
+        path.write_text("url: https://x.com\nname: bad name\n")
+        with pytest.raises(TargetConfigError, match="name"):
+            load_target_config(path)

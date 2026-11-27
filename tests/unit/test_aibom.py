@@ -743,3 +743,37 @@ def test_http_adapter_exposes_the_fetched_card() -> None:
     card = A2AAgentCard(name="travel")
     adapter._handler = MagicMock(agent_card=card)
     assert adapter.agent_card is card
+
+
+class TestScanTargetName:
+    """Scan BOM refs carry a stable target name so traces match them (spec 137)."""
+
+    @staticmethod
+    def _bom(url: str, *, server_name: str | None = None, **config: Any) -> dict[str, Any]:
+        from ziran.application.aibom import build_scan_aibom
+        from ziran.domain.entities.target import TargetConfig
+
+        target = TargetConfig.model_validate({"url": url, "protocol": "mcp", **config})
+        return build_scan_aibom(
+            [], source="t.yaml", target=target, protocol="mcp", server_name=server_name
+        )
+
+    def test_server_info_name_is_not_shadow(self) -> None:
+        bom = self._bom("http://localhost:8080/mcp", server_name="search")
+        assert "mcp:search" in _by_ref(bom)
+        assert bom["metadata"]["component"]["bom-ref"] == "agent:search"
+        assert add_shadow(bom, [_session("mcp__search__x", agent="search")]) == []
+
+    def test_config_name_wins_over_server_info(self) -> None:
+        bom = self._bom("http://localhost:8080/mcp", server_name="search", name="docs")
+        assert "mcp:docs" in _by_ref(bom)
+        assert "mcp:search" not in _by_ref(bom)
+
+    def test_same_host_different_ports_get_distinct_refs(self) -> None:
+        one = self._bom("http://localhost:8080/mcp")
+        two = self._bom("http://localhost:8081/mcp")
+        assert "mcp:localhost:8080" in _by_ref(one)
+        assert "mcp:localhost:8081" in _by_ref(two)
+
+    def test_no_port_keeps_the_host(self) -> None:
+        assert "mcp:agent.example.com" in _by_ref(self._bom("https://agent.example.com/v1"))

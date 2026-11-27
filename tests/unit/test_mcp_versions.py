@@ -127,6 +127,16 @@ class TestLegacyServers:
             assert "mcp-protocol-version" not in request.headers
         assert await handler.health_check() is True
 
+    async def test_initialize_server_info_name_is_kept_when_valid(self) -> None:
+        handler = _handler(LegacyServer("2024-11-05"))
+        assert handler.server_name is None
+        await handler.discover()
+        assert handler.server_name == "legacy"
+        handler._note_server({"serverInfo": {"name": "a b/../x"}})
+        assert handler.server_name == "legacy"  # an unsafe name is ignored
+        handler._note_server({"serverInfo": "nope"})
+        assert handler.server_name == "legacy"
+
     async def test_2025_server_gets_its_session_and_version_header(self) -> None:
         server = LegacyServer("2025-11-25", sessions=True)
         handler = _handler(server)

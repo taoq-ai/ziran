@@ -66,7 +66,7 @@ none. A `FILE` whose folder is missing or not writable exits `2` before the scan
 
 | Entry | CycloneDX | From |
 |-------|-----------|------|
-| The target | `metadata.component`, type `application`, `agent:<name>`, with `ziran:protocol`, one `ziran:tool` per discovered tool and one `ziran:skill` per discovered skill | the agent card's name, else the URL's host, else the agent file's name |
+| The target | `metadata.component`, type `application`, `agent:<name>`, with `ziran:protocol`, one `ziran:tool` per discovered tool and one `ziran:skill` per discovered skill | the config `name`, else the agent card's name, else the MCP `serverInfo.name`, else the URL's `host:port`, else the agent file's name |
 | The model | `components`, type `machine-learning-model` | `openai.model` in the target config; else `ziran:model: unknown` |
 | The MCP server | `services`, `mcp:<name>`, with its endpoint and `ziran:version: unknown` | a target on the `mcp` protocol |
 | The A2A peer | `services`, `a2a:<name>`, with its version, endpoints and one `ziran:skill` per card skill | the target's agent card |
@@ -76,11 +76,12 @@ Auth schemes are not listed, nor are tools that probe discovery guessed from the
 (ids starting `probe_`). The BOM never holds the target's headers, auth or environment values,
 and its endpoints drop the user, password, query and fragment, as for MCP servers.
 
-A scan BOM names the target, and its MCP server, by the agent card's name or the URL's host. Traces
-name a server by the client's own config key (`mcp__<key>__<tool>`) and an agent by its service
-name, so `analyze-traces --aibom` against a scan BOM can list the scanned target itself as a shadow
-server or agent. Target configs carry no stable name yet; until they do, read shadow entries
-against a scan BOM with that in mind.
+A scan BOM names the target, and its MCP server, in this order: the target config's `name`, the
+agent card's name, the MCP server's `serverInfo.name`, the URL's `host:port` (just `host` when the
+URL has no port), the agent file's name. Set `name` (letters, digits, `.`, `_`, `-`, at most 64)
+to the key your client uses for the server (`mcp__<key>__<tool>`) and the service name your traces
+carry, and `analyze-traces --aibom` will not list the scanned target as a shadow server or agent.
+Two MCP targets on one host with different ports get distinct refs.
 
 ## Shadow servers and agents
 
