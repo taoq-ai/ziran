@@ -839,7 +839,7 @@ class CampaignConfig(BaseModel):
     branching: int = Field(default=2, ge=1, le=5, description="tap: children of each kept node")
     depth: int = Field(default=4, ge=1, le=10, description="tap: levels of the tree")
     turns: int = Field(default=8, ge=1, le=30, description="crescendo_live: turns sent")
-    max_nodes: int = Field(default=40, ge=1, le=200, description="Target calls, either mode")
+    max_nodes: int = Field(default=40, ge=1, le=200, description="Nodes, either mode")
     timeout_seconds: float = Field(default=600.0, gt=0, le=3600, allow_inf_nan=False)
 
 

@@ -283,7 +283,8 @@ async def test_acceptance_1_tap_stops_on_goal_met_under_a_50k_budget() -> None:
     assert ids(result) == ["1", "2", "1.1", "1.2", "2.1", "2.2", "1.1.1"]
     assert result.goal_met is True and not result.successful  # no node was a text success
     assert [c.turn for c in result.goal_evidence] == [7]  # the node's turn
-    assert result.token_usage.total_tokens == 7 * 5  # every node's target tokens
+    assert len(target.prompts) == 2 + 4 * 2 + 3  # each node replays its branch (spec 133)
+    assert result.token_usage.total_tokens == 13 * 5  # every target call's tokens
     assert "outcome" not in result.evidence
     nodes = {n["id"]: n for n in campaign["nodes"]}
     for node in nodes.values():
@@ -311,7 +312,8 @@ async def test_acceptance_1_tap_stops_at_the_budget_with_the_tree_so_far() -> No
     # each attacker call books 10,000 tokens: the 50k cap is reached after five
     result = await run(example(TAP), attacker=FakeAttacker(tokens=5_000), max_tokens=50_000)
     assert tree(result)["stop"] == "budget"
-    assert ids(result) == ["1", "2", "1.1", "1.2", "2.1"]
+    # node 2.1's fifth attacker call reaches the cap: its replay of 2 is the last target call
+    assert ids(result) == ["1", "2", "1.1", "1.2"]
     assert result.evidence["outcome"] == "unmeasured"  # cut short: never read as resisted
     assert result.goal_met is None
 
