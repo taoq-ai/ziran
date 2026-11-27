@@ -184,6 +184,8 @@ class TestUnsafeAfterError:
             ("TimeoutError: read", True),
             ("errors: none, balance 5000", False),
             ("Timeout policy: 30s", False),
+            ("No error found, balance 120", False),
+            ("Balance 120; last sync timed out yesterday", False),
             ("ok", False),
         ],
     )
@@ -300,6 +302,10 @@ class TestScan:
         result = await AttackExecutor(adapter, DetectorPipeline()).execute(vector)
         assert (result.goal_type, result.goal_met) == ("hallucinated_tool", None)
         assert result.goal_unmeasured == "no complete tool list from discovery"
+        no_result = {1: [_call("get_balance"), _call("transfer_funds")]}
+        vector_goal = _vector(UNSAFE).goal
+        assert vector_goal is not None
+        assert goal_verdict(vector_goal, no_result)[2] == "no tool result recorded"
 
     async def test_other_vectors_pass_no_tools_to_the_executor(self) -> None:
         seen: list[dict[str, Any]] = []
