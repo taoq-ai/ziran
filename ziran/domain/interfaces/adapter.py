@@ -126,6 +126,15 @@ class BaseAgentAdapter(ABC):
         return False
 
     @property
+    def isolates_sessions(self) -> bool:
+        """:meth:`reset_state` gives a fresh session on the target's side too (spec 133), so a
+        TAP node can replay its branch alone.
+
+        False unless the adapter declares it: TAP then keeps one shared session and says so.
+        """
+        return False
+
+    @property
     def observes_delegated_traffic(self) -> bool:
         """:meth:`get_state` shows the messages and tool calls other agents pass to this one
         (spec 122).

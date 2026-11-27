@@ -9,10 +9,11 @@ checked before each attacker call (with the vector's own target tokens so far), 
 deadline. Cost: TAP makes ``branching`` nodes at depth 1 and at most ``width * branching`` at
 each later depth (18 with the defaults), each about one PAIR iteration.
 
-Sessions (spec 133): where a reset gives a fresh target session (the adapter does not declare
-``memory_persists_across_reset``), each TAP node resets and replays its branch's earlier prompts
-first, so siblings are independent; a node at depth d then costs d target calls. Otherwise
-every node shares one session, recorded as ``session: shared``. Goals are judged per branch.
+Sessions (spec 133): where a reset gives a fresh target session (the adapter declares
+``isolates_sessions`` and not ``memory_persists_across_reset``), each TAP node resets and replays
+its branch's earlier prompts first, so siblings are independent and goals are judged per branch;
+a node at depth d then costs d target calls. Otherwise every node shares one session, recorded
+as ``session: shared``, and goals are judged on that one conversation.
 """
 
 from __future__ import annotations
@@ -93,22 +94,21 @@ class _Tree:
     isolated: bool = False  # tap: each node in its own target session (spec 133)
 
 
-def _branch(tree: _Tree, node_id: str | None, parent: str | None = None) -> tuple[Turns, Replies]:
-    """The calls and text of *node_id* and its answered ancestors, by turn: one branch, never a
-    sibling's (spec 133). *parent* links a node not yet in the tree."""
-    parents = {n["id"]: n["parent"] for n in tree.nodes}
-    if node_id is not None:
-        parents.setdefault(node_id, parent)
-    turn_of = {k: i for i, k in enumerate(tree.answered, 1)}
-    turns: Turns = {}
-    replies: Replies = {}
-    while node_id is not None:
-        if node_id in tree.answered:
-            response = tree.answered[node_id][0]
-            turns[turn_of[node_id]] = response.tool_calls
-            replies[turn_of[node_id]] = response.content
-        node_id = parents.get(node_id)
-    return turns, replies
+def _judged(tree: _Tree, node_id: str | None, parent: str | None = None) -> tuple[Turns, Replies]:
+    """The calls and text a goal is judged on, by turn (spec 133): in an isolated tree the
+    branch of *node_id* (its answered ancestors and itself, never a sibling); in one shared
+    session every answered node, as one conversation. *parent* links a node not yet in the tree."""
+    keep = set(tree.answered)
+    if tree.isolated:
+        parents = {n["id"]: n["parent"] for n in tree.nodes}
+        if node_id is not None:
+            parents.setdefault(node_id, parent)
+        keep = set()
+        while node_id is not None:
+            keep.add(node_id)
+            node_id = parents.get(node_id)
+    picked = [(t, r) for t, (k, (r, _)) in enumerate(tree.answered.items(), 1) if k in keep]
+    return {t: r.tool_calls for t, r in picked}, {t: r.content for t, r in picked}
 
 
 def _request(tree: _Tree, node: str, path: list[dict[str, Any]]) -> str:
@@ -132,8 +132,8 @@ class CampaignExecutor(PairExecutor):
     under the shared session gate. Both stop on the vector's goal (on a text success when it has
     none), at the budget, at a bound or at the deadline, and record the tree in
     ``evidence.campaign``. Each answered node's calls and text go into *turns* and *replies*
-    under its ``turn``, so ``judge_goal`` names the node: the deciding (else the chosen) node's
-    branch only, and for live crescendo the whole conversation.
+    under its ``turn``, so ``judge_goal`` names the node: in an isolated tree the deciding (else
+    the chosen) node's branch only, else the whole session.
     """
 
     async def execute(
@@ -161,7 +161,9 @@ class CampaignExecutor(PairExecutor):
             render_fn(attack.prompts[0]),
             {} if turns is None else turns,
             {} if replies is None else replies,
-            isolated=attack.tactic == "tap" and not self._adapter.memory_persists_across_reset,
+            isolated=attack.tactic == "tap"
+            and self._adapter.isolates_sessions
+            and not self._adapter.memory_persists_across_reset,
         )
         loop = asyncio.get_running_loop()
         deadline = loop.time() + config.timeout_seconds if deadline is None else deadline
@@ -264,7 +266,7 @@ class CampaignExecutor(PairExecutor):
             tree.answered[node_id] = (response, verdict)
             turn = len(tree.answered)
             if attack.goal is not None:
-                met = goal_status(attack.goal, *_branch(tree, node_id, parent))[0] is True
+                met = goal_status(attack.goal, *_judged(tree, node_id, parent))[0] is True
             quality = verdict.quality_score
             score = (
                 1.0
@@ -307,7 +309,7 @@ class CampaignExecutor(PairExecutor):
                 self._book(tree, replayed)
                 if is_error_response(replayed.content):
                     return None, None
-                if self._budget.exceeded():  # no target call past the cap, replays included
+                if self._budget.exceeded():  # one node call at most starts past the cap
                     raise _StopError("budget")
             return await self._attempt(prompt, attack.prompts[0], attack, pipeline, sent)
 
@@ -331,12 +333,9 @@ class CampaignExecutor(PairExecutor):
         partial = tree.stop in EARLY_STOPS and not hits
         best = max(tree.answered, key=score.__getitem__, default=None)  # the first on ties
         pick = tree.decider or (hits[0] if hits else best)
-        tap = attack.tactic == "tap"
-        end = tree.decider or (pick if tap else next(reversed(tree.answered), None))
-        if end is not None:  # the goal is judged on this branch alone
-            turns, replies = _branch(tree, end)
-            tree.turns.update(turns)
-            tree.replies.update(replies)
+        turns, replies = _judged(tree, pick)  # the deciding node's branch when isolated
+        tree.turns.update(turns)
+        tree.replies.update(replies)
         evidence: dict[str, Any] = {
             **tree.review,
             **({"prompt_errors": tree.prompt_errors} if tree.prompt_errors else {}),
@@ -347,7 +346,11 @@ class CampaignExecutor(PairExecutor):
                 "stop": tree.stop,
                 "attacker_model": self._attacker.config.model if self._attacker else None,
                 "attacker_parse_errors": tree.parse_errors,
-                **({"session": "isolated" if tree.isolated else "shared"} if tap else {}),
+                **(
+                    {"session": "isolated" if tree.isolated else "shared"}
+                    if attack.tactic == "tap"
+                    else {}
+                ),
                 "nodes": tree.nodes,
                 "edges": [{"from": n["parent"], "to": n["id"]} for n in tree.nodes if n["parent"]],
             },

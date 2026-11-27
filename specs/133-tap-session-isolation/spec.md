@@ -22,16 +22,22 @@ runs, then each node's reply depends only on its own branch's prompts.
 
 ## Requirements
 
-- **FR-001**: A TAP vector on an adapter that does not declare `memory_persists_across_reset`
+- **FR-001**: A TAP vector on an adapter that declares `isolates_sessions` (its reset gives a
+  fresh session on the target's side; default False) and not `memory_persists_across_reset`
   calls `reset_state()` before each node and replays the node's ancestors' prompts, in order,
   before the node's own prompt. `evidence.campaign.session` is `isolated`.
-- **FR-002**: On an adapter that declares `memory_persists_across_reset`, TAP sends each node
-  once into the shared session, with no reset, and records `session: shared`.
-- **FR-003**: The goal is checked after each node on that node's branch only (its answered
-  ancestors and itself). The final `judge_goal` sees the deciding node's branch, else the chosen
-  node's; live crescendo is one branch, so it is judged on the whole conversation as before.
+- **FR-002**: On any other adapter TAP sends each node once into the shared session, with no
+  reset, and records `session: shared`. `isolates_sessions` is True for the Anthropic, OpenAI
+  Agents, LangGraph, AutoGen and Bedrock adapters, and False for HTTP, browser (its reset clears
+  only ziran's lists), LangChain, CrewAI and AgentCore.
+- **FR-003** (fix round 1, planner decision): in an isolated tree the goal is checked after each
+  node on that node's branch only (its answered ancestors and itself), and the final
+  `judge_goal` sees the deciding node's branch, else the chosen node's. In a shared session the
+  goal is judged on every answered node, as one conversation, as merged and as live crescendo.
 - **FR-004**: Replayed calls count as the vector's target tokens and as running budget tokens.
-  No replay starts once the cap is reached: the campaign stops with `budget`.
+  The cap is checked before each node's attacker call and after each replay, so at most one
+  target call per node (its first, as the merged node call) starts past the cap; the campaign
+  then stops with `budget`.
 - **FR-005**: A replay that raises or returns an error sentinel gives the node no reply (a
   prompt error, `pruned: no_reply`).
 - **FR-006**: A node's reset, replay and prompt run under an exclusive hold of the adapter's
@@ -41,23 +47,21 @@ runs, then each node's reply depends only on its own branch's prompts.
 
 ## How this fails
 
-1. A target whose `reset_state()` does not reset its own side (a browser chat that keeps the
-   thread) reads as `isolated` while siblings still share memory.
-2. Single-prompt vectors take no gate, so one running at the same time can land a turn inside a
-   node's session, or have its history cleared by a node's reset.
+1. An adapter that declares `isolates_sessions` but whose target keeps state across a new
+   session id reads as `isolated` while siblings still share memory.
+2. PAIR and single-prompt vectors take no gate, so one running at the same time can land a turn
+   inside a node's session, or have its history cleared by a node's reset.
 3. Replays multiply target cost: a node at depth d costs d target calls, so a tree reaches the
    cap sooner and has fewer nodes than before under the same budget.
 
 ## Assumptions
 
-- "Can reset" is read from the existing control: `reset_state()` gives a fresh session unless the
-  adapter declares `memory_persists_across_reset` (spec 113), the flag that says the target keeps
-  memory across a reset. No adapter exposes a fork. Overturned by an adapter that needs its own
-  isolation flag.
+- "Can reset" is an explicit adapter property, `isolates_sessions` (fix round 1: the browser
+  adapter's reset clears only local lists). An unknown adapter is shared and says so. No adapter
+  exposes a fork. Overturned per adapter when its reset is shown to give a fresh target session.
 - A branch's goal is judged on the turns recorded when its nodes first ran, not on the replayed
   replies, so goal evidence turns keep naming nodes. Overturned if a replay's calls must count.
-- Concurrent single-prompt vectors stay ungated, as today (failure 2 above); the phase already
+- Concurrent PAIR and single-prompt vectors stay ungated, as today (failure 2 above); the phase already
   runs attacker vectors after every other vector starts.
-- The budget check between replays is stricter than one check per node: the merged budget test
-  that stopped after node 2.1 now stops before 2.1's own prompt, since 2.1's replay is the last
-  call under the cap.
+- A replay repeats an ancestor's tool calls on the target (side effects included); the replays'
+  replies and calls are not recorded or judged.
