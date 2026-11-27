@@ -62,7 +62,8 @@ by `is_pair`, which covers the new tactics.
 - **FR-002** A `campaign` block (`CampaignConfig`, extra keys rejected) bounds the run: `width`
   (1 to 10, default 3), `branching` (1 to 5, default 2), `depth` (1 to 10, default 4), `turns`
   (1 to 30, default 8), `max_nodes` (1 to 200, default 40) and `timeout_seconds` (above 0,
-  at most 3600, finite, default 600; `PairConfig.timeout_seconds` gets the same cap). It loads from YAML through `AttackLibrary`. A `campaign` block on any other
+  at most 3600, finite, default 600). `PairConfig.timeout_seconds` keeps its range and refuses
+  only a non-finite value. It loads from YAML through `AttackLibrary`. A `campaign` block on any other
   tactic is rejected at load.
 - **FR-003** TAP: at depth 1 the attacker writes `branching` children of the seed; at each later
   depth it writes `branching` children of each kept node. Each child is one target call and one

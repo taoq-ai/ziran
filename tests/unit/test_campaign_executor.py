@@ -575,10 +575,23 @@ async def test_a_scan_runs_the_example_through_the_scanner() -> None:
     assert "attacker" in {e.stage for e in scanner._budget.ledger.entries()}
 
 
-@pytest.mark.parametrize("value", [float("inf"), float("nan"), 1e308])
-def test_pair_timeout_refuses_non_finite_and_huge_values(value: float) -> None:
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+def test_pair_timeout_refuses_non_finite_values(value: float) -> None:
     with pytest.raises(ValidationError):
         PairConfig(timeout_seconds=value)
+
+
+@pytest.mark.parametrize(("timeout", "loads"), [(7200.0, True), (float("inf"), False)])
+def test_a_pair_vector_keeps_its_timeout_range(timeout: float, loads: bool, tmp_path: Path) -> None:
+    # PairConfig accepts what it accepted before spec 128, except a non-finite value
+    data = vector_data(tactic="pair", pair={"timeout_seconds": timeout})
+    text = yaml.safe_dump({"vectors": [data]})
+    assert ("7200.0" if loads else ".inf") in text  # the YAML an owner writes
+    (tmp_path / "v.yaml").write_text(text)
+    vector = AttackLibrary(custom_dirs=[tmp_path], load_builtin=False).get_vector("v")
+    assert (vector is not None) is loads
+    if vector is not None:
+        assert vector.pair is not None and vector.pair.timeout_seconds == 7200.0
 
 
 # -- fix round 1: target tokens, hostile replies, stored sizes ---------------

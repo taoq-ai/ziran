@@ -15,7 +15,7 @@ Spec, plan and tasks read against each other and against the plan item F-ATTACKE
 | A09 | HIGH | goal gate round 1, `campaign.py` budget check | The check before each node read the ledger only, and the phase books target tokens when the vector ends, so TAP ran 1,000,000 target tokens on a 50,000 cap. PAIR had the same gap. | Closed: FR-005, T010, tested for TAP, crescendo_live, PAIR and a scan |
 | A10 | HIGH | security gate round 1, `pair.py` `_parse_prompt` | A reply with a 4,300-digit integer or about 1,000 nested brackets (3.11) raised past the loop, so the vector was dropped with its tree, an earlier success and its tokens. | Closed: FR-006, T011, tested on 3.11, 3.12, 3.13 |
 | A11 | MEDIUM | security gate round 1, `campaign.py` result | A run cut short by the attacker provider or the budget read as resisted. | Closed: FR-005, T012 |
-| A12 | LOW | security gate round 1, `attack.py` | `timeout_seconds` took inf and 1e308, so the phase timer could be infinite. | Closed: FR-002, T012 |
+| A12 | LOW | security gate round 1, `attack.py` | `timeout_seconds` took inf and 1e308, so the phase timer could be infinite. | Closed: FR-002, T012. `CampaignConfig` caps at 3600; `PairConfig` refuses only non-finite values, so no PAIR vector that loaded before is refused |
 | A13 | LOW | arch gate round 1, docs | The node count said 24 with the defaults; the most is 18. | Closed: T012 |
 
 No CRITICAL or HIGH row is open.

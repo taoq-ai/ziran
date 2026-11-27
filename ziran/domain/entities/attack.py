@@ -824,7 +824,7 @@ class PairConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # a stray `seed:` is an error, not a no-op
     max_iterations: int = Field(default=20, ge=1, le=100)
-    timeout_seconds: float = Field(default=240.0, gt=0, le=3600, allow_inf_nan=False)
+    timeout_seconds: float = Field(default=240.0, gt=0, allow_inf_nan=False)
 
 
 #: Tactics an attacker LLM drives: they need an attacker client (specs 081, 128).
