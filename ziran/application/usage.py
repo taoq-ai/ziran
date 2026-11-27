@@ -194,9 +194,10 @@ class CampaignBudget:
             ),
         )
 
-    def exceeded(self) -> bool:
-        """True once a limit is reached (``total >= cap``); logs the first hit."""
-        tokens = self.ledger.total_tokens()
+    def exceeded(self, running: int = 0) -> bool:
+        """True once a limit is reached (``total >= cap``); logs the first hit. *running* is a
+        vector's target tokens not yet booked: an attacker loop checks mid-vector (spec 128)."""
+        tokens = self.ledger.total_tokens() + running
         cost = self.ledger.total_cost()
         limit = None
         if self.limits.max_tokens is not None and tokens >= self.limits.max_tokens:

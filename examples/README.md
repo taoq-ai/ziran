@@ -42,6 +42,7 @@ These examples use ZIRAN's built-in scanner without calling any LLM.
 | 25 | [Claude Code Plugin](25-claude-code-plugin/) | Safe vs. vulnerable plugin: `ziran audit`, allowlist baseline, hook traces and MCP registry import, offline |
 | 28 | [Langfuse Live Analysis](28-langfuse-live-analysis/) | `analyze-traces` pulls tool calls live from Langfuse (needs Langfuse API keys, no LLM) |
 | 29 | [Negotiation Agent](29-negotiation-agent/) | Counterpart scenarios that test whether a negotiating or procurement agent keeps its floor, approval threshold and secret |
+| 30 | [Attacker Campaigns](30-attacker-campaigns/) | An attacker LLM runs a tree search (TAP) or a live crescendo conversation until a shell-tool goal is met (needs an attacker LLM client) |
 
 ## LLM scans (API key required)
 

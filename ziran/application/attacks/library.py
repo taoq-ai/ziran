@@ -463,6 +463,7 @@ class AttackLibrary:
             else None,
             carrier=data.get("carrier"),
             pair=data.get("pair"),
+            campaign=data.get("campaign"),
             goal=data.get("goal"),
             a2a_probe=data.get("a2a_probe"),
         )

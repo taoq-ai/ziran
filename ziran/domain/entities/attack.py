@@ -824,7 +824,23 @@ class PairConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # a stray `seed:` is an error, not a no-op
     max_iterations: int = Field(default=20, ge=1, le=100)
-    timeout_seconds: float = Field(default=240.0, gt=0)
+    timeout_seconds: float = Field(default=240.0, gt=0, allow_inf_nan=False)
+
+
+#: Tactics an attacker LLM drives: they need an attacker client (specs 081, 128).
+ATTACKER_TACTICS = ("pair", "tap", "crescendo_live")
+
+
+class CampaignConfig(BaseModel):
+    """Bounds of a ``tap`` or ``crescendo_live`` vector (spec 128); every loop is bounded."""
+
+    model_config = ConfigDict(extra="forbid")
+    width: int = Field(default=3, ge=1, le=10, description="tap: nodes kept at each depth")
+    branching: int = Field(default=2, ge=1, le=5, description="tap: children of each kept node")
+    depth: int = Field(default=4, ge=1, le=10, description="tap: levels of the tree")
+    turns: int = Field(default=8, ge=1, le=30, description="crescendo_live: turns sent")
+    max_nodes: int = Field(default=40, ge=1, le=200, description="Target calls, either mode")
+    timeout_seconds: float = Field(default=600.0, gt=0, le=3600, allow_inf_nan=False)
 
 
 class Carrier(BaseModel):
@@ -905,7 +921,8 @@ class AttackVector(BaseModel):
         default="single",
         description="Execution tactic: single (default), crescendo, context_buildup, persona_shift, "
         "distraction, few_shot, refusal_suppression, hypothetical, role_play, language_switch, code_mode, "
-        "pair (attacker-LLM refinement; needs an attacker client, spec 081).",
+        "pair (attacker-LLM refinement; needs an attacker client, spec 081), tap and "
+        "crescendo_live (attacker-LLM tree search and conversation, spec 128).",
     )
     harm_category: HarmCategory | None = Field(
         default=None,
@@ -919,6 +936,10 @@ class AttackVector(BaseModel):
     pair: PairConfig | None = Field(
         default=None,
         description="PAIR attacker-LLM refinement bounds (spec 081); unset uses the defaults.",
+    )
+    campaign: CampaignConfig | None = Field(
+        default=None,
+        description="Bounds of a tap or crescendo_live vector (spec 128); unset uses the defaults.",
     )
     mcp_server_request: McpServerRequest | None = Field(
         default=None,
@@ -968,8 +989,12 @@ class AttackVector(BaseModel):
     @model_validator(mode="after")
     def _check_new_session(self) -> AttackVector:
         # Only TacticExecutor honours the flag; the single and PAIR paths would drop it (spec 113).
-        if self.tactic in ("single", "pair") and any(p.new_session for p in self.prompts):
+        if self.tactic in ("single", *ATTACKER_TACTICS) and any(
+            p.new_session for p in self.prompts
+        ):
             raise ValueError(f"vector {self.id}: new_session needs a multi-turn tactic")
+        if self.campaign is not None and self.tactic not in ("tap", "crescendo_live"):
+            raise ValueError(f"vector {self.id}: campaign needs tactic tap or crescendo_live")
         return self
 
     @model_validator(mode="after")

@@ -217,7 +217,8 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "--attacker-model",
     type=str,
     default=None,
-    help="LiteLLM model id of the attacker LLM that runs tactic: pair vectors (e.g. "
+    help="LiteLLM model id of the attacker LLM that runs attacker vectors (tactic pair, tap, "
+    "crescendo_live; e.g. "
     "'openai/gpt-4o-mini'); its key is read from the provider's usual env var. Without it "
     "those vectors are not run and the report lists them. Needs the llm extra.",
 )
@@ -231,7 +232,7 @@ def cli(ctx: click.Context, verbose: bool, log_file: str | None, log_format: str
     "--phase-timeout",
     type=float,
     default=300.0,
-    help="Per-phase timeout in seconds (default: 300); extended for tactic: pair vectors.",
+    help="Per-phase timeout in seconds (default: 300); extended for attacker vectors.",
 )
 @click.option(
     "--strategy",

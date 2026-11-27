@@ -58,7 +58,7 @@ class AttackExecutor:
         streaming: Whether to use streaming invocation.
         emitter: Progress emitter for lifecycle events.
         encoding: Optional list of encoding types to apply.
-        attacker / budget: PAIR attacker client and campaign budget (spec 081).
+        attacker / budget: attacker client and campaign budget (specs 081, 128).
         carriers: Folders where carrier vectors plant files (spec 112).
         campaign_id: Seeds each attack's probe-marker trace id (spec 117).
     """
@@ -117,6 +117,8 @@ class AttackExecutor:
         with probe_scope(self._campaign_id, scope_id) as markers:
             result = await self._run(attack, deadline, turns, replies)
             result = judge_goal(attack, result, turns, replies)
+        if result.goal_met is False and result.evidence.get("outcome") == "unmeasured":
+            result.goal_met = None  # a run cut short never reads as the goal resisted
         if markers:
             result.probe_markers = markers
         return result
@@ -165,14 +167,15 @@ class AttackExecutor:
 
         # Delegate multi-turn tactics, and carrier files (spec 112)
         if attack.tactic != "single" or attack.carrier is not None:
-            from ziran.application.attacks.pair import PairExecutor
+            from ziran.application.attacks.campaign import CampaignExecutor
+            from ziran.application.attacks.pair import is_pair
             from ziran.application.attacks.tactics import TacticExecutor
 
             pipeline, render, log = self._detector_pipeline, self._render_prompt, (turns, replies)
             if attack.carrier is not None:
                 result = await self._carrier.execute(attack, pipeline, render, *log)
-            elif attack.tactic == "pair":
-                pair = PairExecutor(self._adapter, self.attacker, self._budget)
+            elif is_pair(attack):  # pair, tap, crescendo_live (specs 081, 128)
+                pair = CampaignExecutor(self._adapter, self.attacker, self._budget)
                 result = await pair.execute(attack, pipeline, render, *log, deadline=deadline)
             else:
                 tactic = TacticExecutor(self._adapter)

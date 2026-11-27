@@ -115,6 +115,8 @@ class TacticType(StrEnum):
     LANGUAGE_SWITCH = "language_switch"
     CODE_MODE = "code_mode"
     PAIR = "pair"  # attacker-LLM refinement, run by PairExecutor (spec 081)
+    TAP = "tap"  # attacker-LLM tree search, run by CampaignExecutor (spec 128)
+    CRESCENDO_LIVE = "crescendo_live"  # attacker-LLM conversation (spec 128)
 
 
 class TacticExecutor:
