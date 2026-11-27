@@ -703,7 +703,7 @@ def scan(
                 if attacker_client is None
                 else Recorder(attacker_client, attacker_cassette)
             )
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError) as exc:  # a bad file, a link, a size or depth refusal
             raise click.ClickException(f"--attacker-cassette {attacker_cassette}: {exc}") from None
     if attacker_client is not None:
         scanner_config["attacker_llm_client"] = attacker_client
