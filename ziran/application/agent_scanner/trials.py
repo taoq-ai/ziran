@@ -76,6 +76,7 @@ class TrialRunner:
         kw: dict[str, Any] = {"trial": trial} if trial else {}  # trial 0: today's calls
         cache = self.cache  # incremental cache (spec 049): a hit replaces execution only
         result = await cache.lookup(attack, self.capabilities, **kw) if cache is not None else None
+        ran = result is None
         if result is None:
             result = await self._execute(attack, kw)
             if cache is not None:
@@ -85,6 +86,8 @@ class TrialRunner:
             self.budget.ledger.record(
                 "target", TARGET_MODEL, tu.prompt_tokens, tu.completion_tokens
             )
+            if ran and is_pair(attack):  # the loop counted these as running (spec 131)
+                self.budget.running -= tu.prompt_tokens + tu.completion_tokens
         return result
 
     async def _execute(self, attack: AttackVector, kw: dict[str, Any]) -> AttackResult:

@@ -170,6 +170,9 @@ class CampaignBudget:
         self.interrupted_phase: ScanPhase | None = None  # set when a vector is skipped
         self._phase_skipped = False  # set when the phase loop stopped with phases pending
         self._logged = False
+        # Target tokens of attacker vectors still running, not yet booked by the phase. Shared
+        # by every concurrent vector, so each check sees the campaign's total (spec 131).
+        self.running = 0
 
     @property
     def stopped(self) -> bool:
@@ -194,10 +197,10 @@ class CampaignBudget:
             ),
         )
 
-    def exceeded(self, running: int = 0) -> bool:
-        """True once a limit is reached (``total >= cap``); logs the first hit. *running* is a
-        vector's target tokens not yet booked: an attacker loop checks mid-vector (spec 128)."""
-        tokens = self.ledger.total_tokens() + running
+    def exceeded(self) -> bool:
+        """True once a limit is reached (``total >= cap``); logs the first hit. Counts the
+        ``running`` tokens of attacker vectors mid-vector (specs 128, 131)."""
+        tokens = self.ledger.total_tokens() + self.running
         cost = self.ledger.total_cost()
         limit = None
         if self.limits.max_tokens is not None and tokens >= self.limits.max_tokens:
