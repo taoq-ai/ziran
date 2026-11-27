@@ -5,3 +5,4 @@
 - [x] T003 `scan --aibom` in the CLI; CLI tests green
 - [x] T004 Docs: AI-BOM guide, CLI reference rows, stale docstrings
 - [x] T005 ruff check, ruff format --check, mypy strict; touched tests on 3.11, 3.12, 3.13; integration once
+- [x] T006 Fix round 1: shadow agents exclude skills and models; duplicate-skill test; `--aibom` folder checked before the scan; dry-run test; `probe_` guesses left out; guide notes scan-BOM naming limit

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -467,6 +468,10 @@ def scan(
         ziran scan --target ./target.yaml --protocol a2a
         ziran scan --target ./target.yaml --phases reconnaissance --phases trust_building
     """
+    if aibom_path:  # refuse a folder the BOM cannot be written to before any scan runs
+        folder = Path(aibom_path).resolve().parent
+        if not folder.is_dir() or not os.access(folder, os.W_OK):
+            raise click.BadParameter(f"no writable folder {folder}", param_hint="--aibom")
     if hybrid_route_share:  # the flag wins over the config file, 0.0 included
         _no_hybrid_client()
     attacker_model = (attacker_model or "").strip() or None  # blank (an unset CI var) is off

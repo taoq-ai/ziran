@@ -189,11 +189,13 @@ def build_scan_aibom(
     """CycloneDX 1.6 BOM of a scanned target (spec 135), in the shape of :func:`build_aibom`.
 
     The subject is the target (``agent:<name>``): the agent card's name, else the URL's host,
-    else the stem of *source*. It lists the discovered tools and skills (auth schemes are not
-    listed), the model the target config names, the target as an MCP server when *protocol*
+    else the stem of *source*. It lists the discovered tools and skills (auth schemes and
+    ``probe_*`` guesses from reply text are not listed), the model the target config names, the target as an MCP server when *protocol*
     is ``mcp``, the A2A peer of *card* with its skills, and skill CVE matches. Headers, auth
     and env values are never read; endpoints drop credentials, query and fragment.
     """
+    # probe_* ids are guesses from reply text (the adapters' probe discovery), not declared tools
+    capabilities = [c for c in capabilities if not c.id.startswith("probe_")]
     host = urlsplit(target.url).hostname if target is not None else None
     name = (card.name if card is not None else "") or host or Path(source).stem
     ref = f"agent:{name}"
@@ -330,19 +332,27 @@ def _named(item: object) -> bool:
     return isinstance(item, dict) and isinstance(item.get("name", ""), str)
 
 
+def _is_agent(component: dict[str, Any]) -> bool:
+    """An ``application`` component that is not a skill (a skill name is not an agent)."""
+    props = component.get("properties")
+    is_skill = isinstance(props, list) and _prop("kind", "skill") in props
+    return component.get("type") == "application" and not is_skill
+
+
 def add_shadow(bom: dict[str, Any], sessions: list[TraceSession]) -> list[str]:
     """Add the MCP servers and agents seen in *sessions* that *bom* lacks, flagged shadow.
 
     A trace names a server in a tool id ``mcp__<server>__<tool>``; Claude Code names a plugin's
     server ``plugin_<plugin>_<server>``, which matches the BOM's server too. An agent is the
-    session's ``agent_name`` (``unknown`` is skipped). Returns the added refs, in trace order,
+    session's ``agent_name`` (``unknown`` is skipped), known when an ``application`` component
+    other than a skill bears it. Returns the added refs, in trace order,
     and bumps the BOM ``version`` when it adds one.
     """
     subject = bom.get("metadata", {}).get("component", {}).get("name")
     servers = {s.get("name") for s in bom.setdefault("services", [])}
     if subject:
         servers |= {f"plugin_{subject}_{name}" for name in list(servers)}
-    agents = {c.get("name") for c in bom.setdefault("components", [])} | {subject}
+    agents = {c.get("name") for c in bom.setdefault("components", []) if _is_agent(c)} | {subject}
     added: list[str] = []
     for session in sessions:
         source = _prop("source", f"trace {session.source} session {session.session_id}")

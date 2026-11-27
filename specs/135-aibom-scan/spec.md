@@ -20,7 +20,9 @@
 - Endpoints in the scan BOM drop userinfo, query and fragment (the spec 123 `_endpoint`). Headers, auth and env values are never read into the BOM.
 - CVE matches: `SkillCVEDatabase.check_agent` on the discovered capabilities, `in_triage`, affecting the subject.
 - `dependencies`: the subject depends on its model, MCP server and A2A peer.
-- `--aibom` is written after the results are saved; `--dry-run` writes none. An unwritable file is a usage error naming `--aibom`.
+- `--aibom` is written after the results are saved; `--dry-run` writes none. A missing or read-only folder exits 2 before the adapter loads; a write that still fails is a usage error naming `--aibom`.
+- Capabilities with a `probe_` id (guesses from reply text by probe discovery) are not listed.
+- Shadow agents: known agent names come from `application` components that are not skills (fix round 1), so a skill or model name never hides a trace agent.
 - Audit BOM skills: each skill is an `application` component `skill:<plugin>/<name>` with `ziran:kind: skill`, `ziran:source` and one `ziran:allowed-tool` per pre-approved tool; CVE matches cover its allowed tools. Audit refs: `agent:<plugin>/<name>`, `skill:<plugin>/<name>`, `mcp:<plugin>/<name>` when a manifest names the plugin, else unprefixed. `model:<name>`, `plugin:<name>` and `vuln:<id>` are unchanged.
 
 ## Out of scope
@@ -32,4 +34,6 @@ Skills in `ziran scan`: no scan target is a Claude Code plugin (`ziran audit` is
 - The ref change is not breaking: spec 123 has not been released (`git merge-base --is-ancestor 2572f26 origin/main` is false). Overturned if a release shipped it first.
 - "CVE matches already computed": the scan computes none today, so the BOM runs the same name match the audit runs on the discovered tools. Overturned if the scan gains its own CVE stage.
 - The OpenAI preset's default model (`gpt-4`) counts as named by the config: it is the model ZIRAN requests.
+- `probe_` ids are guesses, as `agent_scanner/trials.py` already treats them; a declared tool whose own name starts `probe_` would be left out. Overturned if adapters mark probe guesses another way.
+- A scan BOM names the target by card name or host, so `analyze-traces` against it can flag the target as shadow (documented); a target `name` is a follow-up.
 - The A2A peer is the scanned agent's own card; `lookalike_cards` are registry probes, not peers, and stay out.

@@ -158,6 +158,9 @@ class TestShadow:
         assert bom["version"] == 2
         _assert_valid(bom)
 
+    def test_trace_agent_named_like_a_model_is_shadow(self, bom: dict[str, Any]) -> None:
+        assert add_shadow(bom, [_session(agent="sonnet")]) == ["shadow-agent:sonnet"]
+
     def test_agent_missing_from_bom_is_shadow(self, bom: dict[str, Any]) -> None:
         added = add_shadow(
             bom,
@@ -444,6 +447,48 @@ class TestSkillsAndRefs:
         vulns = {v["id"]: v for v in bom["vulnerabilities"]}
         assert {"ref": "skill:p/notes"} in vulns["CVE-2025-53109"]["affects"]
 
+    def test_two_skills_of_one_name_are_listed_once(self, tmp_path: Path) -> None:
+        for folder in ("a", "b"):
+            path = tmp_path / "skills" / folder / "SKILL.md"
+            path.parent.mkdir(parents=True)
+            path.write_text("---\nname: same\nallowed-tools: Read\n---\nbody\n")
+        bom = _plugin(tmp_path, {})  # validated: dependencies must be unique
+        assert [d["ref"] for d in bom["dependencies"]].count("skill:p/same") == 1
+        assert [c["bom-ref"] for c in bom["components"]].count("skill:p/same") == 1
+
+    def test_trace_agent_named_like_a_skill_is_shadow(self, tmp_path: Path) -> None:
+        plugin = tmp_path / "plugin"
+        plugin.mkdir()
+        self._skill(plugin, "deployer", "allowed-tools: Bash\n")
+        bom_path = tmp_path / "in.json"
+        bom_path.write_text(json.dumps(_plugin(plugin, {})), encoding="utf-8")
+        span = {
+            "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+            "spanId": "0000000000000001",
+            "name": "Bash",
+            "startTimeUnixNano": "1760000000000000000",
+            "endTimeUnixNano": "1760000000250000000",
+            "attributes": [
+                {"key": "session.id", "value": {"stringValue": "cc-1"}},
+                {"key": "gen_ai.tool.name", "value": {"stringValue": "Bash"}},
+            ],
+        }
+        resource = {"attributes": [{"key": "service.name", "value": {"stringValue": "deployer"}}]}
+        traces = tmp_path / "t.jsonl"
+        traces.write_text(
+            json.dumps(
+                {"resourceSpans": [{"resource": resource, "scopeSpans": [{"spans": [span]}]}]}
+            )
+        )
+        out = tmp_path / "out"
+        args = ["analyze-traces", "--source", "otel", "--input", str(traces), "--out", str(out)]
+        result = CliRunner().invoke(cli, [*args, "--aibom", str(bom_path)])
+        assert result.exit_code == 0, result.output
+        bom = json.loads((out / "aibom.json").read_text(encoding="utf-8"))
+        _assert_valid(bom)
+        assert "shadow-agent:deployer" in _by_ref(bom)
+        assert "shadow-agent:a" not in _by_ref(bom)  # the plugin's agent is known
+
     def test_two_plugins_agents_of_one_name_get_two_refs(self, tmp_path: Path) -> None:
         refs = []
         for plugin in ("one", "two"):
@@ -482,6 +527,8 @@ def _caps() -> list[Any]:
         AgentCapability(id="shell", name="shell", type=CapabilityType.TOOL, dangerous=True),
         AgentCapability(id="book", name="Book", type=CapabilityType.SKILL),
         AgentCapability(id="security_scheme_k", name="Auth: k", type=CapabilityType.PERMISSION),
+        AgentCapability(id="probe_[mcp", name="[mcp", type=CapabilityType.SKILL),  # a guess
+        AgentCapability(id="probe_rm", name="rm", type=CapabilityType.TOOL, dangerous=True),
     ]
 
 
@@ -622,15 +669,16 @@ class TestScanBom:
         assert {"model:gpt-4o-mini", "a2a:travel"} <= set(_by_ref(bom))
         assert "pw-fixture" not in out.read_text(encoding="utf-8")
 
-    def test_scan_aibom_unwritable_is_a_usage_error(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    @staticmethod
+    def _local_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Any, list[str]]:
+        """Patch a local scan; return the scanner class mock and the CLI args."""
         from unittest.mock import MagicMock
 
         from ziran.domain.entities.phase import CampaignResult
 
         monkeypatch.setattr("ziran.interfaces.cli.main.load_agent_adapter", MagicMock())
-        monkeypatch.setattr("ziran.interfaces.cli.main.AgentScanner", MagicMock())
+        scanner_cls = MagicMock()
+        monkeypatch.setattr("ziran.interfaces.cli.main.AgentScanner", scanner_cls)
         result = CampaignResult(
             campaign_id="c",
             target_agent="t",
@@ -645,10 +693,42 @@ class TestScanBom:
         agent = tmp_path / "agent.py"
         agent.write_text("x = 1\n")
         args = ["scan", "--framework", "langchain", "--agent-path", str(agent)]
-        args += ["--output", str(tmp_path / "out"), "--aibom", str(tmp_path / "no" / "b.json")]
-        run = CliRunner().invoke(cli, args)
+        return scanner_cls, [*args, "--output", str(tmp_path / "out")]
+
+    def test_scan_aibom_missing_folder_exits_before_the_scan(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        scanner_cls, args = self._local_scan(tmp_path, monkeypatch)
+        run = CliRunner().invoke(cli, [*args, "--aibom", str(tmp_path / "no" / "b.json")])
         assert run.exit_code == 2, run.output
-        assert "cannot write file" in run.output
+        scanner_cls.assert_not_called()
+        assert not (tmp_path / "out").exists()
+
+    def test_scan_aibom_write_failure_is_a_usage_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, args = self._local_scan(tmp_path, monkeypatch)
+        bom_path = tmp_path / "b.json"
+        bom_path.write_text("")
+        bom_path.chmod(0o444)  # the folder is writable, the file is not
+        try:
+            run = CliRunner().invoke(cli, [*args, "--aibom", str(bom_path)])
+        finally:
+            bom_path.chmod(0o644)
+        assert run.exit_code == 2, run.output
+        assert bom_path.read_text() == ""
+
+    def test_scan_dry_run_writes_no_bom(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        _, args = self._local_scan(tmp_path, monkeypatch)
+        monkeypatch.setattr("ziran.interfaces.cli.main._dry_run_summary", MagicMock())
+        bom_path = tmp_path / "b.json"
+        run = CliRunner().invoke(cli, [*args, "--dry-run", "--aibom", str(bom_path)])
+        assert run.exit_code == 0, run.output
+        assert not bom_path.exists()
 
 
 def test_http_adapter_exposes_the_fetched_card() -> None:

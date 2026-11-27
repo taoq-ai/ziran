@@ -62,7 +62,7 @@ with a token in it shows that token) and the URL path (so a key in the path, as 
 ## Scan targets
 
 `ziran scan --aibom FILE` writes the BOM after the scan's results are saved; `--dry-run` writes
-none.
+none. A `FILE` whose folder is missing or not writable exits `2` before the scan starts.
 
 | Entry | CycloneDX | From |
 |-------|-----------|------|
@@ -72,8 +72,15 @@ none.
 | The A2A peer | `services`, `a2a:<name>`, with its version, endpoints and one `ziran:skill` per card skill | the target's agent card |
 | Skill CVE matches on a discovered tool | `vulnerabilities`, `analysis.state: in_triage` | ZIRAN's skill CVE database |
 
-Auth schemes are not listed. The BOM never holds the target's headers, auth or environment values,
+Auth schemes are not listed, nor are tools that probe discovery guessed from the target's replies
+(ids starting `probe_`). The BOM never holds the target's headers, auth or environment values,
 and its endpoints drop the user, password, query and fragment, as for MCP servers.
+
+A scan BOM names the target, and its MCP server, by the agent card's name or the URL's host. Traces
+name a server by the client's own config key (`mcp__<key>__<tool>`) and an agent by its service
+name, so `analyze-traces --aibom` against a scan BOM can list the scanned target itself as a shadow
+server or agent. Target configs carry no stable name yet; until they do, read shadow entries
+against a scan BOM with that in mind.
 
 ## Shadow servers and agents
 
@@ -82,6 +89,8 @@ server `plugin_<plugin>_<server>`, and that form matches the BOM's server too. A
 session's agent name (OTel `service.name`, Langfuse `metadata.agent`); `unknown` is skipped.
 
 Matching reads names, never refs, so a BOM written before refs named the plugin still matches.
+An agent is known when an `application` component other than a skill bears its name: a trace
+agent named like a skill or a model is still shadow.
 Each one the BOM lacks is added once, with `ziran:shadow: true` and a `ziran:source` naming the
 first session that used it. The BOM's `version` goes up by one when anything is added.
 
