@@ -4,4 +4,4 @@
 - [x] T002 `build_scan_aibom`, skills and ref prefix in `build_aibom`, `HttpAgentAdapter.agent_card`; run green
 - [x] T003 `scan --aibom` in the CLI; CLI tests green
 - [x] T004 Docs: AI-BOM guide, CLI reference rows, stale docstrings
-- [ ] T005 ruff check, ruff format --check, mypy strict; touched tests on 3.11, 3.12, 3.13; integration once
+- [x] T005 ruff check, ruff format --check, mypy strict; touched tests on 3.11, 3.12, 3.13; integration once

@@ -580,13 +580,15 @@ class TestScanBom:
         from unittest.mock import MagicMock
 
         from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+        from ziran.domain.entities.a2a import A2AAgentCard
         from ziran.domain.entities.phase import CampaignResult
         from ziran.domain.entities.target import ProtocolType, TargetConfig
 
         target = TargetConfig.model_validate(
             {"url": SECRET_URL, "protocol": "auto", "openai": {"model": "gpt-4o-mini"}}
         )
-        adapter = MagicMock(protocol=ProtocolType.OPENAI, agent_card=None)
+        card = A2AAgentCard(name="travel", supportedInterfaces=[{"url": SECRET_URL}])
+        adapter = MagicMock(protocol=ProtocolType.A2A, agent_card=card)
         monkeypatch.setattr(
             "ziran.interfaces.cli.main.load_remote_adapter", lambda *a: (adapter, target)
         )
@@ -615,9 +617,9 @@ class TestScanBom:
         bom = json.loads(out.read_text(encoding="utf-8"))
         _assert_valid(bom)
         subject = bom["metadata"]["component"]
-        assert _props(subject, "ziran:protocol") == ["openai"]
+        assert (subject["name"], _props(subject, "ziran:protocol")) == ("travel", ["a2a"])
         assert _props(subject, "ziran:tool") == ["read_file", "shell"]
-        assert "model:gpt-4o-mini" in _by_ref(bom)
+        assert {"model:gpt-4o-mini", "a2a:travel"} <= set(_by_ref(bom))
         assert "pw-fixture" not in out.read_text(encoding="utf-8")
 
     def test_scan_aibom_unwritable_is_a_usage_error(
