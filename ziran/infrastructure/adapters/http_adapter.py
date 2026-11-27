@@ -207,6 +207,12 @@ class HttpAgentAdapter(BaseAgentAdapter):
         return card
 
     @property
+    def server_name(self) -> str | None:
+        """The MCP server's ``serverInfo.name`` once discovery saw it, else None (spec 137)."""
+        name: str | None = getattr(self._handler, "server_name", None)
+        return name
+
+    @property
     def memory_persists_across_reset(self) -> bool:
         """As the target YAML declares it (spec 113)."""
         return self._config.memory_persists_across_reset

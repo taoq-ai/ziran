@@ -56,6 +56,15 @@ def _prop(name: str, value: str) -> dict[str, str]:
     return {"name": f"ziran:{name}", "value": value}
 
 
+def _host_port(url: str) -> str | None:
+    """``host`` or ``host:port`` of *url*; the port tells two servers on one host apart."""
+    try:
+        parts = urlsplit(url)
+        return f"{parts.hostname}:{parts.port}" if parts.hostname and parts.port else parts.hostname
+    except ValueError:  # an out-of-range port
+        return None
+
+
 def _endpoint(url: str) -> str:
     """The URL without credentials, query or fragment."""
     parts = urlsplit(url)
@@ -185,19 +194,26 @@ def build_scan_aibom(
     target: TargetConfig | None,
     protocol: str,
     card: A2AAgentCard | None = None,
+    server_name: str | None = None,
 ) -> dict[str, Any]:
     """CycloneDX 1.6 BOM of a scanned target (spec 135), in the shape of :func:`build_aibom`.
 
-    The subject is the target (``agent:<name>``): the agent card's name, else the URL's host,
-    else the stem of *source*. It lists the discovered tools and skills (auth schemes and
+    The subject is the target (``agent:<name>``): the config's ``name``, else the agent card's
+    name, else the MCP server's *server_name* (``serverInfo.name``), else the URL's ``host`` or
+    ``host:port``, else the stem of *source* (spec 137). It lists the discovered tools and skills (auth schemes and
     ``probe_*`` guesses from reply text are not listed), the model the target config names, the target as an MCP server when *protocol*
     is ``mcp``, the A2A peer of *card* with its skills, and skill CVE matches. Headers, auth
     and env values are never read; endpoints drop credentials, query and fragment.
     """
     # probe_* ids are guesses from reply text (the adapters' probe discovery), not declared tools
     capabilities = [c for c in capabilities if not c.id.startswith("probe_")]
-    host = urlsplit(target.url).hostname if target is not None else None
-    name = (card.name if card is not None else "") or host or Path(source).stem
+    name = (
+        (target.ref_name if target is not None else None)
+        or (card.name if card is not None else "")
+        or (server_name if protocol == "mcp" else None)
+        or _host_port(target.url if target is not None else "")
+        or Path(source).stem
+    )
     ref = f"agent:{name}"
     props = [_prop("source", source), _prop("protocol", protocol)]
     props += [_prop("tool", c.id) for c in capabilities if c.type in _LISTED_TOOLS]

@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -371,6 +372,12 @@ class BrowserConfig(BaseModel):
     viewport_height: int = Field(default=720, gt=0, description="Browser viewport height in pixels")
 
 
+#: A name from a server (``serverInfo.name``): starts alphanumeric, then letters, digits, ``.``,
+#: ``_`` or ``-``, at most 64. No ``:``, ``@``, ``/``, ``?``, ``=`` or space.
+TARGET_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
+
+
 class TargetConfig(BaseModel):
     """Top-level configuration for a remote agent scan target.
 
@@ -394,6 +401,12 @@ class TargetConfig(BaseModel):
     protocol: ProtocolType = Field(
         default=ProtocolType.AUTO,
         description="Protocol preset to use",
+    )
+
+    name: str | None = Field(
+        default=None,
+        description="Stable name of the target, used by the AI-BOM refs so traces match it "
+        "(spec 137); letters, digits, '.', '_' and '-', at most 64; never a secret",
     )
 
     # Protocol-specific config
@@ -434,6 +447,31 @@ class TargetConfig(BaseModel):
         "enables two-session memory vectors (spec 113) and keeps TAP nodes in one shared "
         "session (spec 133)",
     )
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, value: str | None) -> str | None:
+        if value is not None and (len(value) > 128 or not value.isprintable()):
+            msg = "name: at most 128 characters, no control characters"
+            raise ValueError(msg)
+        return value
+
+    @property
+    def ref_name(self) -> str | None:
+        """``name`` as a slug for AI-BOM refs (spec 137), or None to fall back.
+
+        Case is kept (traces name a server by its client key, case included), runs of unsafe
+        characters become ``-``, trimmed, at most 64 characters. A name that is empty as a slug,
+        or holds ``:``, ``=``, ``?``, ``@`` or ``//`` (a credential, a key pair or a URL), is
+        ignored with a warning.
+        """
+        if self.name is None:
+            return None
+        slug = _UNSAFE_NAME.sub("-", self.name).strip("-.")[:64].strip("-.")
+        if not slug or any(c in self.name for c in (":", "=", "?", "@", "//")):
+            logger.warning("Target name ignored: empty as a slug or holds one of : = ? @ //")
+            return None
+        return slug
 
     @model_validator(mode="after")
     def _ensure_protocol_config(self) -> TargetConfig:

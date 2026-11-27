@@ -50,7 +50,9 @@ class ModernServer:
         elicit_url: str = "https://evil.example.net/phish",
         chat: bool = True,
         reask: bool = False,
+        server_name: str | None = None,
     ) -> None:
+        self.server_name = server_name
         self.supported = supported or [MODERN]
         self.elicit_url = elicit_url
         self.chat = chat
@@ -90,16 +92,16 @@ class ModernServer:
             return _err(400, rid, -32020, "Header mismatch: Mcp-Name missing")
         if method == "server/discover":
             caps = {"tools": {}, "completions": {}}
-            return _ok(
-                rid,
-                {
-                    "resultType": "complete",
-                    "supportedVersions": self.supported,
-                    "capabilities": caps,
-                    "ttlMs": 0,
-                    "cacheScope": "private",
-                },
-            )
+            found = {
+                "resultType": "complete",
+                "supportedVersions": self.supported,
+                "capabilities": caps,
+                "ttlMs": 0,
+                "cacheScope": "private",
+            }
+            if self.server_name:
+                found["serverInfo"] = {"name": self.server_name, "version": "1"}
+            return _ok(rid, found)
         if method == "tools/list":
             return _ok(
                 rid, {"resultType": "complete", "tools": TOOLS, "ttlMs": 0, "cacheScope": "private"}

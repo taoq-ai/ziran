@@ -414,3 +414,85 @@ class TestProbeDelayConfig:
         path.write_text("url: https://x.com\nprobe_delay: -1\n")
         with pytest.raises(TargetConfigError):
             load_target_config(path)
+
+
+class TestTargetName:
+    """A target may carry a name; its BOM ref is a slug of it (spec 137)."""
+
+    def test_default_is_none(self) -> None:
+        config = TargetConfig(url="https://x.com")
+        assert config.name is None
+        assert config.ref_name is None
+
+    @pytest.mark.parametrize(
+        ("name", "ref"),
+        [
+            ("My Agent", "My-Agent"),
+            ("Custom REST Agent", "Custom-REST-Agent"),
+            ("search-1.prod_a", "search-1.prod_a"),
+            ("  --Weird  Name!!  ", "Weird-Name"),
+            ("a" * 64, "a" * 64),
+            ("a" * 100, "a" * 64),
+            ("MyServer", "MyServer"),
+            ("a/b", "a-b"),
+            ("naïve agent", "na-ve-agent"),
+        ],
+    )
+    def test_ref_name_is_a_slug(self, name: str, ref: str) -> None:
+        assert TargetConfig(url="https://x.com", name=name).ref_name == ref
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            ":",
+            "@",
+            "=",
+            "?",
+            "//",
+            "!!!",
+            " ",
+            "",
+            "a:b",
+            "admin:hunter2",
+            "token@host",
+            "user:pw@host",
+            "password=hunter2",
+            "https://x.com/k?key=1",
+            "x@y//z",
+        ],
+    )
+    def test_empty_slug_or_credential_is_ignored_with_a_warning(
+        self, name: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level("WARNING"):
+            assert TargetConfig(url="https://x.com", name=name).ref_name is None
+        assert "Target name ignored" in caplog.text
+
+    @pytest.mark.parametrize("name", ["a" * 129, "a\nb", "a\x00b", "a\x7fb"])
+    def test_long_or_control_names_are_rejected(self, name: str) -> None:
+        with pytest.raises(ValidationError):
+            TargetConfig(url="https://x.com", name=name)
+
+    def test_every_documented_example_config_still_loads(self) -> None:
+        import re
+
+        import yaml
+
+        root = Path(__file__).resolve().parents[2] / "docs"
+        files = [
+            "getting-started.md",
+            "guides/remote-agents.md",
+            "guides/scanning-agents.md",
+            "concepts/remote-scanning.md",
+            "concepts/a2a-protocol.md",
+        ]
+        loaded = 0
+        for file in files:
+            for block in re.findall(r"```yaml\n(.*?)```", (root / file).read_text(), re.S):
+                data = yaml.safe_load(block)
+                if isinstance(data, dict) and "url" in data and "name" in data:
+                    config = TargetConfig(**data)
+                    assert config.ref_name is not None
+                    assert " " not in config.ref_name
+                    loaded += 1
+        assert loaded >= 8

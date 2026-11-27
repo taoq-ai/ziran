@@ -21,6 +21,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from ziran.domain.entities.target import TARGET_NAME
 from ziran.domain.replies import NO_CHAT_REPLY
 from ziran.infrastructure.adapters.protocols import (
     BaseProtocolHandler,
@@ -90,6 +91,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
         self._session_id: str | None = None
         self._reachable = False  # server/discover or initialize answered
         self._failure: str | None = None  # no protocol version in common
+        self.server_name: str | None = None  # serverInfo.name when a valid target name (spec 137)
 
     async def send(self, message: str, **kwargs: Any) -> ProtocolResponse:
         """Send a message through ``completion/complete``, or ``tools/call`` for a tool.
@@ -283,6 +285,8 @@ class MCPProtocolHandler(BaseProtocolHandler):
             self._era = "modern"
             self._failure = f"MCP server rejected the modern request (code {error['code']})"
             return
+        if isinstance(result, dict):
+            self._note_server(result)
         if offered is not None and MODERN_VERSION in offered:
             self._era, self._version, self._reachable = "modern", MODERN_VERSION, True
             return
@@ -306,6 +310,7 @@ class MCPProtocolHandler(BaseProtocolHandler):
         if not isinstance(result, dict):
             return  # no handshake: today's bare requests still reach a minimal server
         self._reachable = True
+        self._note_server(result)
         agreed = result.get("protocolVersion")
         if agreed in LEGACY_VERSIONS and str(agreed) >= _HEADER_SINCE:
             self._version = str(agreed)
@@ -319,6 +324,13 @@ class MCPProtocolHandler(BaseProtocolHandler):
             )
         except httpx.HTTPError:
             logger.debug("MCP notifications/initialized not delivered")
+
+    def _note_server(self, result: dict[str, Any]) -> None:
+        """Keep ``serverInfo.name`` if it is a valid target name; the server's text is untrusted."""
+        info = result.get("serverInfo")
+        name = info.get("name") if isinstance(info, dict) else None
+        if isinstance(name, str) and TARGET_NAME.fullmatch(name):
+            self.server_name = name
 
     def _modern(self, params: dict[str, Any]) -> dict[str, Any]:
         meta = {

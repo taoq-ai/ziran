@@ -874,6 +874,7 @@ def scan(
             target=poc_target,
             protocol=poc_target.protocol.value if poc_target is not None else str(framework),
             card=getattr(adapter, "agent_card", None) if has_remote else None,
+            server_name=getattr(adapter, "server_name", None) if has_remote else None,
         )
 
 
@@ -885,6 +886,7 @@ def _write_scan_aibom(
     target: TargetConfig | None,
     protocol: str,
     card: A2AAgentCard | None,
+    server_name: str | None = None,
 ) -> None:
     """Write the scan's AI-BOM (spec 135) from the capabilities discovery put in *graph*."""
     from ziran.application.aibom import build_scan_aibom
@@ -895,7 +897,14 @@ def _write_scan_aibom(
         AgentCapability.model_validate(data["data"])
         for _, data in graph.get_nodes_by_type(NodeType.CAPABILITY)
     ]
-    bom = build_scan_aibom(capabilities, source=source, target=target, protocol=protocol, card=card)
+    bom = build_scan_aibom(
+        capabilities,
+        source=source,
+        target=target,
+        protocol=protocol,
+        card=card,
+        server_name=server_name,
+    )
     try:
         path.write_text(json.dumps(bom, indent=2) + "\n", encoding="utf-8")
     except OSError as exc:
