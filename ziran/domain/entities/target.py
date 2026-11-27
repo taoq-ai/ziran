@@ -431,7 +431,8 @@ class TargetConfig(BaseModel):
     memory_persists_across_reset: bool = Field(
         default=False,
         description="The agent keeps memory across sessions (keyed by user, not session); "
-        "enables two-session memory vectors (spec 113)",
+        "enables two-session memory vectors (spec 113) and keeps TAP nodes in one shared "
+        "session (spec 133)",
     )
 
     @model_validator(mode="after")

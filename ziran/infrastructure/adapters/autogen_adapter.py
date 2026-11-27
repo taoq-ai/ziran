@@ -264,6 +264,11 @@ class AutoGenAdapter(BaseAgentAdapter):
             conversation_history=list(self._conversation_history),
         )
 
+    @property
+    def isolates_sessions(self) -> bool:
+        """A reset makes the next call await AutoGen's own reset (spec 133)."""
+        return True
+
     def reset_state(self) -> None:
         """Drop the kept turns and observed calls; the next ``invoke`` awaits AutoGen's reset."""
         self._reset_pending = True

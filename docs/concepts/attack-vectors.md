@@ -252,7 +252,7 @@ client, budget, scheduling and cache rule as PAIR, and a `campaign` block bounds
     branching: 2        # tap: children of each kept node, 1 to 5 (default 2)
     depth: 4            # tap: levels, 1 to 10 (default 4)
     turns: 8            # crescendo_live: turns, 1 to 30 (default 8)
-    max_nodes: 24       # target calls in either mode, 1 to 200 (default 40)
+    max_nodes: 24       # nodes in either mode, 1 to 200 (default 40)
     timeout_seconds: 600 # default 600, at most 3600
   goal:
     type: output_sink
@@ -265,8 +265,20 @@ client, budget, scheduling and cache rule as PAIR, and a `campaign` block bounds
 
 Each node is one attacker call, one target call and one detector verdict. Its score is 1 for a
 text success or a met goal, else the quality judge's composite, else 0. The seed prompt is not
-sent. TAP does not reset the target between nodes, so on a stateful agent each node is one more
-message in the same session.
+sent.
+
+**Sessions.** Some adapters give the target a fresh session on a reset: Anthropic, OpenAI
+Agents, LangGraph, AutoGen and Bedrock. On these, each TAP node resets the target and replays
+its branch's earlier prompts before its own, so sibling branches are independent. The result's
+`campaign` evidence says `session: isolated`, and a goal is judged on one branch: a node and
+its ancestors, never its siblings. Every other adapter (HTTP, browser, LangChain, CrewAI,
+AgentCore), and any target with `memory_persists_across_reset`, keeps one shared session.
+Every node is then one more message in it, the evidence says `session: shared`, and the goal is
+judged on the whole session, as for live crescendo. A replay sends the ancestors' prompts again,
+so a tool call an ancestor triggered (a payment, a mail, a delete) can run again on the target
+for each descendant; the replays' own replies and calls are not recorded or judged. Isolation
+holds against multi-turn runs, which wait on the same session gate; a PAIR or single-prompt
+vector running at the same time on the same adapter can still land a turn in a node's session.
 
 **Stop.** A vector with a `goal` stops when the goal is met (`goal_met`); a text success alone
 does not stop it, though the result is still successful. A vector with no goal stops on a text
@@ -280,14 +292,16 @@ An attacker reply that is not a JSON object with a `prompt` (including one too l
 deeply nested to parse) makes no node and counts as a parse error.
 
 **Evidence.** The tree lands in the result's `campaign` evidence: `mode`, `stop`,
-`attacker_model`, `attacker_parse_errors`, `nodes` and `edges`. Each node has its `id` (its
+`attacker_model`, `attacker_parse_errors`, `session` (TAP only), `nodes` and `edges`. Each node has its `id` (its
 path: `2.1` is the first child of `2`), `parent`, `depth`, `turn`, `prompt` (up to 2,000
 characters; the target gets the whole prompt), `reply` (up to 500 characters), `score` and `pruned` (`width`, `no_reply` or `null`). A goal's `turn` names the
 node's `turn`. Node ids come from the node's place in the tree and each attacker request names
 its node, so the same attacker replies against the same target give the same tree.
 
 **Cost.** TAP makes `branching` nodes at depth 1 and at most `width * branching` at each later
-depth: at most 18 with the defaults (2 + 4 + 6 + 6). Each node costs about one PAIR iteration. Set `max_nodes` and a campaign budget first.
+depth: at most 18 with the defaults (2 + 4 + 6 + 6). Each node costs about one PAIR iteration,
+and in an isolated session a node at depth d makes d target calls (its replay and its prompt),
+so `max_nodes` bounds target calls at `max_nodes * depth`. Set `max_nodes` and a campaign budget first.
 Example scenarios: [`examples/30-attacker-campaigns/`](https://github.com/taoq-ai/ziran/tree/main/examples/30-attacker-campaigns).
 
 ## Side-effect goals
