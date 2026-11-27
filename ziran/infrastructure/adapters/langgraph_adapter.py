@@ -200,6 +200,11 @@ class LangGraphAdapter(BaseAgentAdapter):
             conversation_history=list(self._conversation_history),
         )
 
+    @property
+    def isolates_sessions(self) -> bool:
+        """A reset starts a new checkpointer thread (spec 133)."""
+        return True
+
     def reset_state(self) -> None:
         """Clear history and observed calls and start a new checkpointer thread."""
         self._conversation_history.clear()

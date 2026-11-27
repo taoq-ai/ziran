@@ -220,6 +220,11 @@ class OpenAIAgentsAdapter(BaseAgentAdapter):
             conversation_history=list(self._conversation_history),
         )
 
+    @property
+    def isolates_sessions(self) -> bool:
+        """Each run gets the kept input, and a reset clears it (spec 133)."""
+        return True
+
     def reset_state(self) -> None:
         """Drop the kept conversation and observed calls and start a new session id."""
         self._input = []

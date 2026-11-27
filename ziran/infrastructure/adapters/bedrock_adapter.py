@@ -225,6 +225,11 @@ class BedrockAdapter(BaseAgentAdapter):
             memory={"agent_id": self.agent_id, "alias_id": self.agent_alias_id},
         )
 
+    @property
+    def isolates_sessions(self) -> bool:
+        """A reset starts a new Bedrock session id (spec 133)."""
+        return True
+
     def reset_state(self) -> None:
         """Reset agent to initial state.
 

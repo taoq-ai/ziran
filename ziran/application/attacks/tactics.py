@@ -198,8 +198,7 @@ class TacticExecutor:
                 harm_category=attack.harm_category,
             )
         log = ({} if turns is None else turns, {} if replies is None else replies)
-        if not self._adapter.memory_persists_across_reset:
-            return await self._run(attack, detector_pipeline, render_fn, False, *log)
+        # Every run holds the gate (shared here): a TAP node's reset (spec 133) waits for it.
         gate = _GATES.setdefault(self._adapter, _SessionGate())
         async with gate.hold(exclusive=two_session):
             return await self._run(attack, detector_pipeline, render_fn, two_session, *log)

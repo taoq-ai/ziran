@@ -8,6 +8,12 @@ bounded: ``CampaignConfig`` (width, branching, depth, turns, max_nodes), the cam
 checked before each attacker call (with the vector's own target tokens so far), and the
 deadline. Cost: TAP makes ``branching`` nodes at depth 1 and at most ``width * branching`` at
 each later depth (18 with the defaults), each about one PAIR iteration.
+
+Sessions (spec 133): where a reset gives a fresh target session (the adapter declares
+``isolates_sessions`` and not ``memory_persists_across_reset``), each TAP node resets and replays
+its branch's earlier prompts first, so siblings are independent and goals are judged per branch;
+a node at depth d then costs d target calls. Otherwise every node shares one session, recorded
+as ``session: shared``, and goals are judged on that one conversation.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from ziran.application.detectors.ensemble import review_evidence
 from ziran.application.detectors.side_effect import get_side_effect_summary
 from ziran.application.goals.judge import goal_status
 from ziran.domain.entities.attack import CampaignConfig, TokenUsage
+from ziran.domain.replies import is_error_response
 from ziran.infrastructure.logging.logger import get_logger
 
 if TYPE_CHECKING:
@@ -84,6 +91,24 @@ class _Tree:
     tokens: TokenUsage = field(default_factory=TokenUsage)
     review: dict[str, Any] = field(default_factory=dict)
     sent: dict[str, str] = field(default_factory=dict)  # each node's whole prompt
+    isolated: bool = False  # tap: each node in its own target session (spec 133)
+
+
+def _judged(tree: _Tree, node_id: str | None, parent: str | None = None) -> tuple[Turns, Replies]:
+    """The calls and text a goal is judged on, by turn (spec 133): in an isolated tree the
+    branch of *node_id* (its answered ancestors and itself, never a sibling); in one shared
+    session every answered node, as one conversation. *parent* links a node not yet in the tree."""
+    keep = set(tree.answered)
+    if tree.isolated:
+        parents = {n["id"]: n["parent"] for n in tree.nodes}
+        if node_id is not None:
+            parents.setdefault(node_id, parent)
+        keep = set()
+        while node_id is not None:
+            keep.add(node_id)
+            node_id = parents.get(node_id)
+    picked = [(t, r) for t, (k, (r, _)) in enumerate(tree.answered.items(), 1) if k in keep]
+    return {t: r.tool_calls for t, r in picked}, {t: r.content for t, r in picked}
 
 
 def _request(tree: _Tree, node: str, path: list[dict[str, Any]]) -> str:
@@ -107,7 +132,8 @@ class CampaignExecutor(PairExecutor):
     under the shared session gate. Both stop on the vector's goal (on a text success when it has
     none), at the budget, at a bound or at the deadline, and record the tree in
     ``evidence.campaign``. Each answered node's calls and text go into *turns* and *replies*
-    under its ``turn``, so ``judge_goal`` names the node.
+    under its ``turn``, so ``judge_goal`` names the node: in an isolated tree the deciding (else
+    the chosen) node's branch only, else the whole session.
     """
 
     async def execute(
@@ -135,6 +161,9 @@ class CampaignExecutor(PairExecutor):
             render_fn(attack.prompts[0]),
             {} if turns is None else turns,
             {} if replies is None else replies,
+            isolated=attack.tactic == "tap"
+            and self._adapter.isolates_sessions
+            and not self._adapter.memory_persists_across_reset,
         )
         loop = asyncio.get_running_loop()
         deadline = loop.time() + config.timeout_seconds if deadline is None else deadline
@@ -220,17 +249,14 @@ class CampaignExecutor(PairExecutor):
             return None
         # In a conversation every earlier turn is attack text too.
         live = attack.tactic == "crescendo_live"
-        sent = tuple(tree.sent[n["id"]] for n in path) if live else ()
+        sent = tuple(tree.sent[n["id"]] for n in path) if live or tree.isolated else ()
         tree.sent[node_id] = prompt
-        response, verdict = await self._attempt(prompt, attack.prompts[0], attack, pipeline, sent)
-        if response is not None:
-            added = TokenUsage(
-                prompt_tokens=response.prompt_tokens,
-                completion_tokens=response.completion_tokens,
-                total_tokens=response.total_tokens,
-            )
-            tree.tokens = tree.tokens + added
-            self._budget.running += _booked(added)  # the phase releases it on booking
+        if tree.isolated:
+            response, verdict = await self._fresh(tree, prompt, pipeline, sent)
+        else:
+            spec = attack.prompts[0]
+            response, verdict = await self._attempt(prompt, spec, attack, pipeline, sent)
+        self._book(tree, response)
         turn, met, score = None, False, 0.0
         if verdict is None or response is None:
             tree.prompt_errors += 1
@@ -239,9 +265,8 @@ class CampaignExecutor(PairExecutor):
                 tree.review = review_evidence(verdict)
             tree.answered[node_id] = (response, verdict)
             turn = len(tree.answered)
-            tree.turns[turn], tree.replies[turn] = response.tool_calls, response.content
             if attack.goal is not None:
-                met = goal_status(attack.goal, tree.turns, tree.replies)[0] is True
+                met = goal_status(attack.goal, *_judged(tree, node_id, parent))[0] is True
             quality = verdict.quality_score
             score = (
                 1.0
@@ -266,6 +291,40 @@ class CampaignExecutor(PairExecutor):
             raise _StopError("goal_met" if met else "success")
         return node
 
+    async def _fresh(
+        self, tree: _Tree, prompt: str, pipeline: DetectorPipeline, sent: tuple[str, ...]
+    ) -> tuple[AgentResponse | None, DetectionVerdict | None]:
+        """The node in its own session: reset, replay the branch's earlier prompts, send *prompt*.
+        Exclusive on the session gate, so a gated run's turn never lands in it and the reset never
+        cuts a gated conversation. A failed replay gives no reply; the cap stops the campaign."""
+        attack = tree.attack
+        async with _GATES.setdefault(self._adapter, _SessionGate()).hold(exclusive=True):
+            self._adapter.reset_state()
+            for earlier in sent:
+                try:
+                    replayed = await self._adapter.invoke(earlier)
+                except Exception as exc:
+                    logger.warning("campaign_replay_error", vector_id=attack.id, error=str(exc))
+                    return None, None
+                self._book(tree, replayed)
+                if is_error_response(replayed.content):
+                    return None, None
+                if self._budget.exceeded():  # one node call at most starts past the cap
+                    raise _StopError("budget")
+            return await self._attempt(prompt, attack.prompts[0], attack, pipeline, sent)
+
+    def _book(self, tree: _Tree, response: AgentResponse | None) -> None:
+        """Count a target call's tokens for the vector and as running for the budget."""
+        if response is None:
+            return
+        added = TokenUsage(
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
+            total_tokens=response.total_tokens,
+        )
+        tree.tokens = tree.tokens + added
+        self._budget.running += _booked(added)  # the phase releases it on booking
+
     def _finish(self, tree: _Tree) -> AttackResult:
         """The result: the deciding node, else the first text success, else the best score."""
         attack = tree.attack
@@ -274,6 +333,9 @@ class CampaignExecutor(PairExecutor):
         partial = tree.stop in EARLY_STOPS and not hits
         best = max(tree.answered, key=score.__getitem__, default=None)  # the first on ties
         pick = tree.decider or (hits[0] if hits else best)
+        turns, replies = _judged(tree, pick)  # the deciding node's branch when isolated
+        tree.turns.update(turns)
+        tree.replies.update(replies)
         evidence: dict[str, Any] = {
             **tree.review,
             **({"prompt_errors": tree.prompt_errors} if tree.prompt_errors else {}),
@@ -284,6 +346,11 @@ class CampaignExecutor(PairExecutor):
                 "stop": tree.stop,
                 "attacker_model": self._attacker.config.model if self._attacker else None,
                 "attacker_parse_errors": tree.parse_errors,
+                **(
+                    {"session": "isolated" if tree.isolated else "shared"}
+                    if attack.tactic == "tap"
+                    else {}
+                ),
                 "nodes": tree.nodes,
                 "edges": [{"from": n["parent"], "to": n["id"]} for n in tree.nodes if n["parent"]],
             },

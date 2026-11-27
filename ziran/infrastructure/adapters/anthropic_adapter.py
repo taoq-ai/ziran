@@ -210,6 +210,11 @@ class AnthropicAdapter(BaseAgentAdapter):
             memory={"observed_tool_calls": list(self._observed_tool_calls)},
         )
 
+    @property
+    def isolates_sessions(self) -> bool:
+        """Each call sends the kept history, and a reset clears it (spec 133)."""
+        return True
+
     def reset_state(self) -> None:
         """Clear conversation history and observed tool calls."""
         self._conversation_history.clear()
