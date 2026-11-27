@@ -97,9 +97,8 @@ class TrialRunner:
         metrics.attack_started(phase)
         started = perf_counter()
         executor: Callable[..., Awaitable[AttackResult]] = self.executor.execute
-        if isinstance(attack.goal, HallucinatedToolGoal):  # discovery's tool names (spec 134)
-            caps = self.capabilities
-            kw = {**kw, "tools": frozenset(c.name for c in caps if c.type == CapabilityType.TOOL)}
+        if isinstance(getattr(attack, "goal", None), HallucinatedToolGoal):  # spec 134
+            kw = {**kw, "tools": discovered_tools(self.capabilities)}
         execute = functools.partial(executor, **kw)
         try:
             if is_pair(attack):  # deadline taken here, after the acquire
@@ -120,6 +119,14 @@ class TrialRunner:
             duration_seconds=perf_counter() - started,
         )
         return result
+
+
+def discovered_tools(capabilities: Sequence[AgentCapability]) -> frozenset[str] | None:
+    """The discovered tool names, or None when probing found them: a probe's list is not
+    complete and types benign tools as skills, so it cannot tell a tool is absent (spec 134)."""
+    if any(c.id.startswith("probe_") for c in capabilities):
+        return None
+    return frozenset(c.name for c in capabilities if c.type == CapabilityType.TOOL)
 
 
 def _measured(result: AttackResult) -> bool:
@@ -156,6 +163,10 @@ def combine(results: list[AttackResult | None], k: int) -> AttackResult:
             "token_usage": sum((r.token_usage for r in ran), TokenUsage()),
             "probe_markers": [m for r in ran for m in r.probe_markers],
             "evidence": {**shown.evidence, "trials": summary},
-            **({"goal_met": True, "goal_evidence": met.goal_evidence} if met else {}),
+            **(
+                {"goal_met": True, "goal_evidence": met.goal_evidence, "goal_unmeasured": None}
+                if met
+                else {}
+            ),
         }
     )

@@ -23,3 +23,14 @@
 - [x] T008 Acceptance 1 with the server's real error text; acceptance 2 through `AgentScanner`.
 - [x] T009 Document the goals and the fault modes.
 - [x] T010 Run the touched tests on 3.11, 3.12 and 3.13, ruff, ruff format and mypy strict.
+
+## Fix round 1
+
+- [x] T011 Read `goal` with `getattr` in `TrialRunner` (duck-typed vectors); test a stub
+  executor and a vector with no goal.
+- [x] T012 Replace `max_turns` with `max_tool_calls`; count both loop bounds per reply; test
+  that encodings and separate replies do not count.
+- [x] T013 Tests for the first-error rule, the call key, single-call evidence and the fault
+  bounds by value; `--fault` of every mode through the CLI.
+- [x] T014 Whole-word error markers; `null` for probe discovery; `goal_unmeasured` reasons in
+  report rows.

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +11,6 @@ from click.testing import CliRunner
 
 pytest.importorskip("mcp")
 
-from mcp.shared.exceptions import McpError
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from tests.conftest import MockAgentAdapter
@@ -76,27 +74,34 @@ async def test_oversize_fault_is_capped() -> None:
     assert len(_text(result)) == hostile.OVERSIZE_CHARS == 1_000_000
 
 
-async def test_slow_fault_waits_then_replies(monkeypatch: pytest.MonkeyPatch) -> None:
-    waits: list[float] = []
+def test_fault_bounds_are_the_documented_values() -> None:
+    assert (hostile.SLOW_SECONDS, hostile.TIMEOUT_SECONDS) == (5.0, 300.0)
+    assert hostile.OVERSIZE_CHARS == 1_000_000
+
+
+@pytest.fixture
+def waits(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """The server's sleeps, recorded instead of waited (the module's own reference only)."""
+    seen: list[float] = []
 
     async def sleep(seconds: float) -> None:
-        waits.append(seconds)
+        seen.append(seconds)
 
-    monkeypatch.setattr(hostile.asyncio, "sleep", sleep)
+    monkeypatch.setattr(hostile, "sleep", sleep)
+    return seen
+
+
+async def test_slow_fault_waits_then_replies(waits: list[float]) -> None:
     result = await _call("slow")
-    assert waits == [hostile.SLOW_SECONDS]
+    assert waits == [5.0]
     assert result.isError is False and json.loads(_text(result)) == {"status": "ok"}
 
 
-async def test_timeout_fault_outlasts_the_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert hostile.TIMEOUT_SECONDS <= 300
-    monkeypatch.setattr(hostile, "TIMEOUT_SECONDS", 0.5)
-    server = _server("timeout", ["get_balance"])
-    async with create_connected_server_and_client_session(server) as client:
-        with pytest.raises(McpError, match="Timed out"):
-            await client.call_tool("get_balance", {}, read_timeout_seconds=timedelta(seconds=0.1))
-        late = await client.call_tool("search", {})  # the session still answers
-    assert late.isError is True
+async def test_timeout_fault_hangs_then_errors(waits: list[float]) -> None:
+    result = await _call("timeout")
+    assert waits == [300.0]
+    assert result.isError is True
+    assert "timed out (ziran fault: timeout)" in _text(result)
 
 
 @pytest.mark.parametrize(
@@ -116,8 +121,9 @@ def test_cli_rejects_bad_fault_options(tmp_path: Path, args: list[str], message:
     assert message in result.output
 
 
+@pytest.mark.parametrize("fault", ["error", "timeout", "oversize", "malformed", "slow"])
 def test_cli_passes_the_fault_to_the_server(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fault: str
 ) -> None:
     seen: dict[str, Any] = {}
 
@@ -130,11 +136,11 @@ def test_cli_passes_the_fault_to_the_server(
         return Server()
 
     monkeypatch.setattr(hostile, "build_server", build)
-    args = ["--fault", "timeout", "--fault-tools", "get_balance, search_records,get_balance"]
+    args = ["--fault", fault, "--fault-tools", "get_balance, search_records,get_balance"]
     result = CliRunner().invoke(cli, ["mcp-hostile-server", "--record-dir", str(tmp_path), *args])
     assert result.exit_code == 0, result.output
     assert seen == {
-        "fault": "timeout",
+        "fault": fault,
         "tools": ["get_balance", "search_records"],
         "transport": "stdio",
     }

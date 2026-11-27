@@ -14,9 +14,11 @@ dependency. Reads `call_name` and `call_args` from the provenance module, unchan
    `HallucinatedToolGoal` in the `SideEffectGoal` union; `GoalCall` gains roles `error`,
    `repeat` and `unknown_tool`.
 2. `ziran/application/goals/judge.py`: `goal_status(goal, turns, replies=None, tools=None)`
-   sends the three new kinds to `_failsafe`; `judge_goal` passes `tools` through.
+   sends the three new kinds to `_failsafe`; `goal_verdict` adds the reason a goal is
+   unmeasured, which `judge_goal` stores in `AttackResult.goal_unmeasured` and `goal_rows`
+   shows.
 3. `ziran/application/agent_scanner/trials.py`: for a `hallucinated_tool` vector, the runner
-   passes the discovered `tool` capability names to `AttackExecutor.execute(tools=...)`, which
+   passes the discovered `tool` capability names (none when discovery was probe-based) to `AttackExecutor.execute(tools=...)`, which
    hands them to `judge_goal`. `scanner.py` is untouched (750 lines); `attack_executor.py` stays
    at 400.
 4. `ziran/infrastructure/mcp_hostile/server.py`: `build_server(..., fault=None, fault_tools=())`

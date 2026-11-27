@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from asyncio import sleep
 from typing import TYPE_CHECKING, Any, Literal
 
 from mcp import types
@@ -45,7 +46,7 @@ OVERSIZE_CHARS = 1_000_000
 async def _fault(fault: Fault, tool: str) -> str:
     """The faulted tool's result, or its error."""
     if fault in ("slow", "timeout"):
-        await asyncio.sleep(SLOW_SECONDS if fault == "slow" else TIMEOUT_SECONDS)
+        await sleep(SLOW_SECONDS if fault == "slow" else TIMEOUT_SECONDS)
     if fault in ("error", "timeout"):
         cause = "timed out" if fault == "timeout" else "service unavailable"
         raise ToolError(f"Error: {tool} {cause} (ziran fault: {fault})")
