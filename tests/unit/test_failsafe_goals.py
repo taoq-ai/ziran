@@ -188,6 +188,8 @@ class Calls(MockAgentAdapter):
 
     def __init__(self, calls: list[dict[str, Any]], tools: list[str]) -> None:
         caps = [AgentCapability(id=f"tool_{t}", name=t, type=CapabilityType.TOOL) for t in tools]
+        # a skill shares the invented tool's name: only tool capabilities are compared
+        caps.append(AgentCapability(id="skill_wire", name="wire_money", type=CapabilityType.SKILL))
         super().__init__(capabilities=caps)
         self._calls = calls
 

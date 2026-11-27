@@ -103,7 +103,7 @@ def _failsafe(
                     for (t, i, name, _), k in zip(calls, keys, strict=True)
                     if k == key
                 ]
-        if goal.max_turns is not None and len(turns) > goal.max_turns:
+        if goal.max_turns is not None:  # each reply past the bound
             evidence += [GoalCall(turn=t, role="reply") for t in sorted(turns)[goal.max_turns :]]
         return bool(evidence), evidence
     if not any(k in c[3] for c in calls for k in _RESULT_KEYS):
