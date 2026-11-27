@@ -6,8 +6,8 @@ Status: Active. Docs only. Follows specs 116 to 137.
 
 Every command and flag that specs 116 to 137 added has a correct entry in `docs/reference/cli.md`
 and a concept or guide page where a user would look. The nav links the pages. Nothing in the docs
-claims what the code does not do, and the docs hold no partner, customer, pricing or hosted
-platform text.
+claims what the code does not do, and the docs describe only this repository's open-source
+engine.
 
 ## Acceptance
 
@@ -24,8 +24,7 @@ platform text.
 
 - The docs tests and a docs build are the checks; no code changes, so no code test. Overturned if
   a doc claim needs a test only code can hold.
-- The commercial licence text in `README.md` is the owner's licensing notice, not a platform
-  mention, so it stays.
+- The commercial licence text in `README.md` is the owner's licensing notice, so it stays.
 - `require_owasp_coverage` is declared on the gate config and read nowhere, so the docs say
   required OWASP coverage is the `required_owasp` policy rule. A follow-up may remove the field.
 
