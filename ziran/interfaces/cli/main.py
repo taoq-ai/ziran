@@ -1837,7 +1837,7 @@ def ci(
         set_output,
         write_step_summary,
     )
-    from ziran.application.cicd.sarif import campaign_from_sarif, write_sarif
+    from ziran.application.cicd.sarif import GOALS_METADATA_KEY, campaign_from_sarif, write_sarif
 
     filepath = Path(result_file)
 
@@ -1874,11 +1874,12 @@ def ci(
         console.print(f"[bold red]Unexpected error loading gate config:[/bold red] {e}")
         sys.exit(1)
 
-    if from_sarif and gate.config.fail_on_goal_met:  # a SARIF carries no goal verdicts
-        console.print(
-            f"fail_on_goal_met needs the scan result JSON: {filepath} is a SARIF",
+    if from_sarif and gate.config.fail_on_goal_met and not result.metadata.get(GOALS_METADATA_KEY):
+        console.print(  # an older SARIF holds no goal state: never pass it silently
+            f"fail_on_goal_met needs the scan result JSON: {printable(str(filepath))} is a SARIF",
             style="bold red",
             markup=False,
+            soft_wrap=True,
         )
         sys.exit(1)
 
@@ -1917,7 +1918,10 @@ def ci(
     # 5. SARIF output (a SARIF input is the SARIF already: rewriting it would drop evidence)
     if sarif_path and from_sarif:
         console.print(
-            f"--sarif skipped: {filepath} is already a SARIF", style="yellow", markup=False
+            f"--sarif skipped: {printable(str(filepath))} is already a SARIF",
+            style="yellow",
+            markup=False,
+            soft_wrap=True,
         )
     elif sarif_path:
         try:
@@ -1949,9 +1953,10 @@ def ci(
     # 9. Policy evaluation (optional overlay); a SARIF lists successful attacks only
     if policy_path and from_sarif:
         console.print(
-            f"--policy skipped: {filepath} is a SARIF; run it on the scan result JSON",
+            f"--policy skipped: {printable(str(filepath))} is a SARIF; run it on the scan result JSON",
             style="yellow",
             markup=False,
+            soft_wrap=True,
         )
     elif policy_path:
         try:

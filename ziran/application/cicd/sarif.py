@@ -30,6 +30,7 @@ from ziran.domain.entities.attack import (
     OwaspLlmCategory,
 )
 from ziran.domain.entities.capability import BlastRadius
+from ziran.domain.entities.goal import goal_rows
 from ziran.domain.entities.phase import (
     UNMEASURED_METADATA_KEY,
     WARNINGS_METADATA_KEY,
@@ -82,6 +83,7 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
     results: list[dict[str, Any]] = []
     seen_rule_ids: set[str] = set()
     suppressed = gate.suppressed_attacks() if gate else {}
+    listed: dict[int, int] = {}  # attack index to its place in results
 
     for i, raw in enumerate(result.attack_results):
         ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
@@ -105,6 +107,12 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
 
         # Add result
         sarif_result = _build_result(ar, vector_id, severity)
+        if goal := goal_rows([ar]):  # spec 130: also in the run's goals list, which ci reads
+            sarif_result["properties"]["goal"] = {
+                "type": ar.get("goal_type"),
+                "state": goal[0].state,
+                "evidence": _goal_calls(ar),
+            }
         if review:  # signals with no evidence (study-v2.1): visible in CI, never a finding
             signals = list(ar["evidence"].get("signals", []))
             sarif_result["level"] = _REVIEW_LEVEL
@@ -115,6 +123,7 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
             sarif_result["properties"] |= {"needs_review": True, "signals": signals}
         if i in suppressed:
             sarif_result["suppressions"] = [{"kind": "external", "justification": suppressed[i]}]
+        listed[i] = len(results)
         results.append(sarif_result)
 
     suppressed_chains = gate.suppressed_chains() if gate else {}
@@ -130,7 +139,29 @@ def generate_sarif(result: CampaignResult, gate: GateResult | None = None) -> di
         results.append(chain_result)
     rules.extend(chain_rules.values())
 
-    return _sarif_document(rules, results, {"ziran": _gate_inputs(result)})
+    return _sarif_document(rules, results, {"ziran": _gate_inputs(result, listed)})
+
+
+def _goal_calls(ar: dict[str, Any]) -> list[dict[str, Any]]:
+    return [c for c in ar.get("goal_evidence") or [] if isinstance(c, dict)]
+
+
+def _run_goals(result: CampaignResult, listed: dict[int, int]) -> list[dict[str, Any]]:
+    """Every goal vector's state, listed in results or not, so ``ziran ci`` can gate a SARIF on goals."""
+    goals = []
+    for i, raw in enumerate(result.attack_results):
+        ar: dict[str, Any] = raw if isinstance(raw, dict) else raw.model_dump()
+        if row := goal_rows([ar]):
+            goals.append(
+                {
+                    "result": listed.get(i),  # index in results, or null when not listed
+                    "vector_id": row[0].vector_id,
+                    "type": ar.get("goal_type"),
+                    "state": row[0].state,
+                    "evidence": _goal_calls(ar),
+                }
+            )
+    return goals
 
 
 def _phase_vulnerabilities(result: CampaignResult) -> dict[str, list[str]]:
@@ -141,7 +172,7 @@ def _phase_vulnerabilities(result: CampaignResult) -> dict[str, list[str]]:
     return merged
 
 
-def _gate_inputs(result: CampaignResult) -> dict[str, Any]:
+def _gate_inputs(result: CampaignResult, listed: dict[int, int]) -> dict[str, Any]:
     """The campaign fields ``QualityGate`` reads beyond the results (spec 093 FR-001)."""
     keys = (UNMEASURED_METADATA_KEY, WARNINGS_METADATA_KEY)
     return {
@@ -154,6 +185,7 @@ def _gate_inputs(result: CampaignResult) -> dict[str, Any]:
         "critical_paths": result.critical_paths,
         "phase_vulnerabilities": _phase_vulnerabilities(result),
         "metadata": {k: result.metadata[k] for k in keys if k in result.metadata},
+        "goals": _run_goals(result, listed),  # spec 130; an older SARIF has no such key
     }
 
 
@@ -346,6 +378,9 @@ def write_sarif(result: CampaignResult, path: Path, gate: GateResult | None = No
 
 
 _GATE_SCHEMA = 1
+#: Set on a rebuilt campaign: whether the SARIF wrote goal state (spec 130)
+GOALS_METADATA_KEY = "sarif_goals"
+_GOAL_STATES = {"met": True, "not met": False, "unmeasured": None}
 _MAX_ATTACK_COUNT = 1_000_000  # a crafted count cannot pad the result past this
 _REQUIRED_GATE_INPUTS = ("target_agent", "final_trust_score", "success", "attack_count")
 
@@ -362,6 +397,27 @@ def _array(value: Any, where: str) -> list[Any]:
         msg = f"SARIF {where} must be an array, got {type(value).__name__}"
         raise ValueError(msg)
     return value
+
+
+def _add_goals(goals: Any, attacks: list[dict[str, Any]], at: dict[int, int]) -> None:
+    """Fold ``runs[0].properties.ziran.goals`` into *attacks* (*at*: results index to attack
+    index): a listed vector gains the goal fields, another is added."""
+    for i, raw in enumerate(_array(goals, "runs[0].properties.ziran.goals")):
+        goal = _mapping(raw, f"goals[{i}]")
+        if goal.get("state") not in _GOAL_STATES:
+            msg = f"SARIF goals[{i}] state {goal.get('state')!r} must be met, not met or unmeasured"
+            raise ValueError(msg)
+        fields = {
+            "goal_type": str(goal.get("type") or "goal"),
+            "goal_met": _GOAL_STATES[goal["state"]],
+            "goal_evidence": _array(goal.get("evidence", []), f"goals[{i}] evidence"),
+        }
+        if goal.get("result") in at:
+            attacks[at[goal["result"]]].update(fields)
+        else:
+            attacks.append(
+                {"vector_id": str(goal.get("vector_id", "")), "successful": False, **fields}
+            )
 
 
 def campaign_from_sarif(doc: Any) -> CampaignResult:
@@ -400,6 +456,7 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
 
     attacks: list[dict[str, Any]] = []
     chains: list[dict[str, Any]] = []
+    at: dict[int, int] = {}
     for i, raw in enumerate(_array(run.get("results", []), "results")):
         row = _mapping(raw, f"results[{i}]")
         if "ruleId" not in row:
@@ -418,6 +475,7 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
             chains.append(chain)
             continue
         if props.get("needs_review") is True:  # a note: listed, counted in no gate
+            at[i] = len(attacks)
             attacks.append(
                 {
                     "vector_id": row["ruleId"],
@@ -429,6 +487,7 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
         rule = rules.get(str(row["ruleId"]), {})
         rule_props = _mapping(rule.get("properties", {}), f"rule {row['ruleId']} properties")
         tags = [str(t) for t in _array(rule_props.get("tags", []), f"rule {row['ruleId']} tags")]
+        at[i] = len(attacks)
         attacks.append(
             {
                 "vector_id": row["ruleId"],
@@ -440,6 +499,7 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
             }
         )
 
+    _add_goals(gate_inputs["goals"], attacks, at) if "goals" in gate_inputs else 0
     # the SARIF lists successful attacks only; the gate counts every attack run (nothing_measured)
     count = gate_inputs["attack_count"]
     valid = isinstance(count, int) and not isinstance(count, bool)
@@ -472,7 +532,10 @@ def campaign_from_sarif(doc: Any) -> CampaignResult:
             "success": gate_inputs["success"],
             "attack_results": attacks,
             "dangerous_tool_chains": chains,
-            "metadata": gate_inputs.get("metadata", {}),
+            "metadata": {
+                **gate_inputs.get("metadata", {}),
+                GOALS_METADATA_KEY: "goals" in gate_inputs,
+            },
         }
     )
 

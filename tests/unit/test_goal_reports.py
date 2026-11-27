@@ -166,10 +166,39 @@ class TestGate:
         assert gated.exit_code == 1
         assert "floor_breach" in gated.output
 
-    def test_a_goal_gate_on_a_sarif_is_refused(self, tmp_path: Path) -> None:
+    def test_a_goal_gate_reads_goal_state_from_a_sarif(self, tmp_path: Path) -> None:
+        from ziran.application.cicd.sarif import write_sarif
+
+        clear = "\x1b[2J"
+        hostile = _row("h", None, [COMMIT.model_copy(update={"tool": clear})])
+        sarif = write_sarif(_campaign(MET, KEPT, UNREAD, hostile), tmp_path / "r.sarif")
+        doc = json.loads(sarif.read_text())
+        goals = doc["runs"][0]["properties"]["ziran"]["goals"]
+        assert {g["vector_id"]: g["state"] for g in goals} == {
+            "floor_breach": "met",
+            "floor_kept": "not met",
+            "floor_unread": "unmeasured",
+            "h": "unmeasured",
+        }
+        assert doc["runs"][0]["results"] == []  # no goal-only results
+        gate = tmp_path / "gate.yaml"
+        gate.write_text("fail_on_goal_met: true\n")
+        args = ["ci", str(sarif), "--no-github-annotations", "--no-github-summary"]
+        today = CliRunner().invoke(main.cli, args)
+        assert today.exit_code == 0
+        assert "Goal unmeasured: floor_unread" in today.output
+        assert "\x1b" not in today.output
+        gated = CliRunner().invoke(main.cli, [*args, "-g", str(gate)])
+        assert gated.exit_code == 1
+        assert "floor_breach" in gated.output and "turn 3" in gated.output
+
+    def test_a_sarif_without_goal_state_is_still_refused(self, tmp_path: Path) -> None:
         from ziran.application.cicd.sarif import write_sarif
 
         sarif = write_sarif(_campaign(MET), tmp_path / "r.sarif")
+        doc = json.loads(sarif.read_text())
+        del doc["runs"][0]["properties"]["ziran"]["goals"]  # as an older ziran wrote it
+        sarif.write_text(json.dumps(doc))
         gate = tmp_path / "gate.yaml"
         gate.write_text("fail_on_goal_met: true\n")
         args = ["ci", str(sarif), "-g", str(gate), "--no-github-annotations", "--no-github-summary"]
@@ -177,6 +206,43 @@ class TestGate:
         assert run.exit_code == 1
         assert "fail_on_goal_met needs the scan result JSON" in run.output
         assert CliRunner().invoke(main.cli, args[:2] + args[4:]).exit_code == 0
+
+    def test_sarif_and_json_gate_alike(self, tmp_path: Path) -> None:
+        from ziran.application.cicd.sarif import campaign_from_sarif, write_sarif
+
+        review = {
+            **_row("review_met", True, [COMMIT]),
+            "evidence": {"needs_review": True, "signals": ["s"]},
+        }
+        defended = {**_row("crit_kept", False, []), "severity": "critical"}
+        finding = {**_row("text_finding", True, [COMMIT]), "successful": True}
+        campaign = _campaign(review, defended, UNREAD, finding)
+        sarif = write_sarif(campaign, tmp_path / "r.sarif")
+        back = campaign_from_sarif(json.loads(sarif.read_text()))
+        assert sorted((g.vector_id, g.state) for g in goal_rows(back.attack_results)) == [
+            ("crit_kept", "not met"),
+            ("floor_unread", "unmeasured"),
+            ("review_met", "met"),
+            ("text_finding", "met"),
+        ]
+        as_json = tmp_path / "r.json"
+        as_json.write_text(campaign.model_dump_json())
+        gate = tmp_path / "gate.yaml"
+        gate.write_text("fail_on_goal_met: true\n")
+        base = ["--no-github-annotations", "--no-github-summary"]
+        for extra in ([], ["-g", str(gate)]):
+            runs = [
+                CliRunner().invoke(main.cli, ["ci", str(f), *base, *extra])
+                for f in (sarif, as_json)
+            ]
+            assert runs[0].exit_code == runs[1].exit_code
+            keep = [
+                sorted(x for x in r.output.splitlines() if "indings" in x or "Goal" in x)
+                for r in runs
+            ]
+            assert keep[0] == keep[1]
+        assert runs[0].exit_code == 1
+        assert "review_met" in runs[0].output
 
     def test_ci_stdout_never_starts_a_workflow_command(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
