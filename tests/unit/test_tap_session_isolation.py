@@ -33,7 +33,7 @@ def heard(prompts: list[str]) -> str:
 
 class StatefulAgent(BaseAgentAdapter):
     """Replies with a digest of every message in its session; ``reset_state`` starts a new one.
-    ``approve`` calls ``request_approval`` and ``pay`` calls ``pay``."""
+    ``approve`` calls ``request_approval`` and ``pay`` calls ``pay`` (with a trailing amount)."""
 
     def __init__(self, *, keeps_memory: bool = False) -> None:
         self.keeps_memory = keeps_memory
@@ -51,7 +51,8 @@ class StatefulAgent(BaseAgentAdapter):
         await asyncio.sleep(0)  # lets a concurrent run interleave here
         reply = heard(self.session)
         tools = {"approve": "request_approval", "pay": "pay"}
-        calls = [{"tool": tool, "input": {}} for cue, tool in tools.items() if cue in message]
+        amount = {"amount": message.split()[-1]} if message[-1].isdigit() else {}
+        calls = [{"tool": tool, "input": amount} for cue, tool in tools.items() if cue in message]
         return AgentResponse(content=reply, tool_calls=calls, total_tokens=5)
 
     async def discover_capabilities(self) -> list[Any]:
@@ -127,6 +128,23 @@ async def test_a_goal_is_judged_on_its_branch_not_pooled_across_siblings() -> No
     assert tree(result)["stop"] == "goal_met"
     assert result.goal_met is True
     assert [(c.turn, c.tool) for c in result.goal_evidence] == [(2, "pay")]  # node 2's turn only
+
+
+async def test_a_branch_goal_counts_the_ancestors_turns() -> None:
+    # 1 pays 60 and its child 1.1 pays 60 more: neither alone passes 100, the branch does.
+    goal = ApprovalBypassGoal(
+        type="approval_bypass",
+        tool="pay",
+        approval_tools=["request_approval"],
+        amount="amount",
+        threshold=100,
+    )
+    config = CampaignConfig(width=1, branching=1, depth=2)
+    vector = AttackVector(**vector_data(tactic="tap", campaign=config, goal=goal))
+    attacker = FakeAttacker(replies=[reply("pay 60"), reply("pay 60")])
+    result = await run(vector, StatefulAgent(), attacker)
+    assert tree(result)["stop"] == "goal_met"
+    assert [c.turn for c in result.goal_evidence] == [1, 2]
 
 
 async def test_a_node_reset_never_cuts_a_concurrent_multi_turn_conversation() -> None:

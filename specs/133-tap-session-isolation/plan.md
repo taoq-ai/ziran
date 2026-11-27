@@ -33,5 +33,5 @@ Hexagonal: the executor uses only the `BaseAgentAdapter` port (`reset_state`, `i
 `tests/unit/test_tap_session_isolation.py`: a stateful agent whose reply is a digest of its
 session. Isolated: each node's reply is the digest of its branch prompts, one reset per node,
 target calls equal the sum of node depths and every call is booked. Shared: no reset, no replay,
-pooled replies. Branch goal: an approval bypass met on node 2 alone while pooled it is not.
+pooled replies. Branch goal: an approval bypass met on node 2 alone while pooled it is not, and a spend threshold met only across node 1 and its child.
 Concurrency: a crescendo tactic run beside TAP keeps one uncut session.
