@@ -1098,6 +1098,9 @@ class AttackResult(BaseModel):
     goal_evidence: list[GoalCall] = Field(
         default_factory=list, description="The tool calls the goal verdict rests on, in order"
     )
+    goal_unmeasured: str | None = Field(
+        default=None, description="Why goal_met is None, when the judge knows (spec 134)"
+    )
     probe_markers: list[ProbeMarker] = Field(
         default_factory=list,
         description="One marker per request when the target sets ``probe_markers`` (spec 117)",

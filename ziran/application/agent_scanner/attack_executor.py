@@ -105,18 +105,22 @@ class AttackExecutor:
         return wire if isinstance(wire, A2AWire) else None
 
     async def execute(
-        self, attack: AttackVector, *, deadline: float | None = None, trial: int = 0
+        self,
+        attack: AttackVector,
+        *,
+        deadline: float | None = None,
+        trial: int = 0,
+        tools: frozenset[str] | None = None,
     ) -> AttackResult:
-        """Execute *attack*; *deadline* is a PAIR vector's event-loop stop time (spec 081).
-        Its side-effect goal is judged on each reply's recorded tool calls (spec 116), and
-        the probe markers its requests carried are recorded on it (spec 117). A repeat
-        *trial* (spec 121) gets its own turns and probe trace."""
+        """Execute *attack*; *deadline* is a PAIR vector's stop time (spec 081). Its goal is judged
+        on each reply's tool calls (spec 116) and the discovered *tools* (spec 134), its probe
+        markers recorded (spec 117). A repeat *trial* (spec 121) gets its own turns and trace."""
         turns: Turns = {}
         replies: Replies = {}  # each reply's text, for a secret goal (spec 124)
         scope_id = f"{attack.id}/trial-{trial + 1}" if trial else attack.id
         with probe_scope(self._campaign_id, scope_id) as markers:
             result = await self._run(attack, deadline, turns, replies)
-            result = judge_goal(attack, result, turns, replies)
+            result = judge_goal(attack, result, turns, replies, tools)
         if result.goal_met is False and result.evidence.get("outcome") == "unmeasured":
             result.goal_met = None  # a run cut short never reads as the goal resisted
         if markers:
