@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any
 from ziran.application.attacks.pair import is_pair, run_in_phase
 from ziran.application.usage import TARGET_MODEL
 from ziran.domain.entities.attack import AttackResult, TokenUsage
+from ziran.domain.entities.capability import CapabilityType
+from ziran.domain.entities.goal import HallucinatedToolGoal
 from ziran.infrastructure.logging.logger import get_logger
 from ziran.infrastructure.telemetry import metrics
 
@@ -95,6 +97,9 @@ class TrialRunner:
         metrics.attack_started(phase)
         started = perf_counter()
         executor: Callable[..., Awaitable[AttackResult]] = self.executor.execute
+        if isinstance(attack.goal, HallucinatedToolGoal):  # discovery's tool names (spec 133)
+            caps = self.capabilities
+            kw = {**kw, "tools": frozenset(c.name for c in caps if c.type == CapabilityType.TOOL)}
         execute = functools.partial(executor, **kw)
         try:
             if is_pair(attack):  # deadline taken here, after the acquire

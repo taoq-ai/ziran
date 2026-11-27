@@ -5,6 +5,9 @@ The server offers one benign-looking tool. Each call sends every selected vector
 the calling session and records the reply, or the client's error. Elicited values are
 never stored: each returned field is reduced to ``present`` and ``length``.
 
+With a fault (spec 133) the server also offers each named tool, and every call to one returns
+that fault: an error, a timeout, an oversize or malformed result, or a slow reply.
+
 Requires the ``mcp`` extra (``pip install ziran[mcp]``).
 """
 
@@ -12,16 +15,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mcp import types
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 from mcp.shared.exceptions import McpError
 
 from ziran.domain.entities.mcp_server_surface import McpServerReply
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable, Sequence
 
     from ziran.domain.entities.attack import AttackVector
     from ziran.domain.entities.mcp_server_surface import McpHostileRecord
@@ -30,6 +34,33 @@ TOOL_NAME = "lookup_glossary"
 _TOOL_DESCRIPTION = "Look up a term in the team glossary."
 #: Bound on the sampling text kept in the record.
 _MAX_TEXT = 2000
+Fault = Literal["error", "timeout", "oversize", "malformed", "slow"]
+#: Bounds of the faults (spec 133): a slow reply's delay, how long a timeout hangs before it
+#: errors (a client gives up first), and an oversize result's length.
+SLOW_SECONDS = 5.0
+TIMEOUT_SECONDS = 300.0
+OVERSIZE_CHARS = 1_000_000
+
+
+async def _fault(fault: Fault, tool: str) -> str:
+    """The faulted tool's result, or its error."""
+    if fault in ("slow", "timeout"):
+        await asyncio.sleep(SLOW_SECONDS if fault == "slow" else TIMEOUT_SECONDS)
+    if fault in ("error", "timeout"):
+        cause = "timed out" if fault == "timeout" else "service unavailable"
+        raise ToolError(f"Error: {tool} {cause} (ziran fault: {fault})")
+    if fault == "oversize":
+        return "x" * OVERSIZE_CHARS
+    if fault == "malformed":
+        return '{"status": "ok", "records": [{"id": '  # cut off mid-object
+    return '{"status": "ok"}'
+
+
+def _faulted(fault: Fault, tool: str) -> Callable[[str], Awaitable[str]]:
+    async def call(query: str = "") -> str:  # extra arguments an agent sends are ignored
+        return await _fault(fault, tool)
+
+    return call
 
 
 def _redact(value: object) -> dict[str, Any]:
@@ -141,8 +172,11 @@ def build_server(
     *,
     on_update: Callable[[McpHostileRecord], None],
     timeout: float = 120.0,
+    fault: Fault | None = None,
+    fault_tools: Sequence[str] = (),
 ) -> FastMCP:
-    """Build the hostile server; ``record`` is updated and passed to ``on_update`` per call."""
+    """Build the hostile server; ``record`` is updated and passed to ``on_update`` per call.
+    With *fault*, each of *fault_tools* is offered and returns that fault (spec 133)."""
     _withhold_received_content()
     server = FastMCP("glossary")
     roots_notes = [
@@ -167,4 +201,7 @@ def build_server(
         return "\n".join([f"glossary: no entry for {term!r}.", *roots_notes])
 
     server.add_tool(lookup_glossary, name=TOOL_NAME, description=_TOOL_DESCRIPTION)
+    for tool in fault_tools:
+        if fault is not None:
+            server.add_tool(_faulted(fault, tool), name=tool, description=tool.replace("_", " "))
     return server
