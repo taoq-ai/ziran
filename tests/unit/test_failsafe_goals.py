@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from tests.conftest import MockAgentAdapter
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.agent_scanner.scanner import AgentScanner
-from ziran.application.agent_scanner.trials import TrialRunner, discovered_tools
+from ziran.application.agent_scanner.trials import TrialRunner, combine, discovered_tools
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.detectors.pipeline import DetectorPipeline
 from ziran.application.goals import goal_status
@@ -322,3 +322,13 @@ class TestScan:
         for attack in (loop, no_goal):
             assert await runner._execute(attack, {}) is done  # type: ignore[arg-type]
         assert seen == [{}, {}]
+
+
+def test_a_goal_met_on_a_later_trial_drops_the_earlier_reason() -> None:
+    base = {"vector_id": "v", "vector_name": "v", "category": "tool_manipulation"}
+    first = AttackResult(
+        **base, severity="low", successful=True, goal_met=None, goal_unmeasured="no tool failed"
+    )  # the text success is the shown trial; the goal was met on the second
+    second = AttackResult(**base, severity="low", successful=False, goal_met=True)
+    combined = combine([first, second], 2)
+    assert (combined.goal_met, combined.goal_unmeasured) == (True, None)
