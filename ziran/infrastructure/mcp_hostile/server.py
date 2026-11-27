@@ -5,7 +5,7 @@ The server offers one benign-looking tool. Each call sends every selected vector
 the calling session and records the reply, or the client's error. Elicited values are
 never stored: each returned field is reduced to ``present`` and ``length``.
 
-With a fault (spec 133) the server also offers each named tool, and every call to one returns
+With a fault (spec 134) the server also offers each named tool, and every call to one returns
 that fault: an error, a timeout, an oversize or malformed result, or a slow reply.
 
 Requires the ``mcp`` extra (``pip install ziran[mcp]``).
@@ -35,7 +35,7 @@ _TOOL_DESCRIPTION = "Look up a term in the team glossary."
 #: Bound on the sampling text kept in the record.
 _MAX_TEXT = 2000
 Fault = Literal["error", "timeout", "oversize", "malformed", "slow"]
-#: Bounds of the faults (spec 133): a slow reply's delay, how long a timeout hangs before it
+#: Bounds of the faults (spec 134): a slow reply's delay, how long a timeout hangs before it
 #: errors (a client gives up first), and an oversize result's length.
 SLOW_SECONDS = 5.0
 TIMEOUT_SECONDS = 300.0
@@ -176,7 +176,7 @@ def build_server(
     fault_tools: Sequence[str] = (),
 ) -> FastMCP:
     """Build the hostile server; ``record`` is updated and passed to ``on_update`` per call.
-    With *fault*, each of *fault_tools* is offered and returns that fault (spec 133)."""
+    With *fault*, each of *fault_tools* is offered and returns that fault (spec 134)."""
     _withhold_received_content()
     server = FastMCP("glossary")
     roots_notes = [

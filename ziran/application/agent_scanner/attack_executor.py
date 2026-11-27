@@ -113,7 +113,7 @@ class AttackExecutor:
         tools: frozenset[str] | None = None,
     ) -> AttackResult:
         """Execute *attack*; *deadline* is a PAIR vector's stop time (spec 081). Its goal is judged
-        on each reply's tool calls (spec 116) and the discovered *tools* (spec 133), its probe
+        on each reply's tool calls (spec 116) and the discovered *tools* (spec 134), its probe
         markers recorded (spec 117). A repeat *trial* (spec 121) gets its own turns and trace."""
         turns: Turns = {}
         replies: Replies = {}  # each reply's text, for a secret goal (spec 124)

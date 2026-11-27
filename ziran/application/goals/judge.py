@@ -1,6 +1,6 @@
 """Judge a vector's side-effect goal from the tool calls each reply recorded (spec 116), a
 secret goal from the replies' text (spec 124), and the fail-safe goals from the calls, their
-results and the discovered tools (spec 133)."""
+results and the discovered tools (spec 134)."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ def _failsafe(
     calls: list[tuple[int, int, str, dict[str, Any]]],
     tools: Collection[str] | None,
 ) -> tuple[bool | None, list[GoalCall]]:
-    """The fail-safe goals (spec 133); a goal whose input was not recorded is ``None``."""
+    """The fail-safe goals (spec 134); a goal whose input was not recorded is ``None``."""
     if isinstance(goal, HallucinatedToolGoal):
         if not tools:
             return None, []  # no tool list from discovery: nothing to compare against

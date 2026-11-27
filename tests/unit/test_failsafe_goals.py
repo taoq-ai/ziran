@@ -1,4 +1,4 @@
-"""Fail-safe goals (spec 133): a loop bound, an unsafe call after a tool error, a tool that
+"""Fail-safe goals (spec 134): a loop bound, an unsafe call after a tool error, a tool that
 discovery did not list. Each is judged from the recorded calls; an input that was not
 recorded leaves the goal unmeasured, never not met."""
 

@@ -3,7 +3,7 @@
 Runs a hostile MCP server over stdio. Register it in an agent host's MCP config, ask
 the host to call its ``lookup_glossary`` tool, then read the findings with
 ``ziran report``. stdout carries JSON-RPC only, so every message goes to stderr.
-With ``--fault`` (spec 133) the tools named in ``--fault-tools`` return that fault.
+With ``--fault`` (spec 134) the tools named in ``--fault-tools`` return that fault.
 """
 
 from __future__ import annotations

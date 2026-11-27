@@ -97,7 +97,7 @@ class TrialRunner:
         metrics.attack_started(phase)
         started = perf_counter()
         executor: Callable[..., Awaitable[AttackResult]] = self.executor.execute
-        if isinstance(attack.goal, HallucinatedToolGoal):  # discovery's tool names (spec 133)
+        if isinstance(attack.goal, HallucinatedToolGoal):  # discovery's tool names (spec 134)
             caps = self.capabilities
             kw = {**kw, "tools": frozenset(c.name for c in caps if c.type == CapabilityType.TOOL)}
         execute = functools.partial(executor, **kw)

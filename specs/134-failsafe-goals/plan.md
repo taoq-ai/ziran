@@ -1,6 +1,6 @@
 # Implementation Plan: fail-safe goals and fault modes in the hostile MCP server
 
-**Branch**: `feat/133-failsafe-goals` | **Spec**: [spec.md](spec.md)
+**Branch**: `feat/134-failsafe-goals` | **Spec**: [spec.md](spec.md)
 
 ## Technical context
 

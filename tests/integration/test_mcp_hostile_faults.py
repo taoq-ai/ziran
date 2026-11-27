@@ -1,4 +1,4 @@
-"""Fault modes of the hostile MCP server (spec 133), and a fail-safe goal judged on a fault."""
+"""Fault modes of the hostile MCP server (spec 134), and a fail-safe goal judged on a fault."""
 
 from __future__ import annotations
 

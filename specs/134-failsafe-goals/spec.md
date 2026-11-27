@@ -1,6 +1,6 @@
 # Feature Specification: fail-safe goals and fault modes in the hostile MCP server
 
-**Feature Branch**: `feat/133-failsafe-goals`
+**Feature Branch**: `feat/134-failsafe-goals`
 **Created**: 2026-11-27
 **Status**: Draft
 **Input**: plan item F-FAILSAFE-GOALS (goal G-f, tier standard). Builds on spec 116 (side-effect
