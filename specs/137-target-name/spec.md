@@ -15,12 +15,15 @@ and the agent's service name instead of flagging the scanned target as shadow.
   is not shadow.
 - Two MCP targets on one host with different ports get distinct refs.
 - The config `name` wins over `serverInfo.name`.
-- A `name` outside 1-64 characters of letters, digits, `.`, `_`, `-` (first alphanumeric) is a
-  config error; no `:`, `@`, `/`, `?` or `=` can pass, so a URL with credentials cannot.
+- Existing configs keep loading: `name` is free text (at most 128 characters, no control
+  characters), as before when the key was ignored (`name: "My Agent"` in the docs).
+- The BOM ref uses a slug of it (lowercase, unsafe runs to `-`, trimmed, at most 64). An empty
+  slug, or a name with `@` plus `:` or `//`, is ignored with a warning; the ref falls back to
+  `serverInfo.name` or `host:port`. `:`, `@`, `/`, `?` and `=` never reach a ref.
 
 ## Design
 
-- `TargetConfig.name` with `TARGET_NAME` (domain). The MCP handler keeps `serverInfo.name` from
+- `TargetConfig.name` and `ref_name` (domain); `TARGET_NAME` checks a server's name. The MCP handler keeps `serverInfo.name` from
   `initialize` (and a `server/discover` result) only if it fullmatches `TARGET_NAME`; the server's
   text is untrusted. `HttpAdapter.server_name` exposes it; the CLI passes it to `build_scan_aibom`.
 - Precedence: config `name`, A2A card name, MCP `serverInfo.name`, `host[:port]`, source stem.

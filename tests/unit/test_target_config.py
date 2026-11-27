@@ -417,32 +417,66 @@ class TestProbeDelayConfig:
 
 
 class TestTargetName:
-    """A target may carry a stable name (spec 137)."""
+    """A target may carry a name; its BOM ref is a slug of it (spec 137)."""
 
-    def test_default_is_none_and_a_safe_name_is_kept(self) -> None:
-        assert TargetConfig(url="https://x.com").name is None
-        assert TargetConfig(url="https://x.com", name="search-1.prod_a").name == "search-1.prod_a"
+    def test_default_is_none(self) -> None:
+        config = TargetConfig(url="https://x.com")
+        assert config.name is None
+        assert config.ref_name is None
 
     @pytest.mark.parametrize(
-        "name",
+        ("name", "ref"),
         [
-            "",
-            " ",
-            "a b",
-            "-lead",
-            "a" * 65,
-            "user:pw@host",
-            "https://x.com/k?key=1",
-            "a\nb",
-            "naïve",
+            ("My Agent", "my-agent"),
+            ("Custom REST Agent", "custom-rest-agent"),
+            ("search-1.prod_a", "search-1.prod_a"),
+            ("  --Weird  Name!!  ", "weird-name"),
+            ("a" * 64, "a" * 64),
+            ("a" * 100, "a" * 64),
+            ("a:b", "a-b"),
+            ("token@host", "token-host"),
+            ("a/b", "a-b"),
+            ("a?b", "a-b"),
+            ("a=b", "a-b"),
+            ("naïve agent", "na-ve-agent"),
         ],
     )
-    def test_unsafe_names_are_rejected(self, name: str) -> None:
+    def test_ref_name_is_a_slug(self, name: str, ref: str) -> None:
+        assert TargetConfig(url="https://x.com", name=name).ref_name == ref
+
+    @pytest.mark.parametrize("name", [":", "@", "!!!", " ", "", "user:pw@host", "u@//h", "x@y//z"])
+    def test_empty_slug_or_credential_is_ignored_with_a_warning(
+        self, name: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level("WARNING"):
+            assert TargetConfig(url="https://x.com", name=name).ref_name is None
+        assert "Target name ignored" in caplog.text
+
+    @pytest.mark.parametrize("name", ["a" * 129, "a\nb", "a\x00b", "a\x7fb"])
+    def test_long_or_control_names_are_rejected(self, name: str) -> None:
         with pytest.raises(ValidationError):
             TargetConfig(url="https://x.com", name=name)
 
-    def test_yaml_error_names_the_field(self, tmp_path: Path) -> None:
-        path = tmp_path / "target.yaml"
-        path.write_text("url: https://x.com\nname: bad name\n")
-        with pytest.raises(TargetConfigError, match="name"):
-            load_target_config(path)
+    def test_every_documented_example_config_still_loads(self) -> None:
+        import re
+
+        import yaml
+
+        root = Path(__file__).resolve().parents[2] / "docs"
+        files = [
+            "getting-started.md",
+            "guides/remote-agents.md",
+            "guides/scanning-agents.md",
+            "concepts/remote-scanning.md",
+            "concepts/a2a-protocol.md",
+        ]
+        loaded = 0
+        for file in files:
+            for block in re.findall(r"```yaml\n(.*?)```", (root / file).read_text(), re.S):
+                data = yaml.safe_load(block)
+                if isinstance(data, dict) and "url" in data and "name" in data:
+                    config = TargetConfig(**data)
+                    assert config.ref_name is not None
+                    assert " " not in config.ref_name
+                    loaded += 1
+        assert loaded >= 8

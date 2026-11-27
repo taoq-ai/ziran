@@ -78,7 +78,7 @@ and its endpoints drop the user, password, query and fragment, as for MCP server
 
 A scan BOM names the target, and its MCP server, in this order: the target config's `name`, the
 agent card's name, the MCP server's `serverInfo.name`, the URL's `host:port` (just `host` when the
-URL has no port), the agent file's name. Set `name` (letters, digits, `.`, `_`, `-`, at most 64)
+URL has no port), the agent file's name. Set `name` (free text; the ref uses a lowercase slug of it, so `My Agent` gives `my-agent`)
 to the key your client uses for the server (`mcp__<key>__<tool>`) and the service name your traces
 carry, and `analyze-traces --aibom` will not list the scanned target as a shadow server or agent.
 Two MCP targets on one host with different ports get distinct refs.

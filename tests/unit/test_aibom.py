@@ -777,3 +777,88 @@ class TestScanTargetName:
 
     def test_no_port_keeps_the_host(self) -> None:
         assert "mcp:agent.example.com" in _by_ref(self._bom("https://agent.example.com/v1"))
+
+    def test_config_name_is_slugged_into_refs(self) -> None:
+        bom = self._bom("http://localhost:8080/mcp", name="My Agent")
+        assert "mcp:my-agent" in _by_ref(bom)
+        assert bom["metadata"]["component"]["bom-ref"] == "agent:my-agent"
+
+    def test_credential_like_name_falls_back(self) -> None:
+        bom = self._bom("http://localhost:8080/mcp", server_name="search", name="user:pw@host")
+        assert "mcp:search" in _by_ref(bom)
+        assert "pw" not in json.dumps(bom)
+
+    def test_out_of_range_port_falls_back_to_the_source_stem(self) -> None:
+        from ziran.application.aibom import build_scan_aibom
+        from ziran.domain.entities.target import TargetConfig
+
+        target = TargetConfig.model_construct(url="http://localhost:99999/mcp", name=None)
+        bom = build_scan_aibom([], source="t.yaml", target=target, protocol="mcp")
+        assert bom["metadata"]["component"]["bom-ref"] == "agent:t"
+
+    def test_config_name_beats_the_agent_card_name(self) -> None:
+        from ziran.application.aibom import build_scan_aibom
+        from ziran.domain.entities.a2a import A2AAgentCard
+        from ziran.domain.entities.target import TargetConfig
+
+        card = A2AAgentCard.model_validate(
+            {"name": "card-name", "description": "d", "version": "1", "skills": []}
+        )
+        target = TargetConfig.model_validate({"url": "https://a.example.com", "name": "cfg"})
+        bom = build_scan_aibom([], source="t.yaml", target=target, protocol="a2a", card=card)
+        assert bom["metadata"]["component"]["bom-ref"] == "agent:cfg"
+        assert "a2a:cfg" in _by_ref(bom)
+
+
+class TestScanCli:
+    """``scan --aibom`` through the CLI, the adapter and a fake MCP server (spec 137)."""
+
+    @staticmethod
+    def _scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, server: Any) -> dict[str, Any]:
+        import httpx
+
+        from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+        monkeypatch.setattr(
+            HttpAgentAdapter,
+            "_build_client",
+            lambda self: httpx.AsyncClient(transport=server.transport()),
+        )
+        target = tmp_path / "target.yaml"
+        target.write_text("url: https://mcp.example.com/rpc\nprotocol: mcp\n")
+        out = tmp_path / "bom.json"
+        result = CliRunner().invoke(
+            cli,
+            [
+                "scan",
+                "--target",
+                str(target),
+                "--phases",
+                "reconnaissance",
+                "--output",
+                str(tmp_path / "out"),
+                "--aibom",
+                str(out),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        return json.loads(out.read_text())
+
+    def test_legacy_server_info_names_the_target_and_matches_traces(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from tests.mcp_servers import LegacyServer
+
+        bom = self._scan(tmp_path, monkeypatch, LegacyServer("2024-11-05"))
+        assert bom["metadata"]["component"]["bom-ref"] == "agent:legacy"
+        assert "mcp:legacy" in _by_ref(bom)
+        assert add_shadow(bom, [_session("mcp__legacy__x", agent="legacy")]) == []
+
+    def test_server_discover_server_info_names_the_target(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from tests.mcp_servers import ModernServer
+
+        bom = self._scan(tmp_path, monkeypatch, ModernServer(server_name="search"))
+        assert "mcp:search" in _by_ref(bom)
+        assert add_shadow(bom, [_session("mcp__search__x")]) == []

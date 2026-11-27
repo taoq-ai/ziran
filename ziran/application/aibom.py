@@ -208,7 +208,7 @@ def build_scan_aibom(
     # probe_* ids are guesses from reply text (the adapters' probe discovery), not declared tools
     capabilities = [c for c in capabilities if not c.id.startswith("probe_")]
     name = (
-        (target.name if target is not None else None)
+        (target.ref_name if target is not None else None)
         or (card.name if card is not None else "")
         or (server_name if protocol == "mcp" else None)
         or _host_port(target.url if target is not None else "")

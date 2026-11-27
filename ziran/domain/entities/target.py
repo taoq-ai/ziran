@@ -372,9 +372,10 @@ class BrowserConfig(BaseModel):
     viewport_height: int = Field(default=720, gt=0, description="Browser viewport height in pixels")
 
 
-#: A target name: starts alphanumeric, then letters, digits, ``.``, ``_`` or ``-``, at most 64.
-#: No ``:``, ``@``, ``/``, ``?``, ``=`` or space, so a URL with credentials cannot pass for one.
+#: A name from a server (``serverInfo.name``): starts alphanumeric, then letters, digits, ``.``,
+#: ``_`` or ``-``, at most 64. No ``:``, ``@``, ``/``, ``?``, ``=`` or space.
 TARGET_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+_UNSAFE_NAME = re.compile(r"[^a-z0-9._-]+")
 
 
 class TargetConfig(BaseModel):
@@ -450,10 +451,26 @@ class TargetConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def _check_name(cls, value: str | None) -> str | None:
-        if value is not None and not TARGET_NAME.fullmatch(value):
-            msg = "name: 1-64 characters, letters, digits, '.', '_' or '-', first alphanumeric"
+        if value is not None and (len(value) > 128 or not value.isprintable()):
+            msg = "name: at most 128 characters, no control characters"
             raise ValueError(msg)
         return value
+
+    @property
+    def ref_name(self) -> str | None:
+        """``name`` as a slug for AI-BOM refs (spec 137), or None to fall back.
+
+        Lowercase, runs of unsafe characters to ``-``, trimmed, at most 64 characters. A name
+        that is empty as a slug, or looks like it carries a credential (``@`` with ``:`` or
+        ``//``), is ignored with a warning.
+        """
+        if self.name is None:
+            return None
+        slug = _UNSAFE_NAME.sub("-", self.name.lower()).strip("-.")[:64].strip("-.")
+        if not slug or ("@" in self.name and (":" in self.name or "//" in self.name)):
+            logger.warning("Target name ignored: empty as a slug or looks like a credential")
+            return None
+        return slug
 
     @model_validator(mode="after")
     def _ensure_protocol_config(self) -> TargetConfig:
