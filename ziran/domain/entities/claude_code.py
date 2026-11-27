@@ -3,8 +3,8 @@
 Produced by :func:`ziran.infrastructure.config.claude_code_plugin.load_claude_code`.
 
 Never ``model_dump()`` a whole :class:`ClaudeCodeScan` or :class:`ClaudeCodeAgent` into a report:
-``system_prompt`` and MCP ``url``/``args``/``command`` (expanded from the environment) may hold
-secrets. Emit explicit fields only.
+``system_prompt`` and MCP ``url``/``args``/``command`` (read as written, ``${VAR}`` not expanded)
+may hold secrets. Emit explicit fields only.
 """
 
 from __future__ import annotations

@@ -75,7 +75,11 @@ class TestBuild:
 
     def test_each_mcp_server_has_command_and_version(self, bom: dict[str, Any]) -> None:
         refs = _by_ref(bom)
-        fs, notes, search = refs["mcp:filesystem"], refs["mcp:notes"], refs["mcp:search"]
+        fs, notes, search = (
+            refs["mcp:aibom-plugin/filesystem"],
+            refs["mcp:aibom-plugin/notes"],
+            refs["mcp:aibom-plugin/search"],
+        )
         assert fs["version"] == "2025.7.1"
         assert _props(fs, "ziran:command") == ["npx"]
         assert _props(fs, "ziran:package") == ["@modelcontextprotocol/server-filesystem"]
@@ -94,7 +98,10 @@ class TestBuild:
 
     def test_agents_models_and_unknowns(self, bom: dict[str, Any]) -> None:
         refs = _by_ref(bom)
-        researcher, helper = refs["agent:researcher"], refs["agent:helper"]
+        researcher, helper = (
+            refs["agent:aibom-plugin/researcher"],
+            refs["agent:aibom-plugin/helper"],
+        )
         assert researcher["type"] == "application"
         assert _props(researcher, "ziran:source") == ["agents/researcher.md:2"]
         assert _props(researcher, "ziran:tool") == [
@@ -111,14 +118,17 @@ class TestBuild:
 
     def test_dependencies_link_agent_to_model_and_server(self, bom: dict[str, Any]) -> None:
         deps = {d["ref"]: d.get("dependsOn", []) for d in bom["dependencies"]}
-        assert deps["agent:researcher"] == ["model:sonnet", "mcp:filesystem"]
-        assert deps["agent:helper"] == []
+        assert deps["agent:aibom-plugin/researcher"] == [
+            "model:sonnet",
+            "mcp:aibom-plugin/filesystem",
+        ]
+        assert deps["agent:aibom-plugin/helper"] == []
 
     def test_cve_matches_are_in_triage(self, bom: dict[str, Any]) -> None:
         vulns = {v["id"]: v for v in bom["vulnerabilities"]}
         assert "CVE-2025-53109" in vulns
         v = vulns["CVE-2025-53109"]
-        assert v["affects"] == [{"ref": "agent:researcher"}]
+        assert v["affects"] == [{"ref": "agent:aibom-plugin/researcher"}]
         assert v["analysis"]["state"] == "in_triage"
 
     def test_bom_refs_are_unique(self, bom: dict[str, Any]) -> None:
@@ -181,7 +191,11 @@ class TestCli:
         json.loads(result.stdout)  # stdout stays the findings JSON
         bom = json.loads(out.read_text(encoding="utf-8"))
         _assert_valid(bom)
-        assert {"mcp:filesystem", "mcp:notes", "mcp:search"} <= set(_by_ref(bom))
+        assert {
+            "mcp:aibom-plugin/filesystem",
+            "mcp:aibom-plugin/notes",
+            "mcp:aibom-plugin/search",
+        } <= set(_by_ref(bom))
 
     def test_audit_aibom_needs_claude_code(self, tmp_path: Path) -> None:
         src = tmp_path / "agent.py"
@@ -238,7 +252,7 @@ def test_duplicate_server_and_inherited_model(tmp_path: Path) -> None:
     bom = build_aibom(load_claude_code(tmp_path))
     _assert_valid(bom)
     assert [_props(s, "ziran:command") for s in bom["services"]] == [["first"]]
-    agent = _by_ref(bom)["agent:a"]
+    agent = _by_ref(bom)["agent:p/a"]
     assert _props(agent, "ziran:model") == ["unknown"]
     assert _props(agent, "ziran:tools") == []  # an empty declared set is known, not inherited
     assert "version" not in bom["metadata"]["component"]
@@ -270,8 +284,8 @@ class TestNoLeak:
         )
         assert "ENVSECRET_12345" not in json.dumps(bom)
         refs = _by_ref(bom)
-        assert _props(refs["mcp:cmd"], "ziran:command") == ["${ZIRAN_T_LEAK}/srv"]
-        assert refs["mcp:web"]["endpoints"] == ["https://h.example/${ZIRAN_T_LEAK}/sse"]
+        assert _props(refs["mcp:p/cmd"], "ziran:command") == ["${ZIRAN_T_LEAK}/srv"]
+        assert refs["mcp:p/web"]["endpoints"] == ["https://h.example/${ZIRAN_T_LEAK}/sse"]
 
     @pytest.mark.parametrize(
         "args",
@@ -279,11 +293,13 @@ class TestNoLeak:
             ["--password", "pass@123", "pkg"],
             ["--api-key", "SECRET@1.2.3"],
             ["-y", "--token", "tok==9", "pkg@1.0.0"],
+            ["--flag@1.0"],  # M11: a flag is never the package, even when it looks pinned
+            ["-y", "--x==2"],
         ],
     )
     def test_option_value_is_not_a_package(self, tmp_path: Path, args: list[str]) -> None:
         bom = _plugin(tmp_path, {"s": {"command": "npx", "args": args}})
-        server = _by_ref(bom)["mcp:s"]
+        server = _by_ref(bom)["mcp:p/s"]
         assert "version" not in server
         assert _props(server, "ziran:package") == []
         assert _props(server, "ziran:version") == ["unknown"]
@@ -304,7 +320,7 @@ class TestNoLeak:
     def test_runner_package_is_read(
         self, tmp_path: Path, command: str, args: list[str], package: str, version: str
     ) -> None:
-        server = _by_ref(_plugin(tmp_path, {"s": {"command": command, "args": args}}))["mcp:s"]
+        server = _by_ref(_plugin(tmp_path, {"s": {"command": command, "args": args}}))["mcp:p/s"]
         assert (server.get("version"), _props(server, "ziran:package")) == (version, [package])
 
     @pytest.mark.parametrize(
@@ -318,19 +334,19 @@ class TestNoLeak:
     def test_no_package_outside_a_runner_shape(
         self, tmp_path: Path, command: str, args: list[str]
     ) -> None:
-        server = _by_ref(_plugin(tmp_path, {"s": {"command": command, "args": args}}))["mcp:s"]
+        server = _by_ref(_plugin(tmp_path, {"s": {"command": command, "args": args}}))["mcp:p/s"]
         assert "version" not in server
         assert _props(server, "ziran:package") == []
 
     def test_url_fragment_never_reaches_the_bom(self, tmp_path: Path) -> None:
         bom = _plugin(tmp_path, {"s": {"type": "http", "url": "https://h.example/mcp#token=FRAG"}})
         assert "FRAG" not in json.dumps(bom)
-        assert _by_ref(bom)["mcp:s"]["endpoints"] == ["https://h.example/mcp"]
+        assert _by_ref(bom)["mcp:p/s"]["endpoints"] == ["https://h.example/mcp"]
 
     def test_plugin_folder_in_a_command_reads_root(self, tmp_path: Path) -> None:
         command = f"{tmp_path.resolve()}/bin/srv"
         bom = _plugin(tmp_path, {"s": {"command": command}})
-        assert _props(_by_ref(bom)["mcp:s"], "ziran:command") == ["${CLAUDE_PLUGIN_ROOT}/bin/srv"]
+        assert _props(_by_ref(bom)["mcp:p/s"], "ziran:command") == ["${CLAUDE_PLUGIN_ROOT}/bin/srv"]
 
 
 class TestGuards:
@@ -338,12 +354,12 @@ class TestGuards:
         tools = "mcp__filesystem__read_file, mcp__filesystem__write_file"
         bom = _plugin(tmp_path, {"filesystem": {"command": "srv"}}, tools)  # validated in _plugin
         vulns = {v["id"]: v for v in bom["vulnerabilities"]}
-        assert vulns["CVE-2025-53109"]["affects"] == [{"ref": "agent:a"}]
+        assert vulns["CVE-2025-53109"]["affects"] == [{"ref": "agent:p/a"}]
 
     def test_tool_of_an_unconfigured_server_is_no_dependency(self, tmp_path: Path) -> None:
         bom = _plugin(tmp_path, {"s": {"command": "srv"}}, "mcp__slack__post, mcp__s__x")
         deps = {d["ref"]: d["dependsOn"] for d in bom["dependencies"]}
-        assert deps["agent:a"] == ["mcp:s"]
+        assert deps["agent:p/a"] == ["mcp:p/s"]
 
     def test_two_traces_of_one_agent_add_it_once(self, bom: dict[str, Any]) -> None:
         added = add_shadow(bom, [_session(agent="billing"), _session(agent="billing")])
@@ -365,6 +381,8 @@ class TestLoadBom:
             ({"components": [1]}, "'components' must be a list of objects"),
             ({"metadata": None}, "'metadata' must be an object"),
             ({"version": "abc"}, "'version' must be a positive integer"),
+            ({"services": [{"name": [1]}]}, "'services' must be a list of objects"),  # M10
+            ({"metadata": {"component": {"name": 1}}}, "'metadata' must be an object"),
         ],
     )
     def test_malformed_bom_is_refused(
@@ -394,3 +412,252 @@ class TestLoadBom:
         assert result.exit_code == 2, result.output
         assert "'services' must be a list of objects" in result.output
         assert not out.exists()  # no report, no alert
+
+
+class TestSkillsAndRefs:
+    """Spec 135: skills in the audit BOM, plugin-prefixed refs, old refs still read."""
+
+    @staticmethod
+    def _skill(root: Path, name: str, front: str) -> None:
+        folder = root / "skills" / name
+        folder.mkdir(parents=True)
+        (folder / "SKILL.md").write_text(f"---\nname: {name}\n{front}---\nbody\n")
+
+    def test_audit_aibom_lists_skills_with_allowed_tools(self, tmp_path: Path) -> None:
+        self._skill(tmp_path, "notes", "allowed-tools: Read, mcp__filesystem__read_file\n")
+        self._skill(tmp_path, "plain", "description: no tools\n")
+        _plugin(tmp_path, {"filesystem": {"command": "srv"}})
+        out = tmp_path / "bom.json"
+        result = CliRunner().invoke(cli, ["audit", str(tmp_path), "--aibom", str(out)])
+        assert result.exit_code in (0, 1), result.output
+        bom = json.loads(out.read_text(encoding="utf-8"))
+        _assert_valid(bom)
+        refs = _by_ref(bom)
+        notes, plain = refs["skill:p/notes"], refs["skill:p/plain"]
+        assert notes["type"] == "application"
+        assert _props(notes, "ziran:kind") == ["skill"]
+        assert _props(notes, "ziran:source") == ["skills/notes/SKILL.md:2"]
+        assert _props(notes, "ziran:allowed-tool") == ["Read", "mcp__filesystem__read_file"]
+        assert _props(plain, "ziran:allowed-tool") == []
+        deps = {d["ref"]: d["dependsOn"] for d in bom["dependencies"]}
+        assert deps["skill:p/notes"] == ["mcp:p/filesystem"]
+        vulns = {v["id"]: v for v in bom["vulnerabilities"]}
+        assert {"ref": "skill:p/notes"} in vulns["CVE-2025-53109"]["affects"]
+
+    def test_two_plugins_agents_of_one_name_get_two_refs(self, tmp_path: Path) -> None:
+        refs = []
+        for plugin in ("one", "two"):
+            root = tmp_path / plugin
+            (root / ".claude-plugin").mkdir(parents=True)
+            (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": plugin}))
+            (root / "agents").mkdir()
+            (root / "agents" / "a.md").write_text("---\nname: a\ntools: Read\n---\nx\n")
+            refs += [c["bom-ref"] for c in build_aibom(load_claude_code(root))["components"]]
+        assert refs == ["agent:one/a", "agent:two/a"]
+
+    def test_no_manifest_keeps_unprefixed_refs(self, tmp_path: Path) -> None:
+        (tmp_path / "agents").mkdir()
+        (tmp_path / "agents" / "a.md").write_text("---\nname: a\ntools: Read\n---\nx\n")
+        assert [c["bom-ref"] for c in build_aibom(load_claude_code(tmp_path))["components"]] == [
+            "agent:a"
+        ]
+
+    @pytest.mark.parametrize("prefix", ["", "aibom-plugin/"])
+    def test_shadow_reads_old_and_new_refs(self, bom: dict[str, Any], prefix: str) -> None:
+        for entry in [*bom["components"], *bom["services"]]:  # rewrite to the given ref form
+            kind, _, rest = entry["bom-ref"].partition(":")
+            entry["bom-ref"] = f"{kind}:{prefix}{rest.removeprefix('aibom-plugin/')}"
+        added = add_shadow(
+            bom,
+            [_session("mcp__filesystem__read_file", "mcp__slack__post", agent="researcher")],
+        )
+        assert added == ["shadow-mcp:slack"]
+
+
+def _caps() -> list[Any]:
+    from ziran.domain.entities.capability import AgentCapability, CapabilityType
+
+    return [
+        AgentCapability(id="read_file", name="read_file", type=CapabilityType.DATA_ACCESS),
+        AgentCapability(id="shell", name="shell", type=CapabilityType.TOOL, dangerous=True),
+        AgentCapability(id="book", name="Book", type=CapabilityType.SKILL),
+        AgentCapability(id="security_scheme_k", name="Auth: k", type=CapabilityType.PERMISSION),
+    ]
+
+
+SECRET_URL = "https://user:pw-fixture@agent.example.com/v1?key=query-fixture#frag-fixture"
+
+
+class TestScanBom:
+    """Spec 135: the scan BOM of a target config."""
+
+    def test_openai_target_lists_model_and_tools(self) -> None:
+        from ziran.application.aibom import build_scan_aibom
+        from ziran.domain.entities.target import TargetConfig
+
+        target = TargetConfig.model_validate(
+            {
+                "url": SECRET_URL,
+                "protocol": "openai",
+                "openai": {"model": "gpt-4o-mini"},
+                "headers": {"X-Api-Key": "hunter2-fixture"},
+            }
+        )
+        bom = build_scan_aibom(_caps(), source="target.yaml", target=target, protocol="openai")
+        _assert_valid(bom)
+        subject = bom["metadata"]["component"]
+        assert (subject["bom-ref"], subject["name"]) == (
+            "agent:agent.example.com",
+            "agent.example.com",
+        )
+        assert _props(subject, "ziran:source") == ["target.yaml"]
+        assert _props(subject, "ziran:protocol") == ["openai"]
+        assert _props(subject, "ziran:tool") == ["read_file", "shell"]
+        assert _props(subject, "ziran:skill") == ["book"]
+        assert _props(subject, "ziran:model") == []
+        model = _by_ref(bom)["model:gpt-4o-mini"]
+        assert model["type"] == "machine-learning-model"
+        deps = {d["ref"]: d["dependsOn"] for d in bom["dependencies"]}
+        assert deps["agent:agent.example.com"] == ["model:gpt-4o-mini"]
+        text = json.dumps(bom)
+        for secret in ("pw-fixture", "query-fixture", "frag-fixture", "hunter2-fixture", "Auth: k"):
+            assert secret not in text
+
+    def test_mcp_target_is_a_service(self) -> None:
+        from ziran.application.aibom import build_scan_aibom
+        from ziran.domain.entities.target import TargetConfig
+
+        target = TargetConfig.model_validate({"url": SECRET_URL, "protocol": "mcp"})
+        bom = build_scan_aibom(_caps(), source="t.yaml", target=target, protocol="mcp")
+        _assert_valid(bom)
+        server = _by_ref(bom)["mcp:agent.example.com"]
+        assert server["endpoints"] == ["https://agent.example.com/v1"]
+        assert _props(server, "ziran:version") == ["unknown"]
+        assert _props(bom["metadata"]["component"], "ziran:model") == ["unknown"]
+        deps = {d["ref"]: d["dependsOn"] for d in bom["dependencies"]}
+        assert deps["agent:agent.example.com"] == ["mcp:agent.example.com"]
+        assert "pw-fixture" not in json.dumps(bom)
+
+    def test_a2a_card_is_a_peer_with_its_skills(self) -> None:
+        from ziran.application.aibom import build_scan_aibom
+        from ziran.domain.entities.a2a import A2AAgentCard
+        from ziran.domain.entities.target import TargetConfig
+
+        card = A2AAgentCard.model_validate(
+            {
+                "name": "travel",
+                "version": "2.1.0",
+                "supportedInterfaces": [{"url": SECRET_URL}],
+                "skills": [{"id": "book", "name": "Book"}, {"id": "cancel", "name": "Cancel"}],
+            }
+        )
+        target = TargetConfig.model_validate({"url": SECRET_URL, "protocol": "a2a"})
+        bom = build_scan_aibom(_caps(), source="t.yaml", target=target, protocol="a2a", card=card)
+        _assert_valid(bom)
+        assert bom["metadata"]["component"]["name"] == "travel"
+        peer = _by_ref(bom)["a2a:travel"]
+        assert peer["version"] == "2.1.0"
+        assert peer["endpoints"] == ["https://agent.example.com/v1"]
+        assert _props(peer, "ziran:skill") == ["book", "cancel"]
+        assert "pw-fixture" not in json.dumps(bom)
+
+    def test_cve_match_affects_the_target(self) -> None:
+        from ziran.application.aibom import build_scan_aibom
+        from ziran.domain.entities.capability import AgentCapability, CapabilityType
+
+        cap = AgentCapability(
+            id="mcp__filesystem__read_file",
+            name="mcp__filesystem__read_file",
+            type=CapabilityType.EXTERNAL_API,
+        )
+        bom = build_scan_aibom([cap], source="agent.py", target=None, protocol="langchain")
+        _assert_valid(bom)
+        assert bom["metadata"]["component"]["bom-ref"] == "agent:agent"
+        vulns = {v["id"]: v for v in bom["vulnerabilities"]}
+        assert vulns["CVE-2025-53109"]["affects"] == [{"ref": "agent:agent"}]
+
+    def test_scan_cli_writes_the_bom(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        from unittest.mock import MagicMock
+
+        from ziran.application.knowledge_graph.graph import AttackKnowledgeGraph
+        from ziran.domain.entities.phase import CampaignResult
+        from ziran.domain.entities.target import ProtocolType, TargetConfig
+
+        target = TargetConfig.model_validate(
+            {"url": SECRET_URL, "protocol": "auto", "openai": {"model": "gpt-4o-mini"}}
+        )
+        adapter = MagicMock(protocol=ProtocolType.OPENAI, agent_card=None)
+        monkeypatch.setattr(
+            "ziran.interfaces.cli.main.load_remote_adapter", lambda *a: (adapter, target)
+        )
+        graph = AttackKnowledgeGraph()
+        for cap in _caps():
+            graph.add_capability(cap.id, cap)
+        monkeypatch.setattr(
+            "ziran.interfaces.cli.main.AgentScanner", MagicMock(return_value=MagicMock(graph=graph))
+        )
+        result = CampaignResult(
+            campaign_id="c",
+            target_agent="t",
+            phases_executed=[],
+            total_vulnerabilities=0,
+            final_trust_score=1.0,
+            success=False,
+        )
+        monkeypatch.setattr(
+            "ziran.interfaces.cli.main.asyncio", MagicMock(run=MagicMock(return_value=result))
+        )
+        (tmp_path / "t.yaml").write_text("url: https://x.example\n")
+        out = tmp_path / "bom.json"
+        args = ["scan", "--target", str(tmp_path / "t.yaml"), "--output", str(tmp_path / "out")]
+        run = CliRunner().invoke(cli, [*args, "--aibom", str(out)])
+        assert run.exit_code == 0, run.output
+        bom = json.loads(out.read_text(encoding="utf-8"))
+        _assert_valid(bom)
+        subject = bom["metadata"]["component"]
+        assert _props(subject, "ziran:protocol") == ["openai"]
+        assert _props(subject, "ziran:tool") == ["read_file", "shell"]
+        assert "model:gpt-4o-mini" in _by_ref(bom)
+        assert "pw-fixture" not in out.read_text(encoding="utf-8")
+
+    def test_scan_aibom_unwritable_is_a_usage_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        from ziran.domain.entities.phase import CampaignResult
+
+        monkeypatch.setattr("ziran.interfaces.cli.main.load_agent_adapter", MagicMock())
+        monkeypatch.setattr("ziran.interfaces.cli.main.AgentScanner", MagicMock())
+        result = CampaignResult(
+            campaign_id="c",
+            target_agent="t",
+            phases_executed=[],
+            total_vulnerabilities=0,
+            final_trust_score=1.0,
+            success=False,
+        )
+        monkeypatch.setattr(
+            "ziran.interfaces.cli.main.asyncio", MagicMock(run=MagicMock(return_value=result))
+        )
+        agent = tmp_path / "agent.py"
+        agent.write_text("x = 1\n")
+        args = ["scan", "--framework", "langchain", "--agent-path", str(agent)]
+        args += ["--output", str(tmp_path / "out"), "--aibom", str(tmp_path / "no" / "b.json")]
+        run = CliRunner().invoke(cli, args)
+        assert run.exit_code == 2, run.output
+        assert "cannot write file" in run.output
+
+
+def test_http_adapter_exposes_the_fetched_card() -> None:
+    from unittest.mock import MagicMock
+
+    from ziran.domain.entities.a2a import A2AAgentCard
+    from ziran.domain.entities.target import TargetConfig
+    from ziran.infrastructure.adapters.http_adapter import HttpAgentAdapter
+
+    adapter = HttpAgentAdapter(TargetConfig(url="https://a.example", protocol="a2a"))
+    assert adapter.agent_card is None  # discovery has not run
+    card = A2AAgentCard(name="travel")
+    adapter._handler = MagicMock(agent_card=card)
+    assert adapter.agent_card is card

@@ -42,6 +42,7 @@ from ziran.infrastructure.logging.logger import get_logger
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from ziran.domain.entities.a2a import A2AAgentCard
     from ziran.domain.entities.streaming import AgentResponseChunk
     from ziran.domain.interfaces.a2a_wire import A2AWire
 
@@ -198,6 +199,12 @@ class HttpAgentAdapter(BaseAgentAdapter):
         runs it first), so a vector run before then is skipped, never sent text-only.
         """
         return frozenset({"image/png"}) if self.protocol == ProtocolType.OPENAI else frozenset()
+
+    @property
+    def agent_card(self) -> A2AAgentCard | None:
+        """The target's A2A Agent Card once discovery fetched it, else None (spec 135)."""
+        card: A2AAgentCard | None = getattr(self._handler, "agent_card", None)
+        return card
 
     @property
     def memory_persists_across_reset(self) -> bool:

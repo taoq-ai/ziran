@@ -19,7 +19,7 @@ Discovery for ``load_claude_code(path)``:
 
 Nothing in a file makes this raise: problems become value-free ``ClaudeCodeParseIssue``s. Never
 ``model_dump()`` a scan wholesale into a report: ``system_prompt`` and MCP ``url``/``args``/
-``command`` (expanded from the environment by the MCP loader) may hold secrets.
+``command`` (read as written; this static loader never expands ``${VAR}``) may hold secrets.
 """
 
 from __future__ import annotations
