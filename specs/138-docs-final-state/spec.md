@@ -12,7 +12,7 @@ engine.
 ## Acceptance
 
 - `ziran --help` and each subcommand's `--help` (checked from this branch) match the CLI
-  reference: all 16 commands are listed, and `scan`, `multi-agent-scan`, `export-policy`,
+  reference: all 17 commands are listed, and `scan`, `multi-agent-scan`, `export-policy`,
   `mcp-hostile-server`, `analyze-traces`, `pentest`, `init` and `validate` carry their flags.
 - `ziran ci` documents goal gating on a result JSON and on a SARIF (spec 130).
 - `--attacker-cassette` has a concept section (spec 132); skills audit, goals and trials have a

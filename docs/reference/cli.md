@@ -1,6 +1,6 @@
 # CLI Reference
 
-ZIRAN provides 16 commands for scanning, auditing, reporting, runtime-bridge work and CI/CD
+ZIRAN provides 17 commands (16 plus the `cache` group) for scanning, auditing, reporting, runtime-bridge work and CI/CD
 integration. `ziran COMMAND --help` lists the flags of the release you have installed.
 
 ## Global Options
