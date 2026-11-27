@@ -1,6 +1,6 @@
 # Roadmap
 
-Priorities shift as the landscape changes. This page tracks **themes** we're actively investing in — not fixed version schedules. For what's currently in flight, see the [active milestones on GitHub](https://github.com/taoq-ai/ziran/milestones). For commercial / hosted-platform work, see the [ZIRAN Cloud planning notes](#ziran-cloud).
+Priorities shift as the landscape changes. This page tracks **themes** we're actively investing in — not fixed version schedules. For what's currently in flight, see the [active milestones on GitHub](https://github.com/taoq-ai/ziran/milestones).
 
 ---
 
@@ -105,7 +105,7 @@ Priorities shift as the landscape changes. This page tracks **themes** we're act
 
 ### v0.13 — Web UI Foundation
 
-Moved to [ZIRAN Cloud and ZIRAN Enterprise](#ziran-cloud) in v0.44.0. v0.42.0 is the last Apache-2.0 release that includes the web UI.
+The web UI left this repository in v0.44.0. v0.42.0 is the last Apache-2.0 release that includes it.
 
 - :white_check_mark: **Web UI** — React + Vite frontend, FastAPI + SQLAlchemy backend, PostgreSQL
 - :white_check_mark: **Findings management** — filtering, triage, OWASP compliance view
@@ -132,6 +132,16 @@ Moved to [ZIRAN Cloud and ZIRAN Enterprise](#ziran-cloud) in v0.44.0. v0.42.0 is
 - :white_check_mark: **Benchmark expansion** — TensorTrust, WildJailbreak, ToolEmu, CyberSecEval coverage lifts
 
 See the [benchmark coverage comparison](../reference/benchmarks/coverage-comparison.md) for the full dashboard.
+
+### Agent goals, attacker campaigns and BOMs
+
+- :white_check_mark: **Side-effect goals** — a vector is met by what the agent did: approval bypass, output sink, canary egress, negotiation and fail-safe goals, in every report and in `ziran ci` (`fail_on_goal_met`), SARIF included
+- :white_check_mark: **Attacker campaigns** — `tactic: tap` and `crescendo_live` beside PAIR, `--attacker-model`, `--attacker-cassette` record and replay, one budget shared by concurrent attacker vectors
+- :white_check_mark: **Repeat trials** — `ziran scan --trials K` reports k-of-N success, `pass^k` and flaky findings
+- :white_check_mark: **A2A identity probes** and **hop-tagged canaries** (`multi-agent-scan --trace-hops`)
+- :white_check_mark: **Sigma rules** from proven chains (`export-policy --format sigma`) and per-probe correlation markers
+- :white_check_mark: **CycloneDX AI-BOM** (`audit --aibom`, `scan --aibom`) with shadow servers and agents from traces
+- :white_check_mark: **Agent Skills audit**, **document and image carriers**, **two-session memory poisoning** and the hostile MCP server with fault modes
 
 ---
 
@@ -161,16 +171,16 @@ Close frontier attack gaps (gradient-based attacks, many-shot jailbreaks, tool-s
 
 ### Theme: Production Scale
 
-Harden the runtime for enterprise production use — rate-limiting, structured logging, resumable checkpoints, proper metrics.
+Harden the runtime for production use — rate-limiting, structured logging, resumable checkpoints, proper metrics.
 
 - [x] **Rate-limiting + retry with backoff** — per-provider token bucket, exponential retry on 429s, scale beyond the current 5-concurrent default ([#281](https://github.com/taoq-ai/ziran/issues/281))
 - [x] **Structured JSON logging (structlog)** — machine-queryable audit trail for ELK / Datadog / Splunk ingestion ([#282](https://github.com/taoq-ai/ziran/issues/282))
 - [x] **Partial-phase checkpoint resume** — save progress within a phase; don't lose 30 min of work on a crash ([#283](https://github.com/taoq-ai/ziran/issues/283))
 - [x] **OTel metrics export (Prometheus-compatible)** — counters, gauges, histograms beyond the existing span export ([#284](https://github.com/taoq-ai/ziran/issues/284))
 
-### Theme: Ecosystem + Enterprise
+### Theme: Ecosystem
 
-Expand framework reach and unlock enterprise-facing positioning: incremental scanning for dev-loop speed, compliance evidence bundles for procurement.
+Expand framework reach: incremental scanning for dev-loop speed, compliance evidence bundles.
 
 - [x] **AutoGen adapter** — Microsoft's multi-agent framework ([#285](https://github.com/taoq-ai/ziran/issues/285))
 - [x] **Anthropic SDK native adapter** — direct path, no LangChain wrapping ([#286](https://github.com/taoq-ai/ziran/issues/286))
@@ -189,37 +199,18 @@ These don't block a milestone but are worth landing when someone has a slot:
 - [x] **asqav signing integration sketch** — downstream signing of ZIRAN outputs ([#259](https://github.com/taoq-ai/ziran/issues/259))
 - [x] **HTML report graph size cap** — perf improvement for large campaigns ([#217](https://github.com/taoq-ai/ziran/issues/217))
 
-### UI Hardening
-
-Tracked as a parallel stream. See [UI-labelled issues](https://github.com/taoq-ai/ziran/labels/ui).
-
 ---
 
 ## Longer Term
 
 Directions we're watching but not yet committed to a milestone on. These are the places where the shape of the work isn't settled yet — what ships depends on signal from users and on what the surrounding ecosystem does.
 
-- **Multimodal prompt injection** — image / document / audio attack surface, once multimodal agents are common production targets
+- **Audio and video prompt injection** — document and image carrier vectors ship (`--carriers`); audio and video stay open until multimodal agents are common production targets
 - **Custom chain rule language** — user-defined tool chain patterns complementing auto-discovery
 - **AgentSecBench** — purpose-built benchmark of deliberately-vulnerable agents with known tool-chain vulnerabilities; demonstrates what ZIRAN catches that other tools miss
 - **Tool chain methodology paper** — publish the discovery-based approach as research
 - **Red-team / blue-team split mode** — meaningful once the DefenceProfile evaluator ecosystem has multiple implementations (waits for the next evaluator)
 - **Federated agent trust boundary modelling** — cross-org / cross-network agent topologies
-
----
-
-## ZIRAN Cloud
-
-A hosted platform layer is planned for commercial / enterprise use cases. OSS ZIRAN remains the foundation — Cloud builds on top rather than replacing anything. Current direction is tracked privately but the capabilities under consideration include:
-
-- **Managed parallel scanning** — campaigns fan out across worker pools with global rate-limiting; no self-hosted Ray/Celery required
-- **Curated premium threat-intel feed** — continuously updated vector library with researcher provenance, SLA-backed, complementing the open community-submission path
-- **Multi-tenant RBAC** — red-team / blue-team role dashboards, audit logs, team-based compliance workflows
-- **Web UI** — campaign dashboard, attack library browser and settings, moved from OSS ZIRAN in v0.44.0 and also offered as self-hosted ZIRAN Enterprise
-- **Findings and OWASP compliance view** — filtering, triage and OWASP LLM Top 10 coverage across campaigns
-- **Knowledge-graph explorer** — the full campaign graph with no node cap (the HTML report in OSS ZIRAN keeps its interactive graph)
-
-These are deliberately not in the OSS roadmap because they either require hosted infrastructure to be useful or would conflict with the partner ecosystem (NeMo, Lakera, Invariant, Langfuse) that OSS ZIRAN works **with**, not against.
 
 ---
 

@@ -60,7 +60,8 @@ can tell it to send that file to a URL the attacker picks. A per-tool check pass
 
 - Dangerous tool chains: 30+ patterns, such as `read_file -> http_request`.
 - The lethal trifecta: private data, untrusted content and egress in one agent.
-- Side effects: a tool call fired while the reply says "I can't do that".
+- Side effects: a tool call fired while the reply says "I can't do that", and goals judged on
+  what the agent did (a refund without approval, a canary sent out), which `ziran ci` can gate on.
 - Trust between agents: peer messages accepted without validation in multi-agent systems.
 - Attack coverage: 701 vectors, 10/10 OWASP LLM Top 10 categories and 86/100 MITRE ATLAS
   techniques.
@@ -75,6 +76,10 @@ The [docs site](https://taoq-ai.github.io/ziran/) covers:
   [how it compares](https://taoq-ai.github.io/ziran/#how-it-compares);
 - [benchmarks and coverage](https://taoq-ai.github.io/ziran/reference/benchmarks/coverage-comparison/);
 - [the CI gate](https://taoq-ai.github.io/ziran/guides/ci-integrations/) (GitHub Action, SARIF);
+- [attacker campaigns](https://taoq-ai.github.io/ziran/concepts/attack-vectors/#attacker-llm-refinement)
+  (PAIR, TAP, live crescendo) and [repeat trials](https://taoq-ai.github.io/ziran/guides/interpreting-results/#goals-and-repeated-trials);
+- [AI-BOM](https://taoq-ai.github.io/ziran/guides/aibom/) and
+  [Sigma detection rules](https://taoq-ai.github.io/ziran/guides/detection-rules/);
 - [Claude Code plugins](https://taoq-ai.github.io/ziran/guides/claude-code/) and the
   [ZIRAN plugin for Claude Code](https://taoq-ai.github.io/ziran/guides/claude-code/#claude-code-plugin-for-ziran);
 - the [CLI reference](https://taoq-ai.github.io/ziran/reference/cli/) and

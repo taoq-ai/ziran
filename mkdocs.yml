@@ -75,7 +75,9 @@ nav:
     - CI Integrations: guides/ci-integrations.md
     - Promptfoo Integration: guides/promptfoo-integration.md
     - OpenTelemetry Tracing: guides/otel-tracing.md
+    - Analyze Traces: guides/analyze-traces.md
     - Sigma Detection Rules: guides/detection-rules.md
+    - Policy Refresh Automation: guides/policy-refresh-automation.md
     - Static Analysis: guides/static-analysis.md
     - Claude Code Plugins: guides/claude-code.md
     - AI-BOM: guides/aibom.md
@@ -95,6 +97,8 @@ nav:
     - Benchmarks:
       - Coverage Comparison: reference/benchmarks/coverage-comparison.md
       - MITRE ATLAS Mapping: reference/benchmarks/atlas-mapping.md
+      - Detection Accuracy: reference/benchmarks/detection-accuracy.md
+      - Pentest Evaluation: reference/benchmarks/pentest-evaluation.md
   - Community:
     - Contributing: community/contributing.md
     - Skill CVEs: community/skill-cves.md

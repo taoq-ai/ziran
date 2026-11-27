@@ -55,19 +55,17 @@ severity_thresholds:
   high: 3         # Max allowed high findings
   medium: 10      # Max allowed medium findings
   low: -1         # Unlimited low findings (-1)
-
-require_owasp_coverage:           # Required OWASP categories
-  - LLM01
-  - LLM06
-  - LLM07
 ```
+
+Required OWASP coverage is a policy rule (`required_owasp`), not a gate key: see
+[Policy Engine](#policy-engine).
 
 ### Exit Codes
 
 | Code | Meaning |
 |------|---------|
 | 0 | Gate passed — safe to deploy |
-| 1 | Gate failed: findings exceed a threshold, or a goal was met under `fail_on_goal_met: true`. Also an input `ziran ci` refused: an unreadable result or gate config, or a SARIF with `fail_on_goal_met: true` |
+| 1 | Gate failed: findings exceed a threshold, or a goal was met under `fail_on_goal_met: true`. Also an input `ziran ci` refused: an unreadable result or gate config, or a SARIF with no goal state under `fail_on_goal_met: true` |
 | 2 | Usage error: an unknown option or a missing file (Click) |
 
 ## Suppressing Accepted Findings
@@ -297,8 +295,11 @@ in `properties.severity` (level `error` is both critical and high), and the run 
 score and the other gate inputs in `runs[0].properties.ziran`. A SARIF from another tool, or from
 `ziran audit`, has no such properties: `ziran ci` exits 1 and names the missing ones
 (`target_agent`, `final_trust_score`, `success`, `attack_count`). A SARIF with more than one run
-is refused, and so is a gate config with `fail_on_goal_met: true`: a SARIF holds no goal
-verdicts. With a SARIF input, `--sarif` is skipped with a notice, since the input already is
+is refused. A SARIF holds each goal vector's type, state (met, not met or unmeasured) and
+evidence calls in `runs[0].properties.ziran.goals`, and in `properties.goal` on a result already
+listed, so `fail_on_goal_met: true` gates a SARIF as it gates the result JSON. A SARIF written by
+a release before this one has no `goals`: `ziran ci` exits 1 with `fail_on_goal_met needs the scan
+result JSON` rather than pass it silently. With a SARIF input, `--sarif` is skipped with a notice, since the input already is
 the SARIF. `--policy` is skipped too, with a notice: the SARIF lists only successful attacks,
 so policy rules on tested categories or success rates need the scan result JSON. A SARIF written
 by a ziran release older than the SARIF gate has no `runs[0].properties.ziran`; write it again

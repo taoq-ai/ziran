@@ -304,6 +304,26 @@ and in an isolated session a node at depth d makes d target calls (its replay an
 so `max_nodes` bounds target calls at `max_nodes * depth`. Set `max_nodes` and a campaign budget first.
 Example scenarios: [`examples/30-attacker-campaigns/`](https://github.com/taoq-ai/ziran/tree/main/examples/30-attacker-campaigns).
 
+### Record and replay the attacker
+
+An attacker campaign calls an LLM at every node, so two runs differ. `--attacker-cassette FILE`
+makes the tree repeatable:
+
+```bash
+# Record: with --attacker-model, each attacker reply is saved to the file
+ziran scan --target target.yaml --attacker-model openai/gpt-4o-mini --attacker-cassette tree.jsonl
+# Replay: with no attacker model, the same file answers, no key needed
+ziran scan --target target.yaml --attacker-cassette tree.jsonl
+```
+
+A reply is stored under the attacker's system text and user text, not the model id, so a replay
+needs no model. The file is spec 064 outcome rows and holds the prompts, not a key, and the
+recorder writes it through a temporary file (mode 0600). Recording into an existing file keeps its
+rows. A request with no stored reply (the target answered differently, so the attacker's next
+question is new) stops that vector as pending: `outcome: unmeasured`, never resisted. A file over
+16 MiB, or a path or parent folder that is a symlink, is refused. The target is still called on a
+replay, so the tree repeats only as far as the target does.
+
 ## Side-effect goals
 
 A vector can name a `goal` that is met by what the agent did, not by what it wrote. The scan
