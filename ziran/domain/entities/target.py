@@ -375,7 +375,7 @@ class BrowserConfig(BaseModel):
 #: A name from a server (``serverInfo.name``): starts alphanumeric, then letters, digits, ``.``,
 #: ``_`` or ``-``, at most 64. No ``:``, ``@``, ``/``, ``?``, ``=`` or space.
 TARGET_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
-_UNSAFE_NAME = re.compile(r"[^a-z0-9._-]+")
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 class TargetConfig(BaseModel):
@@ -460,15 +460,16 @@ class TargetConfig(BaseModel):
     def ref_name(self) -> str | None:
         """``name`` as a slug for AI-BOM refs (spec 137), or None to fall back.
 
-        Lowercase, runs of unsafe characters to ``-``, trimmed, at most 64 characters. A name
-        that is empty as a slug, or looks like it carries a credential (``@`` with ``:`` or
-        ``//``), is ignored with a warning.
+        Case is kept (traces name a server by its client key, case included), runs of unsafe
+        characters become ``-``, trimmed, at most 64 characters. A name that is empty as a slug,
+        or holds ``:``, ``=``, ``?``, ``@`` or ``//`` (a credential, a key pair or a URL), is
+        ignored with a warning.
         """
         if self.name is None:
             return None
-        slug = _UNSAFE_NAME.sub("-", self.name.lower()).strip("-.")[:64].strip("-.")
-        if not slug or ("@" in self.name and (":" in self.name or "//" in self.name)):
-            logger.warning("Target name ignored: empty as a slug or looks like a credential")
+        slug = _UNSAFE_NAME.sub("-", self.name).strip("-.")[:64].strip("-.")
+        if not slug or any(c in self.name for c in (":", "=", "?", "@", "//")):
+            logger.warning("Target name ignored: empty as a slug or holds one of : = ? @ //")
             return None
         return slug
 

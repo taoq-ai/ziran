@@ -427,24 +427,40 @@ class TestTargetName:
     @pytest.mark.parametrize(
         ("name", "ref"),
         [
-            ("My Agent", "my-agent"),
-            ("Custom REST Agent", "custom-rest-agent"),
+            ("My Agent", "My-Agent"),
+            ("Custom REST Agent", "Custom-REST-Agent"),
             ("search-1.prod_a", "search-1.prod_a"),
-            ("  --Weird  Name!!  ", "weird-name"),
+            ("  --Weird  Name!!  ", "Weird-Name"),
             ("a" * 64, "a" * 64),
             ("a" * 100, "a" * 64),
-            ("a:b", "a-b"),
-            ("token@host", "token-host"),
+            ("MyServer", "MyServer"),
             ("a/b", "a-b"),
-            ("a?b", "a-b"),
-            ("a=b", "a-b"),
             ("naïve agent", "na-ve-agent"),
         ],
     )
     def test_ref_name_is_a_slug(self, name: str, ref: str) -> None:
         assert TargetConfig(url="https://x.com", name=name).ref_name == ref
 
-    @pytest.mark.parametrize("name", [":", "@", "!!!", " ", "", "user:pw@host", "u@//h", "x@y//z"])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            ":",
+            "@",
+            "=",
+            "?",
+            "//",
+            "!!!",
+            " ",
+            "",
+            "a:b",
+            "admin:hunter2",
+            "token@host",
+            "user:pw@host",
+            "password=hunter2",
+            "https://x.com/k?key=1",
+            "x@y//z",
+        ],
+    )
     def test_empty_slug_or_credential_is_ignored_with_a_warning(
         self, name: str, caplog: pytest.LogCaptureFixture
     ) -> None:

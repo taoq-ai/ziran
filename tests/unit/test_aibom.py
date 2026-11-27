@@ -780,8 +780,12 @@ class TestScanTargetName:
 
     def test_config_name_is_slugged_into_refs(self) -> None:
         bom = self._bom("http://localhost:8080/mcp", name="My Agent")
-        assert "mcp:my-agent" in _by_ref(bom)
-        assert bom["metadata"]["component"]["bom-ref"] == "agent:my-agent"
+        assert "mcp:My-Agent" in _by_ref(bom)
+        assert bom["metadata"]["component"]["bom-ref"] == "agent:My-Agent"
+
+    def test_mixed_case_name_matches_the_trace_key(self) -> None:
+        bom = self._bom("http://localhost:8080/mcp", name="MyServer")
+        assert add_shadow(bom, [_session("mcp__MyServer__x", agent="MyServer")]) == []
 
     def test_credential_like_name_falls_back(self) -> None:
         bom = self._bom("http://localhost:8080/mcp", server_name="search", name="user:pw@host")

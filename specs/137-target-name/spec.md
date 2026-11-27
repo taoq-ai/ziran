@@ -17,8 +17,8 @@ and the agent's service name instead of flagging the scanned target as shadow.
 - The config `name` wins over `serverInfo.name`.
 - Existing configs keep loading: `name` is free text (at most 128 characters, no control
   characters), as before when the key was ignored (`name: "My Agent"` in the docs).
-- The BOM ref uses a slug of it (lowercase, unsafe runs to `-`, trimmed, at most 64). An empty
-  slug, or a name with `@` plus `:` or `//`, is ignored with a warning; the ref falls back to
+- The BOM ref uses a slug of it (case kept, unsafe runs to `-`, trimmed, at most 64). An empty
+  slug, or a name holding `:`, `=`, `?`, `@` or `//`, is ignored with a warning; the ref falls back to
   `serverInfo.name` or `host:port`. `:`, `@`, `/`, `?` and `=` never reach a ref.
 
 ## Design
