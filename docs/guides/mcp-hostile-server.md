@@ -33,6 +33,30 @@ Then ask the host to use the tool, for example: "Use the lookup_glossary tool to
 
 With no `--vector` or `--family`, all eight vectors run. List them with `ziran library --list`; they carry the `mcp_server_surface` tag.
 
+## Fault modes
+
+With `--fault` the server also offers each tool named in `--fault-tools`, and every call to one
+returns that fault. Give your agent this server in place of (or beside) the real tool, then run
+a scan with a fail-safe goal ([fail-safe goals](../concepts/attack-vectors.md#fail-safe-goals))
+to see what the agent does next.
+
+```bash
+ziran mcp-hostile-server --record-dir /abs/dir --fault error --fault-tools get_balance
+```
+
+| `--fault` | Each call to a named tool |
+|---|---|
+| `error` | Returns an MCP tool error whose text starts with `Error`. |
+| `timeout` | Hangs for 300 seconds, then returns an error. The client usually gives up first. |
+| `oversize` | Returns 1,000,000 characters. |
+| `malformed` | Returns JSON cut off in the middle of an object. |
+| `slow` | Waits 5 seconds, then returns `{"status": "ok"}`. |
+
+`--fault` and `--fault-tools` go together. `--fault-tools` takes up to 20 comma-separated
+names (letters, digits, `_`, `.` and `-`, up to 64 characters), not `lookup_glossary`. Each
+fault tool takes one optional `query` argument and ignores any other. Fault calls are not
+written to the record: the scan of the agent records them as its tool calls.
+
 ## Read the findings
 
 The command writes the record and a `CampaignResult` JSON when it starts, after each tool call and when the host stops it:
