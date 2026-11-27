@@ -28,7 +28,7 @@ ZIRAN discovers these composition-level risks through knowledge graph analysis, 
     - :bar_chart: **CI/CD Quality Gate** -- Block deployments that fail security thresholds, with SARIF output
     - :mag: **Static Analysis** -- Scan agent source code for vulnerabilities without running the agent
 
-## Quick Demo
+## Quick Example
 
 ```bash
 pip install ziran

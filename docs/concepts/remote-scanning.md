@@ -46,7 +46,7 @@ Remote agents are configured via YAML:
 
 ```yaml
 # target.yaml
-name: "Customer Support Agent"
+name: "Support Agent"   # free text; also names the target in the AI-BOM (see the AI-BOM guide)
 url: "https://agent.example.com"
 protocol: auto  # auto | rest | openai | mcp | a2a
 

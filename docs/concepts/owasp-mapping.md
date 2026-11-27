@@ -83,18 +83,8 @@ Testing whether agents can be tricked into making decisions or taking actions ba
 # List vectors for a specific category
 ziran library --owasp LLM01
 
-# Require OWASP coverage in CI
-ziran ci results.json --gate-config gate.yaml
-```
-
-### Quality Gate Configuration
-
-```yaml
-# gate.yaml
-require_owasp_coverage:
-  - LLM01
-  - LLM06
-  - LLM07
+# Require OWASP coverage in CI (with the policy rule below)
+ziran ci results.json --policy policy.yaml
 ```
 
 ### Policy Rules

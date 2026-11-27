@@ -6,7 +6,7 @@ Exported Rego modules use OPA 1.0 syntax (`import rego.v1`, `deny contains msg i
 
 ## Quick start
 
-Copy [`examples/07-cicd-quality-gate/policy-refresh.yml`](../../examples/07-cicd-quality-gate/policy-refresh.yml) into `.github/workflows/`:
+Copy [`examples/07-cicd-quality-gate/policy-refresh.yml`](https://github.com/taoq-ai/ziran/blob/main/examples/07-cicd-quality-gate/policy-refresh.yml) into `.github/workflows/`:
 
 ```yaml
 name: Policy Refresh

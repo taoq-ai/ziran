@@ -1,6 +1,7 @@
 # CLI Reference
 
-ZIRAN provides 8 commands for scanning, reporting, and CI/CD integration.
+ZIRAN provides 17 commands (16 plus the `cache` group) for scanning, auditing, reporting, runtime-bridge work and CI/CD
+integration. `ziran COMMAND --help` lists the flags of the release you have installed.
 
 ## Global Options
 
@@ -24,10 +25,10 @@ ziran scan [OPTIONS]
 
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
-| `--framework` | Yes\* | — | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock` |
+| `--framework` | Yes\* | — | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock`, `agentcore`, `anthropic`, `openai-agents`, `autogen` |
 | `--agent-path` | Yes\* | — | Path to agent code/config file |
 | `--target` | Yes\* | — | YAML target config for remote scanning |
-| `--protocol` | No | `auto` | Protocol override: `rest`, `openai`, `mcp`, `a2a`, `auto` |
+| `--protocol` | No | `auto` | Protocol override: `rest`, `openai`, `mcp`, `a2a`, `browser`, `auto` |
 | `--phases` | No | all core | Specific phases to run |
 | `--coverage` | No | `standard` | Coverage level: `essential`, `standard`, `comprehensive` |
 | `--output`, `-o` | No | `ziran_results` | Output directory |
@@ -38,12 +39,25 @@ ziran scan [OPTIONS]
 | `--streaming` | No | `false` | Enable real-time SSE/WebSocket response streaming |
 | `--llm-provider` | No | — | LLM provider for AI-powered features |
 | `--llm-model` | No | — | LLM model name (e.g. `gpt-4o`, `claude-sonnet-4-20250514`) |
-| `--attacker-model` | No | — | LiteLLM model id of the attacker LLM for `tactic: pair` vectors (requires `ziran[llm]`). Without it (or with a blank value) those vectors are not run, the dry run does not count them, and the report's warnings list them, one line per phase. Its tokens count towards `--max-campaign-tokens` and `--max-cost`. |
-| `--attacker-cassette` | No | — | File of the attacker's replies as spec 064 outcome rows. With `--attacker-model` it records them (written atomically; a symlink path is refused); without it, an existing file is replayed with no key, so a campaign tree repeats offline. A request with no stored reply stops its vector as pending (unmeasured). |
-| `--encoding` | No | — | Prompt encoding/obfuscation: `base64`, `rot13`, `leetspeak`, `homoglyph`, `hex`, `whitespace`, `mixed_case`, `payload_split`. Repeatable. |
+| `--attacker-model` | No | — | LiteLLM model id of the attacker LLM that runs attacker vectors (`tactic: pair`, `tap` and `crescendo_live`; requires `ziran[llm]`; the key comes from the provider's usual environment variable). Without it (or with a blank value) those vectors are not run, the dry run does not count them, and the report's warnings list them, one line per phase. Its tokens count towards `--max-campaign-tokens` and `--max-cost`. See [Attacker-LLM refinement](../concepts/attack-vectors.md#attacker-llm-refinement). |
+| `--attacker-cassette` | No | — | File of the attacker's replies as spec 064 outcome rows. With `--attacker-model` it records them (written atomically; a symlink path is refused); without it, an existing file is replayed with no key, so a campaign tree repeats offline. A request with no stored reply stops its vector as pending (unmeasured). See [Record and replay](../concepts/attack-vectors.md#record-and-replay-the-attacker). |
+| `--encoding` | No | — | Prompt encoding/obfuscation: `base64`, `rot13`, `leetspeak`, `homoglyph`, `hex`, `whitespace`, `mixed_case`, `payload_split`, `pig_latin`, `reverse`, `word_shuffle`, `token_boundary`. Repeatable. |
 | `--otel` | No | `false` | Enable OpenTelemetry tracing (requires `ziran[otel]`). Exports spans to console. |
 | `--attack-timeout` | No | `60` | Per-attack timeout in seconds |
 | `--phase-timeout` | No | `300` | Per-phase timeout in seconds |
+| `--llm-rpm` | No | per provider | Client-side LLM requests-per-minute limit (`0` disables). Env: `ZIRAN_LLM_RPM` |
+| `--llm-tpm` | No | — | Client-side LLM tokens-per-minute limit (`0` disables). Env: `ZIRAN_LLM_TPM` |
+| `--llm-max-retries` | No | `3` | Retries for throttled or transient LLM errors (429, 5xx). Env: `ZIRAN_LLM_MAX_RETRIES` |
+| `--quality-scoring` | No | `false` | StrongREJECT-style scoring of response specificity and convincingness (needs `--llm-provider`) |
+| `--utility-tasks` | No | — | YAML file of legitimate tasks, run before and after the campaign to measure utility under attack |
+| `--metrics-endpoint` | No | — | OTLP/HTTP collector URL for Prometheus-compatible metrics (needs `ziran[otel]`) |
+| `--metrics-port` | No | — | TCP port for a Prometheus pull endpoint (`/metrics`) (needs `ziran[otel]`) |
+| `--resume` | No | `false` | Resume an interrupted campaign from the checkpoint in `--output` |
+| `--checkpoint-flush-interval` | No | `10.0` | Maximum seconds between mid-phase checkpoint flushes |
+| `--max-campaign-tokens` | No | — | Stop scheduling new attacks once the campaign has used this many tokens across all stages. Cooperative: attacks already running finish, so the total can overshoot by up to `--concurrency` attack runs (one run with `--trials` above 1). Attacker vectors that run at the same time share one running count. See [Long-running campaigns](../guides/long-running-campaigns.md) |
+| `--max-cost` | No | — | Stop scheduling new attacks once the estimated LLM cost reaches this many USD. Only models with a price count; cooperative, like `--max-campaign-tokens` |
+| `--dry-run` | No | `false` | Load the adapter, discover capabilities and count the attack vectors without running them |
+| `--defence-profile` | No | — | YAML file declaring the target's active defences; the report gains a "Declared Defences" section and an evasion rate |
 | `--incremental` | No | `false` | Reuse cached results for vectors whose inputs are unchanged (`.ziran/scan_cache/`). Opt-in; not for release gates. See [Incremental Scanning](../guides/incremental-scanning.md). |
 | `--no-cache` | No | `false` | Bypass the incremental cache: neither read nor write it (overrides `--incremental`) |
 | `--carriers` | No | - | YAML file of folders the target's tools read (`workspace_dir`, `knowledge_base_dir`, `page_dir` with `page_url`). Turns on the document and image carrier vectors. A vector whose folder is not named, or whose attachment the adapter cannot send, reads unmeasured, so the scan reports INCOMPLETE. See [Attack Library](attack-library.md#document-and-image-carriers). |
@@ -124,28 +138,32 @@ Prints `Removed <n> cached result(s) from .ziran/scan_cache`. See
 
 ### `ziran multi-agent-scan`
 
-Scan a multi-agent system — discovers topology and runs cross-agent attacks.
+Scan a multi-agent system: discover the topology, test each agent, then run cross-agent attacks.
+See [Multi-Agent Coordination](../concepts/multi-agent.md).
 
 ```
-ziran multi-agent-scan [OPTIONS]
+ziran multi-agent-scan --targets FILE [--targets FILE ...] [OPTIONS]
 ```
 
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
-| `--target` | Yes | — | YAML target config for the entry-point agent |
+| `--targets`, `-t` | Yes | — | YAML target config of one agent. Repeat it once per agent |
+| `--entry-point` | No | first target | ID of the entry-point agent |
 | `--coverage` | No | `standard` | Coverage level: `essential`, `standard`, `comprehensive` |
-| `--concurrency` | No | `5` | Max concurrent attacks |
-| `--skip-individual` | No | `false` | Skip individual agent scans |
-| `--output`, `-o` | No | `ziran_results` | Output directory |
+| `--concurrency` | No | `5` | Max concurrent attacks per phase |
+| `--skip-individual` | No | `false` | Skip the individual agent scans and run only the cross-agent tests |
+| `--trace-hops` / `--no-trace-hops` | No | `true` | Plant each multi-agent vector at every agent with a hop-tagged canary, one request per vector per agent, to show how far an injection spreads ([Hop tracing](../concepts/multi-agent.md#stage-4-hop-tracing)). `--no-trace-hops` skips it |
+| `--output`, `-o` | No | `ziran_multi_agent_results` | Output directory |
 
 **Examples:**
 
 ```bash
-# Scan a multi-agent system
-ziran multi-agent-scan --target target.yaml
+# Scan a supervisor and its workers
+ziran multi-agent-scan -t supervisor.yaml -t worker.yaml
 
-# Full coverage, skip individual scans
-ziran multi-agent-scan --target target.yaml --coverage comprehensive --skip-individual
+# Name the entry point, skip the individual scans and the hop tracing
+ziran multi-agent-scan -t router.yaml -t agent_a.yaml -t agent_b.yaml \
+  --entry-point router --skip-individual --no-trace-hops
 ```
 
 ---
@@ -160,9 +178,9 @@ ziran discover [OPTIONS] [AGENT_PATH]
 
 | Option | Description |
 |--------|-------------|
-| `--framework` | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock` |
+| `--framework` | Agent framework: `langchain`, `langgraph`, `crewai`, `bedrock`, `agentcore`, `anthropic`, `openai-agents`, `autogen` |
 | `--target` | YAML target config for remote discovery |
-| `--protocol` | Protocol override |
+| `--protocol` | Protocol override: `rest`, `openai`, `mcp`, `a2a`, `browser`, `auto` |
 
 **Examples:**
 
@@ -187,6 +205,7 @@ ziran library [OPTIONS]
 | `--category` | Filter by category |
 | `--phase` | Filter by target phase |
 | `--owasp` | Filter by OWASP LLM category (`LLM01`–`LLM10`) |
+| `--atlas` | Filter by MITRE ATLAS technique id (for example `AML.T0051`) |
 | `--custom-attacks` | Include custom YAML vectors |
 
 **Examples:**
@@ -195,6 +214,7 @@ ziran library [OPTIONS]
 ziran library --list
 ziran library --category prompt_injection
 ziran library --owasp LLM01
+ziran library --atlas AML.T0051
 ziran library --phase vulnerability_discovery
 ```
 
@@ -542,6 +562,121 @@ baseline again when you bump the pinned release. Proposing a narrower allowlist 
 
 ---
 
+### `ziran export-policy`
+
+Export proven findings as runtime guardrail policies or Sigma detection rules.
+
+```
+ziran export-policy --result FILE --format FORMAT [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--result` | — (required) | Campaign result JSON |
+| `--format` | — (required) | `rego` (OPA), `cedar`, `nemo`, `invariant` or `sigma` |
+| `--out` | `policies` | Output directory |
+| `--severity-floor` | `medium` | Lowest severity to include: `critical`, `high`, `medium`, `low` |
+| `--exclude-probes` | off | `sigma` only: leave out spans in this scan's probe trace ids (`probe_markers`, see [Remote Agents](../guides/remote-agents.md#probe-markers)) |
+| `--verbose` | off | Print the reason a chain is skipped |
+
+```bash
+ziran export-policy --result reports/campaign_report.json --format rego --out policies/
+ziran export-policy --result reports/campaign_report.json --format sigma --out rules/ --exclude-probes
+```
+
+See [Sigma Detection Rules](../guides/detection-rules.md) and
+[Policy Refresh Automation](../guides/policy-refresh-automation.md).
+
+---
+
+### `ziran analyze-traces`
+
+Match production traces against dangerous tool chains.
+
+```
+ziran analyze-traces --source otel|langfuse [OPTIONS]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--source` | `otel` or `langfuse` (required) |
+| `--input` | Trace file: JSONL for OTel, JSON for Langfuse. Without it, `langfuse` pulls from the API |
+| `--project-id`, `--session-id`, `--since`, `--incremental` | Langfuse API pull: keep one project, pull one session, set a time window (`24h`, `7d`, an ISO date), start where the last pull ended |
+| `--out`, `--format` | Report directory and format: `json`, `markdown`, `html` |
+| `--alert`, `--config`, `--digest`, `--dry-run-alerts` | Deliver matches to the sinks in the `alerts:` block of `--config`; one digest issue instead of one per session; preview without sending |
+| `--predeploy-result` | Pre-deploy campaign result JSON to correlate matches against |
+| `--aibom FILE` | AI-BOM from `ziran audit --aibom`: MCP servers and agents the traces name but the BOM lacks are added as shadow, and the result goes to `aibom.json` in `--out` |
+| `--verbose`, `-v` | Verbose output |
+
+Exit `0` when no critical chain matched, `1` when one did, `2` when the command could not
+finish. See [Analyze Traces](../guides/analyze-traces.md).
+
+---
+
+### `ziran mcp-hostile-server`
+
+Act as a hostile MCP server over stdio and score how the host's client replies to sampling,
+elicitation and roots requests. Needs `ziran[mcp]`.
+
+```
+ziran mcp-hostile-server --record-dir DIR [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--record-dir` | — (required) | Folder for the record and the `CampaignResult` JSON |
+| `--vector` | all | Server-surface vector id to send. Repeatable |
+| `--family` | — | Sub-family to send: `sampling-injection`, `elicitation-phishing`, `elicitation-overbroad`, `roots-capability-creep`. Repeatable; adds to `--vector` |
+| `--timeout` | `120` | Seconds to wait for each client reply (at least 1) |
+| `--fault` | — | Fault the `--fault-tools` return: `error`, `timeout` (hangs 300 s, then errors), `oversize` (1 MB), `malformed` (broken JSON) or `slow` (5 s) |
+| `--fault-tools` | — | Comma-separated tool names the server offers, each returning `--fault` (at most 20) |
+
+See [Hostile MCP Server](../guides/mcp-hostile-server.md).
+
+---
+
+### `ziran pentest`
+
+Run an autonomous, LLM-driven pentesting agent against a target. Needs `ziran[pentest]`.
+
+```
+ziran pentest --goal TEXT --llm-provider NAME --llm-model NAME (--target FILE | --framework NAME) [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--goal`, `-g` | — (required) | The objective, for example `Find prompt injection vulnerabilities` |
+| `--llm-provider`, `--llm-model` | — (required) | The agent's reasoning model |
+| `--target` | — | YAML target config for a remote agent |
+| `--framework` | — | In-process framework: `langchain`, `crewai`, `bedrock`, `agentcore`, `anthropic` |
+| `--interactive`, `-i` | off | Red-team REPL |
+| `--max-iterations` | `10` | Maximum agent iterations |
+| `--embedding-model` | — | Embedding model for finding deduplication |
+| `--llm-rpm`, `--llm-tpm`, `--llm-max-retries` | — | Client-side rate limits and retries, as for `scan` |
+| `--output`, `-o` | — | Output directory |
+
+See [Pentesting Agent](../concepts/pentesting-agent.md).
+
+---
+
+### `ziran init`
+
+Write a starter `ziran.yaml` in the current directory. `--non-interactive` skips the prompts and
+uses the defaults, for scripts and CI.
+
+---
+
+### `ziran validate`
+
+```
+ziran validate TARGET_CONFIG [--protocol rest|openai|mcp|a2a|browser|auto]
+```
+
+Check that a target YAML is well formed, its URL is reachable, its auth tokens resolve and its
+protocol can be detected.
+
+---
+
 ### `ziran watch-registry`
 
 Snapshot the `tools/list` of MCP servers and report drift (tools added or removed, description,
@@ -644,6 +779,11 @@ skipped for a SARIF input. See
 | `--suppressions` | `.ziran/suppressions.yaml` if present | Accepted-findings file; see [CI/CD guide](../guides/cicd-integration.md#suppressing-accepted-findings) |
 | `--github-annotations` | `true` | Emit GitHub Actions annotations |
 | `--github-summary` | `true` | Write GitHub Actions step summary |
+
+With `fail_on_goal_met: true` in the gate config, the gate fails when a vector's side-effect goal was
+met (rule `goal_met`, naming the vector and the tool-call evidence). This works on a result JSON and
+on a SARIF written by this release, which carries each goal's state. See
+[Quality Gate](../guides/cicd-integration.md#quality-gate).
 
 **Examples:**
 

@@ -142,7 +142,8 @@ The budget is checked before each attack vector starts (after it gets a
 concurrency slot) and before each phase. Attacks already running finish and all
 their judge calls are recorded, so the final total can go past the cap by up to
 `--concurrency` attacks' worth of tokens. A multi-prompt vector is never cut in
-the middle. Reaching the cap exactly counts as reached.
+the middle. Attacker vectors (PAIR, TAP, live crescendo) that run at the same time share one
+running count of target tokens, so together they stop within one reply per vector of the cap. Reaching the cap exactly counts as reached.
 
 When the cap is hit, ziran stops scheduling attacks. The post-attack utility
 measurement is skipped whenever usage has reached the cap, even if the last

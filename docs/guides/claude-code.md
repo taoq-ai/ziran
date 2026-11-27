@@ -112,6 +112,19 @@ The command exits `0` when nothing fails, `1` on failing findings and `2` on a u
 `--sarif FILE` also writes the findings as SARIF for GitHub code scanning. The plugin's hooks and
 MCP servers are not checked by `audit`; see the two sections below.
 
+### Agent Skills
+
+The same command reads Agent Skills (a folder with a `SKILL.md`) under `skills/` and
+`.claude/skills/`, in the manifest's `skills` paths, or at `PATH` itself. A skill's tools are its
+`allowed-tools` pre-approvals; a skill without the key grants nothing and gets no tool finding.
+Bundled `.py` files go through the Python checks, and a script in another language gets a low
+`CC002` row, so a skill with code ZIRAN did not read never reports clean. Skill rows carry the
+skill name in `agent` and MITRE ATLAS `AML.T0110`. `--baseline` does not cover skills. Details,
+limits and exit codes are in the [CLI reference](../reference/cli.md#agent-skills).
+
+To list the plugin's agents, skills, models and MCP servers as a CycloneDX BOM, add
+`--aibom FILE` ([AI-BOM](aibom.md)).
+
 ## Allowlist baseline in CI
 
 Some agents legitimately hold a chain (a researcher that must read files and fetch docs). A
