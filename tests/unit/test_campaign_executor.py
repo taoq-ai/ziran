@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from ziran.application.agent_scanner.attack_executor import AttackExecutor
 from ziran.application.agent_scanner.scan_cache import is_cacheable
 from ziran.application.agent_scanner.scanner import AgentScanner
+from ziran.application.agent_scanner.trials import TrialRunner
 from ziran.application.attacks.campaign import CampaignExecutor
 from ziran.application.attacks.library import AttackLibrary
 from ziran.application.attacks.pair import is_pair, queue_pair_last
@@ -629,6 +630,48 @@ async def test_a_scan_books_campaign_target_tokens_once() -> None:
     spent = sum(r.token_usage.total_tokens for r in scanner._attack_results)
     assert booked == spent == 5_000 * len(target.prompts)
     assert scanner._budget.ledger.total_tokens() < 50_000 + 5_000 + 2_000  # one reply over
+
+
+class SlowShell(ShellAgent):
+    async def invoke(self, message: str, **kwargs: Any) -> AgentResponse:
+        await asyncio.sleep(0.01)  # concurrent vectors interleave
+        return await super().invoke(message, **kwargs)
+
+
+@pytest.mark.parametrize("tactic", ["tap", "pair"])
+@pytest.mark.parametrize("k", [3, 5])
+async def test_concurrent_vectors_share_one_cap(k: int, tactic: str) -> None:
+    # k vectors at once on one 50,000 cap, 5,000 target tokens per reply (spec 131)
+    ledger = UsageLedger()
+    budget = CampaignBudget(ledger, UsageBudget(max_tokens=50_000))
+    targets = [SlowShell(tokens=5_000) for _ in range(k)]
+    runners = []
+    for target in targets:
+        executor = AttackExecutor(
+            target,
+            StubPipeline(),  # type: ignore[arg-type]
+            attacker=FakeAttacker(canary=False, replies=['{"prompt": "a"}'] * 100)
+            if tactic == "pair"
+            else FakeAttacker(canary=False, tokens=1),
+            budget=budget,
+        )
+        runner = TrialRunner(executor, 1, ScanPhase.EXECUTION, "standard", 30.0, budget=budget)
+        runner.phase_deadline = asyncio.get_running_loop().time() + 300
+        runners.append(runner)
+    if tactic == "pair":
+        vector = AttackVector(**vector_data(tactic="pair", pair={"max_iterations": 100}))
+    else:
+        bounds = {"width": 10, "branching": 5, "depth": 10, "turns": 30, "max_nodes": 200}
+        vector = example(TAP, **bounds)
+    results = await asyncio.gather(*(r.run(vector) for r in runners))
+    spent = sum(r.token_usage.prompt_tokens + r.token_usage.completion_tokens for r in results)
+    assert (
+        ledger.total_tokens()
+        - sum(e.total_tokens for e in ledger.entries() if e.stage == "attacker")
+        == spent
+    )  # booked once
+    assert spent <= 50_000 + 5_000 * k  # the cap plus one reply per vector
+    assert budget.running == 0  # every vector's tokens moved to the ledger
 
 
 HOSTILE = {

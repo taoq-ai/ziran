@@ -199,7 +199,7 @@ class PairExecutor:
         try:
             async with asyncio.timeout_at(deadline):
                 for i in range(1, config.max_iterations + 1):
-                    if self._budget.exceeded(_booked(tokens)):
+                    if self._budget.exceeded():
                         stop = "budget"
                         break
                     if loop.time() >= deadline:  # a stream that never yields still stops
@@ -220,11 +220,13 @@ class PairExecutor:
                         prompt = last[0]
                     response, verdict = await self._attempt(prompt, spec, attack, pipeline)
                     if response is not None:
-                        tokens = tokens + TokenUsage(
+                        added = TokenUsage(
                             prompt_tokens=response.prompt_tokens,
                             completion_tokens=response.completion_tokens,
                             total_tokens=response.total_tokens,
                         )
+                        tokens = tokens + added
+                        self._budget.running += _booked(added)  # the phase releases it on booking
                     if verdict is None:
                         prompt_errors += 1
                     elif verdict.needs_review:
@@ -271,6 +273,9 @@ class PairExecutor:
                         )
         except TimeoutError:
             stop = "timeout"
+        except BaseException:  # cancelled or failed: the phase never books these tokens
+            self._budget.running -= _booked(tokens)
+            raise
 
         logger.info("pair_stopped", vector_id=attack.id, stop=stop, iterations=len(trajectory))
         answered = len(trajectory) - prompt_errors

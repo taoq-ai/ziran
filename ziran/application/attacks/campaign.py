@@ -146,6 +146,9 @@ class CampaignExecutor(PairExecutor):
             tree.stop = stop.reason
         except TimeoutError:
             tree.stop = "timeout"
+        except BaseException:  # cancelled or failed: the phase never books these tokens
+            self._budget.running -= _booked(tree.tokens)
+            raise
         logger.info(
             "campaign_stopped",
             vector_id=attack.id,
@@ -199,7 +202,7 @@ class CampaignExecutor(PairExecutor):
         attack = tree.attack
         if len(tree.nodes) >= tree.config.max_nodes:
             raise _StopError("max_nodes")
-        if self._budget.exceeded(_booked(tree.tokens)):  # the phase books these at the end
+        if self._budget.exceeded():
             raise _StopError("budget")
         if asyncio.get_running_loop().time() >= deadline:  # a stream that never yields stops
             raise _StopError("timeout")
@@ -221,11 +224,13 @@ class CampaignExecutor(PairExecutor):
         tree.sent[node_id] = prompt
         response, verdict = await self._attempt(prompt, attack.prompts[0], attack, pipeline, sent)
         if response is not None:
-            tree.tokens = tree.tokens + TokenUsage(
+            added = TokenUsage(
                 prompt_tokens=response.prompt_tokens,
                 completion_tokens=response.completion_tokens,
                 total_tokens=response.total_tokens,
             )
+            tree.tokens = tree.tokens + added
+            self._budget.running += _booked(added)  # the phase releases it on booking
         turn, met, score = None, False, 0.0
         if verdict is None or response is None:
             tree.prompt_errors += 1
