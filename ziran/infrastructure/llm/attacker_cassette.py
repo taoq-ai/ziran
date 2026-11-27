@@ -3,19 +3,20 @@
 ``Recorder`` passes each call to the real attacker client and keeps its reply; ``Cassette``
 answers the same request from the file with no key and no socket, and a request with no stored
 reply comes back pending, so the campaign stops the vector as unmeasured. The attacker request
-is the system text plus the user text; the system text keys the reply as spec 064 defines. The
+is the system text plus the user text; the system text keys the reply as spec 064 defines (own reader and writer: the guard in test_hybrid_decide keeps the seam module unimported). The
 file never holds a key, the model id of the attacker is the only provider detail.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import tempfile
 from typing import TYPE_CHECKING, Any
 
-from ziran.infrastructure.llm.base import BaseLLMClient, LLMResponse
-from ziran.infrastructure.llm.replay_client import RecordReplayClient, _read_outcomes, request_key
+from ziran.infrastructure.llm.base import BaseLLMClient, LLMConfig, LLMResponse, PendingResponse
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,6 +24,38 @@ if TYPE_CHECKING:
 _VERSION = "v1"
 _MAX_BYTES = 16 * 1024 * 1024  # a cassette is a few KB per node; refuse a file no scan wrote
 _KEYED_AS = "attacker"  # the key does not name the model: a replay needs no attacker model
+
+
+def _key(system: str, user: str) -> str:
+    """The spec 064 request key (length-prefixed sha256 over prompt, label, version, text),
+    computed here so no shipped module imports the paper-study seam."""
+    h = hashlib.sha256()
+    for part in (system, _KEYED_AS, _VERSION, user):
+        data = part.encode("utf-8")
+        h.update(len(data).to_bytes(8, "big"))
+        h.update(data)
+    return h.hexdigest()
+
+
+def _read_outcomes(path: Path) -> dict[str, dict[str, Any]]:
+    rows: dict[str, dict[str, Any]] = {}
+    for n, line in enumerate((x for x in path.read_text("utf-8").split("\n") if x.strip()), 1):
+        try:
+            row = json.loads(line)
+        except ValueError:
+            row = None
+        ok = (
+            isinstance(row, dict)
+            and isinstance(row.get("key"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", row["key"]) is not None
+            and row.get("outcome") in ("reply", "unparsed")
+            and (row["outcome"] != "reply" or isinstance(row.get("fields"), dict))
+            and row["key"] not in rows
+        )
+        if not ok:
+            raise ValueError(f"{path.name} line {n} is not an attacker outcome row")
+        rows[row["key"]] = row
+    return rows
 
 
 def _split(messages: list[dict[str, str]]) -> tuple[str, str]:
@@ -57,7 +90,7 @@ class Recorder(BaseLLMClient):
     async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
         system, user = _split(messages)
         reply = await self.inner.complete(messages, **kwargs)
-        key = request_key(system, _KEYED_AS, _VERSION, user)
+        key = _key(system, user)
         row: dict[str, Any] = {"key": key, "unit": "campaign", "job": "campaign"}
         try:
             fields = json.loads(reply.content)
@@ -95,19 +128,18 @@ class Cassette(BaseLLMClient):
         rows = _rows(path)
         model = next((str(r["model"]) for r in rows.values() if "model" in r), _KEYED_AS)
         self._rows = rows
-        self.inner = RecordReplayClient(_KEYED_AS, _VERSION, replies=path)
-        super().__init__(self.inner.config.model_copy(update={"model": model}))
+        super().__init__(LLMConfig(provider="replay", model=model))
 
     async def complete(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
-        system, user = _split(messages)
-        reply = await self.inner.complete(
-            [{"role": "user", "content": user}], job="campaign", unit="campaign", prompt=system
-        )
-        row = self._rows.get(request_key(system, _KEYED_AS, _VERSION, user), {})
+        row = self._rows.get(_key(*_split(messages)))
+        if row is None:
+            return PendingResponse(model=self.config.model, reason="missing")
+        if row["outcome"] != "reply":
+            return PendingResponse(model=self.config.model, reason=row["outcome"])
         tokens = {
             k: row[k] for k in ("prompt_tokens", "completion_tokens", "total_tokens") if k in row
         }
-        return reply.model_copy(update=tokens)  # the replayed run books what the live run did
+        return LLMResponse(content=json.dumps(row["fields"]), model=self.config.model, **tokens)
 
     async def health_check(self) -> bool:
         return True
