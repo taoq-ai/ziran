@@ -149,11 +149,11 @@ ziran multi-agent-scan --targets FILE [--targets FILE ...] [OPTIONS]
 |--------|----------|---------|-------------|
 | `--targets`, `-t` | Yes | — | YAML target config of one agent. Repeat it once per agent |
 | `--entry-point` | No | first target | ID of the entry-point agent |
-| `--coverage` | No | — | Coverage level: `essential`, `standard`, `comprehensive` |
-| `--concurrency` | No | — | Max concurrent attacks per phase |
+| `--coverage` | No | `standard` | Coverage level: `essential`, `standard`, `comprehensive` |
+| `--concurrency` | No | `5` | Max concurrent attacks per phase |
 | `--skip-individual` | No | `false` | Skip the individual agent scans and run only the cross-agent tests |
-| `--trace-hops` | No | `false` | Plant each multi-agent vector at every agent with a hop-tagged canary, one request per vector per agent, to show how far an injection spreads ([Hop tracing](../concepts/multi-agent.md#stage-4-hop-tracing)) |
-| `--output`, `-o` | No | — | Output directory |
+| `--trace-hops` / `--no-trace-hops` | No | `true` | Plant each multi-agent vector at every agent with a hop-tagged canary, one request per vector per agent, to show how far an injection spreads ([Hop tracing](../concepts/multi-agent.md#stage-4-hop-tracing)). `--no-trace-hops` skips it |
+| `--output`, `-o` | No | `ziran_multi_agent_results` | Output directory |
 
 **Examples:**
 
@@ -161,9 +161,9 @@ ziran multi-agent-scan --targets FILE [--targets FILE ...] [OPTIONS]
 # Scan a supervisor and its workers
 ziran multi-agent-scan -t supervisor.yaml -t worker.yaml
 
-# Name the entry point, skip the individual scans, trace hops
+# Name the entry point, skip the individual scans and the hop tracing
 ziran multi-agent-scan -t router.yaml -t agent_a.yaml -t agent_b.yaml \
-  --entry-point router --skip-individual --trace-hops
+  --entry-point router --skip-individual --no-trace-hops
 ```
 
 ---
